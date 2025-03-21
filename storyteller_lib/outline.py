@@ -1,0 +1,448 @@
+"""
+StoryCraft Agent - Story outline and planning nodes.
+"""
+
+from typing import Dict
+
+from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE
+from storyteller_lib.models import StoryState
+from langchain_core.messages import AIMessage, HumanMessage
+from storyteller_lib.creative_tools import parse_structured_data
+from storyteller_lib import track_progress
+
+@track_progress
+def generate_story_outline(state: StoryState) -> Dict:
+    """Generate the overall story outline using the hero's journey structure."""
+    genre = state["genre"]
+    tone = state["tone"]
+    author = state["author"]
+    author_style_guidance = state["author_style_guidance"]
+    creative_elements = state.get("creative_elements", {})
+    
+    # Prepare author style guidance
+    style_guidance = ""
+    if author:
+        # If we don't have author guidance yet, generate it now
+        if not author_style_guidance:
+            author_prompt = f"""
+            Analyze the writing style of {author} in detail.
+            
+            Describe:
+            1. Narrative techniques and point of view
+            2. Typical sentence structure and paragraph organization
+            3. Dialogue style and character voice
+            4. Description style and level of detail
+            5. Pacing and plot development approaches
+            6. Themes and motifs commonly explored
+            7. Unique stylistic elements or literary devices frequently used
+            8. Tone and atmosphere typically created
+            
+            Focus on providing specific, actionable guidance that could help emulate this author's style
+            when writing a new story.
+            """
+            
+            author_style_guidance = llm.invoke([HumanMessage(content=author_prompt)]).content
+            
+            # Store this for future use
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": f"author_style_{author.lower().replace(' ', '_')}",
+                "value": author_style_guidance,
+                "namespace": MEMORY_NAMESPACE
+            })
+        
+        style_guidance = f"""
+        AUTHOR STYLE GUIDANCE:
+        You will be emulating the writing style of {author}. Here's guidance on this author's style:
+        
+        {author_style_guidance}
+        
+        Incorporate these stylistic elements into your story outline while maintaining the hero's journey structure.
+        """
+    
+    # Include brainstormed creative elements if available
+    creative_guidance = ""
+    if creative_elements:
+        # Extract recommended story concept
+        story_concept = ""
+        if "story_concepts" in creative_elements and creative_elements["story_concepts"].get("recommended_ideas"):
+            story_concept = creative_elements["story_concepts"]["recommended_ideas"]
+            
+        # Extract recommended world building elements
+        world_building = ""
+        if "world_building" in creative_elements and creative_elements["world_building"].get("recommended_ideas"):
+            world_building = creative_elements["world_building"]["recommended_ideas"]
+            
+        # Extract recommended central conflict
+        conflict = ""
+        if "central_conflicts" in creative_elements and creative_elements["central_conflicts"].get("recommended_ideas"):
+            conflict = creative_elements["central_conflicts"]["recommended_ideas"]
+        
+        # Compile creative guidance
+        creative_guidance = f"""
+        BRAINSTORMED CREATIVE ELEMENTS:
+        
+        Recommended Story Concept:
+        {story_concept}
+        
+        Recommended World Building Elements:
+        {world_building}
+        
+        Recommended Central Conflict:
+        {conflict}
+        
+        Incorporate these brainstormed elements into your story outline, adapting them as needed to fit the hero's journey structure.
+        """
+    
+    # Prompt for story generation
+    prompt = f"""
+    Create a compelling story outline for a {tone} {genre} narrative following the hero's journey structure.
+    Include all major phases:
+    1. The Ordinary World
+    2. The Call to Adventure
+    3. Refusal of the Call
+    4. Meeting the Mentor
+    5. Crossing the Threshold
+    6. Tests, Allies, and Enemies
+    7. Approach to the Inmost Cave
+    8. The Ordeal
+    9. Reward (Seizing the Sword)
+    10. The Road Back
+    11. Resurrection
+    12. Return with the Elixir
+    
+    For each phase, provide a brief description of what happens.
+    Also include:
+    - A captivating title for the story
+    - 3-5 main characters with brief descriptions
+    - A central conflict or challenge
+    - The world/setting of the story
+    - Key themes or messages
+    
+    Format your response as a structured outline with clear sections.
+    
+    {creative_guidance}
+    
+    {style_guidance}
+    """
+    
+    # Generate the story outline
+    story_outline = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Store in memory
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": "story_outline",
+        "value": story_outline
+    })
+    
+    # Store in procedural memory that this was a result of initial generation
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": "procedural_memory_outline_generation",
+        "value": {
+            "timestamp": "initial_creation",
+            "method": "hero's_journey_structure"
+        }
+    })
+    
+    # Update the state
+    return {
+        "global_story": story_outline,
+        "last_node": "generate_story_outline",
+        "messages": [AIMessage(content="I've created a story outline following the hero's journey structure. Now I'll develop the characters in more detail.")]
+    }
+
+
+@track_progress
+def generate_characters(state: StoryState) -> Dict:
+    """Generate detailed character profiles based on the story outline."""
+    global_story = state["global_story"]
+    genre = state["genre"]
+    tone = state["tone"]
+    author = state["author"]
+    author_style_guidance = state["author_style_guidance"]
+    
+    # Prepare character style guidance
+    char_style_section = ""
+    if author:
+        # Extract character-specific guidance
+        character_prompt = f"""
+        Based on the writing style of {author}, extract specific guidance for character development.
+        Focus on:
+        
+        1. How the author typically develops characters
+        2. Types of characters frequently used
+        3. Character archetypes common in their work
+        4. How the author handles character flaws and growth
+        5. Character dialogue and voice patterns
+        6. Character relationships and dynamics
+        
+        Provide concise, actionable guidance for creating characters in the style of {author}.
+        """
+        
+        if not "character development" in author_style_guidance.lower():
+            # Only generate if we don't already have character info in our guidance
+            character_guidance = llm.invoke([HumanMessage(content=character_prompt)]).content
+            
+            # Store this specialized guidance
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": f"author_character_style_{author.lower().replace(' ', '_')}",
+                "value": character_guidance,
+                "namespace": MEMORY_NAMESPACE
+            })
+            
+            char_style_section = f"""
+            CHARACTER STYLE GUIDANCE:
+            When creating characters in the style of {author}, follow these guidelines:
+            
+            {character_guidance}
+            """
+        else:
+            # Use the general guidance if it already contains character info
+            char_style_section = f"""
+            CHARACTER STYLE GUIDANCE:
+            When creating characters in the style of {author}, follow these guidelines from the author's general style:
+            
+            {author_style_guidance}
+            """
+    
+    # Prompt for character generation
+    prompt = f"""
+    Based on this story outline:
+    
+    {global_story}
+    
+    Create detailed profiles for 4-6 characters in this {tone} {genre} story.
+    For each character, include:
+    
+    1. Name
+    2. Role in the story (protagonist, antagonist, mentor, etc.)
+    3. Detailed backstory
+    4. Initial known facts (what the character and reader know at the start)
+    5. Secret facts (information hidden from the reader initially)
+    6. Key relationships with other characters
+    
+    Format each character profile clearly and ensure they have interconnected relationships and histories.
+    
+    {char_style_section}
+    """
+    
+    # Generate character profiles
+    character_profiles_text = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Parse character profiles with a second LLM call to ensure structured data
+    parsing_prompt = f"""
+    Convert these character profiles into structured data:
+    
+    {character_profiles_text}
+    
+    For each character, return a JSON object with these fields:
+    - name: The character's name
+    - role: Their role in the story
+    - backstory: Their detailed backstory
+    - evolution: List of character development points (starting with initial state)
+    - known_facts: List of facts known to the character and reader at the start
+    - secret_facts: List of facts hidden from the reader initially
+    - revealed_facts: Empty list (will be populated as the story progresses)
+    - relationships: Object mapping other character names to relationship descriptions
+    
+    Format as a valid, parseable JSON object where keys are character names (slugified, lowercase) and values are their profiles.
+    Your response should contain ONLY the JSON object, nothing else. No explanation, no markdown formatting.
+    """
+    
+    # Get structured character data as JSON
+    character_data_text = llm.invoke([HumanMessage(content=parsing_prompt)]).content
+    
+    # Parse the JSON into a Python dictionary
+    import json
+    try:
+        # Get the structured data with a fallback to a default structure
+        characters = parse_structured_data(character_data_text, {
+            "hero": {
+                "name": "Hero",
+                "role": "Protagonist",
+                "backstory": "Ordinary person with hidden potential",
+                "evolution": ["Begins journey", "Faces first challenge"],
+                "known_facts": ["Lived in small village", "Dreams of adventure"],
+                "secret_facts": ["Has a special lineage", "Possesses latent power"],
+                "revealed_facts": [],
+                "relationships": {"mentor": "Student", "villain": "Adversary"}
+            },
+            "mentor": {
+                "name": "Mentor",
+                "role": "Guide",
+                "backstory": "Wise figure with past experience",
+                "evolution": ["Introduces hero to new world"],
+                "known_facts": ["Has many skills", "Traveled widely"],
+                "secret_facts": ["Former student of villain", "Hiding a prophecy"],
+                "revealed_facts": [],
+                "relationships": {"hero": "Teacher", "villain": "Former student"}
+            },
+            "villain": {
+                "name": "Villain",
+                "role": "Antagonist",
+                "backstory": "Once good, corrupted by power",
+                "evolution": ["Sends minions after hero"],
+                "known_facts": ["Rules with fear", "Seeks ancient artifact"],
+                "secret_facts": ["Was once good", "Has personal connection to hero"],
+                "revealed_facts": [],
+                "relationships": {"hero": "Enemy", "mentor": "Former mentor"}
+            }
+        })
+        
+        # Validate the structure
+        for char_name, profile in characters.items():
+            required_fields = ["name", "role", "backstory", "evolution", "known_facts", 
+                             "secret_facts", "revealed_facts", "relationships"]
+            for field in required_fields:
+                if field not in profile:
+                    profile[field] = [] if field in ["evolution", "known_facts", "secret_facts", "revealed_facts"] else {}
+                    if field == "name":
+                        profile[field] = char_name.capitalize()
+                    elif field == "role":
+                        profile[field] = "Supporting Character"
+                    elif field == "backstory":
+                        profile[field] = "Unknown background"
+                        
+    except Exception as e:
+        print(f"Error parsing character data: {str(e)}")
+        # Fallback structure defined above in parse_structured_data call
+        characters = {}
+    
+    # Store character profiles in memory
+    for char_name, profile in characters.items():
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": f"character_{char_name}",
+            "value": profile
+        })
+    
+    # Update state
+    return {
+        "characters": characters,
+        "last_node": "generate_characters",
+        "messages": [AIMessage(content="I've developed detailed character profiles with interconnected backgrounds and motivations. Now I'll plan the chapters.")]
+    }
+
+
+@track_progress
+def plan_chapters(state: StoryState) -> Dict:
+    """Divide the story into chapters with detailed outlines."""
+    global_story = state["global_story"]
+    characters = state["characters"]
+    genre = state["genre"]
+    tone = state["tone"]
+    
+    # Prompt for chapter planning
+    prompt = f"""
+    Based on this story outline:
+    
+    {global_story}
+    
+    And these characters:
+    
+    {characters}
+    
+    Create a plan for 5-10 chapters that cover the entire hero's journey for this {tone} {genre} story.
+    
+    For each chapter, provide:
+    1. Chapter number and title
+    2. A summary of major events (200-300 words)
+    3. Which characters appear and how they develop
+    4. 2-4 key scenes that should be included
+    5. Any major revelations or plot twists
+    
+    Ensure the chapters flow logically and maintain the arc of the hero's journey.
+    """
+    
+    # Generate chapter plan
+    chapter_plan_text = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Parse chapter plan into structured data
+    parsing_prompt = f"""
+    Convert this chapter plan into structured data:
+    
+    {chapter_plan_text}
+    
+    For each chapter, return a JSON object with these fields:
+    - title: The chapter title
+    - outline: Detailed summary of the chapter
+    - scenes: Object where keys are scene numbers (e.g., "1", "2") and values are objects
+      with "content" (empty string) and "reflection_notes" (empty array)
+    - reflection_notes: Empty array
+    
+    Format as a valid, parseable JSON object where keys are chapter numbers (as strings) and values are chapter objects.
+    Your response should contain ONLY the JSON object, nothing else. No explanation, no markdown formatting.
+    """
+    
+    # Get structured chapter data
+    chapter_data_text = llm.invoke([HumanMessage(content=parsing_prompt)]).content
+    
+    # Parse the JSON into a Python dictionary with a fallback
+    chapters = parse_structured_data(chapter_data_text, {
+        "1": {
+            "title": "The Ordinary World",
+            "outline": "Introduction to the hero and their mundane life. Hints of adventure to come.",
+            "scenes": {
+                "1": {"content": "", "reflection_notes": []},
+                "2": {"content": "", "reflection_notes": []}
+            },
+            "reflection_notes": []
+        },
+        "2": {
+            "title": "The Call to Adventure",
+            "outline": "Hero receives a call to adventure and initially hesitates.",
+            "scenes": {
+                "1": {"content": "", "reflection_notes": []},
+                "2": {"content": "", "reflection_notes": []}
+            },
+            "reflection_notes": []
+        },
+        "3": {
+            "title": "Meeting the Mentor",
+            "outline": "Hero meets a wise mentor who provides guidance and tools.",
+            "scenes": {
+                "1": {"content": "", "reflection_notes": []},
+                "2": {"content": "", "reflection_notes": []}
+            },
+            "reflection_notes": []
+        }
+    })
+    
+    # Validate the structure and ensure each chapter has the required fields
+    for chapter_num, chapter in chapters.items():
+        if "title" not in chapter:
+            chapter["title"] = f"Chapter {chapter_num}"
+        if "outline" not in chapter:
+            chapter["outline"] = f"Events of chapter {chapter_num}"
+        if "scenes" not in chapter:
+            chapter["scenes"] = {"1": {"content": "", "reflection_notes": []}, 
+                                "2": {"content": "", "reflection_notes": []}}
+        if "reflection_notes" not in chapter:
+            chapter["reflection_notes"] = []
+            
+        # Ensure all scenes have the required structure
+        for scene_num, scene in chapter["scenes"].items():
+            if "content" not in scene:
+                scene["content"] = ""
+            if "reflection_notes" not in scene:
+                scene["reflection_notes"] = []
+    
+    # Store chapter plans in memory
+    for chapter_num, chapter_data in chapters.items():
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": f"chapter_{chapter_num}",
+            "value": chapter_data
+        })
+    
+    # Update state
+    return {
+        "chapters": chapters,
+        "current_chapter": "1",  # Start with the first chapter
+        "current_scene": "1",    # Start with the first scene
+        "last_node": "plan_chapters",
+        "messages": [AIMessage(content="I've planned out the chapters for the story. Now I'll begin writing the first scene of chapter 1.")]
+    }
