@@ -163,7 +163,3 @@ The system includes detailed progress tracking through every step of the story g
 - **Safety Mechanisms**: Prevents infinite recursion loops with circuit breakers and fallbacks
 
 Progress tracking is implemented using a module-level tracking system that integrates with LangGraph's execution model without modifying its core functionality.
-
-## License
-
-MIT
