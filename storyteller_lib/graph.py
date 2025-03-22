@@ -2,11 +2,14 @@
 StoryCraft Agent - Graph construction and routing logic.
 """
 
-from typing import Dict
+from typing import Dict, List, Any
 
 from langgraph.graph import StateGraph, START, END
+from operator import add  # Default reducer for lists
 
 from storyteller_lib.models import StoryState
+
+# The revelations_reducer is now implemented in models.py using the Annotated typing pattern
 from storyteller_lib.config import store
 from storyteller_lib.initialization import initialize_state, brainstorm_story_concepts
 from storyteller_lib.outline import generate_story_outline, generate_characters, plan_chapters
@@ -141,15 +144,23 @@ def determine_scene_action(state: StoryState) -> str:
     # Handle continuity review state transitions based on phase
     elif last_node == "review_continuity":
         continuity_phase = state.get("continuity_phase", "complete")
+        global_recursion_count = state.get("global_recursion_count", 0)
+        review_flags = state.get("continuity_review_flags", {})
+        current_chapter = state.get("current_chapter", "1")
+        review_key = f"continuity_review_ch{current_chapter}"
         
-        print(f"Continuity review phase: {continuity_phase}")
+        print(f"Continuity review phase: {continuity_phase}, recursion count: {global_recursion_count}")
+        
+        # Safety check - if we've already processed too many iterations or this chapter is flagged as reviewed, force advance
+        if global_recursion_count > 5 or (review_key in review_flags and review_flags[review_key]):
+            print("⚠️ Excessive recursion or chapter already reviewed, forcing advance")
+            return "advance_to_next_scene_or_chapter"
         
         # Route based on the continuity phase
         if continuity_phase == "needs_resolution":
             print("🔍 Routing to continuity resolution node")
-            # Reset resolution tracking counters when starting a new resolution process
-            state["resolution_index"] = 0
-            state["resolution_count"] = 0
+            # We no longer need to directly modify state here since the functions now
+            # return these values in their response dictionaries
             return "resolve_continuity_issues"
         else:
             print("✓ Continuity review complete, advancing")
@@ -159,23 +170,35 @@ def determine_scene_action(state: StoryState) -> str:
     elif last_node == "resolve_continuity_issues":
         continuity_phase = state.get("continuity_phase", "complete")
         resolution_index = state.get("resolution_index", 0)
+        global_recursion_count = state.get("global_recursion_count", 0)
+        review_flags = state.get("continuity_review_flags", {})
+        current_chapter = state.get("current_chapter", "1")
+        review_key = f"continuity_review_ch{current_chapter}"
         
-        print(f"Continuity resolution phase: {continuity_phase}, index: {resolution_index}")
+        print(f"Continuity resolution phase: {continuity_phase}, index: {resolution_index}, recursion: {global_recursion_count}")
         
-        # Check if there are more issues to resolve by examining revelations
-        has_pending_issues = False
-        for review in state.get("revelations", {}).get("continuity_issues", []):
-            if review.get("needs_resolution") and review.get("resolution_status") == "pending":
-                has_pending_issues = True
-                break
-                
-        # If we're still in the resolution phase and have issues to resolve, stay in the node
-        if continuity_phase == "needs_resolution" and resolution_index > 0 and has_pending_issues:
-            print("🔄 Continuing continuity resolution process")
-            return "resolve_continuity_issues"
-        else:
-            print("✓ Continuity resolution complete, advancing")
+        # Safety check - if we're stuck in a loop or chapter is marked as done, force advance
+        if global_recursion_count > 5 or (review_key in review_flags and review_flags[review_key]):
+            print("⚠️ Excessive recursion or chapter already resolved, forcing advance")
             return "advance_to_next_scene_or_chapter"
+        
+        # Only check for pending issues if we're in the needs_resolution phase
+        if continuity_phase == "needs_resolution":
+            # Check if there are more issues to resolve by examining revelations
+            has_pending_issues = False
+            for review in state.get("revelations", {}).get("continuity_issues", []):
+                if review.get("needs_resolution") and review.get("resolution_status") == "pending":
+                    has_pending_issues = True
+                    break
+                    
+            # If we have pending issues and aren't stuck in a loop, continue resolution
+            if has_pending_issues and resolution_index > 0 and global_recursion_count < 5:
+                print("🔄 Continuing continuity resolution process")
+                return "resolve_continuity_issues"
+        
+        # Default to advancing if we're done or any condition isn't met
+        print("✓ Continuity resolution complete, advancing")
+        return "advance_to_next_scene_or_chapter"
     
     # Default to writing the next scene
     return "write_scene"
@@ -219,8 +242,10 @@ def build_story_graph():
     """
     Build and compile the story generation graph.
     """
-    # Create a state graph
-    graph_builder = StateGraph(StoryState)
+    # Create a state graph using Annotated type hints for custom reducers
+    graph_builder = StateGraph(
+        StoryState
+    )
     
     # Add nodes
     graph_builder.add_node("initialize_state", initialize_state)
