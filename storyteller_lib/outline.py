@@ -7,7 +7,7 @@ from typing import Dict
 from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage
-from storyteller_lib.creative_tools import parse_structured_data
+from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain
 from storyteller_lib import track_progress
 
 @track_progress
@@ -232,84 +232,89 @@ def generate_characters(state: StoryState) -> Dict:
     # Generate character profiles
     character_profiles_text = llm.invoke([HumanMessage(content=prompt)]).content
     
-    # Parse character profiles with a second LLM call to ensure structured data
-    parsing_prompt = f"""
-    Convert these character profiles into structured data:
-    
-    {character_profiles_text}
-    
-    For each character, return a JSON object with these fields:
-    - name: The character's name
-    - role: Their role in the story
-    - backstory: Their detailed backstory
-    - evolution: List of character development points (starting with initial state)
-    - known_facts: List of facts known to the character and reader at the start
-    - secret_facts: List of facts hidden from the reader initially
-    - revealed_facts: Empty list (will be populated as the story progresses)
-    - relationships: Object mapping other character names to relationship descriptions
-    
-    Format as a valid, parseable JSON object where keys are character names (slugified, lowercase) and values are their profiles.
-    Your response should contain ONLY the JSON object, nothing else. No explanation, no markdown formatting.
+    # Define the schema for character data
+    character_schema = """
+    {
+      "character_slug": {
+        "name": "Character Name",
+        "role": "Role in story (protagonist, antagonist, etc)",
+        "backstory": "Detailed character backstory",
+        "evolution": ["Initial state", "Future development point"],
+        "known_facts": ["Known fact 1", "Known fact 2"],
+        "secret_facts": ["Secret fact 1", "Secret fact 2"],
+        "revealed_facts": [],
+        "relationships": {
+          "other_character_slug": "Relationship description"
+        }
+      }
+    }
     """
     
-    # Get structured character data as JSON
-    character_data_text = llm.invoke([HumanMessage(content=parsing_prompt)]).content
+    # Default fallback data in case JSON generation fails
+    default_characters = {
+        "hero": {
+            "name": "Hero",
+            "role": "Protagonist",
+            "backstory": "Ordinary person with hidden potential",
+            "evolution": ["Begins journey", "Faces first challenge"],
+            "known_facts": ["Lived in small village", "Dreams of adventure"],
+            "secret_facts": ["Has a special lineage", "Possesses latent power"],
+            "revealed_facts": [],
+            "relationships": {"mentor": "Student", "villain": "Adversary"}
+        },
+        "mentor": {
+            "name": "Mentor",
+            "role": "Guide",
+            "backstory": "Wise figure with past experience",
+            "evolution": ["Introduces hero to new world"],
+            "known_facts": ["Has many skills", "Traveled widely"],
+            "secret_facts": ["Former student of villain", "Hiding a prophecy"],
+            "revealed_facts": [],
+            "relationships": {"hero": "Teacher", "villain": "Former student"}
+        },
+        "villain": {
+            "name": "Villain",
+            "role": "Antagonist",
+            "backstory": "Once good, corrupted by power",
+            "evolution": ["Sends minions after hero"],
+            "known_facts": ["Rules with fear", "Seeks ancient artifact"],
+            "secret_facts": ["Was once good", "Has personal connection to hero"],
+            "revealed_facts": [],
+            "relationships": {"hero": "Enemy", "mentor": "Former mentor"}
+        }
+    }
     
-    # Parse the JSON into a Python dictionary
-    import json
+    # Use the new function to generate structured JSON
     try:
-        # Get the structured data with a fallback to a default structure
-        characters = parse_structured_data(character_data_text, {
-            "hero": {
-                "name": "Hero",
-                "role": "Protagonist",
-                "backstory": "Ordinary person with hidden potential",
-                "evolution": ["Begins journey", "Faces first challenge"],
-                "known_facts": ["Lived in small village", "Dreams of adventure"],
-                "secret_facts": ["Has a special lineage", "Possesses latent power"],
-                "revealed_facts": [],
-                "relationships": {"mentor": "Student", "villain": "Adversary"}
-            },
-            "mentor": {
-                "name": "Mentor",
-                "role": "Guide",
-                "backstory": "Wise figure with past experience",
-                "evolution": ["Introduces hero to new world"],
-                "known_facts": ["Has many skills", "Traveled widely"],
-                "secret_facts": ["Former student of villain", "Hiding a prophecy"],
-                "revealed_facts": [],
-                "relationships": {"hero": "Teacher", "villain": "Former student"}
-            },
-            "villain": {
-                "name": "Villain",
-                "role": "Antagonist",
-                "backstory": "Once good, corrupted by power",
-                "evolution": ["Sends minions after hero"],
-                "known_facts": ["Rules with fear", "Seeks ancient artifact"],
-                "secret_facts": ["Was once good", "Has personal connection to hero"],
-                "revealed_facts": [],
-                "relationships": {"hero": "Enemy", "mentor": "Former mentor"}
-            }
-        })
+        from storyteller_lib.creative_tools import generate_structured_json
+        characters = generate_structured_json(
+            character_profiles_text,
+            character_schema,
+            "character profiles"
+        )
         
-        # Validate the structure
-        for char_name, profile in characters.items():
-            required_fields = ["name", "role", "backstory", "evolution", "known_facts", 
-                             "secret_facts", "revealed_facts", "relationships"]
-            for field in required_fields:
-                if field not in profile:
-                    profile[field] = [] if field in ["evolution", "known_facts", "secret_facts", "revealed_facts"] else {}
-                    if field == "name":
-                        profile[field] = char_name.capitalize()
-                    elif field == "role":
-                        profile[field] = "Supporting Character"
-                    elif field == "backstory":
-                        profile[field] = "Unknown background"
-                        
+        # If generation failed, use the default fallback data
+        if not characters:
+            print("Using default character data as JSON generation failed.")
+            characters = default_characters
     except Exception as e:
         print(f"Error parsing character data: {str(e)}")
         # Fallback structure defined above in parse_structured_data call
-        characters = {}
+        characters = default_characters
+        
+    # Validate the structure
+    for char_name, profile in characters.items():
+        required_fields = ["name", "role", "backstory", "evolution", "known_facts", 
+                         "secret_facts", "revealed_facts", "relationships"]
+        for field in required_fields:
+            if field not in profile:
+                profile[field] = [] if field in ["evolution", "known_facts", "secret_facts", "revealed_facts"] else {}
+                if field == "name":
+                    profile[field] = char_name.capitalize()
+                elif field == "role":
+                    profile[field] = "Supporting Character"
+                elif field == "backstory":
+                    profile[field] = "Unknown background"
     
     # Store character profiles in memory
     for char_name, profile in characters.items():
@@ -360,28 +365,29 @@ def plan_chapters(state: StoryState) -> Dict:
     # Generate chapter plan
     chapter_plan_text = llm.invoke([HumanMessage(content=prompt)]).content
     
-    # Parse chapter plan into structured data
-    parsing_prompt = f"""
-    Convert this chapter plan into structured data:
-    
-    {chapter_plan_text}
-    
-    For each chapter, return a JSON object with these fields:
-    - title: The chapter title
-    - outline: Detailed summary of the chapter
-    - scenes: Object where keys are scene numbers (e.g., "1", "2") and values are objects
-      with "content" (empty string) and "reflection_notes" (empty array)
-    - reflection_notes: Empty array
-    
-    Format as a valid, parseable JSON object where keys are chapter numbers (as strings) and values are chapter objects.
-    Your response should contain ONLY the JSON object, nothing else. No explanation, no markdown formatting.
+    # Define the schema for chapter data
+    chapter_schema = """
+    {
+      "1": {
+        "title": "Chapter Title",
+        "outline": "Detailed summary of the chapter",
+        "scenes": {
+          "1": {
+            "content": "",
+            "reflection_notes": []
+          },
+          "2": {
+            "content": "",
+            "reflection_notes": []
+          }
+        },
+        "reflection_notes": []
+      }
+    }
     """
     
-    # Get structured chapter data
-    chapter_data_text = llm.invoke([HumanMessage(content=parsing_prompt)]).content
-    
-    # Parse the JSON into a Python dictionary with a fallback
-    chapters = parse_structured_data(chapter_data_text, {
+    # Default fallback chapters in case JSON generation fails
+    default_chapters = {
         "1": {
             "title": "The Ordinary World",
             "outline": "Introduction to the hero and their mundane life. Hints of adventure to come.",
@@ -409,7 +415,25 @@ def plan_chapters(state: StoryState) -> Dict:
             },
             "reflection_notes": []
         }
-    })
+    }
+    
+    # Use the new function to generate structured JSON
+    try:
+        from storyteller_lib.creative_tools import generate_structured_json
+        chapters = generate_structured_json(
+            chapter_plan_text,
+            chapter_schema,
+            "chapter plan"
+        )
+        
+        # If generation failed, use the default fallback data
+        if not chapters:
+            print("Using default chapter data as JSON generation failed.")
+            chapters = default_chapters
+    except Exception as e:
+        print(f"Error generating chapter data: {str(e)}")
+        # Fall back to default chapters
+        chapters = default_chapters
     
     # Validate the structure and ensure each chapter has the required fields
     for chapter_num, chapter in chapters.items():

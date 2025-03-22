@@ -46,8 +46,14 @@ def track_progress(node_func: Callable) -> Callable:
             # Calculate elapsed time
             elapsed = time.time() - _start_time
             
-            # Call the progress callback with node name and state
-            _progress_callback(node_name, result)
+            # Create updated state by merging result into the original state
+            # This ensures we always have the full state context for reporting
+            updated_state = {**state}
+            if isinstance(result, dict):
+                updated_state.update(result)
+            
+            # Call the progress callback with node name and updated state
+            _progress_callback(node_name, updated_state)
             
         return result
     

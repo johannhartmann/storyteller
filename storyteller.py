@@ -14,15 +14,25 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langgraph.store.memory import InMemoryStore
 
-from langmem import create_manage_memory_tool, create_search_memory_tool, create_memory_manager, create_prompt_optimizer
+# Import centralized config
+from storyteller_lib.config import (
+    llm, 
+    MEMORY_NAMESPACE, 
+    manage_memory_tool, 
+    search_memory_tool, 
+    memory_manager, 
+    prompt_optimizer,
+    store,
+)
+
+# Import from creative_tools module
+from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain, creative_brainstorm
 
 # Define the state schema
 class CharacterProfile(TypedDict):
@@ -60,160 +70,9 @@ class StoryState(TypedDict):
     current_scene: str  # Track which scene is being written
     completed: bool  # Flag to indicate if the story is complete
 
-# Initialize LLM
-llm = ChatAnthropic(model="claude-3-7-sonnet-20250219", temperature=0.7)
+# Note: LLM and memory tools are now imported from storyteller_lib.config
 
-# Initialize a single memory store instance for both LangMem tools and StateGraph checkpointing
-store = InMemoryStore(
-    index={
-        "dims": 1536,
-        "embed": "openai:text-embedding-3-small",
-    }
-) 
-
-# Define the memory namespace consistently
-MEMORY_NAMESPACE = ("storyteller",)
-
-# Create memory tools with explicit store parameter
-manage_memory_tool = create_manage_memory_tool(namespace=MEMORY_NAMESPACE, store=store)
-search_memory_tool = create_search_memory_tool(namespace=MEMORY_NAMESPACE, store=store)
-
-# Create memory manager for background processing
-memory_manager = create_memory_manager(
-    "anthropic:claude-3-7-sonnet-20250219",
-    instructions="Extract key narrative elements, character developments, plot points, and thematic elements from the story content.",
-    enable_inserts=True
-)
-
-# Create prompt optimizer
-prompt_optimizer = create_prompt_optimizer(
-    "anthropic:claude-3-7-sonnet-20250219",
-    kind="metaprompt",
-    config={"max_reflection_steps": 3}
-)
-
-# Create a function for creative brainstorming that generates and evaluates multiple ideas
-def creative_brainstorm(
-    topic: str, 
-    genre: str, 
-    tone: str, 
-    context: str, 
-    author: str = "", 
-    author_style_guidance: str = "",
-    num_ideas: int = 5,
-    evaluation_criteria: List[str] = None
-) -> Dict:
-    """
-    Generate and evaluate multiple creative ideas for a given story element.
-    
-    Args:
-        topic: What to brainstorm about (e.g., "plot twist", "character backstory", "magical system")
-        genre: Story genre
-        tone: Story tone
-        context: Current story context
-        author: Optional author style to emulate
-        author_style_guidance: Optional guidance on author's style
-        num_ideas: Number of ideas to generate
-        evaluation_criteria: List of criteria to evaluate ideas against
-        
-    Returns:
-        Dictionary with generated ideas and evaluations
-    """
-    if evaluation_criteria is None:
-        evaluation_criteria = [
-            "Originality and surprise factor",
-            "Coherence with the established narrative",
-            "Potential for character development",
-            "Reader engagement and emotional impact",
-            "Feasibility within the story world"
-        ]
-        
-    # Prepare author style guidance if provided
-    style_section = ""
-    if author and author_style_guidance:
-        style_section = f"""
-        AUTHOR STYLE CONSIDERATION:
-        Consider the writing style of {author} as you generate ideas:
-        
-        {author_style_guidance}
-        
-        The ideas should feel like they could appear in a story by this author.
-        """
-    
-    # Brainstorming prompt
-    brainstorm_prompt = f"""
-    # Creative Brainstorming Session: {topic}
-    
-    ## Context
-    - Genre: {genre}
-    - Tone: {tone}
-    - Current Story Context: {context}
-    {style_section}
-    
-    ## Instructions
-    Generate {num_ideas} diverse, creative ideas related to {topic}.
-    Think outside the box while maintaining coherence with the story context.
-    Each idea should be surprising yet plausible within the established world.
-    
-    For each idea:
-    1. Provide a concise title/headline
-    2. Describe the idea in 3-5 sentences
-    3. Note one potential benefit to the story
-    4. Note one potential challenge to implementation
-    
-    Format each idea clearly and number them 1 through {num_ideas}.
-    """
-    
-    # Generate ideas
-    ideas_response = llm.invoke([HumanMessage(content=brainstorm_prompt)]).content
-    
-    # Evaluation prompt
-    eval_prompt = f"""
-    # Idea Evaluation for: {topic}
-    
-    ## Ideas Generated
-    {ideas_response}
-    
-    ## Story Context
-    {context}
-    
-    ## Evaluation Criteria
-    {', '.join(evaluation_criteria)}
-    
-    ## Instructions
-    Evaluate each idea against the criteria above on a scale of 1-10.
-    For each idea:
-    1. Provide scores for each criterion
-    2. Calculate a total score
-    3. Write a brief justification (2-3 sentences)
-    4. Indicate if the idea should be incorporated (YES/MAYBE/NO)
-    
-    Then rank the ideas from best to worst fit for the story.
-    Finally, recommend the top 1-2 ideas to incorporate, with brief reasoning.
-    """
-    
-    # Evaluate ideas
-    evaluation = llm.invoke([HumanMessage(content=eval_prompt)]).content
-    
-    # Store brainstorming results in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": f"brainstorm_{topic.lower().replace(' ', '_')}",
-        "value": {
-            "ideas": ideas_response,
-            "evaluation": evaluation,
-            "timestamp": "now",
-            "topic": topic
-        },
-        "namespace": MEMORY_NAMESPACE
-    })
-    
-    # Return results
-    return {
-        "ideas": ideas_response,
-        "evaluation": evaluation,
-        "recommended_ideas": evaluation.split("recommend")[-1].strip() if "recommend" in evaluation.lower() else None
-    }
+# creative_brainstorm function is now imported from creative_tools
 
 # Define agent nodes
 
@@ -567,67 +426,89 @@ def generate_characters(state: StoryState) -> Dict:
     # Get structured character data as JSON
     character_data_text = llm.invoke([HumanMessage(content=parsing_prompt)]).content
     
-    # Parse the JSON into a Python dictionary
-    import json
-    try:
-        # Clean the response to handle potential markdown formatting
-        clean_json_str = character_data_text
-        if "```json" in clean_json_str:
-            clean_json_str = clean_json_str.split("```json")[1].split("```")[0].strip()
-        elif "```" in clean_json_str:
-            clean_json_str = clean_json_str.split("```")[1].split("```")[0].strip()
-            
-        characters = json.loads(clean_json_str)
-        
-        # Validate the structure
-        for char_name, profile in characters.items():
-            required_fields = ["name", "role", "backstory", "evolution", "known_facts", 
-                              "secret_facts", "revealed_facts", "relationships"]
-            for field in required_fields:
-                if field not in profile:
-                    profile[field] = [] if field in ["evolution", "known_facts", "secret_facts", "revealed_facts"] else {}
-                    if field == "name":
-                        profile[field] = char_name.capitalize()
-                    elif field == "role":
-                        profile[field] = "Supporting Character"
-                    elif field == "backstory":
-                        profile[field] = "Unknown background"
-                        
-    except json.JSONDecodeError:
-        # Fallback to a simple structure if JSON parsing fails
-        print("Failed to parse character JSON. Using fallback characters.")
-        characters = {
-            "hero": {
-                "name": "Hero",
-                "role": "Protagonist",
-                "backstory": "Ordinary person with hidden potential",
-                "evolution": ["Begins journey", "Faces first challenge"],
-                "known_facts": ["Lived in small village", "Dreams of adventure"],
-                "secret_facts": ["Has a special lineage", "Possesses latent power"],
-                "revealed_facts": [],
-                "relationships": {"mentor": "Student", "villain": "Adversary"}
-            },
-            "mentor": {
-                "name": "Mentor",
-                "role": "Guide",
-                "backstory": "Wise figure with past experience",
-                "evolution": ["Introduces hero to new world"],
-                "known_facts": ["Has many skills", "Traveled widely"],
-                "secret_facts": ["Former student of villain", "Hiding a prophecy"],
-                "revealed_facts": [],
-                "relationships": {"hero": "Teacher", "villain": "Former student"}
-            },
-            "villain": {
-                "name": "Villain",
-                "role": "Antagonist",
-                "backstory": "Once good, corrupted by power",
-                "evolution": ["Sends minions after hero"],
-                "known_facts": ["Rules with fear", "Seeks ancient artifact"],
-                "secret_facts": ["Was once good", "Has personal connection to hero"],
-                "revealed_facts": [],
-                "relationships": {"hero": "Enemy", "mentor": "Former mentor"}
-            }
+    # Use the imported parsing functions
+    
+    # Define the schema for character data
+    character_schema = """
+    {
+      "character_slug": {
+        "name": "Character Name",
+        "role": "Role in story (protagonist, antagonist, etc)",
+        "backstory": "Detailed character backstory",
+        "evolution": ["Initial state", "Future development point"],
+        "known_facts": ["Known fact 1", "Known fact 2"],
+        "secret_facts": ["Secret fact 1", "Secret fact 2"],
+        "revealed_facts": [],
+        "relationships": {
+          "other_character_slug": "Relationship description"
         }
+      }
+    }
+    """
+    
+    # Default fallback data in case JSON generation fails
+    default_characters = {
+        "hero": {
+            "name": "Hero",
+            "role": "Protagonist",
+            "backstory": "Ordinary person with hidden potential",
+            "evolution": ["Begins journey", "Faces first challenge"],
+            "known_facts": ["Lived in small village", "Dreams of adventure"],
+            "secret_facts": ["Has a special lineage", "Possesses latent power"],
+            "revealed_facts": [],
+            "relationships": {"mentor": "Student", "villain": "Adversary"}
+        },
+        "mentor": {
+            "name": "Mentor",
+            "role": "Guide",
+            "backstory": "Wise figure with past experience",
+            "evolution": ["Introduces hero to new world"],
+            "known_facts": ["Has many skills", "Traveled widely"],
+            "secret_facts": ["Former student of villain", "Hiding a prophecy"],
+            "revealed_facts": [],
+            "relationships": {"hero": "Teacher", "villain": "Former student"}
+        },
+        "villain": {
+            "name": "Villain",
+            "role": "Antagonist",
+            "backstory": "Once good, corrupted by power",
+            "evolution": ["Sends minions after hero"],
+            "known_facts": ["Rules with fear", "Seeks ancient artifact"],
+            "secret_facts": ["Was once good", "Has personal connection to hero"],
+            "revealed_facts": [],
+            "relationships": {"hero": "Enemy", "mentor": "Former mentor"}
+        }
+    }
+    
+    # First try using LangChain's JSON parser directly
+    characters = parse_json_with_langchain(character_data_text, default_characters)
+    
+    # If that failed, try generating structured JSON with the LLM
+    if not characters or characters == default_characters:
+        characters = generate_structured_json(
+            character_profiles_text,
+            character_schema,
+            "character profiles"
+        )
+        
+    # If all parsing attempts failed, use the default fallback data
+    if not characters:
+        print("Using default character data as JSON generation and parsing failed.")
+        characters = default_characters
+    
+    # Validate the structure
+    for char_name, profile in characters.items():
+        required_fields = ["name", "role", "backstory", "evolution", "known_facts", 
+                          "secret_facts", "revealed_facts", "relationships"]
+        for field in required_fields:
+            if field not in profile:
+                profile[field] = [] if field in ["evolution", "known_facts", "secret_facts", "revealed_facts"] else {}
+                if field == "name":
+                    profile[field] = char_name.capitalize()
+                elif field == "role":
+                    profile[field] = "Supporting Character"
+                elif field == "backstory":
+                    profile[field] = "Unknown background"
     
     # Store character profiles in memory
     for char_name, profile in characters.items():
@@ -696,69 +577,94 @@ def plan_chapters(state: StoryState) -> Dict:
     # Get structured chapter data
     chapter_data_text = llm.invoke([HumanMessage(content=parsing_prompt)]).content
     
-    # Parse the JSON into a Python dictionary
-    import json
-    try:
-        # Clean the response to handle potential markdown formatting
-        clean_json_str = chapter_data_text
-        if "```json" in clean_json_str:
-            clean_json_str = clean_json_str.split("```json")[1].split("```")[0].strip()
-        elif "```" in clean_json_str:
-            clean_json_str = clean_json_str.split("```")[1].split("```")[0].strip()
-            
-        chapters = json.loads(clean_json_str)
-        
-        # Validate the structure and ensure each chapter has the required fields
-        for chapter_num, chapter in chapters.items():
-            if "title" not in chapter:
-                chapter["title"] = f"Chapter {chapter_num}"
-            if "outline" not in chapter:
-                chapter["outline"] = f"Events of chapter {chapter_num}"
-            if "scenes" not in chapter:
-                chapter["scenes"] = {"1": {"content": "", "reflection_notes": []}, 
-                                    "2": {"content": "", "reflection_notes": []}}
-            if "reflection_notes" not in chapter:
-                chapter["reflection_notes"] = []
-                
-            # Ensure all scenes have the required structure
-            for scene_num, scene in chapter["scenes"].items():
-                if "content" not in scene:
-                    scene["content"] = ""
-                if "reflection_notes" not in scene:
-                    scene["reflection_notes"] = []
-                
-    except json.JSONDecodeError:
-        # Fallback to a simple structure if JSON parsing fails
-        print("Failed to parse chapter JSON. Using fallback chapters.")
-        chapters = {
-            "1": {
-                "title": "The Ordinary World",
-                "outline": "Introduction to the hero and their mundane life. Hints of adventure to come.",
-                "scenes": {
-                    "1": {"content": "", "reflection_notes": []},
-                    "2": {"content": "", "reflection_notes": []}
-                },
-                "reflection_notes": []
+    # Use the imported parsing functions
+    
+    # Define the schema for chapter data
+    chapter_schema = """
+    {
+      "1": {
+        "title": "Chapter Title",
+        "outline": "Detailed summary of the chapter",
+        "scenes": {
+          "1": {
+            "content": "",
+            "reflection_notes": []
+          },
+          "2": {
+            "content": "",
+            "reflection_notes": []
+          }
+        },
+        "reflection_notes": []
+      }
+    }
+    """
+    
+    # Default fallback chapters in case JSON generation fails
+    default_chapters = {
+        "1": {
+            "title": "The Ordinary World",
+            "outline": "Introduction to the hero and their mundane life. Hints of adventure to come.",
+            "scenes": {
+                "1": {"content": "", "reflection_notes": []},
+                "2": {"content": "", "reflection_notes": []}
             },
-            "2": {
-                "title": "The Call to Adventure",
-                "outline": "Hero receives a call to adventure and initially hesitates.",
-                "scenes": {
-                    "1": {"content": "", "reflection_notes": []},
-                    "2": {"content": "", "reflection_notes": []}
-                },
-                "reflection_notes": []
+            "reflection_notes": []
+        },
+        "2": {
+            "title": "The Call to Adventure",
+            "outline": "Hero receives a call to adventure and initially hesitates.",
+            "scenes": {
+                "1": {"content": "", "reflection_notes": []},
+                "2": {"content": "", "reflection_notes": []}
             },
-            "3": {
-                "title": "Meeting the Mentor",
-                "outline": "Hero meets a wise mentor who provides guidance and tools.",
-                "scenes": {
-                    "1": {"content": "", "reflection_notes": []},
-                    "2": {"content": "", "reflection_notes": []}
-                },
-                "reflection_notes": []
-            }
+            "reflection_notes": []
+        },
+        "3": {
+            "title": "Meeting the Mentor",
+            "outline": "Hero meets a wise mentor who provides guidance and tools.",
+            "scenes": {
+                "1": {"content": "", "reflection_notes": []},
+                "2": {"content": "", "reflection_notes": []}
+            },
+            "reflection_notes": []
         }
+    }
+    
+    # First try using LangChain's JSON parser directly
+    chapters = parse_json_with_langchain(chapter_data_text, default_chapters)
+    
+    # If that failed, try generating structured JSON with the LLM
+    if not chapters or chapters == default_chapters:
+        chapters = generate_structured_json(
+            chapter_plan_text,
+            chapter_schema,
+            "chapter plan"
+        )
+        
+    # If all parsing attempts failed, use the default fallback data
+    if not chapters:
+        print("Using default chapter data as JSON generation and parsing failed.")
+        chapters = default_chapters
+    
+    # Validate the structure and ensure each chapter has the required fields
+    for chapter_num, chapter in chapters.items():
+        if "title" not in chapter:
+            chapter["title"] = f"Chapter {chapter_num}"
+        if "outline" not in chapter:
+            chapter["outline"] = f"Events of chapter {chapter_num}"
+        if "scenes" not in chapter:
+            chapter["scenes"] = {"1": {"content": "", "reflection_notes": []}, 
+                                "2": {"content": "", "reflection_notes": []}}
+        if "reflection_notes" not in chapter:
+            chapter["reflection_notes"] = []
+            
+        # Ensure all scenes have the required structure
+        for scene_num, scene in chapter["scenes"].items():
+            if "content" not in scene:
+                scene["content"] = ""
+            if "reflection_notes" not in scene:
+                scene["reflection_notes"] = []
     
     # Store chapter plans in memory
     for chapter_num, chapter_data in chapters.items():
@@ -1219,6 +1125,8 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         updated_chapters[current_chapter]["scenes"][current_scene]["reflection_notes"] = []
         
         return {
+            "current_chapter": current_chapter,
+            "current_scene": current_scene,
             "chapters": updated_chapters,
             "last_node": "revise_scene_if_needed",
             "messages": [AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address continuity issues and other feedback.")]
@@ -1231,7 +1139,11 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             "value": "No revision needed - scene approved"
         })
         
+        # We don't need the APPROVED marker anymore since router doesn't check for it
+        # Make sure to return current_chapter and current_scene to maintain state
         return {
+            "current_chapter": current_chapter,
+            "current_scene": current_scene,
             "last_node": "revise_scene_if_needed",
             "messages": [AIMessage(content=f"Scene {current_scene} of chapter {current_chapter} is consistent and well-crafted, no revision needed.")]
         }
@@ -1582,6 +1494,20 @@ def router(state: StoryState) -> Dict:
     """Route to the appropriate next node based on the current state."""
     next_node = ""
     
+    # Safety check - if we're in an invalid state that might cause infinite recursion
+    # terminate the execution by going to the compile_final_story node
+    if "router_count" not in state:
+        state["router_count"] = 0
+    else:
+        state["router_count"] += 1
+        
+    # If we've hit the router too many times, something is wrong - go to final node
+    if state["router_count"] > 50:
+        print("WARNING: Router has been called too many times. Terminating execution.")
+        state["completed"] = True
+        return {"next": "compile_final_story"}
+    
+    # Normal routing logic
     if "global_story" not in state or not state["global_story"]:
         if "creative_elements" not in state or not state.get("creative_elements"):
             next_node = "brainstorm_story_concepts"
@@ -1594,14 +1520,30 @@ def router(state: StoryState) -> Dict:
     elif "chapters" not in state or not state["chapters"]:
         next_node = "plan_chapters"
     
-    elif state["completed"]:
+    elif state.get("completed", False):
         next_node = "compile_final_story"
     
     else:
-        # Get the current chapter and scene
-        current_chapter = state["current_chapter"]
-        current_scene = state["current_scene"]
+        # Get the current chapter and scene - add safety checks
+        current_chapter = state.get("current_chapter", "")
+        current_scene = state.get("current_scene", "")
+        
+        # Safety check - if current_chapter or current_scene are not set, go to plan_chapters
+        if not current_chapter or not current_scene:
+            print("WARNING: Current chapter or scene not set. Going back to planning.")
+            return {"next": "plan_chapters"}
+            
+        # Safety check - make sure the chapter exists in the chapters dictionary
+        if current_chapter not in state.get("chapters", {}):
+            print(f"WARNING: Chapter {current_chapter} not found. Going back to planning.")
+            return {"next": "plan_chapters"}
+            
         chapter = state["chapters"][current_chapter]
+        
+        # Safety check - make sure the scene exists in the chapter
+        if current_scene not in chapter.get("scenes", {}):
+            print(f"WARNING: Scene {current_scene} not found in chapter {current_chapter}. Moving to next chapter.")
+            return {"next": "advance_to_next_scene_or_chapter"}
         
         # Check if we need to brainstorm for the current scene
         scene_creative_key = f"scene_elements_ch{current_chapter}_sc{current_scene}"
@@ -1609,16 +1551,18 @@ def router(state: StoryState) -> Dict:
             next_node = "brainstorm_scene_elements"
         
         # Check if the current scene has content
-        elif not chapter["scenes"][current_scene]["content"]:
+        elif not chapter["scenes"][current_scene].get("content"):
             next_node = "write_scene"
         
         # Check if the current scene has reflection notes
-        elif not chapter["scenes"][current_scene]["reflection_notes"]:
+        elif not chapter["scenes"][current_scene].get("reflection_notes"):
             next_node = "reflect_on_scene"
         
         # Check if character profiles need updating (always do this after reflection)
         else:
             last_node = state.get("last_node", "")
+            
+            # After reflection or revision, update character profiles
             if last_node == "reflect_on_scene" or last_node == "revise_scene_if_needed":
                 next_node = "update_character_profiles"
             
@@ -1645,6 +1589,12 @@ def router(state: StoryState) -> Dict:
             # Default to writing the next scene
             else:
                 next_node = "write_scene"
+    
+    # Safety check - if we somehow haven't set a next node, default to compile_final_story
+    if not next_node:
+        print("WARNING: No next node determined. Terminating execution.")
+        state["completed"] = True
+        next_node = "compile_final_story"
     
     return {"next": next_node}
 
@@ -1837,12 +1787,30 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "")
 # If run directly, generate a story
 if __name__ == "__main__":
     # dotenv is already loaded at the module level
+    import argparse
+    from storyteller_lib.config import setup_cache
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Generate a story using the StoryCraft agent")
+    parser.add_argument("--genre", type=str, default="fantasy", 
+                      help="Genre of the story (e.g., fantasy, sci-fi, mystery)")
+    parser.add_argument("--tone", type=str, default="epic", 
+                      help="Tone of the story (e.g., epic, dark, humorous)")
+    parser.add_argument("--author", type=str, default="", 
+                      help="Author whose style to emulate (e.g., Tolkien, Rowling, Martin)")
+    parser.add_argument("--cache", type=str, choices=["memory", "sqlite", "none"], default="sqlite",
+                      help="LLM cache type to use (default: sqlite)")
+    args = parser.parse_args()
     
     # Check if API key is set
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Please set your ANTHROPIC_API_KEY in your .env file")
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("Please set your OPENAI_API_KEY in your .env file")
         exit(1)
+    
+    # Set up caching
+    cache = setup_cache(args.cache)
+    print(f"LLM caching: {args.cache}")
         
-    # Generate a fantasy story
-    story = generate_story(genre="fantasy", tone="epic")
+    # Generate a story with the specified parameters
+    story = generate_story(genre=args.genre, tone=args.tone, author=args.author)
     print(story)

@@ -2,11 +2,16 @@
 StoryCraft Agent - Creative tools and utilities.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Any, Optional, Union, Type, TypeVar
 import json
 
 from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE
 from langchain_core.messages import HumanMessage
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import PromptTemplate
+from pydantic import BaseModel, Field, create_model
+
+T = TypeVar('T', bound=BaseModel)
 
 def creative_brainstorm(
     topic: str, 
@@ -130,17 +135,214 @@ def creative_brainstorm(
         "recommended_ideas": evaluation.split("recommend")[-1].strip() if "recommend" in evaluation.lower() else None
     }
 
-def parse_structured_data(text, default_data=None):
-    """Parse structured data from text, with fallback to default data."""
+def create_pydantic_model_from_dict(schema_dict: Dict, model_name: str = "DynamicModel") -> Type[BaseModel]:
+    """
+    Create a Pydantic model from a dictionary schema description.
+    
+    Args:
+        schema_dict: Dictionary of field names to field types and descriptions
+        model_name: Name for the generated model class
+        
+    Returns:
+        A Pydantic model class
+    """
+    field_definitions = {}
+    
+    # Convert the schema description to Field objects
+    for field_name, field_info in schema_dict.items():
+        if isinstance(field_info, dict):
+            # For nested objects
+            field_type = Dict[str, Any]
+            field_desc = field_info.get("description", "")
+            field_definitions[field_name] = (field_type, Field(description=field_desc))
+        elif isinstance(field_info, list):
+            # For array fields
+            field_type = List[str]
+            field_definitions[field_name] = (field_type, Field(description=f"List of {field_name}"))
+        else:
+            # For simple types
+            field_type = str
+            field_definitions[field_name] = (field_type, Field(description=field_info))
+    
+    # Create and return the model
+    return create_model(model_name, **field_definitions)
+
+def structured_output_with_pydantic(
+    text_content: str, 
+    schema_dict: Dict,
+    description: str,
+    model_name: str = "DynamicModel"
+) -> Dict[str, Any]:
+    """
+    Parse structured data from text using LangChain's structured output approach.
+    
+    Args:
+        text_content: Text to parse into structured data
+        schema_dict: Dictionary describing the schema
+        description: Description of what we're parsing
+        model_name: Name for the dynamic Pydantic model
+        
+    Returns:
+        Structured data as a dictionary
+    """
     try:
-        # Clean the response to handle potential markdown formatting
-        clean_json_str = text
-        if "```json" in clean_json_str:
-            clean_json_str = clean_json_str.split("```json")[1].split("```")[0].strip()
-        elif "```" in clean_json_str:
-            clean_json_str = clean_json_str.split("```")[1].split("```")[0].strip()
+        # Create a Pydantic model from the schema dictionary
+        model_class = create_pydantic_model_from_dict(schema_dict, model_name)
+        
+        # Use structured output with the model
+        structured_output_llm = llm.with_structured_output(model_class)
+        
+        # Invoke with the text content
+        prompt = f"""
+        Based on this {description}:
+        
+        {text_content}
+        
+        Extract the structured data according to the specified format.
+        """
+        
+        result = structured_output_llm.invoke(prompt)
+        return result.dict()
+    except Exception as e:
+        print(f"Structured output parsing failed: {str(e)}")
+        return {}
+
+def parse_json_with_langchain(text: str, default_data: Optional[Dict] = None) -> Dict[str, Any]:
+    """
+    Parse JSON from text using LangChain's JSON parser.
+    Falls back to default_data if parsing fails.
+    
+    Args:
+        text: Text containing JSON to parse
+        default_data: Default data to return if parsing fails
+        
+    Returns:
+        Parsed JSON data as a dictionary
+    """
+    try:
+        # Use LangChain's JsonOutputParser to parse the text
+        json_parser = JsonOutputParser()
+        
+        # First try direct parsing without LLM
+        try:
+            return json_parser.parse(text)
+        except Exception:
+            # If direct parsing fails, use the LLM to fix and generate valid JSON
+            fix_prompt = PromptTemplate(
+                template="""The following text contains JSON that needs to be fixed and parsed:
+
+{text}
+
+Extract and fix the JSON to make it valid. Return ONLY the fixed JSON without any additional text or markup.
+
+{format_instructions}""",
+                input_variables=["text"],
+                partial_variables={"format_instructions": json_parser.get_format_instructions()}
+            )
             
-        return json.loads(clean_json_str)
-    except json.JSONDecodeError:
-        print("Failed to parse JSON. Using fallback data.")
-        return default_data if default_data else {}
+            # Create and run the chain
+            fix_chain = fix_prompt | llm | json_parser
+            
+            try:
+                return fix_chain.invoke({"text": text})
+            except Exception as e:
+                print(f"LangChain JSON parser failed: {str(e)}")
+                return default_data if default_data is not None else {}
+    except Exception as e:
+        print(f"Unexpected error parsing JSON: {str(e)}")
+        return default_data if default_data is not None else {}
+
+def generate_structured_json(text_content: str, schema: str, description: str) -> Dict[str, Any]:
+    """
+    Generate structured JSON from unstructured text using LangChain's approach.
+    
+    Args:
+        text_content: The unstructured text to parse into JSON
+        schema: A description of the JSON schema to generate (as string)
+        description: A brief description of what we're trying to structure
+        
+    Returns:
+        A parsed JSON object matching the requested schema
+    """
+    # Try to parse the schema string into a dictionary
+    schema_dict = {}
+    try:
+        if isinstance(schema, str) and (schema.startswith('{') and schema.endswith('}')):
+            # If schema is a JSON string, parse it
+            schema_dict = json.loads(schema)
+            
+            # Try structured output with Pydantic approach first
+            if schema_dict:
+                result = structured_output_with_pydantic(text_content, schema_dict, description)
+                if result:
+                    return result
+    except Exception:
+        # If schema parsing fails, continue with the standard approach
+        pass
+    
+    # Fall back to JsonOutputParser approach
+    json_parser = JsonOutputParser()
+    
+    # Create a prompt template
+    prompt = PromptTemplate(
+        template="""Based on this {description}:
+
+{text_content}
+
+Convert this information into a properly formatted JSON object with this structure:
+{schema}
+
+{format_instructions}""",
+        input_variables=["text_content", "description", "schema"],
+        partial_variables={"format_instructions": json_parser.get_format_instructions()}
+    )
+    
+    # Create the LangChain chain
+    chain = prompt | llm | json_parser
+    
+    try:
+        # Execute the chain with our input parameters
+        parsed_json = chain.invoke({
+            "text_content": text_content,
+            "description": description,
+            "schema": schema
+        })
+        return parsed_json
+    except Exception as e:
+        print(f"LangChain JSON parser failed for {description}. Error: {str(e)}")
+        
+        # If first attempt fails, try again with simpler instructions
+        print(f"Failed to generate valid JSON for {description}. Trying again with simplified approach.")
+        
+        # Create a simplified prompt template
+        simplified_prompt = PromptTemplate(
+            template="""Convert this information about {description} into valid JSON.
+
+{text_content}
+
+Use this exact schema:
+{schema}
+
+{format_instructions}
+
+The output should be a JSON object without any additional text or comments.""",
+            input_variables=["text_content", "description", "schema"],
+            partial_variables={"format_instructions": json_parser.get_format_instructions()}
+        )
+        
+        # Create a new chain with the simplified prompt
+        simplified_chain = simplified_prompt | llm | json_parser
+        
+        try:
+            # Execute the simplified chain
+            parsed_json = simplified_chain.invoke({
+                "text_content": text_content,
+                "description": description,
+                "schema": schema
+            })
+            return parsed_json
+        except Exception as e:
+            print(f"Second attempt to generate JSON for {description} also failed. Error: {str(e)}")
+            
+            # If all LangChain approaches fail, return empty dictionary
+            return {}
