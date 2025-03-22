@@ -54,7 +54,6 @@ def initialize_state(state: StoryState) -> Dict:
         "current_chapter": "",
         "current_scene": "",
         "completed": False,
-        "last_node": "initialize_state",  # Track which node was last executed for routing
         "messages": [AIMessage(content=response_message)]
     }
 
@@ -117,6 +116,5 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     # Update state with brainstormed ideas
     return {
         "creative_elements": creative_elements,
-        "last_node": "brainstorm_story_concepts",
         "messages": [AIMessage(content=f"I've brainstormed several creative concepts for your {tone} {genre} story. Now I'll develop a cohesive outline based on the most promising ideas.")]
     }

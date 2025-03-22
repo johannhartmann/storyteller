@@ -1,5 +1,8 @@
 """
 StoryCraft Agent - Story progression and character management nodes.
+
+This is a refactored version optimized for LangGraph's native edge system,
+removing router-specific code that could cause infinite loops.
 """
 
 from typing import Dict
@@ -16,34 +19,6 @@ def update_character_profiles(state: StoryState) -> Dict:
     characters = state["characters"]
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
-    
-    # Check for our update flag to prevent redundant updates
-    update_key = f"ch{current_chapter}_sc{current_scene}_updated"
-    
-    # Add multiple safeguards against infinite loops
-    character_update_count = state.get("character_update_count", 0)
-    
-    # Increment the counter first thing - this ensures we don't get stuck in loops
-    state["character_update_count"] = character_update_count + 1
-    
-    # Break out of potential loops using both scene-specific flags and a global counter
-    update_flags = state.get("character_update_flags", {})
-    if update_key in update_flags or character_update_count > 0:
-        # Log the type of loop prevention that triggered
-        if update_key in update_flags:
-            print(f"NOTICE: Characters for Ch:{current_chapter}/Sc:{current_scene} already updated, skipping")
-        else:
-            print(f"NOTICE: Character update count exceeded ({character_update_count}), breaking potential loop")
-            
-        # Ensure we mark this scene as processed so we don't return to it
-        update_flags[update_key] = True
-            
-        # Skip update and move on
-        return {
-            "last_node": "update_character_profiles",
-            "character_update_flags": update_flags,
-            "messages": [AIMessage(content=f"Characters already updated for scene {current_scene} of chapter {current_chapter}, moving on.")]
-        }
     
     # Get the scene content
     scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
@@ -112,18 +87,9 @@ def update_character_profiles(state: StoryState) -> Dict:
             "value": f"Character updated for Ch {current_chapter}, Scene {current_scene}"
         })
     
-    # With our reducers, we don't need explicit tracking flags anymore
-    # The character merger will handle appending to evolution lists
-    
-    # Create or update the character update flags to mark this scene as processed
-    update_flags = state.get("character_update_flags", {})
-    update_flags[update_key] = True
-    
-    # Update state
+    # Update state - only return what changed
     return {
         "characters": character_updates,  # Only specify what changes
-        "character_update_flags": update_flags,  # Mark this scene as updated
-        "last_node": "update_character_profiles",
         "messages": [AIMessage(content=f"I've updated character profiles based on developments in scene {current_scene} of chapter {current_chapter}.")]
     }
 
@@ -140,39 +106,33 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
     # Calculate the next scene or chapter
     next_scene = str(int(current_scene) + 1)
     
-    # Reset character update count and flags since we're moving to a new scene/chapter
-    update_result = {
-        "character_update_count": 0,  # Reset the counter
-        "last_node": "advance_to_next_scene_or_chapter",
-    }
-    
     # Check if the next scene exists in the current chapter
     if next_scene in chapter["scenes"]:
         # Move to the next scene in the same chapter
-        update_result.update({
+        return {
             "current_scene": next_scene,
+            "continuity_phase": "complete",  # Reset continuity phase
             "messages": [AIMessage(content=f"Moving on to write scene {next_scene} of chapter {current_chapter}.")]
-        })
-        return update_result
+        }
     else:
         # Move to the next chapter
         next_chapter = str(int(current_chapter) + 1)
         
         # Check if the next chapter exists
         if next_chapter in chapters:
-            update_result.update({
+            return {
                 "current_chapter": next_chapter,
                 "current_scene": "1",  # Start with first scene of new chapter
+                "continuity_phase": "complete",  # Reset continuity phase
                 "messages": [AIMessage(content=f"Chapter {current_chapter} is complete. Moving on to chapter {next_chapter}.")]
-            })
-            return update_result
+            }
         else:
             # All chapters are complete
-            update_result.update({
+            return {
                 "completed": True,
+                "continuity_phase": "complete",  # Reset continuity phase
                 "messages": [AIMessage(content="The story is now complete! I'll compile the final narrative for you.")]
-            })
-            return update_result
+            }
 
 @track_progress
 def review_continuity(state: StoryState) -> Dict:
@@ -188,89 +148,16 @@ def review_continuity(state: StoryState) -> Dict:
     # Default message in case of early returns
     message = AIMessage(content=f"I've performed a continuity review after Chapter {current_chapter}.")
     
-    # Add safeguards against infinite continuity review loops
-    continuity_review_count = state.get("continuity_review_count", 0)
-    
-    # Use a single consistent review key format for both flags and history
+    # Create a consistent key for references
     review_key = f"continuity_review_ch{current_chapter}"
-    review_flags = state.get("continuity_review_flags", {})
     
-    # First, dump the contents of revelations and review_flags for debugging
+    # Log debugging info
     print(f"\n==== CONTINUITY REVIEW DEBUG ====")
     print(f"Current chapter: {current_chapter}")
-    print(f"Review flags: {review_flags}")
+    print(f"Review key: {review_key}")
     print(f"Continuity issues in revelations: {len(revelations.get('continuity_issues', []))}")
     for idx, issue in enumerate(revelations.get('continuity_issues', [])):
         print(f"Issue {idx}: Chapter {issue.get('after_chapter')}, Status: {issue.get('resolution_status')}")
-    
-    # Check if we've already reviewed this chapter before doing anything else
-    if review_key in review_flags and review_flags[review_key]:
-        print(f"NOTICE: Already performed continuity review for Chapter {current_chapter}, skipping immediately")
-        
-        return {
-            "last_node": "review_continuity",
-            "continuity_phase": "complete",  # Mark this phase as complete
-            "continuity_review_count": 0,    # Reset the counter
-            "global_recursion_count": 0,     # Reset recursion counter
-            "continuity_review_flags": review_flags,  # Preserve the flags
-            "messages": [AIMessage(content=f"Already performed continuity review after Chapter {current_chapter}, moving on.")]
-        }
-    
-    # Cap on consecutive reviews to prevent loops
-    max_consecutive_reviews = 1  # Only allow one review per chapter
-    
-    # Log the continuity review attempt with diagnostics
-    print(f"\n==== CONTINUITY REVIEW ATTEMPT ====")
-    print(f"Current chapter: {current_chapter}")
-    print(f"Review count: {continuity_review_count}")
-    print(f"Already reviewed this chapter: {review_key in review_flags}")
-    
-    # Initialize continuity_phase if it's not set
-    continuity_phase = state.get("continuity_phase", "review")
-    review_history = state.get("continuity_review_history", {})
-    
-    # Log the review state for debugging
-    print(f"\n==== CONTINUITY REVIEW STATE ====")
-    print(f"Current chapter: {current_chapter}")
-    print(f"Continuity phase: {continuity_phase}")
-    print(f"Review count: {continuity_review_count}")
-    print(f"Already reviewed: {review_key in review_flags}")
-    print(f"Review history contains key: {review_key in review_history}")
-    
-    # Implement proper state machine logic for the continuity review process
-    if continuity_phase == "review":
-        # If we've already reviewed this chapter and aren't in resolution mode, skip it
-        if (review_key in review_history and review_history[review_key].get("status") == "completed") or review_flags.get(review_key, False):
-            print(f"NOTICE: Already performed continuity review for Chapter {current_chapter}, skipping")
-            
-            return {
-                "last_node": "review_continuity",
-                "continuity_phase": "complete",  # Mark this phase as complete
-                "continuity_review_count": 0,    # Reset the counter
-                "global_recursion_count": 0,     # Reset recursion counter
-                "continuity_review_flags": review_flags,  # Preserve the flags
-                "messages": [AIMessage(content=f"Already performed continuity review after Chapter {current_chapter}, moving on.")]
-            }
-    
-    # If we've exceeded the maximum review count, move to resolution or skip
-    if continuity_review_count >= 3:  # Allow up to 3 review attempts
-        print(f"NOTICE: Continuity review count exceeded ({continuity_review_count}/3), transitioning to next phase")
-        
-        # Mark this in review flags to prevent retrying
-        review_flags[review_key] = True
-        
-        # Intentionally transition to the next phase instead of just skipping
-        return {
-            "last_node": "review_continuity",
-            "continuity_phase": "complete",  # Mark this as complete to move on
-            "continuity_review_count": 0,    # Reset for next time
-            "continuity_review_flags": review_flags,  # Update flags in state
-            "global_recursion_count": 0,     # Reset recursion counter
-            "messages": [AIMessage(content=f"Completed review of continuity issues after Chapter {current_chapter}. Proceeding with the story.")]
-        }
-    
-    # Increment the counter first thing - this ensures we don't get stuck in loops
-    continuity_review_count += 1
     
     # Get all completed chapters and their scenes for review
     for chapter_num in sorted(chapters.keys(), key=int):
@@ -280,15 +167,8 @@ def review_continuity(state: StoryState) -> Dict:
     
     # If there are fewer than 2 completed chapters, not enough for full continuity check
     if len(completed_chapters) < 2:
-        # Mark this chapter as reviewed to prevent retrying
-        review_flags[review_key] = True
-        
         return {
-            "continuity_review_count": 0,  # Reset the counter
             "continuity_phase": "complete",  # Mark this phase as complete
-            "global_recursion_count": 0,  # Reset recursion counter
-            "continuity_review_flags": review_flags,  # Include updated flags
-            "last_node": "review_continuity",  # Track the last executed node
             "messages": [AIMessage(content="Not enough completed chapters for a full continuity review yet.")]
         }
     
@@ -458,40 +338,18 @@ def review_continuity(state: StoryState) -> Dict:
         "status": "completed",
         "issues_found": structured_review["has_issues"],
         "chapter": current_chapter,
-        "timestamp": "now",
-        "review_number": continuity_review_count
+        "timestamp": "now"
     }
     
     # Process the continuity review results using the structured format
     has_issues = structured_review["has_issues"]
     updated_revelations = state["revelations"].copy()
     
-    # Add a strong recursion prevention counter at the function level
-    global_recursion_count = state.get("global_recursion_count", 0) + 1
-    if global_recursion_count > 10:
-        print("WARNING: Global recursion count exceeded, forcing advance")
-        return {
-            "continuity_phase": "complete",
-            "global_recursion_count": 0,
-            "last_node": "review_continuity",
-            "messages": [AIMessage(content="Continuity review process terminated due to recursion limit")]
-        }
-    
     if has_issues:
         # Initialize continuity_issues if it doesn't exist
         if "continuity_issues" not in updated_revelations:
             updated_revelations["continuity_issues"] = []
             
-        # Check if we already have a review for this chapter to avoid duplication
-        existing_review_idx = None
-        for idx, review in enumerate(updated_revelations.get("continuity_issues", [])):
-            if review.get("after_chapter") == current_chapter:
-                # Only consider unresolved reviews or ones pending resolution
-                if review.get("resolution_status") == "pending" or review.get("needs_resolution", False):
-                    existing_review_idx = idx
-                    print(f"Found existing continuity review for Chapter {current_chapter} at index {idx}")
-                    break
-                
         # Compile all issues into a single list for resolution
         all_issues = []
         
@@ -533,42 +391,26 @@ def review_continuity(state: StoryState) -> Dict:
         # Our custom revelations_reducer will handle merging and deduplication
         print(f"Adding continuity review for Chapter {current_chapter}")
         
-        # Check if there are any existing reviews for this chapter
-        existing_reviews = [r for r in revelations.get("continuity_issues", []) 
-                           if r.get("after_chapter") == current_chapter]
-        if existing_reviews:
-            print(f"Found {len(existing_reviews)} existing reviews for Chapter {current_chapter}")
-        
         # Add the new review entry directly to continuity_issues list
         # The custom reducer will handle keeping only the best entry per chapter
         if "continuity_issues" not in updated_revelations:
             updated_revelations["continuity_issues"] = []
         updated_revelations["continuity_issues"] = [review_entry]
             
-        # Mark this chapter as reviewed in flags
-        review_flags[review_key] = True
-            
         # Set the next phase based on whether we found issues
         # Directly return the phase in the state dictionary to ensure it's captured immediately
         return {
             "revelations": updated_revelations,  # Ensure complete replacement of the revelations dict
             "continuity_phase": "needs_resolution" if has_issues else "complete",
-            "global_recursion_count": global_recursion_count,
-            "last_node": "review_continuity",
-            "continuity_review_history": updated_review_history,
-            "continuity_review_flags": review_flags,  # Include updated flags
-            "continuity_review_count": 0 if has_issues == False else continuity_review_count,
-            "resolution_index": 0,     # Always reset the resolution index
-            "resolution_count": 0,     # Always reset the resolution count
+            "continuity_review_history": updated_review_history, # Track review history for debugging
+            "resolution_index": 0,  # Always reset the resolution index 
             "messages": [message]
         }
     else:
-        # No issues found - explicitly set phase to complete and advance
+        # No issues found - explicitly set phase to complete
         print("No continuity issues detected, setting phase to complete")
-        next_phase = "complete"
     
     # Perform background memory processing for completed chapters
-    # This implements the background memory formation process from LangMem
     try:
         # Collect all content from completed chapters
         all_chapter_content = []
@@ -593,68 +435,18 @@ def review_continuity(state: StoryState) -> Dict:
                     "key": f"narrative_memories_chapter_{max(completed_chapters)}",
                     "value": memories
                 })
-                
-        # Use prompt optimizer to improve prompts based on continuity feedback
-        if structured_review.get("has_issues", False):
-            # Create a trajectory based on the continuity review
-            trajectory = [
-                {"role": "system", "content": prompt},
-                {"role": "assistant", "content": continuity_review_text}
-            ]
-            
-            # Optimize the continuity review prompt
-            try:
-                issue_count = len(structured_review.get("issues", [])) + \
-                             len(structured_review.get("character_inconsistencies", [])) + \
-                             len(structured_review.get("unresolved_threads", []))
-                             
-                optimized_prompt = prompt_optimizer.invoke({
-                    "trajectories": [(trajectory, {"user_score": issue_count * -1})],
-                    "prompt": prompt
-                })
-                
-                # Store the optimized prompt for future continuity reviews
-                if optimized_prompt:
-                    manage_memory_tool.invoke({
-                        "action": "create",
-                        "key": "optimized_continuity_prompt",
-                        "value": optimized_prompt
-                    })
-            except Exception as e:
-                print(f"Prompt optimization error: {str(e)}")
     except Exception as e:
         # Log the error but don't halt execution
         print(f"Background memory processing error: {str(e)}")
     
-    # Create proper message based on state
-    # Define message at the start to ensure it's always available
-    message = AIMessage(content=f"I've performed a continuity review after Chapter {current_chapter}.")
-    
-    # Override with more specific message if we have status information
-    if has_issues:
-        message = AIMessage(content=f"I've identified continuity issues after Chapter {current_chapter}. These will need to be addressed to maintain narrative coherence.")
-    else:
-        message = AIMessage(content=f"I've performed a comprehensive continuity review after Chapter {current_chapter} and found good narrative consistency.")
-    
-    # Only return here if we didn't already return for the "has_issues" case
-    if not has_issues:
-        # Mark this chapter as reviewed in flags
-        review_flags[review_key] = True
-            
-        # Return updated state with proper LangGraph state management
-        # This enables the state machine aspect of the LangGraph framework
-        return {
-            "revelations": updated_revelations,      # Updated story revelations
-            "last_node": "review_continuity",        # Track the last executed node
-            "continuity_phase": next_phase,          # Track where we are in the continuity review process
-            "global_recursion_count": global_recursion_count,  # Track recursion count
-            "continuity_review_history": updated_review_history,  # Track review history
-            "continuity_review_flags": review_flags, # Update review flags
-            "continuity_review_count": 0,            # Reset for next time
-            "resolution_index": 0,                   # Reset resolution index
-            "resolution_count": 0,                   # Reset resolution count
-            "messages": [message]
-        }
+    # Return updated state with proper LangGraph state management
+    return {
+        "revelations": updated_revelations,      # Updated story revelations
+        "continuity_phase": "complete",          # Track where we are in the continuity review process
+        "continuity_review_history": updated_review_history,  # Track review history for debugging
+        "resolution_index": 0,                   # Reset resolution index
+        "messages": [message]
+    }
 
 @track_progress
 def resolve_continuity_issues(state: StoryState) -> Dict:
@@ -662,57 +454,17 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
     chapters = state["chapters"]
     characters = state["characters"]
     revelations = state["revelations"]
-    
-    # Add a strong recursion prevention counter at the function level
-    global_recursion_count = state.get("global_recursion_count", 0) + 1
-    review_flags = state.get("continuity_review_flags", {})
     current_chapter = state.get("current_chapter", "1")
-    review_key = f"continuity_review_ch{current_chapter}"
     
-    # Check if we've already resolved issues for this chapter
-    if review_key in review_flags and review_flags[review_key]:
-        print(f"NOTICE: Already performed continuity resolution for Chapter {current_chapter}, skipping immediately")
-        
-        # No need to clean up manually - the revelations_reducer will handle it
-        # Just mark the existing review as completed if it exists
-        updated_revelations = state["revelations"].copy()
-        
-        # Check if we have a review for this chapter
-        existing_reviews = [r for r in updated_revelations.get("continuity_issues", []) 
-                           if r.get("after_chapter") == current_chapter]
-        
-        if existing_reviews:
-            # Create a resolved version of the first review
-            resolved_review = existing_reviews[0].copy()
-            resolved_review["resolution_status"] = "completed"
-            resolved_review["needs_resolution"] = False
-            resolved_review["issues_to_resolve"] = []  # Clear issues
-            resolved_review["resolved"] = True
-            
-            # Add this single resolved entry
-            updated_revelations["continuity_issues"] = [resolved_review]
-            print(f"Marking existing review for Chapter {current_chapter} as resolved")
-        
-        return {
-            "last_node": "resolve_continuity_issues",
-            "continuity_phase": "complete",  # Mark this phase as complete
-            "continuity_review_count": 0,    # Reset the counter
-            "global_recursion_count": 0,     # Reset recursion counter
-            "continuity_review_flags": review_flags,  # Preserve the flags
-            "revelations": updated_revelations,  # Complete replacement of revelations
-            "messages": [AIMessage(content=f"Already resolved continuity issues after Chapter {current_chapter}, moving on.")]
-        }
+    # Get continuity phase - LangGraph will handle state transitions
+    continuity_phase = state.get("continuity_phase", "complete")
     
-    if global_recursion_count > 10:
-        print("WARNING: Global recursion count exceeded in resolution, forcing exit")
-        # Mark as complete in flags to prevent retrying
-        review_flags[review_key] = True
+    # If we're not in resolution mode, exit
+    if continuity_phase != "needs_resolution":
+        print(f"NOTICE: Not in resolution mode for Chapter {current_chapter}, skipping")
         return {
             "continuity_phase": "complete",
-            "global_recursion_count": 0,
-            "continuity_review_flags": review_flags,
-            "last_node": "resolve_continuity_issues",
-            "messages": [AIMessage(content="Continuity resolution process terminated due to recursion limit")]
+            "messages": [AIMessage(content=f"No continuity issues require resolution for Chapter {current_chapter}.")]
         }
     
     # Get continuity reviews from state
@@ -728,15 +480,10 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
     # If no review found, exit resolution mode
     if not current_review:
         print("No continuity issues found that need resolution.")
-        # Mark as complete in flags to prevent retrying
-        review_flags[review_key] = True
         return {
             "continuity_phase": "complete",
             "resolution_index": 0,
             "resolution_count": 0,
-            "global_recursion_count": 0,  # Reset the recursion counter
-            "continuity_review_flags": review_flags,  # Update flags
-            "last_node": "resolve_continuity_issues",
             "messages": [AIMessage(content="No continuity issues requiring resolution were found.")]
         }
     
@@ -808,19 +555,12 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
         else:
             summary_message = "I've analyzed the continuity issues but no changes were necessary."
         
-        # Mark this chapter as resolved in flags
-        review_flags[review_key] = True
-        
         # Return updated state to exit resolution mode
-        # Note: We return the entire updated_revelations dict to ensure it completely replaces
-        # the previous revelations rather than being merged with it
+        # Return only the essential state that changed
         return {
             "continuity_phase": "complete",     # Mark resolution as complete
             "resolution_index": 0,              # Reset for next time
             "resolution_count": 0,              # Reset for next time
-            "global_recursion_count": 0,        # Reset recursion counter
-            "continuity_review_flags": review_flags, # Update flags to prevent repeats
-            "last_node": "resolve_continuity_issues",
             "revelations": updated_revelations, # Complete replacement of revelations dict
             "messages": [AIMessage(content=summary_message)]
         }
@@ -871,9 +611,6 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
         return {
             "resolution_index": resolution_index + 1,
             "resolution_count": resolution_count + 1,
-            "global_recursion_count": global_recursion_count,
-            "continuity_review_flags": review_flags,  # Preserve flags
-            "last_node": "resolve_continuity_issues",
             "messages": [AIMessage(content=f"Analyzed continuity issue but couldn't identify specific chapters to revise.")]
         }
     
@@ -1085,9 +822,7 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
         "resolution_index": next_index,          # Increment resolution index
         "resolution_count": resolution_count + 1, # Increment resolution count
         "resolution_summary": resolution_summary, # Track what we've resolved
-        "global_recursion_count": global_recursion_count, # Track recursion counter
-        "continuity_review_flags": review_flags, # Preserve flags
-        "last_node": "resolve_continuity_issues",
+        
         "messages": [AIMessage(content=message)]
     }
 
@@ -1169,7 +904,6 @@ def compile_final_story(state: StoryState) -> Dict:
     
     # Final message to the user
     return {
-        "last_node": "compile_final_story",
         "messages": [AIMessage(content="I've compiled the complete story. Here's a summary of what I created:"),
                     AIMessage(content=f"A {state['tone']} {state['genre']} story with {len(chapters)} chapters and {sum(len(chapter['scenes']) for chapter in chapters.values())} scenes. The story follows the hero's journey structure and features {len(state['characters'])} main characters. I've maintained consistency throughout the narrative and carefully managed character development and plot revelations.")],
         "compiled_story": complete_story

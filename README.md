@@ -53,6 +53,7 @@ python run_storyteller.py --genre fantasy --tone epic --output my_story.md
 - `--verbose`: Display detailed information about the story elements as they're generated
 - `--cache`: LLM cache type to use (choices: memory, sqlite, none; default: sqlite)
 - `--cache-path`: Path to the cache file (for sqlite cache)
+- `--recursion-limit`: LangGraph recursion limit for complex stories (default: 200)
 
 ### Examples
 
@@ -74,6 +75,9 @@ python run_storyteller.py --genre mystery --tone suspenseful --cache none
 
 # Use a custom cache location 
 python run_storyteller.py --genre fantasy --tone heroic --cache sqlite --cache-path ~/.cache/storyteller/my_custom_cache.db
+
+# Generate a complex story with higher recursion limit for large number of chapters
+python run_storyteller.py --genre fantasy --tone epic --recursion-limit 300
 ```
 
 ## How It Works
@@ -109,49 +113,38 @@ The architecture follows a graph structure with nodes for each step of the story
 ```mermaid
 flowchart TD
     START((Start)) --> INIT[Initialize State]
-    INIT --> ROUTER{Router}
     
-    ROUTER -->|If no story outline| BRAINSTORM[Brainstorm Story Concepts]
-    BRAINSTORM --> ROUTER
+    INIT --> |no concepts| BRAINSTORM[Brainstorm Story Concepts]
+    BRAINSTORM --> |has concepts| OUTLINE[Generate Story Outline]
     
-    ROUTER -->|If outline needed| OUTLINE[Generate Story Outline]
-    OUTLINE --> ROUTER
+    OUTLINE --> |has outline| CHARS[Generate Characters]
+    CHARS --> |has characters| PLAN[Plan Chapters]
     
-    ROUTER -->|If no characters| CHARS[Generate Characters]
-    CHARS --> ROUTER
+    PLAN --> |chapters planned| SCENE_BRAINSTORM[Brainstorm Scene Elements]
     
-    ROUTER -->|If no chapters| PLAN[Plan Chapters]
-    PLAN --> ROUTER
-    
-    ROUTER -->|If scene needs creative elements| SCENE_BRAINSTORM[Brainstorm Scene Elements]
-    SCENE_BRAINSTORM --> ROUTER
-    
-    ROUTER -->|If scene needs to be written| WRITE[Write Scene]
-    WRITE --> ROUTER
-    
-    ROUTER -->|If scene needs reflection| REFLECT[Reflect on Scene]
+    SCENE_BRAINSTORM --> WRITE[Write Scene]
+    WRITE --> REFLECT[Reflect on Scene]
     REFLECT --> REVISE[Revise Scene if Needed]
-    REVISE --> ROUTER
     
-    ROUTER -->|After reflection| UPDATE_CHARS[Update Character Profiles]
-    UPDATE_CHARS --> ROUTER
+    REVISE --> UPDATE_CHARS[Update Character Profiles]
     
-    ROUTER -->|If chapter complete| REVIEW[Review Continuity]
-    REVIEW --> ROUTER
+    UPDATE_CHARS --> |chapter complete| REVIEW[Review Continuity]
+    UPDATE_CHARS --> |chapter incomplete| ADVANCE1[Advance to Next Scene]
     
-    ROUTER -->|Move to next scene/chapter| ADVANCE[Advance to Next Scene/Chapter]
-    ADVANCE --> ROUTER
+    REVIEW --> |needs resolution| RESOLVE[Resolve Continuity Issues]
+    REVIEW --> |no issues| ADVANCE2[Advance to Next Chapter]
     
-    ROUTER -->|If story complete| COMPILE[Compile Final Story]
+    RESOLVE --> |more issues| RESOLVE
+    RESOLVE --> |resolved| ADVANCE2
+    
+    ADVANCE1 --> SCENE_BRAINSTORM
+    ADVANCE2 --> |story complete| COMPILE[Compile Final Story]
+    ADVANCE2 --> |more chapters| SCENE_BRAINSTORM
+    
     COMPILE --> END((End))
-    
-    subgraph Safety Mechanisms
-        ROUTER -->|If router called too many times| END
-        ROUTER -->|If invalid state detected| COMPILE
-    end
 ```
 
-The diagram shows the current LangGraph implementation with a central router that manages the flow between all nodes based on the current state. Each node reports progress as it executes via decorators, allowing for real-time tracking of the story generation process. The router directs the flow to the appropriate next node, and includes built-in safety mechanisms to prevent infinite recursion and handle error cases gracefully.
+The diagram shows the current LangGraph implementation with explicit conditional edges between nodes. Unlike earlier versions that used a central router, this version uses LangGraph's native edge system for state transitions. Each conditional edge evaluates the current state to determine the next node to execute, creating a more reliable and maintainable flow that prevents recursion issues.
 
 ## State Management
 
@@ -162,7 +155,11 @@ The agent uses a structured state schema with TypedDict classes to manage the ev
 - **ChapterState**: Manages chapter outlines and scenes
 - **SceneState**: Contains scene content and reflection notes
 
-State updates are handled through LangGraph's reducer functions, which provide controlled ways to merge new information into the existing state.
+State updates follow LangGraph's immutable state update pattern:
+1. Only the changed keys are returned from node functions
+2. The state is never modified directly
+3. Nested structures are copied before modification
+4. LangGraph handles merging the changes into the state
 
 ## Progress Tracking
 
@@ -173,6 +170,14 @@ The system includes detailed progress tracking through every step of the story g
 - **Detailed Progress Reporting**: Provides context-specific information for each step (brainstorming, writing, reflection)
 - **Percentage Completion**: Calculates and displays overall progress through chapters and scenes
 - **Error Handling**: Gracefully handles errors and provides meaningful error messages
-- **Safety Mechanisms**: Prevents infinite recursion loops with circuit breakers and fallbacks
 
-Progress tracking is implemented using a module-level tracking system that integrates with LangGraph's execution model without modifying its core functionality.
+## Recent Improvements
+
+- **Native LangGraph Edge System**: Replaced custom router with LangGraph's native conditional edges
+- **Improved State Management**: Eliminated custom state flags and tracking variables
+- **Enhanced Continuity Review**: Refactored continuity review and resolution to prevent infinite loops
+- **Configurable Recursion Limit**: Added support for adjustable recursion limits for complex stories
+- **Reduced Memory Usage**: Optimized state updates to include only essential changes
+- **Robust Output File Generation**: Added multi-layered error handling to ensure story output is always saved
+- **Partial Story Recovery**: Implemented recovery system that extracts and saves partial stories even when errors occur
+- **Improved Directory Handling**: Added auto-creation of output directories if they don't exist
