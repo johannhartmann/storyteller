@@ -96,7 +96,7 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     
     return {
         "creative_elements": current_creative_elements,
-        "last_node": "brainstorm_scene_elements",
+        
         "messages": [AIMessage(content=f"I've brainstormed creative elements and unexpected twists for scene {current_scene} of chapter {current_chapter}. Now I'll write the scene incorporating the most promising ideas.")]
     }
 
@@ -215,7 +215,7 @@ def write_scene(state: StoryState) -> Dict:
     # Update state with the new scene
     return {
         "chapters": updated_chapters,
-        "last_node": "write_scene",
+        
         "messages": [AIMessage(content=f"I've written scene {current_scene} of chapter {current_chapter} incorporating creative elements and surprising twists. Now I'll reflect on it to ensure quality and consistency.")]
     }
 
@@ -484,7 +484,7 @@ def reflect_on_scene(state: StoryState) -> Dict:
         "revelations": {
             "reader": new_revelations  # The reducer will combine this with existing revelations
         },
-        "last_node": "reflect_on_scene",
+        
         "messages": [AIMessage(content=f"I've analyzed scene {current_scene} of chapter {current_chapter} for quality and consistency.")]
     }
 
@@ -514,7 +514,7 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         return {
             "current_chapter": current_chapter,
             "current_scene": current_scene,
-            "last_node": "revise_scene_if_needed",
+            
             "messages": [AIMessage(content=f"Scene {current_scene} of Chapter {current_chapter} has already been revised {revision_count} times. No further revisions needed.")]
         }
     
@@ -658,7 +658,7 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             "revision_count": revised_counts,  # Update the revision count in state
             "current_chapter": current_chapter,
             "current_scene": current_scene,
-            "last_node": "revise_scene_if_needed",
+            
             "messages": [AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address the identified issues (revision #{revision_count + 1}).")]
         }
     else:
@@ -672,6 +672,6 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         return {
             "current_chapter": current_chapter,
             "current_scene": current_scene,
-            "last_node": "revise_scene_if_needed",
+            
             "messages": [AIMessage(content=f"Scene {current_scene} of chapter {current_chapter} is consistent and well-crafted, no revision needed.")]
         }

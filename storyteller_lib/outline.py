@@ -149,7 +149,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     # Update the state
     return {
         "global_story": story_outline,
-        "last_node": "generate_story_outline",
+        
         "messages": [AIMessage(content="I've created a story outline following the hero's journey structure. Now I'll develop the characters in more detail.")]
     }
 
@@ -327,7 +327,7 @@ def generate_characters(state: StoryState) -> Dict:
     # Update state
     return {
         "characters": characters,
-        "last_node": "generate_characters",
+        
         "messages": [AIMessage(content="I've developed detailed character profiles with interconnected backgrounds and motivations. Now I'll plan the chapters.")]
     }
 
@@ -467,6 +467,6 @@ def plan_chapters(state: StoryState) -> Dict:
         "chapters": chapters,
         "current_chapter": "1",  # Start with the first chapter
         "current_scene": "1",    # Start with the first scene
-        "last_node": "plan_chapters",
+        
         "messages": [AIMessage(content="I've planned out the chapters for the story. Now I'll begin writing the first scene of chapter 1.")]
     }

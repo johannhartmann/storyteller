@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
 Run the StoryCraft agent to generate a complete story with progress updates.
+Uses LangGraph's native edge system for improved reliability with complex stories.
 """
 
 import os
@@ -197,13 +198,14 @@ def progress_callback(node_name, state):
         progress_message = f"[{elapsed_str}] Reviewed Scene {current_scene} of Chapter {current_chapter} for potential revisions [{scene_info}]"
         
         if verbose_mode:
-            # Determine if revisions were made by checking last_node and presence of reflection notes
+            # Determine if revisions were made by checking presence of reflection notes
             chapters = state.get("chapters", {})
             scene_revised = False
             
             if current_chapter in chapters and current_scene in chapters[current_chapter]["scenes"]:
-                # If reflection notes are empty but last node is revise_scene_if_needed, a revision was made
-                if not chapters[current_chapter]["scenes"][current_scene].get("reflection_notes") and state.get("last_node") == "revise_scene_if_needed":
+                # Check for revision marker in reflection notes
+                scene = chapters[current_chapter]["scenes"][current_scene]
+                if scene.get("reflection_notes") and len(scene["reflection_notes"]) == 1 and scene["reflection_notes"][0] == "Scene has been revised":
                     scene_revised = True
                     
             if scene_revised:
@@ -246,8 +248,6 @@ def progress_callback(node_name, state):
         progress_message = f"[{elapsed_str}] Story complete! Compiled final narrative with {chapter_count} chapters and {scene_count} scenes"
     
     # Print the progress message
-    # Remove special handling for router node since we don't use a router anymore
-    
     sys.stdout.write(f"{progress_message}\n")
     sys.stdout.flush()
     
@@ -296,7 +296,7 @@ def progress_callback(node_name, state):
 
 def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Generate a story using the StoryCraft agent")
+    parser = argparse.ArgumentParser(description="Generate a story using the refactored StoryCraft agent")
     parser.add_argument("--genre", type=str, default="fantasy", 
                         help="Genre of the story (e.g., fantasy, sci-fi, mystery)")
     parser.add_argument("--tone", type=str, default="epic", 
@@ -311,6 +311,8 @@ def main():
                         help="LLM cache type to use (default: sqlite)")
     parser.add_argument("--cache-path", type=str, 
                         help="Path to the cache file (for sqlite cache)")
+    parser.add_argument("--recursion-limit", type=int, default=200,
+                        help="LangGraph recursion limit (default: 200)")
     args = parser.parse_args()
     
     # Check if API key is set
@@ -354,6 +356,7 @@ def main():
         set_progress_callback(progress_callback)
         
         story = None
+        partial_story = None
         try:
             # Start the story generation 
             # We don't need to pass progress_callback since we registered it globally
@@ -374,12 +377,28 @@ def main():
             print(f"[{elapsed_str}] Error during story generation: {str(e)}")
             import traceback
             traceback.print_exc()
-            return 1
+            
+            # Try to recover partial story from the last good state
+            from storyteller_lib.storyteller import extract_partial_story
+            try:
+                print("Attempting to recover partial story...")
+                partial_story = extract_partial_story(args.genre, args.tone, args.author)
+                if partial_story:
+                    print("Partial story recovered successfully!")
+                    story = partial_story
+            except Exception as recovery_err:
+                print(f"Could not recover partial story: {str(recovery_err)}")
         
         # Ensure we have a story to save
         if story is None:
             print("No story was generated. Please check the error messages above.")
-            return 1
+            # Create a minimal story that explains the error
+            title = f"Incomplete {args.tone.capitalize()} {args.genre.capitalize()} Story"
+            story = f"# {title}\n\n"
+            story += "## Error During Generation\n\n"
+            story += "This story could not be fully generated due to an error in the LangGraph workflow.\n\n"
+            story += "Please check the console output for error details and try again.\n\n"
+            print("Created minimal error-explaining story file instead.")
             
         # Ensure the output has proper markdown formatting
         if not story.startswith("# "):
@@ -394,9 +413,27 @@ def main():
         # Fix scene transitions if they exist but aren't formatted
         story = re.sub(r'(?<!\n\n)Scene (\d+)(?!\n#)', r'\n\n### Scene \1', story)
         
-        # Save to file
-        with open(args.output, "w") as f:
-            f.write(story)
+        # Save to file with robust error handling
+        try:
+            # Ensure the directory exists
+            output_dir = os.path.dirname(args.output)
+            if output_dir and not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+                
+            # Write the file with error handling
+            with open(args.output, "w") as f:
+                f.write(story)
+            print(f"Story successfully saved to {args.output}")
+        except IOError as e:
+            print(f"Error saving story to {args.output}: {str(e)}")
+            # Try to save to a fallback location
+            fallback_path = "story_fallback.md"
+            try:
+                with open(fallback_path, "w") as f:
+                    f.write(story)
+                print(f"Story saved to fallback location: {fallback_path}")
+            except IOError as fallback_err:
+                print(f"Critical error: Could not save story to fallback location: {str(fallback_err)}")
         
         # Calculate total elapsed time
         total_time = time.time() - start_time
