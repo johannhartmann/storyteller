@@ -13,11 +13,12 @@ An autonomous AI agent designed to write engaging, multi-chapter stories based o
 - **Author Style Emulation**: Analyzes and mimics the writing style of specified authors
 - **Real-time Progress Tracking**: Provides detailed progress updates at each step of the generation process
 - **Robust Error Handling**: Includes safety mechanisms to prevent infinite loops and gracefully handle edge cases
+- **LLM Response Caching**: Improves performance and reduces API costs by caching LLM responses
 
 ## Requirements
 
 - Python 3.8+
-- Anthropic API key
+- OpenAI API key
 
 ## Installation
 
@@ -30,10 +31,9 @@ An autonomous AI agent designed to write engaging, multi-chapter stories based o
    ```
    cp .env.example .env
    ```
-4. Edit the `.env` file and add your Anthropic and OpenAI API keys
+4. Edit the `.env` file and add your OpenAI API key
    ```
-   ANTHROPIC_API_KEY=sk_ant_your_key_here
-   OPENAI_API_KEY=sk-your_key_here  # For embeddings
+   OPENAI_API_KEY=sk-your_key_here
    ```
 
 ## Usage
@@ -50,6 +50,9 @@ python run_storyteller.py --genre fantasy --tone epic --output my_story.md
 - `--tone`: The tone of the story (e.g., epic, dark, humorous)
 - `--author`: Author whose style to emulate (e.g., Tolkien, Rowling, Martin)
 - `--output`: Output file to save the generated story
+- `--verbose`: Display detailed information about the story elements as they're generated
+- `--cache`: LLM cache type to use (choices: memory, sqlite, none; default: sqlite)
+- `--cache-path`: Path to the cache file (for sqlite cache)
 
 ### Examples
 
@@ -62,6 +65,15 @@ python run_storyteller.py --genre mystery --tone dark --author "Edgar Allan Poe"
 
 # Generate a sci-fi story in the style of Isaac Asimov and save to a custom file
 python run_storyteller.py --genre "science fiction" --tone philosophical --author "Isaac Asimov" --output asimov_story.md
+
+# Generate a story with detailed progress updates and in-memory caching
+python run_storyteller.py --genre fantasy --tone epic --verbose --cache memory
+
+# Generate a story with no LLM caching (useful for testing or when you want fresh responses)
+python run_storyteller.py --genre mystery --tone suspenseful --cache none
+
+# Use a custom cache location 
+python run_storyteller.py --genre fantasy --tone heroic --cache sqlite --cache-path ~/.cache/storyteller/my_custom_cache.db
 ```
 
 ## How It Works
@@ -87,7 +99,8 @@ The agent is built using:
 
 - **LangGraph**: For orchestration and state management
 - **LangMem**: For memory and reflection capabilities
-- **Claude 3.5 Sonnet**: For high-quality text generation
+- **OpenAI GPT-4o-mini**: For high-quality text generation
+- **LangChain Caching**: For improved performance and cost efficiency
 
 The architecture follows a graph structure with nodes for each step of the story generation process, connected by conditional edges that determine the flow based on the current state.
 
