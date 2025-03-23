@@ -165,6 +165,46 @@ def write_scene(state: StoryState) -> Dict:
         while ensuring they serve the overall narrative and character development.
         """
     
+    # Identify which characters are likely to appear in this scene based on the chapter outline
+    scene_characters = []
+    chapter_outline = chapter.get('outline', '')
+    for char_name, char_data in characters.items():
+        if char_name.lower() in chapter_outline.lower() or char_data.get('name', '').lower() in chapter_outline.lower():
+            scene_characters.append(char_name)
+    
+    # If no characters were identified, include all characters
+    if not scene_characters:
+        scene_characters = list(characters.keys())
+    
+    # Create emotional guidance based on character arcs and inner conflicts
+    emotional_guidance = f"""
+    EMOTIONAL DEPTH GUIDANCE:
+    
+    Focus on creating emotional resonance in this scene through:
+    
+    1. CHARACTER EMOTIONS:
+       - Show how characters feel through actions, dialogue, and internal thoughts
+       - Reveal the emotional impact of events on each character
+       - Demonstrate emotional contrasts between different characters
+    
+    2. INNER STRUGGLES:
+       - Highlight the inner conflicts of these characters:
+         {', '.join([f"{characters[name].get('name', name)} ({characters[name].get('inner_conflicts', [{'description': 'No conflicts defined'}])[0].get('description', 'No conflicts defined')})"
+                    for name in scene_characters if name in characters])}
+       - Show characters wrestling with difficult choices or moral dilemmas
+       - Reveal how external events trigger internal turmoil
+    
+    3. EMOTIONAL JOURNEY:
+       - Connect emotions to character arcs and development
+       - Show subtle shifts in emotional states that build toward larger changes
+       - Create moments of emotional revelation or realization
+    
+    4. READER ENGAGEMENT:
+       - Craft scenes that evoke {tone} emotional responses appropriate for {genre}
+       - Balance multiple emotional notes (e.g., tension with humor, fear with hope)
+       - Use sensory details to make emotional moments vivid and immersive
+    """
+    
     # Create a prompt for scene writing
     prompt = f"""
     Write a detailed scene for Chapter {current_chapter}: "{chapter['title']}" (Scene {current_scene}).
@@ -181,6 +221,8 @@ def write_scene(state: StoryState) -> Dict:
     {revelations.get('reader', [])}
     
     {creative_guidance}
+    
+    {emotional_guidance}
     
     Your task is to write an engaging, vivid scene of 500-800 words that advances the story according to the chapter outline.
     Use rich descriptions, meaningful dialogue, and show character development.
@@ -301,11 +343,17 @@ def reflect_on_scene(state: StoryState) -> Dict:
     - tone_appropriateness: Tone and style appropriateness
     - information_management: Information management (revelations and secrets)
     - continuity: Continuity with previous scenes and the overall story arc
+    - emotional_depth: Depth and authenticity of emotional content and resonance
+    - character_relatability: How relatable and human the characters feel to readers
+    - inner_conflict_development: Development of characters' inner struggles and dilemmas
     
     Identify:
     - Any new information revealed to the reader that should be tracked
     - Any character developments or relationship changes
+    - Any emotional developments or shifts in characters
+    - Any progress in character arcs or inner conflicts
     - Any inconsistencies or continuity errors (e.g., contradictions with previous scenes, plot holes)
+    - Any areas that need improvement in emotional depth or character development
     - Any areas that need improvement
     
     Set 'needs_revision' to true if ANY of these conditions are met:
@@ -328,7 +376,10 @@ def reflect_on_scene(state: StoryState) -> Dict:
             "writing_quality": {"score": 1-10, "comments": "..."},
             "tone_appropriateness": {"score": 1-10, "comments": "..."},
             "information_management": {"score": 1-10, "comments": "..."},
-            "continuity": {"score": 1-10, "comments": "..."}
+            "continuity": {"score": 1-10, "comments": "..."},
+            "emotional_depth": {"score": 1-10, "comments": "..."},
+            "character_relatability": {"score": 1-10, "comments": "..."},
+            "inner_conflict_development": {"score": 1-10, "comments": "..."}
         },
         "issues": [
             {

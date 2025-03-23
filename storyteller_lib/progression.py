@@ -35,6 +35,10 @@ def update_character_profiles(state: StoryState) -> Dict:
     2. Changes in relationships between characters
     3. Character growth or evolution
     4. New secrets that have been created but not yet revealed
+    5. Emotional changes or reactions
+    6. Progress in their character arc
+    7. Development of inner conflicts
+    8. Changes in desires, fears, or values
     
     For each relevant character, specify what should be added to their profile.
     """
@@ -63,6 +67,9 @@ def update_character_profiles(state: StoryState) -> Dict:
     4. Any new revealed facts to add
     5. Any secret facts to add
     6. Any relationship changes
+    7. Any emotional state changes
+    8. Any progress in inner conflicts
+    9. Any advancement in character arc stages
     
     Format as a JSON object where keys are character names and values are objects with the fields to update.
     """
@@ -70,29 +77,54 @@ def update_character_profiles(state: StoryState) -> Dict:
     # Get structured character updates
     character_updates_structured = llm.invoke([HumanMessage(content=character_update_prompt)]).content
     
-    # With our character reducer, we can just return the specific character updates
-    # Instead of a complex update, let's perform a simpler update for demonstration
+    # Import the character arc tracking module
+    from storyteller_lib.character_arcs import update_character_arc, evaluate_arc_consistency
     
-    # Create a targeted update for the hero character (if it exists)
+    # Process updates for each character
     character_updates = {}
-    if "hero" in state["characters"]:
-        character_updates["hero"] = {
-            "evolution": [f"Development in Chapter {current_chapter}, Scene {current_scene}"]
-        }
+    
+    # First, try to parse the structured updates from the LLM
+    try:
+        from storyteller_lib.creative_tools import parse_json_with_langchain
+        structured_updates = parse_json_with_langchain(character_updates_structured, "character updates")
         
-        # Store the hero's updated profile in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": f"character_hero_updated",
-            "value": f"Character updated for Ch {current_chapter}, Scene {current_scene}"
-        })
+        if structured_updates and isinstance(structured_updates, dict):
+            # Apply the structured updates
+            for char_name, updates in structured_updates.items():
+                if char_name in characters:
+                    character_updates[char_name] = updates
+    except Exception as e:
+        print(f"Error parsing character updates: {str(e)}")
+    
+    # Then, use the character arc tracking module for each character that appears in the scene
+    for char_name, char_data in characters.items():
+        # Check if character appears in the scene
+        if char_name.lower() in scene_content.lower() or (char_data.get("name", "").lower() in scene_content.lower()):
+            # Update character arc
+            arc_updates = update_character_arc(char_data, scene_content, current_chapter, current_scene)
+            
+            if arc_updates:
+                # If we already have updates for this character, merge them
+                if char_name in character_updates:
+                    for key, value in arc_updates.items():
+                        if key not in character_updates[char_name]:
+                            character_updates[char_name][key] = value
+                else:
+                    character_updates[char_name] = arc_updates
+            
+            # Store the character's updated profile in memory
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": f"character_{char_name}_updated_ch{current_chapter}_sc{current_scene}",
+                "value": f"Character updated for Ch {current_chapter}, Scene {current_scene}"
+            })
     
     # Update state - only return what changed
     return {
         "characters": character_updates,  # Only specify what changes
         "messages": [
             *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=f"I've updated character profiles based on developments in scene {current_scene} of chapter {current_chapter}.")
+            AIMessage(content=f"I've updated character profiles with emotional developments and arc progression from scene {current_scene} of chapter {current_chapter}.")
         ]
     }
 
@@ -925,6 +957,46 @@ def compile_final_story(state: StoryState) -> Dict:
             story.append(scene["content"])
             story.append("\n\n")
     
+    # Import the visualization module
+    from storyteller_lib.visualization import generate_character_summary, generate_character_network
+    
+    # Add character arc summaries
+    characters = state["characters"]
+    if characters:
+        story.append("\n## Character Arcs\n")
+        
+        # Add character relationship network
+        story.append("### Character Relationships\n")
+        story.append(generate_character_network(characters))
+        story.append("\n\n")
+        
+        # Add individual character summaries
+        for char_name, char_data in characters.items():
+            if "character_arc" in char_data and char_data.get("character_arc"):
+                arc_type = char_data["character_arc"].get("type", "Undefined")
+                arc_summary = f"\n### {char_data.get('name', char_name)}'s {arc_type.capitalize()} Arc\n\n"
+                
+                # Add emotional journey summary
+                if "emotional_state" in char_data and "journey" in char_data["emotional_state"]:
+                    journey = char_data["emotional_state"]["journey"]
+                    if journey:
+                        arc_summary += "**Emotional Journey:**\n\n"
+                        for stage in journey:
+                            arc_summary += f"- {stage}\n"
+                        arc_summary += "\n"
+                
+                # Add inner conflict resolution
+                if "inner_conflicts" in char_data:
+                    resolved_conflicts = [c for c in char_data["inner_conflicts"]
+                                         if c.get("resolution_status") == "resolved"]
+                    if resolved_conflicts:
+                        arc_summary += "**Resolved Inner Conflicts:**\n\n"
+                        for conflict in resolved_conflicts:
+                            arc_summary += f"- {conflict.get('description')}\n"
+                        arc_summary += "\n"
+                
+                story.append(arc_summary)
+    
     # Join the story parts
     complete_story = "\n".join(story)
     
@@ -935,13 +1007,26 @@ def compile_final_story(state: StoryState) -> Dict:
         "value": complete_story
     })
     
+    # Generate detailed character summaries for reference
+    character_summaries = {}
+    for char_name, char_data in characters.items():
+        character_summaries[char_name] = generate_character_summary(char_data)
+    
+    # Store character summaries
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": "character_summaries",
+        "value": character_summaries
+    })
+    
     # Final message to the user
     return {
         "messages": [
                     *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
                     AIMessage(content="I've compiled the complete story. Here's a summary of what I created:"),
-                    AIMessage(content=f"A {state['tone']} {state['genre']} story with {len(chapters)} chapters and {sum(len(chapter['scenes']) for chapter in chapters.values())} scenes. The story follows the hero's journey structure and features {len(state['characters'])} main characters. I've maintained consistency throughout the narrative and carefully managed character development and plot revelations.")],
+                    AIMessage(content=f"A {state['tone']} {state['genre']} story with {len(chapters)} chapters and {sum(len(chapter['scenes']) for chapter in chapters.values())} scenes. The story follows the hero's journey structure and features {len(state['characters'])} main characters with detailed emotional arcs and inner conflicts. I've maintained consistency throughout the narrative and carefully managed character development and plot revelations. The story includes character arc summaries showing each character's emotional journey and resolved inner conflicts.")],
         "compiled_story": complete_story,
+        "character_summaries": character_summaries,
         
         # Add memory usage tracking for the final compilation
         "memory_usage": {

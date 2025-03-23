@@ -239,15 +239,33 @@ def generate_characters(state: StoryState) -> Dict:
     
     {global_story}
     
-    Create detailed profiles for 4-6 characters in this {tone} {genre} story.
+    Create detailed profiles for 4-6 characters in this {tone} {genre} story that readers will find compelling and relatable.
     For each character, include:
     
-    1. Name
-    2. Role in the story (protagonist, antagonist, mentor, etc.)
-    3. Detailed backstory
-    4. Initial known facts (what the character and reader know at the start)
-    5. Secret facts (information hidden from the reader initially)
-    6. Key relationships with other characters
+    1. Name and role in the story (protagonist, antagonist, mentor, etc.)
+    2. Detailed backstory that explains their motivations and worldview
+    3. Personality traits, including:
+       - 3-5 defining character traits
+       - 2-3 notable strengths that help them
+       - 2-3 significant flaws or weaknesses that create obstacles
+       - 1-2 core fears that drive their behavior
+       - 1-2 deep desires or goals that motivate them
+       - 1-2 values or principles they hold dear
+    
+    4. Emotional state at the beginning of the story
+    5. Inner conflicts they struggle with (moral dilemmas, competing desires, etc.)
+    6. Character arc type (redemption, fall, growth, etc.) and potential stages
+    7. Key relationships with other characters, including:
+       - Relationship dynamics (power balance, emotional connection)
+       - Potential for conflict or growth within the relationship
+    
+    8. Initial known facts (what the character and reader know at the start)
+    9. Secret facts (information hidden from the reader initially)
+    
+    Make these characters:
+    - RELATABLE: Give them universal hopes, fears, and struggles readers can empathize with
+    - COMPLEX: Include contradictions and inner turmoil that make them feel authentic
+    - DISTINCTIVE: Ensure each character has a unique voice, perspective, and emotional journey
     
     Format each character profile clearly and ensure they have interconnected relationships and histories.
     
@@ -264,12 +282,42 @@ def generate_characters(state: StoryState) -> Dict:
         "name": "Character Name",
         "role": "Role in story (protagonist, antagonist, etc)",
         "backstory": "Detailed character backstory",
+        "personality": {
+          "traits": ["Trait 1", "Trait 2", "Trait 3"],
+          "strengths": ["Strength 1", "Strength 2"],
+          "flaws": ["Flaw 1", "Flaw 2"],
+          "fears": ["Fear 1", "Fear 2"],
+          "desires": ["Desire 1", "Desire 2"],
+          "values": ["Value 1", "Value 2"]
+        },
+        "emotional_state": {
+          "initial": "Character's emotional state at the beginning",
+          "current": "Character's current emotional state",
+          "journey": []
+        },
+        "inner_conflicts": [
+          {
+            "description": "Description of inner conflict",
+            "resolution_status": "unresolved|in_progress|resolved",
+            "impact": "How this conflict affects the character"
+          }
+        ],
+        "character_arc": {
+          "type": "redemption|fall|growth|flat|etc",
+          "stages": [],
+          "current_stage": "Current stage in the character arc"
+        },
         "evolution": ["Initial state", "Future development point"],
         "known_facts": ["Known fact 1", "Known fact 2"],
         "secret_facts": ["Secret fact 1", "Secret fact 2"],
         "revealed_facts": [],
         "relationships": {
-          "other_character_slug": "Relationship description"
+          "other_character_slug": {
+            "type": "friend|enemy|mentor|etc",
+            "dynamics": "Power dynamics, emotional connection",
+            "evolution": ["Initial state", "Current state"],
+            "conflicts": ["Conflict 1", "Conflict 2"]
+          }
         }
       }
     }
@@ -281,31 +329,145 @@ def generate_characters(state: StoryState) -> Dict:
             "name": "Hero",
             "role": "Protagonist",
             "backstory": "Ordinary person with hidden potential",
+            "personality": {
+                "traits": ["Brave", "Curious", "Determined"],
+                "strengths": ["Quick learner", "Compassionate"],
+                "flaws": ["Impulsive", "Naive"],
+                "fears": ["Failure", "Losing loved ones"],
+                "desires": ["Adventure", "Recognition"],
+                "values": ["Friendship", "Justice"]
+            },
+            "emotional_state": {
+                "initial": "Restless and unfulfilled",
+                "current": "Restless and unfulfilled",
+                "journey": []
+            },
+            "inner_conflicts": [
+                {
+                    "description": "Desire for adventure vs. fear of the unknown",
+                    "resolution_status": "unresolved",
+                    "impact": "Causes hesitation at critical moments"
+                }
+            ],
+            "character_arc": {
+                "type": "growth",
+                "stages": ["Ordinary world", "Adventure begins", "Tests and trials"],
+                "current_stage": "Ordinary world"
+            },
             "evolution": ["Begins journey", "Faces first challenge"],
             "known_facts": ["Lived in small village", "Dreams of adventure"],
             "secret_facts": ["Has a special lineage", "Possesses latent power"],
             "revealed_facts": [],
-            "relationships": {"mentor": "Student", "villain": "Adversary"}
+            "relationships": {
+                "mentor": {
+                    "type": "student",
+                    "dynamics": "Respectful but questioning",
+                    "evolution": ["Initial meeting", "Growing trust"],
+                    "conflicts": ["Resists mentor's advice"]
+                },
+                "villain": {
+                    "type": "adversary",
+                    "dynamics": "Fearful but defiant",
+                    "evolution": ["Unaware of villain", "Direct confrontation"],
+                    "conflicts": ["Opposing goals", "Personal vendetta"]
+                }
+            }
         },
         "mentor": {
             "name": "Mentor",
             "role": "Guide",
             "backstory": "Wise figure with past experience",
+            "personality": {
+                "traits": ["Wise", "Patient", "Mysterious"],
+                "strengths": ["Experienced", "Knowledgeable"],
+                "flaws": ["Secretive", "Overprotective"],
+                "fears": ["History repeating itself", "Failing student"],
+                "desires": ["Redemption", "Peace"],
+                "values": ["Wisdom", "Balance"]
+            },
+            "emotional_state": {
+                "initial": "Cautiously hopeful",
+                "current": "Cautiously hopeful",
+                "journey": []
+            },
+            "inner_conflicts": [
+                {
+                    "description": "Duty to guide vs. fear of leading hero to danger",
+                    "resolution_status": "in_progress",
+                    "impact": "Causes withholding of important information"
+                }
+            ],
+            "character_arc": {
+                "type": "redemption",
+                "stages": ["Reluctant guide", "Opening up", "Sacrifice"],
+                "current_stage": "Reluctant guide"
+            },
             "evolution": ["Introduces hero to new world"],
             "known_facts": ["Has many skills", "Traveled widely"],
             "secret_facts": ["Former student of villain", "Hiding a prophecy"],
             "revealed_facts": [],
-            "relationships": {"hero": "Teacher", "villain": "Former student"}
+            "relationships": {
+                "hero": {
+                    "type": "teacher",
+                    "dynamics": "Protective and guiding",
+                    "evolution": ["Reluctant teacher", "Invested mentor"],
+                    "conflicts": ["Withholding information"]
+                },
+                "villain": {
+                    "type": "former student",
+                    "dynamics": "Regretful and wary",
+                    "evolution": ["Teacher-student", "Adversaries"],
+                    "conflicts": ["Betrayal", "Opposing ideologies"]
+                }
+            }
         },
         "villain": {
             "name": "Villain",
             "role": "Antagonist",
             "backstory": "Once good, corrupted by power",
+            "personality": {
+                "traits": ["Intelligent", "Ruthless", "Charismatic"],
+                "strengths": ["Strategic mind", "Powerful abilities"],
+                "flaws": ["Arrogance", "Inability to trust"],
+                "fears": ["Losing power", "Being forgotten"],
+                "desires": ["Domination", "Validation"],
+                "values": ["Order", "Control"]
+            },
+            "emotional_state": {
+                "initial": "Coldly calculating",
+                "current": "Coldly calculating",
+                "journey": []
+            },
+            "inner_conflicts": [
+                {
+                    "description": "Lingering humanity vs. embraced darkness",
+                    "resolution_status": "unresolved",
+                    "impact": "Occasional moments of mercy or doubt"
+                }
+            ],
+            "character_arc": {
+                "type": "fall",
+                "stages": ["Corruption complete", "Obsession grows", "Potential redemption"],
+                "current_stage": "Corruption complete"
+            },
             "evolution": ["Sends minions after hero"],
             "known_facts": ["Rules with fear", "Seeks ancient artifact"],
             "secret_facts": ["Was once good", "Has personal connection to hero"],
             "revealed_facts": [],
-            "relationships": {"hero": "Enemy", "mentor": "Former mentor"}
+            "relationships": {
+                "hero": {
+                    "type": "enemy",
+                    "dynamics": "Sees as threat and potential successor",
+                    "evolution": ["Unaware of hero", "Growing obsession"],
+                    "conflicts": ["Opposing goals", "Ideological differences"]
+                },
+                "mentor": {
+                    "type": "former mentor",
+                    "dynamics": "Betrayal and resentment",
+                    "evolution": ["Student-teacher", "Betrayal"],
+                    "conflicts": ["Ideological split", "Personal betrayal"]
+                }
+            }
         }
     }
     
