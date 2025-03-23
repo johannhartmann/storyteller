@@ -1,6 +1,9 @@
 langgraph
+langgraph-checkpoint-sqlite
 langmem
 langchain-anthropic
 langchain-core
 openai
 python-dotenv
+langgraph-checkpoint-postgres
+psutil

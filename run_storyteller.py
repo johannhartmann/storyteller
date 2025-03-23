@@ -297,12 +297,14 @@ def progress_callback(node_name, state):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Generate a story using the refactored StoryCraft agent")
-    parser.add_argument("--genre", type=str, default="fantasy", 
+    parser.add_argument("--genre", type=str, default="fantasy",
                         help="Genre of the story (e.g., fantasy, sci-fi, mystery)")
-    parser.add_argument("--tone", type=str, default="epic", 
+    parser.add_argument("--tone", type=str, default="epic",
                         help="Tone of the story (e.g., epic, dark, humorous)")
-    parser.add_argument("--author", type=str, default="", 
+    parser.add_argument("--author", type=str, default="",
                         help="Author whose style to emulate (e.g., Tolkien, Rowling, Martin)")
+    parser.add_argument("--idea", type=str, default="",
+                        help="Initial story idea to use as a starting point (e.g., 'A detective story set in a zoo')")
     parser.add_argument("--output", type=str, default="story.md",
                         help="Output file to save the generated story")
     parser.add_argument("--verbose", action="store_true",
@@ -361,9 +363,10 @@ def main():
             # Start the story generation 
             # We don't need to pass progress_callback since we registered it globally
             story = generate_story(
-                genre=args.genre, 
-                tone=args.tone, 
-                author=args.author
+                genre=args.genre,
+                tone=args.tone,
+                author=args.author,
+                initial_idea=args.idea
             )
             
             # Show completion message
@@ -382,7 +385,7 @@ def main():
             from storyteller_lib.storyteller import extract_partial_story
             try:
                 print("Attempting to recover partial story...")
-                partial_story = extract_partial_story(args.genre, args.tone, args.author)
+                partial_story = extract_partial_story(args.genre, args.tone, args.author, args.idea)
                 if partial_story:
                     print("Partial story recovered successfully!")
                     story = partial_story

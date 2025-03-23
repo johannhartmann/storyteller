@@ -3,6 +3,7 @@ StoryCraft Agent - Graph construction with native LangGraph edges.
 
 This is a refactored version of the graph.py file that uses LangGraph's native edge system
 instead of a custom router function, which should prevent recursion limit errors.
+It also uses SQLite for persistent storage instead of in-memory storage.
 """
 
 from typing import Dict, List, Any
@@ -11,7 +12,7 @@ from langgraph.graph import StateGraph, START, END
 from operator import add  # Default reducer for lists
 
 from storyteller_lib.models import StoryState
-from storyteller_lib.config import store
+# No checkpointer needed for single-session generation
 from storyteller_lib.initialization import initialize_state, brainstorm_story_concepts
 from storyteller_lib.outline import generate_story_outline, generate_characters, plan_chapters
 from storyteller_lib.scenes import (
@@ -319,7 +320,7 @@ def build_story_graph():
     # End the story
     graph_builder.add_edge("compile_final_story", END)
     
-    # Compile the graph
+    # Compile the graph without checkpointing (single-session use)
     graph = graph_builder.compile()
     
     # Configure with a higher recursion limit when it's invoked

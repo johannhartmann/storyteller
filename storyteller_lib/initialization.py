@@ -7,6 +7,7 @@ from typing import Dict
 from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages.modifier import RemoveMessage
 from storyteller_lib import track_progress
 
 @track_progress
@@ -14,11 +15,12 @@ def initialize_state(state: StoryState) -> Dict:
     """Initialize the story state with user input."""
     messages = state["messages"]
     
-    # Use the genre, tone, and author values already passed in the state
+    # Use the genre, tone, author, and initial idea values already passed in the state
     # If not provided, use defaults
     genre = state.get("genre") or "fantasy"
     tone = state.get("tone") or "epic"
     author = state.get("author") or ""
+    initial_idea = state.get("initial_idea") or ""
     author_style_guidance = state.get("author_style_guidance", "")
     
     # If author guidance wasn't provided in the initial state, but we have an author, get it now
@@ -39,13 +41,18 @@ def initialize_state(state: StoryState) -> Dict:
     
     # Prepare response message
     author_mention = f" in the style of {author}" if author else ""
-    response_message = f"I'll create a {tone} {genre} story{author_mention} for you. Let me start planning the narrative..."
+    idea_mention = f" based on your idea: '{initial_idea}'" if initial_idea else ""
+    response_message = f"I'll create a {tone} {genre} story{author_mention}{idea_mention} for you. Let me start planning the narrative..."
+    
+    # Get existing message IDs to delete
+    message_ids = [msg.id for msg in state.get("messages", [])]
     
     # Initialize the state
     return {
         "genre": genre,
         "tone": tone,
         "author": author,
+        "initial_idea": initial_idea,
         "author_style_guidance": author_style_guidance,
         "global_story": "",
         "chapters": {},
@@ -54,7 +61,10 @@ def initialize_state(state: StoryState) -> Dict:
         "current_chapter": "",
         "current_scene": "",
         "completed": False,
-        "messages": [AIMessage(content=response_message)]
+        "messages": [
+            *[RemoveMessage(id=msg_id) for msg_id in message_ids],
+            AIMessage(content=response_message)
+        ]
     }
 
 @track_progress
@@ -65,12 +75,14 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     genre = state["genre"]
     tone = state["tone"]
     author = state["author"]
+    initial_idea = state.get("initial_idea", "")
     author_style_guidance = state["author_style_guidance"]
     
-    # Generate initial context based on genre and tone
+    # Generate initial context based on genre, tone, and initial idea
+    idea_context = f"\nThe story should be based on this initial idea: '{initial_idea}'" if initial_idea else ""
     context = f"""
     We're creating a {tone} {genre} story that follows the hero's journey structure.
-    The story should be engaging, surprising, and emotionally resonant with readers.
+    The story should be engaging, surprising, and emotionally resonant with readers.{idea_context}
     """
     
     # Brainstorm different high-level story concepts
@@ -113,8 +125,18 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         "central_conflicts": conflict_results
     }
     
+    # Create messages to add and remove
+    idea_mention = f" based on your idea" if initial_idea else ""
+    new_msg = AIMessage(content=f"I've brainstormed several creative concepts for your {tone} {genre} story{idea_mention}. Now I'll develop a cohesive outline based on the most promising ideas.")
+    
+    # Get existing message IDs to delete
+    message_ids = [msg.id for msg in state.get("messages", [])]
+    
     # Update state with brainstormed ideas
     return {
         "creative_elements": creative_elements,
-        "messages": [AIMessage(content=f"I've brainstormed several creative concepts for your {tone} {genre} story. Now I'll develop a cohesive outline based on the most promising ideas.")]
+        "messages": [
+            *[RemoveMessage(id=msg_id) for msg_id in message_ids],
+            new_msg
+        ]
     }
