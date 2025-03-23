@@ -268,8 +268,7 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
     except Exception:
         story_parts.append(f"# Partial {tone.capitalize()} {genre.capitalize()} Story\n\n")
     
-    # Add a note about the incomplete status
-    story_parts.append("*Note: This story was partially generated before an error occurred.*\n\n")
+    # No note about incomplete status needed
     
     # Try to retrieve chapters and scenes from memory
     try:
@@ -350,9 +349,8 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
                     for sc_num in sorted(scene_dict[ch_num].keys(), key=lambda x: int(x) if x.isdigit() else float('inf')):
                         scene = scene_dict[ch_num][sc_num]
                         
-                        # Add scene content
+                        # Add scene content without scene headlines
                         if isinstance(scene, dict) and "content" in scene:
-                            story_parts.append(f"### Scene {sc_num}\n\n")
                             story_parts.append(f"{scene['content']}\n\n")
     except Exception as e:
         story_parts.append(f"\n*Error recovering chapter content: {str(e)}*\n\n")
