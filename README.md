@@ -14,11 +14,12 @@ An autonomous AI agent designed to write engaging, multi-chapter stories based o
 - **Real-time Progress Tracking**: Provides detailed progress updates at each step of the generation process
 - **Robust Error Handling**: Includes safety mechanisms to prevent infinite loops and gracefully handle edge cases
 - **LLM Response Caching**: Improves performance and reduces API costs by caching LLM responses
+- **Multi-language Support**: Generate stories in 12 different languages
 
 ## Requirements
 
 - Python 3.8+
-- OpenAI API key
+- Google Gemini API key
 
 ## Installation
 
@@ -31,9 +32,9 @@ An autonomous AI agent designed to write engaging, multi-chapter stories based o
    ```
    cp .env.example .env
    ```
-4. Edit the `.env` file and add your OpenAI API key
+4. Edit the `.env` file and add your Gemini API key
    ```
-   OPENAI_API_KEY=sk-your_key_here
+   GEMINI_API_KEY=your_api_key_here
    ```
 
 ## Usage
@@ -49,11 +50,29 @@ python run_storyteller.py --genre fantasy --tone epic --output my_story.md
 - `--genre`: The genre of the story (e.g., fantasy, sci-fi, mystery)
 - `--tone`: The tone of the story (e.g., epic, dark, humorous)
 - `--author`: Author whose style to emulate (e.g., Tolkien, Rowling, Martin)
+- `--language`: Target language for story generation (default: english)
+- `--idea`: Initial story idea to use as a starting point (e.g., 'A detective story set in a zoo')
 - `--output`: Output file to save the generated story
 - `--verbose`: Display detailed information about the story elements as they're generated
 - `--cache`: LLM cache type to use (choices: memory, sqlite, none; default: sqlite)
 - `--cache-path`: Path to the cache file (for sqlite cache)
 - `--recursion-limit`: LangGraph recursion limit for complex stories (default: 200)
+
+### Supported Languages
+
+The system supports generating stories in the following languages:
+- English (default)
+- Spanish
+- French
+- German
+- Italian
+- Portuguese
+- Russian
+- Japanese
+- Chinese
+- Korean
+- Arabic
+- Hindi
 
 ### Examples
 
@@ -73,11 +92,17 @@ python run_storyteller.py --genre fantasy --tone epic --verbose --cache memory
 # Generate a story with no LLM caching (useful for testing or when you want fresh responses)
 python run_storyteller.py --genre mystery --tone suspenseful --cache none
 
-# Use a custom cache location 
+# Use a custom cache location
 python run_storyteller.py --genre fantasy --tone heroic --cache sqlite --cache-path ~/.cache/storyteller/my_custom_cache.db
 
 # Generate a complex story with higher recursion limit for large number of chapters
 python run_storyteller.py --genre fantasy --tone epic --recursion-limit 300
+
+# Generate a story in Spanish
+python run_storyteller.py --genre fantasy --tone epic --language spanish
+
+# Generate a story based on a specific idea
+python run_storyteller.py --idea "A detective story set in a zoo" --tone mysterious
 ```
 
 ## How It Works
@@ -103,7 +128,7 @@ The agent is built using:
 
 - **LangGraph**: For orchestration and state management
 - **LangMem**: For memory and reflection capabilities
-- **OpenAI GPT-4o-mini**: For high-quality text generation
+- **Google Gemini 2.0 Flash**: For high-quality text generation
 - **LangChain Caching**: For improved performance and cost efficiency
 
 The architecture follows a graph structure with nodes for each step of the story generation process, connected by conditional edges that determine the flow based on the current state.
@@ -115,12 +140,18 @@ flowchart TD
     START((Start)) --> INIT[Initialize State]
     
     INIT --> |no concepts| BRAINSTORM[Brainstorm Story Concepts]
-    BRAINSTORM --> |has concepts| OUTLINE[Generate Story Outline]
+    INIT --> |has concepts| OUTLINE[Generate Story Outline]
+    
+    BRAINSTORM --> |has concepts| OUTLINE
+    BRAINSTORM --> |no concepts| BRAINSTORM
     
     OUTLINE --> |has outline| CHARS[Generate Characters]
-    CHARS --> |has characters| PLAN[Plan Chapters]
+    OUTLINE --> |no outline| OUTLINE
     
-    PLAN --> |chapters planned| SCENE_BRAINSTORM[Brainstorm Scene Elements]
+    CHARS --> |has characters| PLAN[Plan Chapters]
+    CHARS --> |no characters| CHARS
+    
+    PLAN --> SCENE_BRAINSTORM[Brainstorm Scene Elements]
     
     SCENE_BRAINSTORM --> WRITE[Write Scene]
     WRITE --> REFLECT[Reflect on Scene]
@@ -129,17 +160,16 @@ flowchart TD
     REVISE --> UPDATE_CHARS[Update Character Profiles]
     
     UPDATE_CHARS --> |chapter complete| REVIEW[Review Continuity]
-    UPDATE_CHARS --> |chapter incomplete| ADVANCE1[Advance to Next Scene]
+    UPDATE_CHARS --> |chapter incomplete| ADVANCE[Advance to Next Scene/Chapter]
     
     REVIEW --> |needs resolution| RESOLVE[Resolve Continuity Issues]
-    REVIEW --> |no issues| ADVANCE2[Advance to Next Chapter]
+    REVIEW --> |no issues| ADVANCE
     
     RESOLVE --> |more issues| RESOLVE
-    RESOLVE --> |resolved| ADVANCE2
+    RESOLVE --> |resolved| ADVANCE
     
-    ADVANCE1 --> SCENE_BRAINSTORM
-    ADVANCE2 --> |story complete| COMPILE[Compile Final Story]
-    ADVANCE2 --> |more chapters| SCENE_BRAINSTORM
+    ADVANCE --> |story complete| COMPILE[Compile Final Story]
+    ADVANCE --> |more chapters/scenes| SCENE_BRAINSTORM
     
     COMPILE --> END((End))
 ```
@@ -173,6 +203,9 @@ The system includes detailed progress tracking through every step of the story g
 
 ## Recent Improvements
 
+- **Multi-language Support**: Added support for generating stories in 12 different languages
+- **Initial Idea Input**: Added ability to provide a specific story idea as a starting point
+- **Google Gemini Integration**: Switched to Gemini 2.0 Flash as the default LLM
 - **Native LangGraph Edge System**: Replaced custom router with LangGraph's native conditional edges
 - **Improved State Management**: Eliminated custom state flags and tracking variables
 - **Enhanced Continuity Review**: Refactored continuity review and resolution to prevent infinite loops
