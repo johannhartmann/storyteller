@@ -42,25 +42,32 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     {revelations.get('reader', [])}
     """
     
-    # Get initial idea constraints from memory if available
-    try:
-        initial_idea_constraint = search_memory_tool.invoke({
-            "query": "initial_idea_constraint",
-            "namespace": MEMORY_NAMESPACE
-        })
+    # Get initial idea directly from state
+    initial_idea = state.get("initial_idea", "")
+    initial_idea_elements = state.get("initial_idea_elements", {})
+    
+    # Add initial idea constraints to context if available
+    if initial_idea:
+        print(f"[STORYTELLER] Using initial_idea from state in brainstorm_scene_elements: '{initial_idea}'")
         
-        # Add initial idea constraints to context if available
-        if initial_idea_constraint:
-            context += f"""
-            
-            IMPORTANT: This story is based on the following initial idea:
-            {initial_idea_constraint.get('original_idea', '')}
-            
-            Key elements that must be preserved:
-            {' '.join(initial_idea_constraint.get('must_include', []))}
-            """
-    except:
-        pass
+        # Build constraints from initial idea elements
+        constraints = []
+        if initial_idea_elements:
+            if initial_idea_elements.get("setting"):
+                constraints.append(f"Setting: {initial_idea_elements.get('setting')}")
+            if initial_idea_elements.get("characters"):
+                constraints.append(f"Characters: {', '.join(initial_idea_elements.get('characters'))}")
+            if initial_idea_elements.get("plot"):
+                constraints.append(f"Plot: {initial_idea_elements.get('plot')}")
+        
+        context += f"""
+        
+        IMPORTANT: This story is based on the following initial idea:
+        {initial_idea}
+        
+        Key elements that must be preserved:
+        {' '.join(constraints) if constraints else "Ensure the scene aligns with the initial idea."}
+        """
     
     # Brainstorm scene-specific elements
     scene_elements_results = creative_brainstorm(
@@ -303,7 +310,9 @@ def write_scene(state: StoryState) -> Dict:
         }
     }
     
-    # Return only the changed parts of the state
+    # Get initial idea from state
+    initial_idea = state.get("initial_idea", "")
+    
     return {
         "chapters": {
             current_chapter: {
@@ -389,51 +398,120 @@ def reflect_on_scene(state: StoryState) -> Dict:
     - The overall quality of the scene is significantly below the standards of the story
     """
     
-    # Instead of using structured output, let's use a more flexible approach with JSON parsing
-    from storyteller_lib.creative_tools import parse_json_with_langchain
+    # Use Pydantic for structured output
+    from typing import List, Dict, Optional, Literal, Any, Union
+    from pydantic import BaseModel, Field, field_validator
     
-    # First, let's ensure our schema is clear in the prompt
-    schema_description = """
-    Schema:
-    {
-        "criteria_ratings": {
-            "character_consistency": {"score": 1-10, "comments": "..."},
-            "plot_advancement": {"score": 1-10, "comments": "..."},
-            "writing_quality": {"score": 1-10, "comments": "..."},
-            "tone_appropriateness": {"score": 1-10, "comments": "..."},
-            "information_management": {"score": 1-10, "comments": "..."},
-            "continuity": {"score": 1-10, "comments": "..."},
-            "emotional_depth": {"score": 1-10, "comments": "..."},
-            "character_relatability": {"score": 1-10, "comments": "..."},
-            "inner_conflict_development": {"score": 1-10, "comments": "..."}
-        },
-        "issues": [
-            {
-                "type": "continuity_error|character_inconsistency|plot_hole|pacing_issue|tone_mismatch|other",
-                "description": "...",
-                "severity": 1-10,
-                "recommendation": "..."
-            }
-        ],
-        "strengths": ["...", "..."],
-        "needs_revision": true|false,
-        "revision_priority": "low|medium|high",
-        "overall_assessment": "..."
-    }
-    """
+    # Define Pydantic models for the nested structure
+    class CriteriaRating(BaseModel):
+        """Rating for a specific criteria."""
+        score: int = Field(ge=1, le=10, default=7, description="Score from 1-10")
+        comments: str = Field(default="", description="Comments explaining the score")
+        
+        class Config:
+            """Configuration for the model."""
+            extra = "ignore"  # Ignore extra fields
     
-    # Enhance the prompt to emphasize JSON output
-    prompt_with_schema = f"""
-    {prompt}
+    class Issue(BaseModel):
+        """An issue identified in the scene."""
+        type: str = Field(
+            default="other",
+            description="Type of issue (continuity_error, character_inconsistency, plot_hole, pacing_issue, tone_mismatch, other)"
+        )
+        description: str = Field(default="", description="Description of the issue")
+        severity: int = Field(ge=1, le=10, default=5, description="Severity from 1-10")
+        recommendation: str = Field(default="", description="Recommendation to fix the issue")
+        
+        class Config:
+            """Configuration for the model."""
+            extra = "ignore"  # Ignore extra fields
     
-    Format your analysis as a valid JSON object following exactly this schema:
-    {schema_description}
-    
-    Make sure to include ALL required fields and ensure your output is valid JSON.
-    """
-    
-    # Generate the reflection using the LLM
-    reflection_response = llm.invoke([HumanMessage(content=prompt_with_schema)]).content
+    class SceneReflection(BaseModel):
+        """Reflection on a scene's quality and issues."""
+        criteria_ratings: Union[Dict[str, CriteriaRating], str, Dict[str, Dict[str, Any]]] = Field(
+            default_factory=dict,
+            description="Ratings for different criteria (e.g., character_consistency, plot_advancement, etc.)"
+        )
+        issues: List[Issue] = Field(
+            default_factory=list,
+            description="List of issues identified in the scene"
+        )
+        strengths: List[str] = Field(
+            default_factory=list,
+            description="List of strengths in the scene"
+        )
+        needs_revision: bool = Field(
+            default=False,
+            description="Whether the scene needs revision"
+        )
+        revision_priority: str = Field(
+            default="low",
+            description="Priority of revision (low, medium, high)"
+        )
+        overall_assessment: str = Field(
+            default="Scene appears functional but needs further analysis.",
+            description="Overall assessment of the scene"
+        )
+        
+        @field_validator('criteria_ratings')
+        @classmethod
+        def parse_criteria_ratings(cls, v):
+            """Parse criteria ratings from various formats."""
+            # If it's already a dictionary, return it
+            if isinstance(v, dict):
+                return v
+                
+            # If it's a string, try to parse it
+            if isinstance(v, str):
+                try:
+                    # Create a default dictionary
+                    ratings = {}
+                    
+                    # Split by newlines or commas
+                    lines = v.replace(',', '\n').split('\n')
+                    
+                    for line in lines:
+                        line = line.strip()
+                        if not line or ':' not in line:
+                            continue
+                            
+                        # Split by colon
+                        parts = line.split(':', 1)
+                        if len(parts) != 2:
+                            continue
+                            
+                        criteria = parts[0].strip()
+                        value = parts[1].strip()
+                        
+                        # Try to extract score and comments
+                        score = 7  # Default score
+                        comments = value
+                        
+                        # If value starts with a number, use it as score
+                        if value and value[0].isdigit():
+                            score_str = value.split()[0]
+                            try:
+                                score = int(score_str)
+                                comments = value[len(score_str):].strip()
+                            except ValueError:
+                                pass
+                        
+                        ratings[criteria] = {
+                            "score": score,
+                            "comments": comments
+                        }
+                    
+                    return ratings
+                except Exception as e:
+                    print(f"Error parsing criteria_ratings string: {e}")
+                    return {}
+            
+            # Default empty dictionary
+            return {}
+        
+        class Config:
+            """Configuration for the model."""
+            extra = "ignore"  # Ignore extra fields
     
     # Create default reflection data as fallback
     default_reflection = {
@@ -452,28 +530,28 @@ def reflect_on_scene(state: StoryState) -> Dict:
         "overall_assessment": "Scene appears functional but needs further analysis."
     }
     
-    # Parse the JSON response
+    # Create a structured LLM that outputs a SceneReflection object
+    structured_llm = llm.with_structured_output(SceneReflection)
+    
+    # Generate the reflection using the structured LLM
     try:
-        # Use the parse_json_with_langchain function with our default as fallback
-        reflection = parse_json_with_langchain(reflection_response, default_reflection)
+        # Use the structured LLM to get the reflection
+        reflection = structured_llm.invoke(prompt)
         
-        # Validate that all required fields are present, fill in defaults if missing
-        for key in default_reflection:
-            if key not in reflection or reflection[key] is None:
-                reflection[key] = default_reflection[key]
-                print(f"Warning: Missing '{key}' in reflection for Ch:{current_chapter}/Sc:{current_scene}, using default")
+        # Convert Pydantic model to dictionary
+        reflection_dict = reflection.dict()
         
         # Additional logic to ensure needs_revision is set correctly based on criteria and issues
         # Check for low scores in criteria ratings
         low_criteria_scores = []
-        for criteria_name, rating in reflection.get("criteria_ratings", {}).items():
+        for criteria_name, rating in reflection_dict.get("criteria_ratings", {}).items():
             score = rating.get("score", 10)  # Default high if not specified
             if score <= 5:  # Score of 5 or lower indicates a problem
                 low_criteria_scores.append(f"{criteria_name}: {score}/10")
         
         # Check for issues with high severity
         severe_issues = []
-        for issue in reflection.get("issues", []):
+        for issue in reflection_dict.get("issues", []):
             severity = issue.get("severity", 0)
             if severity >= 5:  # Severity of 5 or higher indicates a serious issue
                 issue_type = issue.get("type", "unknown")
@@ -481,27 +559,27 @@ def reflect_on_scene(state: StoryState) -> Dict:
         
         # Set needs_revision to true if any low scores or severe issues exist
         if low_criteria_scores or severe_issues:
-            if not reflection.get("needs_revision"):
+            if not reflection_dict.get("needs_revision"):
                 print(f"Overriding needs_revision to TRUE for Ch:{current_chapter}/Sc:{current_scene} due to:")
                 if low_criteria_scores:
                     print(f"  - Low criteria scores: {', '.join(low_criteria_scores)}")
                 if severe_issues:
                     print(f"  - Severe issues: {', '.join(severe_issues)}")
-                reflection["needs_revision"] = True
+                reflection_dict["needs_revision"] = True
                 
                 # Set appropriate revision priority based on severity
-                if any(score <= 3 for criteria_name, rating in reflection.get("criteria_ratings", {}).items() 
+                if any(score <= 3 for criteria_name, rating in reflection_dict.get("criteria_ratings", {}).items()
                        if rating.get("score", 10) <= 3):
-                    reflection["revision_priority"] = "high"
+                    reflection_dict["revision_priority"] = "high"
                 else:
-                    reflection["revision_priority"] = "medium"
+                    reflection_dict["revision_priority"] = "medium"
         
         # Log success
         print(f"Successfully generated reflection for Ch:{current_chapter}/Sc:{current_scene}")
     except Exception as e:
         print(f"Error generating reflection for Ch:{current_chapter}/Sc:{current_scene}: {e}")
         print(f"Using default reflection data")
-        reflection = default_reflection
+        reflection_dict = default_reflection
     
     # Extract new revelations directly from the scene content
     revelation_prompt = f"""
@@ -523,13 +601,12 @@ def reflect_on_scene(state: StoryState) -> Dict:
     # Update revelations in state
     updated_revelations = state["revelations"].copy()
     updated_revelations["reader"] = updated_revelations.get("reader", []) + new_revelations
-    
     # Create a summary of the reflection for display
-    reflection_summary = reflection.get("overall_assessment", "No summary available")
+    reflection_summary = reflection_dict.get("overall_assessment", "No summary available")
     
     # Create a list of issues for quick reference
     issues_summary = []
-    for issue in reflection.get("issues", []):
+    for issue in reflection_dict.get("issues", []):
         issue_type = issue.get("type", "unknown")
         description = issue.get("description", "No description")
         severity = issue.get("severity", 0)
@@ -542,12 +619,12 @@ def reflect_on_scene(state: StoryState) -> Dict:
     # Format for storage - now we store the entire structured reflection directly
     # since we're using proper structured output
     reflection_formatted = {
-        "criteria_ratings": reflection.get("criteria_ratings", {}),
-        "issues": reflection.get("issues", []),
-        "strengths": reflection.get("strengths", []),
+        "criteria_ratings": reflection_dict.get("criteria_ratings", {}),
+        "issues": reflection_dict.get("issues", []),
+        "strengths": reflection_dict.get("strengths", []),
         "formatted_issues": issues_summary,  # For easy display
-        "needs_revision": reflection.get("needs_revision", False),
-        "revision_priority": reflection.get("revision_priority", "low"),
+        "needs_revision": reflection_dict.get("needs_revision", False),
+        "revision_priority": reflection_dict.get("revision_priority", "low"),
         "overall_assessment": reflection_summary
     }
     
@@ -559,11 +636,11 @@ def reflect_on_scene(state: StoryState) -> Dict:
     })
     
     # Store original reflection text for reference if it exists
-    if "original_text" in reflection:
+    if "original_text" in reflection_dict:
         manage_memory_tool.invoke({
             "action": "create",
             "key": f"reflection_text_chapter_{current_chapter}_scene_{current_scene}",
-            "value": reflection["original_text"]
+            "value": reflection_dict["original_text"]
         })
     
     # Create readable reflection notes for the chapter data structure
@@ -576,6 +653,9 @@ def reflect_on_scene(state: StoryState) -> Dict:
     # Instead of copying the entire chapters dictionary, we just specify the updates
     
     # Update state with structured reflection data
+    # Get initial idea from state
+    initial_idea = state.get("initial_idea", "")
+    
     return {
         # Update the reflection notes and add structured reflection data for this specific scene
         "chapters": {
@@ -770,7 +850,6 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             }
         }
         
-        # Return updates - only the specific parts that changed
         return {
             "chapters": {
                 current_chapter: {

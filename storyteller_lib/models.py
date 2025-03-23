@@ -237,6 +237,8 @@ class StoryState(TypedDict):
     author: str  # Author whose style to emulate
     author_style_guidance: str  # Specific notes on author's style
     language: str  # Target language for story generation
+    initial_idea: str  # Initial story idea provided by the user
+    initial_idea_elements: Dict[str, Any]  # Structured elements extracted from the initial idea
     global_story: str  # Overall storyline and hero's journey phases
     
     # Complex fields that need custom reducers
