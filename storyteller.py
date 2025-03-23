@@ -267,6 +267,19 @@ def generate_story_outline(state: StoryState) -> Dict:
         Incorporate these brainstormed elements into your story outline, adapting them as needed to fit the hero's journey structure.
         """
     
+    # Get language from state
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
+    # Prepare language guidance
+    language_guidance = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_guidance = f"""
+        LANGUAGE REQUIREMENTS:
+        This story outline, including the title and all content, MUST be written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
+        Do not include any text in English or any other language.
+        The complete outline must be written only in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
     # Prompt for story generation
     prompt = f"""
     Create a compelling story outline for a {tone} {genre} narrative following the hero's journey structure.
@@ -297,6 +310,8 @@ def generate_story_outline(state: StoryState) -> Dict:
     {creative_guidance}
     
     {style_guidance}
+    
+    {language_guidance}
     """
     
     # Generate the story outline
@@ -379,6 +394,19 @@ def generate_characters(state: StoryState) -> Dict:
             {author_style_guidance}
             """
     
+    # Get language from state
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
+    # Prepare language guidance
+    language_guidance = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_guidance = f"""
+        LANGUAGE REQUIREMENTS:
+        All character names, backstories, and other details MUST be appropriate for {SUPPORTED_LANGUAGES[language.lower()]} speakers and culture.
+        Character names should be typical for {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions.
+        All text must be written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
     # Prompt for character generation
     prompt = f"""
     Based on this story outline:
@@ -398,6 +426,8 @@ def generate_characters(state: StoryState) -> Dict:
     Format each character profile clearly and ensure they have interconnected relationships and histories.
     
     {char_style_section}
+    
+    {language_guidance}
     """
     
     # Generate character profiles
@@ -532,6 +562,18 @@ def plan_chapters(state: StoryState) -> Dict:
     genre = state["genre"]
     tone = state["tone"]
     
+    # Get language from state
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
+    # Prepare language guidance
+    language_guidance = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_guidance = f"""
+        LANGUAGE REQUIREMENTS:
+        All chapter titles and content MUST be written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
+        Do not include any text in English or any other language.
+        """
+    
     # Prompt for chapter planning
     prompt = f"""
     Based on this story outline:
@@ -552,6 +594,8 @@ def plan_chapters(state: StoryState) -> Dict:
     5. Any major revelations or plot twists
     
     Ensure the chapters flow logically and maintain the arc of the hero's journey.
+    
+    {language_guidance}
     """
     
     # Generate chapter plan
@@ -1456,21 +1500,19 @@ def compile_final_story(state: StoryState) -> Dict:
     # Clean up title if needed (remove any "Title: " prefix)
     if ":" in story_title and len(story_title.split(":")) > 1:
         story_title = story_title.split(":", 1)[1].strip()
+        # Add title only
+        story.append(f"# {story_title}")
         
-    # Add title and introduction
-    story.append(f"# {story_title}")
-    story.append("\n## Introduction\n")
-    
-    # Add each chapter
-    for chapter_num in sorted(chapters.keys(), key=int):
-        chapter = chapters[chapter_num]
-        story.append(f"\n## Chapter {chapter_num}: {chapter['title']}\n")
-        
-        # Add each scene
-        for scene_num in sorted(chapter["scenes"].keys(), key=int):
-            scene = chapter["scenes"][scene_num]
-            story.append(f"### Scene {scene_num}\n")
-            story.append(scene["content"])
+        # Add each chapter without scene headlines
+        for chapter_num in sorted(chapters.keys(), key=int):
+            chapter = chapters[chapter_num]
+            story.append(f"\n## Chapter {chapter_num}: {chapter['title']}\n")
+            
+            # Add each scene without scene headlines
+            for scene_num in sorted(chapter["scenes"].keys(), key=int):
+                scene = chapter["scenes"][scene_num]
+                story.append(scene["content"])
+                story.append("\n\n")
             story.append("\n\n")
     
     # Join the story parts
