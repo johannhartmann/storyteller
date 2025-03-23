@@ -4,7 +4,7 @@ StoryCraft Agent - Scene generation and management nodes.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import creative_brainstorm
@@ -28,7 +28,6 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     
     # Get the current chapter data
     chapter = chapters[current_chapter]
-    
     # Generate context for this specific scene
     context = f"""
     Chapter {current_chapter}: {chapter['title']}
@@ -42,6 +41,26 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     Previously revealed information:
     {revelations.get('reader', [])}
     """
+    
+    # Get initial idea constraints from memory if available
+    try:
+        initial_idea_constraint = search_memory_tool.invoke({
+            "query": "initial_idea_constraint",
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Add initial idea constraints to context if available
+        if initial_idea_constraint:
+            context += f"""
+            
+            IMPORTANT: This story is based on the following initial idea:
+            {initial_idea_constraint.get('original_idea', '')}
+            
+            Key elements that must be preserved:
+            {' '.join(initial_idea_constraint.get('must_include', []))}
+            """
+    except:
+        pass
     
     # Brainstorm scene-specific elements
     scene_elements_results = creative_brainstorm(
@@ -59,7 +78,8 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             "Advancement of plot in unexpected ways",
             "Emotional resonance",
             "Consistency with established world rules"
-        ]
+        ],
+        strict_adherence=True
     )
     
     # Brainstorm potential surprises or twists for this scene
@@ -78,7 +98,8 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             "Impact on future plot development",
             "Character reaction potential",
             "Reader engagement"
-        ]
+        ],
+        strict_adherence=True
     )
     
     # Update creative elements with scene-specific brainstorming

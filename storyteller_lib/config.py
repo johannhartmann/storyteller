@@ -15,6 +15,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.language_models import BaseChatModel
 from langchain_core.caches import BaseCache
 from langchain_core.globals import set_llm_cache
@@ -34,7 +35,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # LLM Configuration
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gemini-2.0-flash"
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_CACHE_TYPE = "sqlite"  # Only sqlite cache is supported
 CACHE_LOCATION = os.environ.get("CACHE_LOCATION", str(Path.home() / ".storyteller" / "llm_cache.db"))
@@ -91,17 +92,17 @@ def get_llm(model: Optional[str] = None, temperature: Optional[float] = None) ->
     Get an instance of the LLM with the specified parameters.
     
     Args:
-        model: The model name to use (defaults to gpt-4o-mini)
+        model: The model name to use (defaults to gemini-2.0-flash)
         temperature: The temperature setting (defaults to 0.7)
         
     Returns:
         A configured LLM instance
     """
     logger.debug(f"Creating LLM instance with model={model or DEFAULT_MODEL}, temp={temperature or DEFAULT_TEMPERATURE}")
-    return ChatOpenAI(
+    return ChatGoogleGenerativeAI(
         model=model or DEFAULT_MODEL,
         temperature=temperature or DEFAULT_TEMPERATURE,
-        api_key=os.environ.get("OPENAI_API_KEY")
+        google_api_key=os.environ.get("GEMINI_API_KEY")
     )
 
 # Initialize the default LLM instance
@@ -137,7 +138,7 @@ gc.collect()
 # Create memory manager for background processing
 # Note: memory_manager doesn't accept a store parameter directly
 memory_manager = create_memory_manager(
-    f"openai:{DEFAULT_MODEL}",
+    llm,  # Use the already initialized LLM instance
     instructions="Extract key narrative elements, character developments, plot points, and thematic elements from the story content.",
     enable_inserts=True
 )
@@ -148,7 +149,7 @@ gc.collect()
 # Create prompt optimizer
 # Note: prompt_optimizer doesn't accept a store parameter directly
 prompt_optimizer = create_prompt_optimizer(
-    f"openai:{DEFAULT_MODEL}",
+    llm,  # Use the already initialized LLM instance
     kind="metaprompt",
     config={"max_reflection_steps": 3}
 )

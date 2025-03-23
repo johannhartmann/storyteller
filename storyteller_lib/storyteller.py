@@ -82,7 +82,6 @@ def get_genre_key_elements(genre: str) -> List[str]:
             f"Themes and motifs associated with {genre}",
             f"Reader expectations for a {genre} story"
         ]
-
 def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
     """
     Parse an initial story idea to extract key elements.
@@ -96,19 +95,20 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
     if not initial_idea:
         return {}
     
-    # Use LLM to extract key elements
+    # Use LLM to extract key elements with emphasis on exact extraction
     prompt = f"""
-    Analyze this initial story idea and extract key elements:
+    IMPORTANT TASK: Analyze this initial story idea and extract the key elements as they appear:
     
     "{initial_idea}"
     
-    Extract and structure the following elements:
-    1. Main setting (e.g., "zoo", "space station", "medieval kingdom")
-    2. Main characters (e.g., "orangutan detective", "space captain", "young wizard")
-    3. Central conflict or plot (e.g., "murder investigation", "alien invasion", "quest for artifact")
+    Extract and structure the following elements as they appear in the idea:
+    1. Main setting - The primary location or environment where the story takes place
+    2. Main characters - The key individuals or entities in the story with their roles or descriptions
+    3. Central conflict or plot - The main problem, challenge, or storyline
     4. Any specific themes or motifs mentioned
     5. Any specific genre elements that should be emphasized
     
+    Be precise and faithful to the original idea. Do not substitute or generalize elements.
     Format your response as a structured JSON object with these fields.
     """
     
@@ -125,6 +125,29 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
             "genre_elements": []
         })
         
+        # Ensure we have the expected keys with valid values
+        expected_keys = ["setting", "characters", "plot", "themes", "genre_elements"]
+        for key in expected_keys:
+            if key not in idea_elements:
+                idea_elements[key] = [] if key in ["characters", "themes", "genre_elements"] else ""
+        
+        # Create a memory anchor for the initial idea elements to ensure they're followed
+        if initial_idea and idea_elements:
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": "initial_idea_elements",
+                "value": {
+                    "original_idea": initial_idea,
+                    "extracted_elements": idea_elements,
+                    "must_include": [
+                        f"The story MUST take place in: {idea_elements['setting']}",
+                        f"The story MUST include these characters: {', '.join(idea_elements['characters'])}",
+                        f"The central plot MUST be: {idea_elements['plot']}"
+                    ]
+                },
+                "namespace": MEMORY_NAMESPACE
+            })
+        
         return idea_elements
     except Exception as e:
         print(f"Error parsing initial idea: {str(e)}")
@@ -132,6 +155,7 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
             "setting": "Unknown",
             "characters": [],
             "plot": "Unknown",
+            "themes": [],
             "themes": [],
             "genre_elements": []
         }
@@ -287,6 +311,25 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         initial_idea: Optional initial story idea to use as a starting point
         language: Optional target language for the story
     """
+    # If we have an initial idea, parse it and create memory anchors
+    if initial_idea:
+        # Parse the initial idea to extract key elements
+        idea_elements = parse_initial_idea(initial_idea)
+        
+        # Adjust genre if needed based on the initial idea
+        if idea_elements.get("plot", "").lower().find("murder") >= 0 or idea_elements.get("plot", "").lower().find("kill") >= 0:
+            if genre.lower() not in ["mystery", "thriller", "crime"]:
+                print(f"Adjusting genre to 'mystery' based on initial idea (was: {genre})")
+                genre = "mystery"
+        
+        # Create a memory anchor for the initial idea to ensure it's followed
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "initial_idea_instruction",
+            "value": f"This story MUST follow the initial idea: '{initial_idea}'. The key elements MUST be preserved exactly as specified.",
+            "namespace": MEMORY_NAMESPACE
+        })
+    
     # Get the graph with our decorated node functions
     graph = build_story_graph()
     

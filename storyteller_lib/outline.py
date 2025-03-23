@@ -124,37 +124,42 @@ def generate_story_outline(state: StoryState) -> Dict:
         genre_elements = initial_idea_elements.get("genre_elements", [])
         
         idea_guidance = f"""
-        INITIAL STORY IDEA (HIGHEST PRIORITY):
+        INITIAL STORY IDEA (HIGH PRIORITY):
         {initial_idea}
         
-        This initial idea is the FOUNDATION of the story and MUST be followed. The story outline MUST incorporate:
+        This initial idea forms the foundation of the story. The outline should incorporate these key elements:
         
         1. SETTING: {setting}
-           - This is the primary location where the story takes place
-           - All major events must occur within or be connected to this setting
+           - This is the primary setting where the story takes place
+           - Major events should occur within or be connected to this setting
+           - Maintain consistency with this established setting
         
         2. MAIN CHARACTERS: {', '.join(characters) if characters else 'To be determined based on the initial idea'}
-           - These characters must be central to the story
-           - Their characteristics and roles must align with the initial idea
+           - These characters should be central to the story
+           - Their characteristics and roles should align with the initial idea
+           - Preserve the essential nature of these characters
         
         3. CENTRAL PLOT: {plot}
            - This is the main storyline that drives the narrative
-           - All other plot elements must support or connect to this central conflict
+           - Other plot elements should support this central conflict
+           - Maintain the core nature of this conflict
         
         4. THEMES: {', '.join(themes) if themes else 'To be determined based on the initial idea'}
            - These themes should be woven throughout the story
         
         5. GENRE ELEMENTS: {', '.join(genre_elements) if genre_elements else 'To be determined based on the initial idea'}
-           - These elements must be incorporated to maintain genre consistency
+           - These elements should be incorporated to maintain genre consistency
         
-        The hero's journey structure should be adapted to fit this initial idea, NOT the other way around.
+        The hero's journey structure should be adapted to fit this initial idea, not the other way around.
         If any conflict arises between the hero's journey structure and the initial idea, prioritize the initial idea.
+        
+        FINAL CHECK: Before finalizing the outline, verify that the key elements from the initial idea are present and well-integrated into the story.
         """
     
-    # Prompt for story generation with stronger emphasis on initial idea
+    # Prompt for story generation with emphasis on initial idea
     prompt = f"""
     Create a compelling story outline for a {tone} {genre} narrative following the hero's journey structure.
-    {f"IMPORTANT: This story MUST be based on this initial idea: '{initial_idea}'" if initial_idea else ""}
+    {f"This story should be based on this initial idea: '{initial_idea}'" if initial_idea else ""}
     
     Include all major phases of the hero's journey, adapted to fit the initial idea:
     1. The Ordinary World
@@ -173,12 +178,18 @@ def generate_story_outline(state: StoryState) -> Dict:
     For each phase, provide a brief description of what happens.
     Also include:
     - A captivating title for the story that reflects the initial idea
-    - 3-5 main characters with brief descriptions (must include those specified in the initial idea)
-    - A central conflict or challenge (must align with the plot from the initial idea)
-    - The world/setting of the story (must be the setting from the initial idea)
+    - 3-5 main characters with brief descriptions (include those specified in the initial idea)
+    - A central conflict or challenge (aligned with the plot from the initial idea)
+    - The world/setting of the story (consistent with the setting from the initial idea)
     - Key themes or messages (should include those from the initial idea)
     
     Format your response as a structured outline with clear sections.
+    
+    VERIFICATION STEP: After completing the outline, review it to ensure that:
+    1. The setting from the initial idea is well-integrated throughout
+    2. The characters from the initial idea are included with appropriate roles
+    3. The plot/conflict from the initial idea is central to the story
+    4. The key elements from the initial idea are preserved and developed
     
     {idea_guidance}
     
@@ -198,11 +209,11 @@ def generate_story_outline(state: StoryState) -> Dict:
     # 1. Validate that the outline adheres to the initial idea if one was provided
     if initial_idea and initial_idea_elements:
         idea_validation_prompt = f"""
-        Evaluate whether this story outline properly incorporates the initial story idea:
+        VALIDATION: Evaluate whether this story outline effectively incorporates the initial story idea:
         
         Initial Idea: "{initial_idea}"
         
-        Required Elements:
+        Key Elements to Check:
         - Setting: {initial_idea_elements.get('setting', 'Unknown')}
         - Characters: {', '.join(initial_idea_elements.get('characters', []))}
         - Plot: {initial_idea_elements.get('plot', 'Unknown')}
@@ -212,10 +223,16 @@ def generate_story_outline(state: StoryState) -> Dict:
         Story Outline:
         {story_outline}
         
+        VALIDATION CRITERIA:
+        1. The setting should be consistent with what was specified in the initial idea
+        2. The characters should maintain their essential nature and roles as described in the initial idea
+        3. The plot should align with the central conflict described in the initial idea
+        
         Provide:
         1. A score from 1-10 on how well the outline adheres to the initial idea
-        2. Specific feedback on what elements are missing or need adjustment
-        3. A YES/NO determination if the outline is acceptable
+        2. An analysis of how well each key element is incorporated
+        3. Specific feedback on what elements could be better integrated
+        4. A YES/NO determination if the outline is acceptable
         
         If the score is below 8 or the determination is NO, provide specific guidance on how to improve it.
         """
@@ -360,7 +377,6 @@ def generate_story_outline(state: StoryState) -> Dict:
             "value": setting_validation_result,
             "namespace": MEMORY_NAMESPACE
         })
-    
     # Determine if we need to regenerate the outline based on validation results
     needs_regeneration = False
     improvement_guidance = ""
@@ -368,10 +384,12 @@ def generate_story_outline(state: StoryState) -> Dict:
     # Check initial idea validation
     if "initial_idea" in validation_results:
         result = validation_results["initial_idea"]
+        # Regenerate if score is below 8 or NO determination
         if "NO" in result or any(f"score: {i}" in result.lower() for i in range(1, 8)):
             needs_regeneration = True
-            improvement_guidance += "INITIAL IDEA ISSUES:\n"
-            improvement_guidance += result.split("guidance on how to improve it:")[-1].strip() if "guidance on how to improve it:" in result else result
+            improvement_guidance += "INITIAL IDEA INTEGRATION ISSUES:\n"
+            improvement_guidance += result.split("guidance on how to improve it")[-1].strip() if "guidance on how to improve it" in result else result
+            improvement_guidance += "\n\n"
             improvement_guidance += "\n\n"
     
     # Check genre validation
@@ -396,16 +414,25 @@ def generate_story_outline(state: StoryState) -> Dict:
     if needs_regeneration:
         # Create a revised prompt with the improvement guidance
         revised_prompt = f"""
-        IMPORTANT: Your previous story outline did not meet one or more requirements. Please revise it based on this feedback:
+        REVISION NEEDED: Your previous story outline needs improvement to better incorporate the initial idea. Please revise it based on this feedback:
         
+        AREAS NEEDING IMPROVEMENT:
         {improvement_guidance}
         
         Initial Idea: "{initial_idea}"
         
-        Required Elements:
+        KEY ELEMENTS TO INCORPORATE:
         - Setting: {initial_idea_elements.get('setting', 'Unknown') if initial_idea_elements else 'Not specified'}
+           * This setting should be the primary location of the story
+           * Ensure the setting is well-integrated throughout the narrative
+        
         - Characters: {', '.join(initial_idea_elements.get('characters', [])) if initial_idea_elements else 'Not specified'}
+           * These characters should be central to the story
+           * Maintain their essential nature and roles as described
+        
         - Plot: {initial_idea_elements.get('plot', 'Unknown') if initial_idea_elements else 'Not specified'}
+           * This plot should be the central conflict
+           * Ensure the story revolves around this core conflict
         - Themes: {', '.join(initial_idea_elements.get('themes', [])) if initial_idea_elements else 'Not specified'}
         - Genre Elements: {', '.join(initial_idea_elements.get('genre_elements', [])) if initial_idea_elements else 'Not specified'}
         
@@ -416,6 +443,49 @@ def generate_story_outline(state: StoryState) -> Dict:
         
         # Regenerate the outline
         story_outline = llm.invoke([HumanMessage(content=revised_prompt)]).content
+        
+        # Perform a final verification check to ensure the regenerated outline meets the requirements
+        final_verification_prompt = f"""
+        VERIFICATION CHECK: Evaluate whether this revised story outline effectively incorporates the initial idea.
+        
+        Initial Idea: "{initial_idea}"
+        
+        Key Elements:
+        - Setting: {initial_idea_elements.get('setting', 'Unknown') if initial_idea_elements else 'Not specified'}
+        - Characters: {', '.join(initial_idea_elements.get('characters', [])) if initial_idea_elements else 'Not specified'}
+        - Plot: {initial_idea_elements.get('plot', 'Unknown') if initial_idea_elements else 'Not specified'}
+        
+        Revised Story Outline:
+        {story_outline}
+        
+        Provide a YES/NO determination if the outline now effectively incorporates the initial idea.
+        If NO, specify what still needs improvement.
+        """
+        
+        final_verification_result = llm.invoke([HumanMessage(content=final_verification_prompt)]).content
+        
+        # If the outline still doesn't meet requirements, try one more time with additional guidance
+        if "NO" in final_verification_result:
+            final_attempt_prompt = f"""
+            FINAL REVISION NEEDED:
+            
+            The story outline still needs improvement to better incorporate the initial idea:
+            
+            Initial Idea: "{initial_idea}"
+            
+            What still needs improvement:
+            {final_verification_result}
+            
+            Please create an outline that:
+            1. Uses "{initial_idea_elements.get('setting', 'Unknown')}" as the primary setting
+            2. Features "{', '.join(initial_idea_elements.get('characters', []))}" as central characters
+            3. Centers around "{initial_idea_elements.get('plot', 'Unknown')}" as the main conflict
+            
+            Maintain the essence of the initial idea while crafting a compelling narrative.
+            """
+            
+            # Final regeneration attempt
+            story_outline = llm.invoke([HumanMessage(content=final_attempt_prompt)]).content
         
         # Store the revised outline
         manage_memory_tool.invoke({
@@ -432,6 +502,7 @@ def generate_story_outline(state: StoryState) -> Dict:
             "value": {
                 "initial_validation": validation_results,
                 "improvement_guidance": improvement_guidance,
+                "final_verification": final_verification_result,
                 "regenerated": True
             },
             "namespace": MEMORY_NAMESPACE

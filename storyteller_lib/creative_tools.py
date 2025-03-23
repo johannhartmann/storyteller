@@ -23,7 +23,8 @@ def creative_brainstorm(
     language: str = DEFAULT_LANGUAGE,
     num_ideas: int = 5,
     evaluation_criteria: List[str] = None,
-    constraints: Dict[str, str] = None
+    constraints: Dict[str, str] = None,
+    strict_adherence: bool = True
 ) -> Dict:
     """
     Generate and evaluate multiple creative ideas for a given story element.
@@ -189,11 +190,14 @@ def creative_brainstorm(
     {genre_guidance}
     {style_section}
     {language_section}
+    ## IMPORTANT INSTRUCTIONS
+    {"Your ideas must adhere to the initial story concept and constraints. Maintain consistency with the core elements." if strict_adherence else ""}
     
-    ## Instructions
     Generate {num_ideas} diverse, creative ideas related to {topic}.
-    Think outside the box while maintaining coherence with the story context AND strictly adhering to all constraints.
+    Think outside the box while maintaining coherence with the story context AND adhering to all constraints.
     Each idea should be surprising yet plausible within the established world.
+    
+    {"If the initial idea specifies particular settings, characters, or plot elements, these should be preserved in your ideas. Do not substitute core elements with alternatives." if strict_adherence else ""}
     
     For each idea:
     1. Provide a concise title/headline
@@ -201,9 +205,12 @@ def creative_brainstorm(
     3. Note one potential benefit to the story
     4. Note one potential challenge to implementation
     5. Explain how this idea adheres to the genre requirements and constraints
+    {"6. Verify that this idea maintains consistency with the initial concept" if strict_adherence else ""}
     
     Format each idea clearly and number them 1 through {num_ideas}.
     
+    IMPORTANT: Double-check each idea to ensure it complies with ALL constraints and genre requirements before finalizing.
+    {"FINAL CHECK: Verify that your ideas preserve the essential elements of the initial concept while adding creative value." if strict_adherence else ""}
     IMPORTANT: Double-check each idea to ensure it fully complies with ALL constraints and genre requirements before finalizing.
     """
     
@@ -229,9 +236,16 @@ def creative_brainstorm(
     ## Evaluation Criteria
     {', '.join(evaluation_criteria)}
     
-    ## Instructions
+    ## EVALUATION INSTRUCTIONS
+    {"First, check if each idea maintains consistency with the initial concept and preserves essential elements." if strict_adherence else ""}
+    
     First, check each idea for compliance with the constraints and genre requirements.
-    IMMEDIATELY REJECT any idea that violates the constraints or doesn't fit the {genre} genre.
+    REJECT any idea that:
+    {"1. Significantly alters or omits essential elements from the initial concept" if strict_adherence else ""}
+    2. Violates the constraints
+    3. Doesn't fit the {genre} genre
+    
+    {"Ideas should build upon the initial concept while preserving its core elements. Significant deviations from the established setting, characters, or central conflict should be avoided." if strict_adherence else ""}
     
     Then, evaluate the remaining ideas against the criteria above on a scale of 1-10.
     For each idea:
@@ -242,6 +256,8 @@ def creative_brainstorm(
     
     Then rank the ideas from best to worst fit for the story.
     Finally, recommend the top 1-2 ideas to incorporate, with brief reasoning.
+    
+    {"FINAL CHECK: Verify that your recommended ideas maintain consistency with the initial concept while adding creative value." if strict_adherence else ""}
     """
     
     # Evaluate ideas
