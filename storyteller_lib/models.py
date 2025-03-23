@@ -6,7 +6,7 @@ from typing import Annotated, Dict, List, Union, Any
 from typing_extensions import TypedDict
 from operator import add
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langgraph.graph.message import add_messages
 
 # Custom state reducers for merging complex story elements

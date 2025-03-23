@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage
 from storyteller_lib.graph import build_story_graph
 from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE
 
-def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: str = ""):
+def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = ""):
     """
     Attempt to extract a partial story from memory when normal generation fails.
     This function tries to recover whatever content has been generated so far,
@@ -23,6 +23,7 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
         genre: The genre of the story (e.g., fantasy, sci-fi, mystery)
         tone: The tone of the story (e.g., epic, dark, humorous)
         author: Optional author whose style to emulate (e.g., Tolkien, Rowling, Martin)
+        initial_idea: Optional initial story idea to use as a starting point
         
     Returns:
         The partial story as a string, or None if nothing could be recovered
@@ -151,7 +152,7 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
     return None
 
 
-def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = ""):
+def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = ""):
     """
     Generate a complete story using the StoryCraft agent with the refactored graph.
     
@@ -159,6 +160,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "")
         genre: The genre of the story (e.g., fantasy, sci-fi, mystery)
         tone: The tone of the story (e.g., epic, dark, humorous)
         author: Optional author whose style to emulate (e.g., Tolkien, Rowling, Martin)
+        initial_idea: Optional initial story idea to use as a starting point
     """
     # Get the graph with our decorated node functions
     graph = build_story_graph()
@@ -180,15 +182,17 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "")
             pass
     
     # Run the graph with proper progress tracking
-    print(f"Generating a {tone} {genre} story{' in the style of '+author if author else ''}...")
+    idea_text = f" based on this idea: '{initial_idea}'" if initial_idea else ""
+    print(f"Generating a {tone} {genre} story{' in the style of '+author if author else ''}{idea_text}...")
     
     # Initial state - remove custom router-related fields
     initial_state = {
-        "messages": [HumanMessage(content=f"Please write a {tone} {genre} story{' in the style of '+author if author else ''} for me.")],
+        "messages": [HumanMessage(content=f"Please write a {tone} {genre} story{' in the style of '+author if author else ''}{idea_text} for me.")],
         "genre": genre,
         "tone": tone,
         "author": author,
         "author_style_guidance": author_style_guidance,
+        "initial_idea": initial_idea,
         "global_story": "",
         "chapters": {},
         "characters": {},
@@ -205,7 +209,16 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "")
     
     # Run the graph with our configuration
     # Progress tracking will happen automatically via the decorated node functions
-    result = graph.invoke(initial_state, config={"recursion_limit": 200})
+    # No need for store reference as we're not using checkpointing in single-session mode
+    result = graph.invoke(
+        initial_state, 
+        config={
+            "recursion_limit": 200,
+            "configurable": {
+                "thread_id": f"{genre}_{tone}_{author}".replace(" ", "_")
+            }
+        }
+    )
     
     # If compiled_story is directly in the result, return it
     if "compiled_story" in result:

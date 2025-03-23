@@ -8,6 +8,23 @@ LangGraph is a low-level orchestration framework for building controllable, reli
 pip install -U langgraph
 ```
 
+## Integration with LangMem
+
+When combined with LangMem, LangGraph enables stateful agent architectures with sophisticated memory capabilities:
+
+- **Persistent Memory Store**: LangGraph's state management integrates with LangMem's storage systems (PostgreSQL, SQLite, etc.)
+- **Memory Types**: Support for semantic memory (facts), episodic memory (experiences), and procedural memory (system behavior)
+- **Memory Tools**: Custom LangGraph tools for memory management (`create_manage_memory_tool`, `create_search_memory_tool`)
+- **Background Processing**: Memory managers can process conversations to extract key information
+- **Prompt Optimization**: Improve system prompts based on feedback and past performance
+
+In storytelling applications:
+- Character profiles are continuously updated and retrieved from memory
+- Continuity is maintained by storing and tracking revelations across chapters
+- Background processing extracts narrative elements from completed chapters
+- Author style guidance is stored for consistent application throughout generation
+- Previous creative decisions inform future content development
+
 ## Key Features
 
 - **State Management**: Define structured state for your agents with custom reducers to control how state updates are merged

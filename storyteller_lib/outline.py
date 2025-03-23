@@ -4,9 +4,9 @@ StoryCraft Agent - Story outline and planning nodes.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE
+from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, log_memory_usage
 from storyteller_lib.models import StoryState
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain
 from storyteller_lib import track_progress
 
@@ -16,6 +16,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     genre = state["genre"]
     tone = state["tone"]
     author = state["author"]
+    initial_idea = state.get("initial_idea", "")
     author_style_guidance = state["author_style_guidance"]
     creative_elements = state.get("creative_elements", {})
     
@@ -93,10 +94,23 @@ def generate_story_outline(state: StoryState) -> Dict:
         
         Incorporate these brainstormed elements into your story outline, adapting them as needed to fit the hero's journey structure.
         """
+    # Prepare initial idea guidance
+    idea_guidance = ""
+    if initial_idea:
+        idea_guidance = f"""
+        INITIAL STORY IDEA:
+        {initial_idea}
+        
+        Use this initial idea as the foundation for your story outline. Incorporate its key elements,
+        characters, setting, and premise while adapting it to fit the hero's journey structure.
+        """
     
     # Prompt for story generation
     prompt = f"""
     Create a compelling story outline for a {tone} {genre} narrative following the hero's journey structure.
+    {f"Based on this initial idea: '{initial_idea}'" if initial_idea else ""}
+    
+    Include all major phases:
     Include all major phases:
     1. The Ordinary World
     2. The Call to Adventure
@@ -120,6 +134,8 @@ def generate_story_outline(state: StoryState) -> Dict:
     - Key themes or messages
     
     Format your response as a structured outline with clear sections.
+    
+    {idea_guidance}
     
     {creative_guidance}
     
@@ -147,10 +163,19 @@ def generate_story_outline(state: StoryState) -> Dict:
     })
     
     # Update the state
+    
+    # Get existing message IDs to delete
+    message_ids = [msg.id for msg in state.get("messages", [])]
+    
+    # Create message for the user
+    new_msg = AIMessage(content="I've created a story outline following the hero's journey structure. Now I'll develop the characters in more detail.")
+    
     return {
         "global_story": story_outline,
-        
-        "messages": [AIMessage(content="I've created a story outline following the hero's journey structure. Now I'll develop the characters in more detail.")]
+        "messages": [
+            *[RemoveMessage(id=msg_id) for msg_id in message_ids],
+            new_msg
+        ]
     }
 
 
@@ -325,16 +350,28 @@ def generate_characters(state: StoryState) -> Dict:
         })
     
     # Update state
+    
+    # Get existing message IDs to delete
+    message_ids = [msg.id for msg in state.get("messages", [])]
+    
+    # Create message for the user
+    new_msg = AIMessage(content="I've developed detailed character profiles with interconnected backgrounds and motivations. Now I'll plan the chapters.")
+    
     return {
         "characters": characters,
-        
-        "messages": [AIMessage(content="I've developed detailed character profiles with interconnected backgrounds and motivations. Now I'll plan the chapters.")]
+        "messages": [
+            *[RemoveMessage(id=msg_id) for msg_id in message_ids],
+            new_msg
+        ]
     }
 
 
 @track_progress
 def plan_chapters(state: StoryState) -> Dict:
     """Divide the story into chapters with detailed outlines."""
+    # Log memory usage at the start
+    memory_before = log_memory_usage("plan_chapters_start")
+    
     global_story = state["global_story"]
     characters = state["characters"]
     genre = state["genre"]
@@ -462,11 +499,32 @@ def plan_chapters(state: StoryState) -> Dict:
             "value": chapter_data
         })
     
-    # Update state
+    # Log memory usage after chapter planning
+    memory_after = log_memory_usage("plan_chapters_end")
+    
+    # Get existing message IDs to delete
+    message_ids = [msg.id for msg in state.get("messages", [])]
+    
+    # Create message for the user
+    new_msg = AIMessage(content="I've planned out the chapters for the story. Now I'll begin writing the first scene of chapter 1.")
+    
     return {
         "chapters": chapters,
         "current_chapter": "1",  # Start with the first chapter
         "current_scene": "1",    # Start with the first scene
         
-        "messages": [AIMessage(content="I've planned out the chapters for the story. Now I'll begin writing the first scene of chapter 1.")]
+        # Add memory usage tracking
+        "memory_usage": {
+            "plan_chapters": {
+                "before": memory_before,
+                "after": memory_after,
+                "chapter_count": len(chapters),
+                "timestamp": "now"
+            }
+        },
+        
+        "messages": [
+            *[RemoveMessage(id=msg_id) for msg_id in message_ids],
+            new_msg
+        ]
     }

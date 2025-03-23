@@ -26,16 +26,14 @@ export ANTHROPIC_API_KEY="sk-..."  # Or another supported LLM provider
 
 ```python
 from langgraph.prebuilt import create_react_agent
-from langgraph.store.memory import InMemoryStore
+import sqlite3
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langmem import create_manage_memory_tool, create_search_memory_tool
 
-# Set up storage
-store = InMemoryStore(
-    index={
-        "dims": 1536,
-        "embed": "openai:text-embedding-3-small",
-    }
-) 
+# Set up storage with sqlite for persistence
+db_path = "/path/to/your/memory.db"
+memory_conn = sqlite3.connect(db_path, check_same_thread=False)
+store = SqliteSaver(memory_conn)
 
 # Create agent with memory capabilities
 agent = create_react_agent(

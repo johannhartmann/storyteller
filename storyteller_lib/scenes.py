@@ -4,9 +4,9 @@ StoryCraft Agent - Scene generation and management nodes.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE
+from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, log_memory_usage
 from storyteller_lib.models import StoryState
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import creative_brainstorm
 from storyteller_lib import track_progress
 
@@ -97,12 +97,18 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     return {
         "creative_elements": current_creative_elements,
         
-        "messages": [AIMessage(content=f"I've brainstormed creative elements and unexpected twists for scene {current_scene} of chapter {current_chapter}. Now I'll write the scene incorporating the most promising ideas.")]
+        "messages": [
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            AIMessage(content=f"I've brainstormed creative elements and unexpected twists for scene {current_scene} of chapter {current_chapter}. Now I'll write the scene incorporating the most promising ideas.")
+        ]
     }
 
 @track_progress
 def write_scene(state: StoryState) -> Dict:
     """Write a detailed scene based on the current chapter and scene."""
+    # Log memory usage at the start of scene writing
+    memory_before = log_memory_usage(f"write_scene_start_{state['current_chapter']}_{state['current_scene']}")
+    
     chapters = state["chapters"]
     characters = state["characters"]
     current_chapter = state["current_chapter"]
@@ -208,15 +214,39 @@ def write_scene(state: StoryState) -> Dict:
         }
     })
     
-    # Update the scene in the chapters dictionary
-    updated_chapters = state["chapters"].copy()
-    updated_chapters[current_chapter]["scenes"][current_scene]["content"] = scene_content
+    # Log memory usage after scene generation
+    memory_after = log_memory_usage(f"write_scene_end_{current_chapter}_{current_scene}")
     
-    # Update state with the new scene
+    # Update state with the new scene using targeted updates
+    # Instead of copying the entire chapters dictionary
+    scene_update = {
+        current_scene: {
+            "content": scene_content
+        }
+    }
+    
+    # Return only the changed parts of the state
     return {
-        "chapters": updated_chapters,
+        "chapters": {
+            current_chapter: {
+                "scenes": scene_update
+            }
+        },
         
-        "messages": [AIMessage(content=f"I've written scene {current_scene} of chapter {current_chapter} incorporating creative elements and surprising twists. Now I'll reflect on it to ensure quality and consistency.")]
+        # Add memory usage tracking
+        "memory_usage": {
+            f"write_scene_{current_chapter}_{current_scene}": {
+                "before": memory_before,
+                "after": memory_after,
+                "scene_size": len(scene_content),
+                "timestamp": "now"
+            }
+        },
+        
+        "messages": [
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            AIMessage(content=f"I've written scene {current_scene} of chapter {current_chapter} incorporating creative elements and surprising twists. Now I'll reflect on it to ensure quality and consistency.")
+        ]
     }
 
 @track_progress
@@ -485,7 +515,19 @@ def reflect_on_scene(state: StoryState) -> Dict:
             "reader": new_revelations  # The reducer will combine this with existing revelations
         },
         
-        "messages": [AIMessage(content=f"I've analyzed scene {current_scene} of chapter {current_chapter} for quality and consistency.")]
+        # Add memory usage tracking
+        "memory_usage": {
+            f"reflect_scene_{current_chapter}_{current_scene}": {
+                "timestamp": "now",
+                "scene_size": len(scene_content) if scene_content else 0,
+                "reflection_size": len(str(reflection_formatted)) if reflection_formatted else 0
+            }
+        },
+        
+        "messages": [
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            AIMessage(content=f"I've analyzed scene {current_scene} of chapter {current_chapter} for quality and consistency.")
+        ]
     }
 
 @track_progress
@@ -515,7 +557,10 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             "current_chapter": current_chapter,
             "current_scene": current_scene,
             
-            "messages": [AIMessage(content=f"Scene {current_scene} of Chapter {current_chapter} has already been revised {revision_count} times. No further revisions needed.")]
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"Scene {current_scene} of Chapter {current_chapter} has already been revised {revision_count} times. No further revisions needed.")
+            ]
         }
     
     # Use the structured data's explicit needs_revision flag
@@ -648,18 +693,33 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             }
         }
         
-        # Return updates
+        # Return updates - only the specific parts that changed
         return {
             "chapters": {
                 current_chapter: {
                     "scenes": scene_update
                 }
             },
-            "revision_count": revised_counts,  # Update the revision count in state
+            "revision_count": {
+                f"{current_chapter}_{current_scene}": revision_count + 1  # Only update this specific count
+            },
             "current_chapter": current_chapter,
             "current_scene": current_scene,
             
-            "messages": [AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address the identified issues (revision #{revision_count + 1}).")]
+            # Add memory tracking
+            "memory_usage": {
+                f"revise_scene_{current_chapter}_{current_scene}": {
+                    "timestamp": "now",
+                    "original_size": len(scene_content) if scene_content else 0,
+                    "revised_size": len(revised_scene) if revised_scene else 0,
+                    "revision_number": revision_count + 1
+                }
+            },
+            
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address the identified issues (revision #{revision_count + 1}).")
+            ]
         }
     else:
         # No revision needed
@@ -673,5 +733,8 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             "current_chapter": current_chapter,
             "current_scene": current_scene,
             
-            "messages": [AIMessage(content=f"Scene {current_scene} of chapter {current_chapter} is consistent and well-crafted, no revision needed.")]
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"Scene {current_scene} of chapter {current_chapter} is consistent and well-crafted, no revision needed.")
+            ]
         }

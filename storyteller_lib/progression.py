@@ -7,9 +7,9 @@ removing router-specific code that could cause infinite loops.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, memory_manager, prompt_optimizer, MEMORY_NAMESPACE
+from storyteller_lib.config import llm, manage_memory_tool, memory_manager, prompt_optimizer, MEMORY_NAMESPACE, log_memory_usage, cleanup_old_state
 from storyteller_lib.models import StoryState
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib import track_progress
 
 @track_progress
@@ -90,7 +90,10 @@ def update_character_profiles(state: StoryState) -> Dict:
     # Update state - only return what changed
     return {
         "characters": character_updates,  # Only specify what changes
-        "messages": [AIMessage(content=f"I've updated character profiles based on developments in scene {current_scene} of chapter {current_chapter}.")]
+        "messages": [
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            AIMessage(content=f"I've updated character profiles based on developments in scene {current_scene} of chapter {current_chapter}.")
+        ]
     }
 
 @track_progress
@@ -112,7 +115,10 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
         return {
             "current_scene": next_scene,
             "continuity_phase": "complete",  # Reset continuity phase
-            "messages": [AIMessage(content=f"Moving on to write scene {next_scene} of chapter {current_chapter}.")]
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"Moving on to write scene {next_scene} of chapter {current_chapter}.")
+            ]
         }
     else:
         # Move to the next chapter
@@ -120,18 +126,37 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
         
         # Check if the next chapter exists
         if next_chapter in chapters:
+            # Log memory usage before cleanup
+            memory_stats = log_memory_usage(f"before_chapter_transition_{current_chapter}_to_{next_chapter}")
+            
+            # Get cleanup updates for old state data
+            cleanup_updates = cleanup_old_state(state, current_chapter)
+            
+            # Return updates with cleanup
             return {
                 "current_chapter": next_chapter,
                 "current_scene": "1",  # Start with first scene of new chapter
                 "continuity_phase": "complete",  # Reset continuity phase
-                "messages": [AIMessage(content=f"Chapter {current_chapter} is complete. Moving on to chapter {next_chapter}.")]
+                # Include cleanup updates
+                **cleanup_updates,
+                # Add memory tracking
+                "memory_usage": {
+                    f"chapter_transition_{current_chapter}_to_{next_chapter}": memory_stats
+                },
+                "messages": [
+                    *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                    AIMessage(content=f"Chapter {current_chapter} is complete. Moving on to chapter {next_chapter}.")
+                ]
             }
         else:
             # All chapters are complete
             return {
                 "completed": True,
                 "continuity_phase": "complete",  # Reset continuity phase
-                "messages": [AIMessage(content="The story is now complete! I'll compile the final narrative for you.")]
+                "messages": [
+                    *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                    AIMessage(content="The story is now complete! I'll compile the final narrative for you.")
+                ]
             }
 
 @track_progress
@@ -169,7 +194,10 @@ def review_continuity(state: StoryState) -> Dict:
     if len(completed_chapters) < 2:
         return {
             "continuity_phase": "complete",  # Mark this phase as complete
-            "messages": [AIMessage(content="Not enough completed chapters for a full continuity review yet.")]
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content="Not enough completed chapters for a full continuity review yet.")
+            ]
         }
     
     # Prepare chapter summaries for review
@@ -330,26 +358,20 @@ def review_continuity(state: StoryState) -> Dict:
         "key": f"continuity_review_raw_ch{current_chapter}",
         "value": continuity_review_text
     })
-    
-    # Initialize or copy review history for immutable updates
-    review_history = state.get("continuity_review_history", {})
-    updated_review_history = review_history.copy()
-    updated_review_history[review_key] = {
-        "status": "completed",
-        "issues_found": structured_review["has_issues"],
-        "chapter": current_chapter,
-        "timestamp": "now"
+    # Create a targeted update for the review history
+    review_history_update = {
+        review_key: {
+            "status": "completed",
+            "issues_found": structured_review["has_issues"],
+            "chapter": current_chapter,
+            "timestamp": "now"
+        }
     }
     
     # Process the continuity review results using the structured format
     has_issues = structured_review["has_issues"]
-    updated_revelations = state["revelations"].copy()
     
     if has_issues:
-        # Initialize continuity_issues if it doesn't exist
-        if "continuity_issues" not in updated_revelations:
-            updated_revelations["continuity_issues"] = []
-            
         # Compile all issues into a single list for resolution
         all_issues = []
         
@@ -387,24 +409,20 @@ def review_continuity(state: StoryState) -> Dict:
             "review_key": review_key  # Store the review key for tracking
         }
         
-        # Simply add the current review to the list
-        # Our custom revelations_reducer will handle merging and deduplication
         print(f"Adding continuity review for Chapter {current_chapter}")
         
-        # Add the new review entry directly to continuity_issues list
-        # The custom reducer will handle keeping only the best entry per chapter
-        if "continuity_issues" not in updated_revelations:
-            updated_revelations["continuity_issues"] = []
-        updated_revelations["continuity_issues"] = [review_entry]
-            
-        # Set the next phase based on whether we found issues
-        # Directly return the phase in the state dictionary to ensure it's captured immediately
+        # Return targeted updates
         return {
-            "revelations": updated_revelations,  # Ensure complete replacement of the revelations dict
-            "continuity_phase": "needs_resolution" if has_issues else "complete",
-            "continuity_review_history": updated_review_history, # Track review history for debugging
-            "resolution_index": 0,  # Always reset the resolution index 
-            "messages": [message]
+            "revelations": {
+                "continuity_issues": [review_entry]
+            },
+            "continuity_phase": "needs_resolution",
+            "continuity_review_history": review_history_update,
+            "resolution_index": 0,
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                message
+            ]
         }
     else:
         # No issues found - explicitly set phase to complete
@@ -439,13 +457,15 @@ def review_continuity(state: StoryState) -> Dict:
         # Log the error but don't halt execution
         print(f"Background memory processing error: {str(e)}")
     
-    # Return updated state with proper LangGraph state management
+    # Return updated state with proper LangGraph state management - using targeted updates
     return {
-        "revelations": updated_revelations,      # Updated story revelations
         "continuity_phase": "complete",          # Track where we are in the continuity review process
-        "continuity_review_history": updated_review_history,  # Track review history for debugging
+        "continuity_review_history": review_history_update,  # Only update this specific key
         "resolution_index": 0,                   # Reset resolution index
-        "messages": [message]
+        "messages": [
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            message
+        ]
     }
 
 @track_progress
@@ -464,7 +484,10 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
         print(f"NOTICE: Not in resolution mode for Chapter {current_chapter}, skipping")
         return {
             "continuity_phase": "complete",
-            "messages": [AIMessage(content=f"No continuity issues require resolution for Chapter {current_chapter}.")]
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"No continuity issues require resolution for Chapter {current_chapter}.")
+            ]
         }
     
     # Get continuity reviews from state
@@ -484,7 +507,10 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
             "continuity_phase": "complete",
             "resolution_index": 0,
             "resolution_count": 0,
-            "messages": [AIMessage(content="No continuity issues requiring resolution were found.")]
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content="No continuity issues requiring resolution were found.")
+            ]
         }
     
     # Get the structured issues to resolve
@@ -529,21 +555,18 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
         if current_review:
             current_chapter = current_review.get("after_chapter")
             
-            # Create a resolved version of the review
-            resolved_review = current_review.copy() 
-            resolved_review["resolution_status"] = "completed"
-            resolved_review["needs_resolution"] = False
-            resolved_review["issues_to_resolve"] = []  # Clear issues
-            resolved_review["resolved"] = True
-            resolved_review["resolution_timestamp"] = "now"
+            # Create a resolved version of the review with only the necessary fields
+            resolved_review = {
+                "after_chapter": current_review.get("after_chapter"),
+                "resolution_status": "completed",
+                "needs_resolution": False,
+                "issues_to_resolve": [],  # Clear issues
+                "resolved": True,
+                "resolution_timestamp": "now",
+                "review_key": current_review.get("review_key")
+            }
             
             print(f"Creating resolved review for Chapter {current_chapter}")
-            
-            # Add just this resolved review to the continuity_issues list
-            # The custom reducer will handle merging with existing issues
-            if "continuity_issues" not in updated_revelations:
-                updated_revelations["continuity_issues"] = []
-            updated_revelations["continuity_issues"] = [resolved_review]
         
         # Create a summary of what was resolved
         resolution_summary = state.get("resolution_summary", [])
@@ -561,8 +584,13 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
             "continuity_phase": "complete",     # Mark resolution as complete
             "resolution_index": 0,              # Reset for next time
             "resolution_count": 0,              # Reset for next time
-            "revelations": updated_revelations, # Complete replacement of revelations dict
-            "messages": [AIMessage(content=summary_message)]
+            "revelations": {
+                "continuity_issues": [resolved_review]  # Only return the resolved review
+            },
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=summary_message)
+            ]
         }
     
     # Get the current issue to resolve
@@ -611,7 +639,10 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
         return {
             "resolution_index": resolution_index + 1,
             "resolution_count": resolution_count + 1,
-            "messages": [AIMessage(content=f"Analyzed continuity issue but couldn't identify specific chapters to revise.")]
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"Analyzed continuity issue but couldn't identify specific chapters to revise.")
+            ]
         }
     
     # Track changes made for this issue
@@ -823,7 +854,10 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
         "resolution_count": resolution_count + 1, # Increment resolution count
         "resolution_summary": resolution_summary, # Track what we've resolved
         
-        "messages": [AIMessage(content=message)]
+        "messages": [
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            AIMessage(content=message)
+        ]
     }
 
 @track_progress
@@ -876,19 +910,18 @@ def compile_final_story(state: StoryState) -> Dict:
     if ":" in story_title and len(story_title.split(":")) > 1:
         story_title = story_title.split(":", 1)[1].strip()
         
-    # Add title and introduction
+    # Add just the title (without "Story Outline for")
     story.append(f"# {story_title}")
-    story.append("\n## Introduction\n")
     
-    # Add each chapter
+    # Add each chapter with simplified titles (no "Chapter X:" prefix)
     for chapter_num in sorted(chapters.keys(), key=int):
         chapter = chapters[chapter_num]
-        story.append(f"\n## Chapter {chapter_num}: {chapter['title']}\n")
+        story.append(f"\n## {chapter['title']}\n")
         
-        # Add each scene
+        # Add each scene without scene headlines
         for scene_num in sorted(chapter["scenes"].keys(), key=int):
             scene = chapter["scenes"][scene_num]
-            story.append(f"### Scene {scene_num}\n")
+            # No scene headline, just add the content directly
             story.append(scene["content"])
             story.append("\n\n")
     
@@ -904,7 +937,19 @@ def compile_final_story(state: StoryState) -> Dict:
     
     # Final message to the user
     return {
-        "messages": [AIMessage(content="I've compiled the complete story. Here's a summary of what I created:"),
+        "messages": [
+                    *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                    AIMessage(content="I've compiled the complete story. Here's a summary of what I created:"),
                     AIMessage(content=f"A {state['tone']} {state['genre']} story with {len(chapters)} chapters and {sum(len(chapter['scenes']) for chapter in chapters.values())} scenes. The story follows the hero's journey structure and features {len(state['characters'])} main characters. I've maintained consistency throughout the narrative and carefully managed character development and plot revelations.")],
-        "compiled_story": complete_story
+        "compiled_story": complete_story,
+        
+        # Add memory usage tracking for the final compilation
+        "memory_usage": {
+            "final_compilation": {
+                "timestamp": "now",
+                "story_size": len(complete_story),
+                "chapter_count": len(chapters),
+                "scene_count": sum(len(chapter['scenes']) for chapter in chapters.values())
+            }
+        }
     }
