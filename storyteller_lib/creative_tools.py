@@ -22,7 +22,8 @@ def creative_brainstorm(
     author_style_guidance: str = "",
     language: str = DEFAULT_LANGUAGE,
     num_ideas: int = 5,
-    evaluation_criteria: List[str] = None
+    evaluation_criteria: List[str] = None,
+    constraints: Dict[str, str] = None
 ) -> Dict:
     """
     Generate and evaluate multiple creative ideas for a given story element.
@@ -37,6 +38,7 @@ def creative_brainstorm(
         language: Target language for story generation
         num_ideas: Number of ideas to generate
         evaluation_criteria: List of criteria to evaluate ideas against
+        constraints: Dictionary of specific constraints to enforce (e.g., setting, characters)
         
     Returns:
         Dictionary with generated ideas and evaluations
@@ -49,6 +51,41 @@ def creative_brainstorm(
             "Reader engagement and emotional impact",
             "Feasibility within the story world"
         ]
+    
+    # Default constraints if none provided
+    if constraints is None:
+        constraints = {}
+    
+    # Extract key constraints for emphasis
+    setting_constraint = constraints.get("setting", "")
+    character_constraints = constraints.get("characters", "")
+    plot_constraints = constraints.get("plot", "")
+    
+    # Build constraints section
+    constraints_section = ""
+    if any([setting_constraint, character_constraints, plot_constraints]):
+        constraints_section = f"""
+        CRITICAL CONSTRAINTS (MUST BE FOLLOWED):
+        """
+        
+        if setting_constraint:
+            constraints_section += f"""
+            - Setting: All ideas MUST take place in {setting_constraint}. Do not deviate from this setting.
+            """
+            
+        if character_constraints:
+            constraints_section += f"""
+            - Characters: All ideas MUST incorporate these characters: {character_constraints}
+            """
+            
+        if plot_constraints:
+            constraints_section += f"""
+            - Plot Elements: All ideas MUST align with this plot: {plot_constraints}
+            """
+            
+        constraints_section += """
+        These constraints are non-negotiable. Any idea that violates these constraints will be rejected.
+        """
         
     # Prepare author style guidance if provided
     style_section = ""
@@ -72,6 +109,73 @@ def creative_brainstorm(
         Consider cultural nuances, idioms, and storytelling traditions specific to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions.
         """
     
+    # Genre-specific guidance
+    genre_guidance = f"""
+    GENRE REQUIREMENTS:
+    This is a {genre} story with a {tone} tone. All ideas MUST adhere to the conventions and expectations of the {genre} genre.
+    
+    Key elements that must be present for a {genre} story:
+    """
+    
+    # Add genre-specific elements based on the genre
+    if genre.lower() == "mystery":
+        genre_guidance += """
+        - A central mystery or puzzle to be solved
+        - Clues and red herrings
+        - Investigation and deduction
+        - Suspects with motives, means, and opportunities
+        - A resolution that explains the mystery
+        """
+    elif genre.lower() == "fantasy":
+        genre_guidance += """
+        - Magical or supernatural elements
+        - Worldbuilding with consistent rules
+        - Fantastical creatures or beings
+        - Epic conflicts or quests
+        - Themes of good vs. evil, power, or destiny
+        """
+    elif genre.lower() == "sci-fi" or genre.lower() == "science fiction":
+        genre_guidance += """
+        - Scientific or technological concepts
+        - Futuristic or alternative settings
+        - Exploration of the impact of science/technology on society
+        - Speculative elements based on scientific principles
+        - Themes of progress, ethics, or humanity's future
+        """
+    elif genre.lower() == "romance":
+        genre_guidance += """
+        - Focus on a developing relationship between characters
+        - Emotional connection and attraction
+        - Obstacles to the relationship
+        - Character growth through the relationship
+        - Satisfying emotional resolution
+        """
+    elif genre.lower() == "horror":
+        genre_guidance += """
+        - Elements designed to frighten or disturb
+        - Building tension and suspense
+        - Threats to characters' safety or sanity
+        - Atmosphere of dread or unease
+        - Exploration of fears and taboos
+        """
+    elif genre.lower() == "thriller":
+        genre_guidance += """
+        - High stakes and tension
+        - Danger and time pressure
+        - Complex plot with twists
+        - Protagonist facing formidable opposition
+        - Themes of survival, justice, or moral dilemmas
+        """
+    else:
+        # Generic genre guidance for other genres
+        genre_guidance += f"""
+        - Elements typical of {genre} stories
+        - Appropriate pacing and structure for {genre}
+        - Character types commonly found in {genre}
+        - Themes and motifs associated with {genre}
+        - Reader expectations for a {genre} story
+        """
+    
     # Brainstorming prompt
     brainstorm_prompt = f"""
     # Creative Brainstorming Session: {topic}
@@ -80,12 +184,15 @@ def creative_brainstorm(
     - Genre: {genre}
     - Tone: {tone}
     - Current Story Context: {context}
+    
+    {constraints_section}
+    {genre_guidance}
     {style_section}
     {language_section}
     
     ## Instructions
     Generate {num_ideas} diverse, creative ideas related to {topic}.
-    Think outside the box while maintaining coherence with the story context.
+    Think outside the box while maintaining coherence with the story context AND strictly adhering to all constraints.
     Each idea should be surprising yet plausible within the established world.
     
     For each idea:
@@ -93,14 +200,17 @@ def creative_brainstorm(
     2. Describe the idea in 3-5 sentences
     3. Note one potential benefit to the story
     4. Note one potential challenge to implementation
+    5. Explain how this idea adheres to the genre requirements and constraints
     
     Format each idea clearly and number them 1 through {num_ideas}.
+    
+    IMPORTANT: Double-check each idea to ensure it fully complies with ALL constraints and genre requirements before finalizing.
     """
     
     # Generate ideas
     ideas_response = llm.invoke([HumanMessage(content=brainstorm_prompt)]).content
     
-    # Evaluation prompt
+    # Evaluation prompt with stronger emphasis on constraints
     eval_prompt = f"""
     # Idea Evaluation for: {topic}
     
@@ -110,11 +220,20 @@ def creative_brainstorm(
     ## Story Context
     {context}
     
+    ## Constraints
+    {constraints_section}
+    
+    ## Genre Requirements
+    {genre_guidance}
+    
     ## Evaluation Criteria
     {', '.join(evaluation_criteria)}
     
     ## Instructions
-    Evaluate each idea against the criteria above on a scale of 1-10.
+    First, check each idea for compliance with the constraints and genre requirements.
+    IMMEDIATELY REJECT any idea that violates the constraints or doesn't fit the {genre} genre.
+    
+    Then, evaluate the remaining ideas against the criteria above on a scale of 1-10.
     For each idea:
     1. Provide scores for each criterion
     2. Calculate a total score

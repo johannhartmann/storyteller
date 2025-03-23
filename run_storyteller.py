@@ -12,6 +12,7 @@ import logging.config
 from dotenv import load_dotenv
 from storyteller_lib.storyteller import generate_story
 from storyteller_lib import set_progress_callback, reset_progress_tracking
+from storyteller_lib.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 
 # Load environment variables from .env file
 load_dotenv()
@@ -54,74 +55,172 @@ def progress_callback(node_name, state):
     # Get elapsed time
     elapsed = time.time() - start_time
     elapsed_str = f"{elapsed:.1f}s"
-    
     # Create a detailed progress report based on the node that just finished
     progress_message = f"[{elapsed_str}] Completed: {node_name}"
     
     # Add detailed node-specific progress information
     if node_name == "initialize_state":
-        progress_message = f"[{elapsed_str}] Initialized story state - preparing to generate {state.get('tone', '')} {state.get('genre', '')} story"
+        initial_idea = state.get('initial_idea', '')
+        idea_info = f" based on: '{initial_idea}'" if initial_idea else ""
+        progress_message = f"[{elapsed_str}] Initialized story state - preparing to generate {state.get('tone', '')} {state.get('genre', '')} story{idea_info}"
+        
+        # Always show the initial idea and key elements
+        if initial_idea:
+            sys.stdout.write("\n------ INITIAL STORY IDEA ------\n")
+            sys.stdout.write(f"{initial_idea}\n")
+            
+            # Show extracted elements if available
+            if "initial_idea_elements" in state:
+                elements = state["initial_idea_elements"]
+                sys.stdout.write("\nKey elements extracted:\n")
+                sys.stdout.write(f"- Setting: {elements.get('setting', 'Unknown')}\n")
+                sys.stdout.write(f"- Characters: {', '.join(elements.get('characters', []))}\n")
+                sys.stdout.write(f"- Plot: {elements.get('plot', 'Unknown')}\n")
+                if elements.get('themes'):
+                    sys.stdout.write(f"- Themes: {', '.join(elements.get('themes', []))}\n")
+            sys.stdout.write("-------------------------------\n\n")
+            
     elif node_name == "brainstorm_story_concepts":
         progress_message = f"[{elapsed_str}] Brainstormed creative story concepts - developing potential themes and ideas"
         
-        if verbose_mode and "creative_elements" in state:
+        # Always show a summary of the creative concepts
+        if "creative_elements" in state:
             creative = state["creative_elements"]
             sys.stdout.write("\n------ CREATIVE CONCEPTS ------\n")
             if "story_concepts" in creative and "recommended_ideas" in creative["story_concepts"]:
-                sys.stdout.write(f"STORY CONCEPT: \n{creative['story_concepts']['recommended_ideas']}\n\n")
+                # Extract just the first paragraph for a quick preview
+                concept = creative['story_concepts']['recommended_ideas']
+                concept_preview = concept.split('\n\n')[0] if '\n\n' in concept else concept
+                sys.stdout.write(f"STORY CONCEPT: \n{concept_preview}\n\n")
             if "world_building" in creative and "recommended_ideas" in creative["world_building"]:
-                sys.stdout.write(f"WORLD BUILDING: \n{creative['world_building']['recommended_ideas']}\n\n")
+                # Extract just the title and first sentence
+                world = creative['world_building']['recommended_ideas']
+                world_preview = ': '.join(world.split(':')[:2]) if ':' in world else world.split('.')[0]
+                sys.stdout.write(f"WORLD BUILDING: \n{world_preview}\n\n")
             if "central_conflicts" in creative and "recommended_ideas" in creative["central_conflicts"]:
-                sys.stdout.write(f"CENTRAL CONFLICT: \n{creative['central_conflicts']['recommended_ideas']}\n\n")
+                # Extract just the title and first sentence
+                conflict = creative['central_conflicts']['recommended_ideas']
+                conflict_preview = ': '.join(conflict.split(':')[:2]) if ':' in conflict else conflict.split('.')[0]
+                sys.stdout.write(f"CENTRAL CONFLICT: \n{conflict_preview}\n\n")
             sys.stdout.write("------------------------------\n\n")
             
     elif node_name == "generate_story_outline":
         progress_message = f"[{elapsed_str}] Generated story outline following hero's journey structure"
         
-        if verbose_mode and "global_story" in state:
+        # Always show a preview of the story outline
+        if "global_story" in state:
             outline = state["global_story"]
-            # Truncate if very long
-            if len(outline) > 1000:
-                outline_preview = outline[:1000] + "...\n[story outline truncated for display]"
-            else:
-                outline_preview = outline
-                
-            sys.stdout.write("\n------ STORY OUTLINE ------\n")
-            sys.stdout.write(f"{outline_preview}\n")
-            sys.stdout.write("--------------------------\n\n")
+            
+            # Extract title and first few sections
+            title = outline.split('\n')[0] if outline else "Untitled Story"
+            sections = outline.split('\n\n')[:3]  # Get first 3 sections
+            
+            sys.stdout.write("\n------ STORY OUTLINE PREVIEW ------\n")
+            sys.stdout.write(f"TITLE: {title}\n\n")
+            
+            # Show the first few sections
+            for i, section in enumerate(sections):
+                if i > 0:  # Skip title which we already showed
+                    preview = section[:200] + "..." if len(section) > 200 else section
+                    sys.stdout.write(f"{preview}\n\n")
+            
+            sys.stdout.write(f"[Story outline continues with {len(outline.split('\n\n')) - 3} more sections...]\n")
+            sys.stdout.write("----------------------------------\n\n")
             
     elif node_name == "generate_characters":
         progress_message = f"[{elapsed_str}] Created {len(state.get('characters', {}))} detailed character profiles with interconnected backgrounds"
         
-        if verbose_mode and "characters" in state:
+        # Always show a summary of the main characters
+        if "characters" in state:
             characters = state["characters"]
-            sys.stdout.write("\n------ CHARACTER PROFILES ------\n")
+            sys.stdout.write("\n------ MAIN CHARACTERS ------\n")
+            
+            # Limit to showing just 3-4 main characters
+            main_chars = []
             for char_name, char_data in characters.items():
+                role = char_data.get('role', '').lower()
+                # Prioritize protagonist, antagonist, and key supporting characters
+                if 'protagonist' in role or 'main' in role or 'detective' in role:
+                    main_chars.insert(0, (char_name, char_data))  # Add protagonist first
+                elif 'antagonist' in role or 'villain' in role:
+                    main_chars.append((char_name, char_data))  # Add antagonist
+                elif len(main_chars) < 4:  # Add other important characters
+                    main_chars.append((char_name, char_data))
+            
+            # Ensure we don't show too many characters
+            main_chars = main_chars[:4]
+            
+            for char_name, char_data in main_chars:
                 sys.stdout.write(f"CHARACTER: {char_data.get('name', char_name)}\n")
                 sys.stdout.write(f"Role: {char_data.get('role', 'Unknown')}\n")
-                # Show truncated backstory
+                
+                # Show one key trait, one strength, one flaw
+                if 'personality' in char_data:
+                    personality = char_data['personality']
+                    if 'traits' in personality and personality['traits']:
+                        sys.stdout.write(f"Key trait: {personality['traits'][0]}\n")
+                    if 'strengths' in personality and personality['strengths']:
+                        sys.stdout.write(f"Strength: {personality['strengths'][0]}\n")
+                    if 'flaws' in personality and personality['flaws']:
+                        sys.stdout.write(f"Flaw: {personality['flaws'][0]}\n")
+                
+                # Show very brief backstory
                 backstory = char_data.get('backstory', '')
-                if len(backstory) > 200:
-                    backstory = backstory[:200] + "..."
-                sys.stdout.write(f"Backstory: {backstory}\n")
-                sys.stdout.write(f"Key Relationships: {', '.join([f'{k}: {v}' for k, v in char_data.get('relationships', {}).items()][:3])}\n\n")
+                if backstory:
+                    first_sentence = backstory.split('.')[0] + '.'
+                    sys.stdout.write(f"Backstory: {first_sentence}\n")
+                
+                sys.stdout.write("\n")
+            
+            sys.stdout.write(f"[Plus {len(characters) - len(main_chars)} additional characters...]\n")
+            sys.stdout.write("----------------------------\n\n")
             sys.stdout.write("-------------------------------\n\n")
             
     elif node_name == "plan_chapters":
         progress_message = f"[{elapsed_str}] Planned {len(state.get('chapters', {}))} chapters for the story"
         
-        if verbose_mode and "chapters" in state:
+        # Always show the chapter plan
+        if "chapters" in state:
             chapters = state["chapters"]
-            sys.stdout.write("\n------ CHAPTER PLAN ------\n")
+            sys.stdout.write("\n------ STORY STRUCTURE ------\n")
+            
+            # Show total number of chapters and estimated word count
+            total_scenes = sum(len(chapter.get('scenes', {})) for chapter in chapters.values())
+            sys.stdout.write(f"Story structure: {len(chapters)} chapters with approximately {total_scenes} scenes\n")
+            sys.stdout.write(f"Estimated final length: {total_scenes * 1500}-{total_scenes * 2500} words\n\n")
+            
+            # Show chapter breakdown
             for ch_num in sorted(chapters.keys(), key=lambda x: int(x) if x.isdigit() else float('inf')):
                 chapter = chapters[ch_num]
                 sys.stdout.write(f"CHAPTER {ch_num}: {chapter.get('title', 'Untitled')}\n")
-                # Show truncated outline
+                
+                # Show key plot points or themes for this chapter
+                if 'themes' in chapter:
+                    themes = chapter['themes']
+                    if isinstance(themes, list) and themes:
+                        sys.stdout.write(f"Theme: {themes[0]}\n")
+                    elif isinstance(themes, str):
+                        sys.stdout.write(f"Theme: {themes}\n")
+                
+                # Show truncated outline - just the first sentence
                 outline = chapter.get('outline', '')
-                if len(outline) > 150:
-                    outline = outline[:150] + "..."
-                sys.stdout.write(f"Outline: {outline}\n")
-                sys.stdout.write(f"Scenes: {len(chapter.get('scenes', {}))}\n\n")
+                first_sentence = outline.split('.')[0] + '.' if outline and '.' in outline else outline
+                if len(first_sentence) > 100:
+                    first_sentence = first_sentence[:100] + "..."
+                sys.stdout.write(f"Focus: {first_sentence}\n")
+                
+                # Show scene count and key scenes
+                scenes = chapter.get('scenes', {})
+                sys.stdout.write(f"Scenes: {len(scenes)}\n")
+                
+                # If we have scene summaries, show the first one as an example
+                if scenes and '1' in scenes and 'summary' in scenes['1']:
+                    summary = scenes['1']['summary']
+                    if len(summary) > 80:
+                        summary = summary[:80] + "..."
+                    sys.stdout.write(f"First scene: {summary}\n")
+                
+                sys.stdout.write("\n")
             sys.stdout.write("--------------------------\n\n")
             
     elif node_name == "brainstorm_scene_elements":
@@ -130,22 +229,52 @@ def progress_callback(node_name, state):
         scene_info = f"Ch:{current_chapter}/Sc:{current_scene}"
         progress_message = f"[{elapsed_str}] Brainstormed creative elements for Scene {current_scene} of Chapter {current_chapter} [{scene_info}]"
         
-        if verbose_mode and "creative_elements" in state:
+        # Always show scene elements
+        if "creative_elements" in state:
             creative = state["creative_elements"]
             scene_elements_key = f"scene_elements_ch{current_chapter}_sc{current_scene}"
             scene_surprises_key = f"scene_surprises_ch{current_chapter}_sc{current_scene}"
             
-            if scene_elements_key in creative:
-                sys.stdout.write(f"\n------ SCENE ELEMENTS [{scene_info}] ------\n")
-                if "recommended_ideas" in creative[scene_elements_key]:
-                    sys.stdout.write(f"{creative[scene_elements_key]['recommended_ideas']}\n")
-                sys.stdout.write("--------------------------\n\n")
+            sys.stdout.write(f"\n------ UPCOMING SCENE {scene_info} ------\n")
+            
+            # Show chapter context
+            if current_chapter in state.get("chapters", {}):
+                chapter = state["chapters"][current_chapter]
+                chapter_title = chapter.get("title", f"Chapter {current_chapter}")
+                sys.stdout.write(f"Chapter: {chapter_title}\n")
+            
+            # Show scene elements in a condensed format
+            if scene_elements_key in creative and "recommended_ideas" in creative[scene_elements_key]:
+                # Extract just the key points
+                ideas = creative[scene_elements_key]["recommended_ideas"]
                 
-            if scene_surprises_key in creative:
-                sys.stdout.write(f"\n------ SURPRISE ELEMENTS [{scene_info}] ------\n")
-                if "recommended_ideas" in creative[scene_surprises_key]:
-                    sys.stdout.write(f"{creative[scene_surprises_key]['recommended_ideas']}\n")
-                sys.stdout.write("------------------------------\n\n")
+                # Try to extract the title/headline
+                title = ""
+                if ":" in ideas:
+                    title_parts = ideas.split(":", 1)
+                    title = title_parts[0].strip()
+                    
+                # Show a condensed version
+                sys.stdout.write(f"Scene focus: {title if title else 'Key scene elements'}\n")
+                
+                # Extract first paragraph or sentence for a brief preview
+                content = ideas.split("\n\n")[0] if "\n\n" in ideas else ideas
+                first_sentence = content.split(".")[0] + "." if "." in content else content
+                if len(first_sentence) > 100:
+                    first_sentence = first_sentence[:100] + "..."
+                sys.stdout.write(f"Elements: {first_sentence}\n")
+            
+            # Show surprise elements if available
+            if scene_surprises_key in creative and "recommended_ideas" in creative[scene_surprises_key]:
+                surprises = creative[scene_surprises_key]["recommended_ideas"]
+                # Extract just the first line or sentence
+                first_line = surprises.split("\n")[0] if "\n" in surprises else surprises
+                first_sentence = first_line.split(".")[0] + "." if "." in first_line else first_line
+                if len(first_sentence) > 80:
+                    first_sentence = first_sentence[:80] + "..."
+                sys.stdout.write(f"Twist: {first_sentence}\n")
+            
+            sys.stdout.write("------------------------------\n\n")
             
     elif node_name == "write_scene":
         current_chapter = state.get("current_chapter", "")
@@ -157,17 +286,47 @@ def progress_callback(node_name, state):
             chapter_title = chapter.get("title", f"Chapter {current_chapter}")
             progress_message = f"[{elapsed_str}] Wrote Scene {current_scene} of Chapter {current_chapter}: {chapter_title} [{scene_info}]"
             
-            if verbose_mode and current_chapter in chapters and current_scene in chapters[current_chapter]["scenes"]:
+            # Always show a preview of the scene
+            if current_chapter in chapters and current_scene in chapters[current_chapter]["scenes"]:
                 scene_content = chapters[current_chapter]["scenes"][current_scene].get("content", "")
                 if scene_content:
-                    # Show a preview of the scene (first 300 chars)
-                    preview_length = min(300, len(scene_content))
-                    preview = scene_content[:preview_length]
-                    if preview_length < len(scene_content):
-                        preview += "...\n[scene content truncated for display]"
-                        
-                    sys.stdout.write(f"\n------ SCENE PREVIEW [{scene_info}] ------\n")
-                    sys.stdout.write(f"{preview}\n")
+                    # Get scene summary
+                    scene_summary = ""
+                    if "summary" in chapters[current_chapter]["scenes"][current_scene]:
+                        scene_summary = chapters[current_chapter]["scenes"][current_scene]["summary"]
+                    
+                    # Extract key elements from the scene
+                    paragraphs = scene_content.split('\n\n')
+                    first_paragraph = paragraphs[0] if paragraphs else ""
+                    
+                    # Find a key piece of dialogue if present
+                    dialogue = ""
+                    for para in paragraphs:
+                        if '"' in para or "'" in para:
+                            dialogue_start = para.find('"') if '"' in para else para.find("'")
+                            if dialogue_start >= 0:
+                                dialogue_end = para.find('"', dialogue_start+1) if '"' in para else para.find("'", dialogue_start+1)
+                                if dialogue_end > dialogue_start:
+                                    dialogue = para[dialogue_start:dialogue_end+1]
+                                    break
+                    
+                    # Show a meaningful preview
+                    sys.stdout.write(f"\n------ SCENE {scene_info}: {chapter_title} ------\n")
+                    
+                    # Show summary if available
+                    if scene_summary:
+                        sys.stdout.write(f"SUMMARY: {scene_summary}\n\n")
+                    
+                    # Show first paragraph (truncated if needed)
+                    first_para_preview = first_paragraph[:200] + "..." if len(first_paragraph) > 200 else first_paragraph
+                    sys.stdout.write(f"OPENING: {first_para_preview}\n\n")
+                    
+                    # Show a key piece of dialogue if found
+                    if dialogue:
+                        sys.stdout.write(f"KEY DIALOGUE: {dialogue}\n\n")
+                    
+                    # Show scene length stats
+                    sys.stdout.write(f"Scene length: {len(scene_content)} characters, {len(paragraphs)} paragraphs\n")
                     sys.stdout.write("---------------------------\n\n")
                     
     elif node_name == "reflect_on_scene":
@@ -178,15 +337,28 @@ def progress_callback(node_name, state):
         scene_info = f"Ch:{current_chapter}/Sc:{current_scene}"
         progress_message = f"[{elapsed_str}] Analyzed Scene {current_scene} of Chapter {current_chapter} for quality and consistency [{scene_info}]"
         
-        if verbose_mode and current_chapter in state.get("chapters", {}) and current_scene in state["chapters"][current_chapter]["scenes"]:
+        # Always show reflection notes if available
+        if current_chapter in state.get("chapters", {}) and current_scene in state["chapters"][current_chapter]["scenes"]:
             reflection_notes = state["chapters"][current_chapter]["scenes"][current_scene].get("reflection_notes", [])
             if reflection_notes:
-                sys.stdout.write(f"\n------ REFLECTION NOTES [{scene_info}] ------\n")
-                for i, note in enumerate(reflection_notes):
-                    # Truncate if very long
-                    if len(note) > 300:
-                        note = note[:300] + "...\n[note truncated for display]"
-                    sys.stdout.write(f"{i+1}. {note}\n\n")
+                sys.stdout.write(f"\n------ SCENE ANALYSIS [{scene_info}] ------\n")
+                
+                # Show a summary of the analysis
+                sys.stdout.write(f"Analysis of scene {current_scene} in chapter {current_chapter}:\n")
+                
+                # Show only the most important notes (max 3)
+                important_notes = reflection_notes[:min(3, len(reflection_notes))]
+                for i, note in enumerate(important_notes):
+                    # Extract just the first sentence for brevity
+                    first_sentence = note.split('.')[0] + '.' if '.' in note else note
+                    if len(first_sentence) > 100:
+                        first_sentence = first_sentence[:100] + "..."
+                    sys.stdout.write(f"{i+1}. {first_sentence}\n")
+                
+                # Indicate if there are more notes
+                if len(reflection_notes) > 3:
+                    sys.stdout.write(f"[Plus {len(reflection_notes) - 3} additional notes...]\n")
+                
                 sys.stdout.write("-----------------------------\n\n")
                 
     elif node_name == "revise_scene_if_needed":
@@ -326,7 +498,7 @@ def main():
         return
     
     # Set up caching based on command line arguments
-    from storyteller_lib.config import setup_cache, CACHE_LOCATION, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+    from storyteller_lib.config import setup_cache, CACHE_LOCATION
     if args.cache_path:
         # Setting environment variable before importing other modules
         os.environ["CACHE_LOCATION"] = args.cache_path

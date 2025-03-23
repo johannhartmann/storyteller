@@ -28,6 +28,56 @@ def initialize_state(state: StoryState) -> Dict:
     if language.lower() not in SUPPORTED_LANGUAGES:
         language = DEFAULT_LANGUAGE
     
+    # Process the initial idea to extract key elements
+    idea_elements = {}
+    if initial_idea:
+        # Create a structured representation of the initial idea
+        idea_prompt = f"""
+        Analyze this initial story idea and extract key elements:
+        
+        "{initial_idea}"
+        
+        Extract and structure the following elements:
+        1. Main setting (e.g., "zoo", "space station", "medieval kingdom")
+        2. Main characters (e.g., "orangutan detective", "space captain", "young wizard")
+        3. Central conflict or plot (e.g., "murder investigation", "alien invasion", "quest for artifact")
+        4. Any specific themes or motifs mentioned
+        5. Any specific genre elements that should be emphasized
+        
+        Format your response as a structured JSON object with these fields.
+        """
+        
+        try:
+            idea_analysis = llm.invoke([HumanMessage(content=idea_prompt)]).content
+            
+            # Try to parse the JSON response
+            from storyteller_lib.creative_tools import parse_json_with_langchain
+            idea_elements = parse_json_with_langchain(idea_analysis, {
+                "setting": "Unknown",
+                "characters": [],
+                "plot": "Unknown",
+                "themes": [],
+                "genre_elements": []
+            })
+            
+            # Store the structured idea elements in memory for reference
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": "initial_idea_elements",
+                "value": idea_elements,
+                "namespace": MEMORY_NAMESPACE
+            })
+            
+            # Also store the raw initial idea for reference
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": "initial_idea_raw",
+                "value": initial_idea,
+                "namespace": MEMORY_NAMESPACE
+            })
+        except Exception as e:
+            print(f"Error processing initial idea: {str(e)}")
+    
     # If author guidance wasn't provided in the initial state, but we have an author, get it now
     if author and not author_style_guidance:
         # See if we have cached guidance
@@ -59,6 +109,7 @@ def initialize_state(state: StoryState) -> Dict:
         "tone": tone,
         "author": author,
         "initial_idea": initial_idea,
+        "initial_idea_elements": idea_elements,  # Add structured idea elements
         "author_style_guidance": author_style_guidance,
         "language": language,
         "global_story": "",
@@ -83,19 +134,85 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     tone = state["tone"]
     author = state["author"]
     initial_idea = state.get("initial_idea", "")
+    initial_idea_elements = state.get("initial_idea_elements", {})
     author_style_guidance = state["author_style_guidance"]
     language = state.get("language", DEFAULT_LANGUAGE)
     
-    # Generate initial context based on genre, tone, language, and initial idea
-    idea_context = f"\nThe story should be based on this initial idea: '{initial_idea}'" if initial_idea else ""
+    # Generate enhanced context based on genre, tone, language, and initial idea
+    idea_context = ""
+    if initial_idea:
+        # Create a more detailed context using the structured idea elements
+        setting = initial_idea_elements.get("setting", "Unknown")
+        characters = initial_idea_elements.get("characters", [])
+        plot = initial_idea_elements.get("plot", "Unknown")
+        themes = initial_idea_elements.get("themes", [])
+        genre_elements = initial_idea_elements.get("genre_elements", [])
+        
+        # Build a rich context that emphasizes the initial idea
+        idea_context = f"""
+        IMPORTANT: The story MUST be based on this initial idea: '{initial_idea}'
+        
+        Key elements that MUST be incorporated:
+        - Setting: {setting}
+        - Main Characters: {', '.join(characters) if characters else 'To be determined based on the initial idea'}
+        - Central Plot: {plot}
+        - Themes: {', '.join(themes) if themes else 'To be determined based on the initial idea'}
+        - Genre Elements: {', '.join(genre_elements) if genre_elements else 'To be determined based on the initial idea'}
+        
+        These elements are non-negotiable and must form the foundation of the story.
+        """
+    
     language_context = ""
     if language.lower() != DEFAULT_LANGUAGE:
         language_context = f"\nThe story should be written in {SUPPORTED_LANGUAGES[language.lower()]} with character names, places, and cultural references appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences."
     
     context = f"""
     We're creating a {tone} {genre} story that follows the hero's journey structure.
-    The story should be engaging, surprising, and emotionally resonant with readers.{idea_context}{language_context}
+    The story should be engaging, surprising, and emotionally resonant with readers.
+    {idea_context}
+    {language_context}
     """
+    
+    # Create custom evaluation criteria that emphasize adherence to the initial idea
+    custom_evaluation_criteria = [
+        "Adherence to the initial idea and its key elements",
+        "Originality and surprise factor within the constraints of the initial idea",
+        "Coherence with the established narrative requirements",
+        "Potential for character development based on specified characters",
+        "Reader engagement and emotional impact",
+        "Feasibility within the specified story world"
+    ]
+    
+    # Create constraints dictionary from initial idea elements
+    constraints = {}
+    if initial_idea_elements:
+        constraints = {
+            "setting": initial_idea_elements.get("setting", ""),
+            "characters": ", ".join(initial_idea_elements.get("characters", [])),
+            "plot": initial_idea_elements.get("plot", "")
+        }
+        
+        # Create memory anchors for key elements to ensure persistence throughout generation
+        for key, value in constraints.items():
+            if value:
+                manage_memory_tool.invoke({
+                    "action": "create",
+                    "key": f"constraint_{key}",
+                    "value": value,
+                    "namespace": MEMORY_NAMESPACE
+                })
+        
+        # Create a genre validation memory anchor
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "genre_requirement",
+            "value": {
+                "genre": genre,
+                "tone": tone,
+                "required_elements": f"This story must adhere to {genre} genre conventions with a {tone} tone"
+            },
+            "namespace": MEMORY_NAMESPACE
+        })
     
     # Brainstorm different high-level story concepts
     brainstorm_results = creative_brainstorm(
@@ -106,7 +223,9 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         author=author,
         author_style_guidance=author_style_guidance,
         language=language,
-        num_ideas=5
+        num_ideas=5,
+        evaluation_criteria=custom_evaluation_criteria,
+        constraints=constraints
     )
     
     # Brainstorm unique world-building elements
@@ -118,7 +237,9 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         author=author,
         author_style_guidance=author_style_guidance,
         language=language,
-        num_ideas=4
+        num_ideas=4,
+        evaluation_criteria=custom_evaluation_criteria,
+        constraints=constraints
     )
     
     # Brainstorm central conflicts
@@ -130,8 +251,44 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         author=author,
         author_style_guidance=author_style_guidance,
         language=language,
-        num_ideas=3
+        num_ideas=3,
+        evaluation_criteria=custom_evaluation_criteria,
+        constraints=constraints
     )
+    
+    # Validate that the brainstormed ideas adhere to the initial idea
+    if initial_idea:
+        validation_prompt = f"""
+        Evaluate whether these brainstormed ideas properly incorporate the initial story idea:
+        
+        Initial Idea: "{initial_idea}"
+        
+        Story Concepts:
+        {brainstorm_results.get("recommended_ideas", "No recommendations available")}
+        
+        World Building Elements:
+        {world_building_results.get("recommended_ideas", "No recommendations available")}
+        
+        Central Conflicts:
+        {conflict_results.get("recommended_ideas", "No recommendations available")}
+        
+        For each category, provide:
+        1. A score from 1-10 on how well it adheres to the initial idea
+        2. Specific feedback on what elements are missing or need adjustment
+        3. A YES/NO determination if the ideas are acceptable
+        
+        If any category scores below 7 or receives a NO, provide specific guidance on how to improve it.
+        """
+        
+        validation_result = llm.invoke([HumanMessage(content=validation_prompt)]).content
+        
+        # Store the validation result in memory
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "brainstorm_validation",
+            "value": validation_result,
+            "namespace": MEMORY_NAMESPACE
+        })
     
     # Store all creative elements
     creative_elements = {
@@ -139,6 +296,10 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         "world_building": world_building_results,
         "central_conflicts": conflict_results
     }
+    
+    # Store the initial idea elements with the creative elements for easy reference
+    if initial_idea_elements:
+        creative_elements["initial_idea_elements"] = initial_idea_elements
     
     # Create messages to add and remove
     idea_mention = f" based on your idea" if initial_idea else ""
