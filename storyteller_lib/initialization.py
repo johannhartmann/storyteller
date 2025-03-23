@@ -21,8 +21,6 @@ def initialize_state(state: StoryState) -> Dict:
     tone = state.get("tone") or "epic"
     author = state.get("author") or ""
     initial_idea = state.get("initial_idea") or ""
-    print(f"[STORYTELLER] initialize_state received initial_idea: '{initial_idea}'")
-    print(f"[STORYTELLER] initialize_state received state with keys: {list(state.keys())}")
     author_style_guidance = state.get("author_style_guidance", "")
     language = state.get("language") or DEFAULT_LANGUAGE
     
@@ -32,15 +30,12 @@ def initialize_state(state: StoryState) -> Dict:
     
     # Get initial idea elements from state or extract them if needed
     idea_elements = state.get("initial_idea_elements", {})
-    print(f"[STORYTELLER] initialize_state: Initial idea elements from state: {idea_elements}")
     
     # If we have an initial idea but no elements, parse it
     if initial_idea and not idea_elements:
-        print(f"[STORYTELLER] initialize_state: Initial idea present but no elements, parsing now")
         # Import the parsing function from storyteller.py
         from storyteller_lib.storyteller import parse_initial_idea
         idea_elements = parse_initial_idea(initial_idea)
-        print(f"[STORYTELLER] initialize_state: Parsed initial idea elements: {idea_elements}")
     
     # Ensure the idea elements are stored in memory for consistency checks
     if initial_idea:
@@ -72,8 +67,6 @@ def initialize_state(state: StoryState) -> Dict:
             },
             "namespace": MEMORY_NAMESPACE
         })
-        
-        print(f"[STORYTELLER] initialize_state: Stored initial idea and elements in LangMem")
     
     # If author guidance wasn't provided in the initial state, but we have an author, get it now
     if author and not author_style_guidance:
@@ -122,8 +115,6 @@ def initialize_state(state: StoryState) -> Dict:
         ]
     }
     
-    print(f"[STORYTELLER] initialize_state returning initial_idea: '{result_state['initial_idea']}'")
-    print(f"[STORYTELLER] initialize_state returning initial_idea_elements: {result_state['initial_idea_elements']}")
     return result_state
 
 @track_progress
@@ -131,27 +122,16 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     """Brainstorm creative story concepts before generating the outline."""
     from storyteller_lib.creative_tools import creative_brainstorm
     
-    print(f"[STORYTELLER] brainstorm_story_concepts received state with keys: {list(state.keys())}")
-    if "initial_idea" in state:
-        print(f"[STORYTELLER] brainstorm_story_concepts received initial_idea directly in state: '{state['initial_idea']}'")
-    else:
-        print(f"[STORYTELLER] WARNING: initial_idea not found in state keys: {list(state.keys())}")
-        # Try to recover from memory if not in state
+    # Try to recover from memory if initial_idea is not in state
+    if "initial_idea" not in state:
         try:
             initial_idea_obj = manage_memory_tool.invoke({
                 "action": "get",
                 "key": "initial_idea_raw",
                 "namespace": MEMORY_NAMESPACE
             })
-            
-            if initial_idea_obj and "value" in initial_idea_obj:
-                print(f"[STORYTELLER] Recovered initial_idea from memory: '{initial_idea_obj['value']}'")
-                # We'll use this recovered value below
-        except Exception as e:
-            print(f"[STORYTELLER] Failed to recover initial_idea from memory: {str(e)}")
-    
-    # Log the state type to help debug
-    print(f"[STORYTELLER] State type: {type(state)}")
+        except Exception:
+            pass
     
     genre = state["genre"]
     tone = state["tone"]
@@ -167,13 +147,11 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
             })
             if initial_idea_obj and "value" in initial_idea_obj:
                 initial_idea = initial_idea_obj["value"]
-                print(f"[STORYTELLER] Using initial_idea from memory: '{initial_idea}'")
         except Exception:
             pass
     
     # Get initial_idea_elements from state, with memory as fallback
     initial_idea_elements = state.get("initial_idea_elements", {})
-    print(f"[STORYTELLER] Initial idea elements from state: {initial_idea_elements}")
     
     # If we have an initial idea but no elements, try to get them from memory
     if not initial_idea_elements and initial_idea:
@@ -188,28 +166,18 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
                     initial_idea_elements = elements_obj["value"]["extracted_elements"]
                 else:
                     initial_idea_elements = elements_obj["value"]
-                print(f"[STORYTELLER] Using initial_idea_elements from memory: {initial_idea_elements}")
-        except Exception as e:
-            print(f"[STORYTELLER] Error retrieving initial_idea_elements from memory: {str(e)}")
+        except Exception:
+            pass
             
     # If we still don't have elements but have an initial idea, parse it now
     if not initial_idea_elements and initial_idea:
-        print(f"[STORYTELLER] No initial idea elements found, parsing now from: '{initial_idea}'")
         from storyteller_lib.storyteller import parse_initial_idea
         initial_idea_elements = parse_initial_idea(initial_idea)
-        print(f"[STORYTELLER] Parsed initial idea elements: {initial_idea_elements}")
     
     author_style_guidance = state["author_style_guidance"]
     language = state.get("language", DEFAULT_LANGUAGE)
     
-    print(f"[STORYTELLER] Brainstorming story concepts with initial idea: '{initial_idea}'")
-    if initial_idea:
-        if initial_idea_elements:
-            print(f"[STORYTELLER] Initial idea elements extracted: {initial_idea_elements}")
-        else:
-            print(f"[STORYTELLER] WARNING: Initial idea provided but no elements extracted. This may affect story coherence.")
-    else:
-        print("[STORYTELLER] WARNING: No initial idea provided, brainstorming without specific constraints")
+    # Generate enhanced context based on genre, tone, language, and initial idea
     
     # Generate enhanced context based on genre, tone, language, and initial idea
     idea_context = ""
@@ -220,9 +188,6 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         plot = initial_idea_elements.get("plot", "Unknown")
         themes = initial_idea_elements.get("themes", [])
         genre_elements = initial_idea_elements.get("genre_elements", [])
-        
-        # Log the extracted elements for debugging
-        print(f"[STORYTELLER] Initial idea elements extracted: {initial_idea_elements}")
         
         # Build a rich context that emphasizes the initial idea
         idea_context = f"""
@@ -237,7 +202,6 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         
         These elements are non-negotiable and must form the foundation of the story.
         """
-        print(f"[STORYTELLER] Created rich context with initial idea elements that MUST be incorporated")
         
         # Store the elements in memory again to ensure consistency
         manage_memory_tool.invoke({
@@ -268,11 +232,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     {language_context}
     """
     
-    print(f"[STORYTELLER] Final context for brainstorming:")
-    print(f"[STORYTELLER] ----------------------------------------")
-    print(f"[STORYTELLER] {context.strip()}")
-    print(f"[STORYTELLER] ----------------------------------------")
-    print(f"[STORYTELLER] Context contains initial idea guidance: {idea_context != ''}")
+    # Create custom evaluation criteria that emphasize adherence to the initial idea
     
     # Create custom evaluation criteria that emphasize adherence to the initial idea
     custom_evaluation_criteria = [
@@ -286,16 +246,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         "Feasibility within the specified story world"
     ]
     
-    if not initial_idea:
-        print(f"[STORYTELLER] WARNING: Using evaluation criteria that reference initial idea elements, but no initial idea was provided")
-        print(f"[STORYTELLER] This may lead to inconsistent evaluation of brainstormed ideas")
     # Create constraints dictionary from initial idea elements
     constraints = {}
-    if initial_idea and not initial_idea_elements:
-        print(f"[STORYTELLER] WARNING: Initial idea '{initial_idea}' exists but no elements were extracted to create constraints")
-    
-    if initial_idea and not initial_idea_elements:
-        print(f"[STORYTELLER] WARNING: Initial idea '{initial_idea}' exists but no elements were extracted to create constraints")
     
     if initial_idea_elements:
         constraints = {
@@ -304,17 +256,9 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
             "plot": initial_idea_elements.get("plot", "")
         }
         
-        # Check if any constraints are empty
-        empty_constraints = [k for k, v in constraints.items() if not v]
-        if empty_constraints:
-            print(f"[STORYTELLER] WARNING: Some constraints are empty despite having initial idea: {empty_constraints}")
-        
-        print(f"[STORYTELLER] Created constraints from initial idea: {constraints}")
-        
         # Create memory anchors for key elements to ensure persistence throughout generation
         for key, value in constraints.items():
             if value:
-                print(f"[STORYTELLER] Creating memory anchor for constraint_{key}: {value}")
                 manage_memory_tool.invoke({
                     "action": "create",
                     "key": f"constraint_{key}",
@@ -323,7 +267,6 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
                 })
         
         # Create a genre validation memory anchor
-        print(f"[STORYTELLER] Creating genre requirement memory anchor: {genre} with {tone} tone")
         manage_memory_tool.invoke({
             "action": "create",
             "key": "genre_requirement",
@@ -336,13 +279,11 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         })
         
         # Create a strong initial idea constraint
-        print(f"[STORYTELLER] Creating initial idea constraint memory anchor with original idea: '{initial_idea}'")
         must_include = [
             f"Setting: {initial_idea_elements.get('setting', '')}",
             f"Characters: {', '.join(initial_idea_elements.get('characters', []))}",
             f"Plot: {initial_idea_elements.get('plot', '')}"
         ]
-        print(f"[STORYTELLER] Must include elements: {must_include}")
         
         manage_memory_tool.invoke({
             "action": "create",
@@ -356,7 +297,6 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         })
         
         # Add a direct instruction to ensure the initial idea is followed
-        print(f"[STORYTELLER] Creating story directive memory anchor for initial idea: '{initial_idea}'")
         manage_memory_tool.invoke({
             "action": "create",
             "key": "story_directive",
@@ -365,12 +305,6 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         })
     
     # Brainstorm different high-level story concepts
-    print(f"[STORYTELLER] Brainstorming story concepts with constraints: {constraints}")
-    if initial_idea and not constraints:
-        print(f"[STORYTELLER] WARNING: Initial idea exists but no constraints are being used in brainstorming")
-    elif not initial_idea and constraints:
-        print(f"[STORYTELLER] WARNING: Using constraints without an initial idea - this is unexpected")
-    print(f"[STORYTELLER] Using strict adherence to initial idea: {True}")
     brainstorm_results = creative_brainstorm(
         topic="Story Concept",
         genre=genre,
@@ -384,10 +318,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         constraints=constraints,
         strict_adherence=True
     )
-    print(f"[STORYTELLER] Story concept brainstorming complete, recommended ideas: {brainstorm_results.get('recommended_ideas', 'None')}")
     
     # Brainstorm unique world-building elements
-    print(f"[STORYTELLER] Brainstorming world building elements with constraints: {constraints}")
     world_building_results = creative_brainstorm(
         topic="World Building Elements",
         genre=genre,
@@ -401,10 +333,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         constraints=constraints,
         strict_adherence=True
     )
-    print(f"[STORYTELLER] World building brainstorming complete, recommended ideas: {world_building_results.get('recommended_ideas', 'None')}")
     
     # Brainstorm central conflicts
-    print(f"[STORYTELLER] Brainstorming central conflicts with constraints: {constraints}")
     conflict_results = creative_brainstorm(
         topic="Central Conflict",
         genre=genre,
@@ -418,41 +348,34 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         constraints=constraints,
         strict_adherence=True
     )
-    print(f"[STORYTELLER] Central conflict brainstorming complete, recommended ideas: {conflict_results.get('recommended_ideas', 'None')}")
     
     # Validate that the brainstormed ideas adhere to the initial idea
     if initial_idea:
-        print(f"[STORYTELLER] Validating brainstormed ideas against initial idea: '{initial_idea}'")
-    else:
-        print("[STORYTELLER] WARNING: Skipping validation step because no initial idea was provided")
         validation_prompt = f"""
-        Evaluate whether these brainstormed ideas properly incorporate the initial story idea:
-        
-        Initial Idea: "{initial_idea}"
-        
-        Story Concepts:
-        {brainstorm_results.get("recommended_ideas", "No recommendations available")}
-        
-        World Building Elements:
-        {world_building_results.get("recommended_ideas", "No recommendations available")}
-        
-        Central Conflicts:
-        {conflict_results.get("recommended_ideas", "No recommendations available")}
-        
-        For each category, provide:
-        1. A score from 1-10 on how well it adheres to the initial idea
-        2. Specific feedback on what elements are missing or need adjustment
-        3. A YES/NO determination if the ideas are acceptable
-        
-        If any category scores below 7 or receives a NO, provide specific guidance on how to improve it.
-        """
-        
-        print("[STORYTELLER] Sending validation prompt to LLM")
+            Evaluate whether these brainstormed ideas properly incorporate the initial story idea:
+            
+            Initial Idea: "{initial_idea}"
+            
+            Story Concepts:
+            {brainstorm_results.get("recommended_ideas", "No recommendations available")}
+            
+            World Building Elements:
+            {world_building_results.get("recommended_ideas", "No recommendations available")}
+            
+            Central Conflicts:
+            {conflict_results.get("recommended_ideas", "No recommendations available")}
+            
+            For each category, provide:
+            1. A score from 1-10 on how well it adheres to the initial idea
+            2. Specific feedback on what elements are missing or need adjustment
+            3. A YES/NO determination if the ideas are acceptable
+            
+            If any category scores below 7 or receives a NO, provide specific guidance on how to improve it.
+            """
+            
         validation_result = llm.invoke([HumanMessage(content=validation_prompt)]).content
-        print(f"[STORYTELLER] Validation result received: {validation_result[:100]}...")  # Print first 100 chars for brevity
         
         # Store the validation result in memory
-        print("[STORYTELLER] Storing validation result in memory")
         manage_memory_tool.invoke({
             "action": "create",
             "key": "brainstorm_validation",
@@ -470,27 +393,10 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     # Store the initial idea elements with the creative elements for easy reference
     if initial_idea_elements:
         creative_elements["initial_idea_elements"] = initial_idea_elements
-        print(f"[STORYTELLER] Added initial idea elements to creative elements for persistence: {initial_idea_elements}")
-    
-    print(f"[STORYTELLER] Final creative elements structure created with initial idea influence: {initial_idea != ''}")
-    
-    # Check if initial idea was properly incorporated
-    if initial_idea and not creative_elements.get("initial_idea_elements"):
-        print(f"[STORYTELLER] WARNING: Initial idea '{initial_idea}' may not be properly incorporated in the final creative elements")
     
     # Create messages to add and remove
     idea_mention = f" based on your idea" if initial_idea else ""
     
-    # Final summary of initial idea usage
-    if initial_idea:
-        print(f"[STORYTELLER] SUMMARY: Brainstorming completed WITH initial idea: '{initial_idea}'")
-        print(f"[STORYTELLER] Initial idea elements were extracted: {bool(initial_idea_elements)}")
-        print(f"[STORYTELLER] Constraints were created: {bool(constraints)}")
-        print(f"[STORYTELLER] Validation was performed: {True}")
-    else:
-        print(f"[STORYTELLER] SUMMARY: Brainstorming completed WITHOUT any initial idea")
-        print(f"[STORYTELLER] This may result in a story that doesn't match user expectations")
-        print(f"[STORYTELLER] Consider providing an initial idea for more directed story generation")
     new_msg = AIMessage(content=f"I've brainstormed several creative concepts for your {tone} {genre} story{idea_mention}. Now I'll develop a cohesive outline based on the most promising ideas.")
     
     # Get existing message IDs to delete

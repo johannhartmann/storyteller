@@ -436,8 +436,6 @@ def review_continuity(state: StoryState) -> Dict:
         print(f"Error generating structured continuity review: {str(e)}")
         print("Using default continuity review data")
         structured_review = default_continuity_review
-        continuity_review_text = "Error processing continuity review"
-        structured_review["raw_review"] = continuity_review_text
     
     # Store both raw and structured continuity review in memory using consistent key format
     manage_memory_tool.invoke({
@@ -447,11 +445,7 @@ def review_continuity(state: StoryState) -> Dict:
     })
     
     # Also store the raw text for backward compatibility using consistent key format
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": f"continuity_review_raw_ch{current_chapter}",
-        "value": continuity_review_text
-    })
+    # No raw text to store with the Pydantic approach
     # Create a targeted update for the review history
     review_history_update = {
         review_key: {
@@ -496,7 +490,6 @@ def review_continuity(state: StoryState) -> Dict:
         review_entry = {
             "after_chapter": current_chapter,
             "issues_to_resolve": all_issues,
-            "raw_review": continuity_review_text,
             "structured_review": structured_review,
             "needs_resolution": has_issues,
             "resolution_status": "pending",
