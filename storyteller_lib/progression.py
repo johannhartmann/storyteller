@@ -7,7 +7,7 @@ removing router-specific code that could cause infinite loops.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, memory_manager, prompt_optimizer, MEMORY_NAMESPACE, log_memory_usage, cleanup_old_state
+from storyteller_lib.config import llm, manage_memory_tool, memory_manager, prompt_optimizer, MEMORY_NAMESPACE, cleanup_old_state
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib import track_progress
@@ -158,9 +158,6 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
         
         # Check if the next chapter exists
         if next_chapter in chapters:
-            # Log memory usage before cleanup
-            memory_stats = log_memory_usage(f"before_chapter_transition_{current_chapter}_to_{next_chapter}")
-            
             # Get cleanup updates for old state data
             cleanup_updates = cleanup_old_state(state, current_chapter)
             

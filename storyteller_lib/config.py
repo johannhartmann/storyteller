@@ -41,6 +41,24 @@ CACHE_LOCATION = os.environ.get("CACHE_LOCATION", str(Path.home() / ".storytelle
 # Define the path for the SQLite memory database
 MEMORY_DB_PATH = os.environ.get("MEMORY_DB_PATH", str(Path.home() / ".storyteller" / "memory.sqlite"))
 
+# Language Configuration
+DEFAULT_LANGUAGE = "english"  # Default language for story generation
+# Dictionary mapping language codes to their full names
+SUPPORTED_LANGUAGES = {
+    "english": "English",
+    "spanish": "Spanish",
+    "french": "French",
+    "german": "German",
+    "italian": "Italian",
+    "portuguese": "Portuguese",
+    "russian": "Russian",
+    "japanese": "Japanese",
+    "chinese": "Chinese",
+    "korean": "Korean",
+    "arabic": "Arabic",
+    "hindi": "Hindi"
+}
+
 def setup_cache(cache_type: str = DEFAULT_CACHE_TYPE) -> Optional[BaseCache]:
     """
     Set up the LLM cache based on the specified type.

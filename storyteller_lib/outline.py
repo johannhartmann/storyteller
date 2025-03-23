@@ -4,7 +4,7 @@ StoryCraft Agent - Story outline and planning nodes.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, log_memory_usage
+from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain
@@ -18,6 +18,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     author = state["author"]
     initial_idea = state.get("initial_idea", "")
     author_style_guidance = state["author_style_guidance"]
+    language = state.get("language", DEFAULT_LANGUAGE)
     creative_elements = state.get("creative_elements", {})
     
     # Prepare author style guidance
@@ -94,6 +95,23 @@ def generate_story_outline(state: StoryState) -> Dict:
         
         Incorporate these brainstormed elements into your story outline, adapting them as needed to fit the hero's journey structure.
         """
+    # Prepare language guidance
+    language_guidance = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_guidance = f"""
+        LANGUAGE CONSIDERATIONS:
+        This story will be written in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        When creating the story outline:
+        1. Use character names that are authentic and appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
+        2. Include settings, locations, and cultural references that resonate with {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
+        3. Consider storytelling traditions, folklore elements, and narrative structures common in {SUPPORTED_LANGUAGES[language.lower()]} literature
+        4. Incorporate cultural values, social dynamics, and historical contexts relevant to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+        5. Ensure that idioms, metaphors, and symbolic elements will translate well to {SUPPORTED_LANGUAGES[language.lower()]}
+        
+        The story should feel authentic to readers of {SUPPORTED_LANGUAGES[language.lower()]} rather than like a translated work.
+        """
+    
     # Prepare initial idea guidance
     idea_guidance = ""
     if initial_idea:
@@ -140,6 +158,8 @@ def generate_story_outline(state: StoryState) -> Dict:
     {creative_guidance}
     
     {style_guidance}
+    
+    {language_guidance}
     """
     
     # Generate the story outline
@@ -187,6 +207,7 @@ def generate_characters(state: StoryState) -> Dict:
     tone = state["tone"]
     author = state["author"]
     author_style_guidance = state["author_style_guidance"]
+    language = state.get("language", DEFAULT_LANGUAGE)
     
     # Prepare character style guidance
     char_style_section = ""
@@ -233,6 +254,23 @@ def generate_characters(state: StoryState) -> Dict:
             {author_style_guidance}
             """
     
+    # Prepare language guidance for characters
+    language_guidance = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_guidance = f"""
+        CHARACTER LANGUAGE CONSIDERATIONS:
+        Create characters appropriate for a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        1. Use character names that are authentic and common in {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
+        2. Ensure character backgrounds, professions, and social roles reflect {SUPPORTED_LANGUAGES[language.lower()]}-speaking societies
+        3. Incorporate cultural values, beliefs, and traditions that resonate with {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
+        4. Consider family structures, social hierarchies, and interpersonal dynamics typical in {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+        5. Include character traits, expressions, and mannerisms that feel natural in {SUPPORTED_LANGUAGES[language.lower()]} culture
+        6. Develop character speech patterns and dialogue styles that reflect {SUPPORTED_LANGUAGES[language.lower()]} communication norms
+        
+        Characters should feel authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like translated or foreign characters.
+        """
+    
     # Prompt for character generation
     prompt = f"""
     Based on this story outline:
@@ -270,6 +308,8 @@ def generate_characters(state: StoryState) -> Dict:
     Format each character profile clearly and ensure they have interconnected relationships and histories.
     
     {char_style_section}
+    
+    {language_guidance}
     """
     
     # Generate character profiles
@@ -531,13 +571,27 @@ def generate_characters(state: StoryState) -> Dict:
 @track_progress
 def plan_chapters(state: StoryState) -> Dict:
     """Divide the story into chapters with detailed outlines."""
-    # Log memory usage at the start
-    memory_before = log_memory_usage("plan_chapters_start")
-    
     global_story = state["global_story"]
     characters = state["characters"]
     genre = state["genre"]
     tone = state["tone"]
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
+    # Prepare language guidance for chapters
+    language_guidance = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_guidance = f"""
+        CHAPTER LANGUAGE CONSIDERATIONS:
+        Plan chapters appropriate for a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        1. Use chapter titles that resonate with {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
+        2. Include settings, locations, and cultural references authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+        3. Consider storytelling traditions, pacing, and narrative structures common in {SUPPORTED_LANGUAGES[language.lower()]} literature
+        4. Incorporate cultural events, holidays, or traditions relevant to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures when appropriate
+        5. Ensure that scenes reflect social norms, customs, and daily life authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking societies
+        
+        The chapter structure should feel natural to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like a translated work.
+        """
     
     # Prompt for chapter planning
     prompt = f"""
@@ -559,6 +613,8 @@ def plan_chapters(state: StoryState) -> Dict:
     5. Any major revelations or plot twists
     
     Ensure the chapters flow logically and maintain the arc of the hero's journey.
+    
+    {language_guidance}
     """
     
     # Generate chapter plan
@@ -661,9 +717,6 @@ def plan_chapters(state: StoryState) -> Dict:
             "value": chapter_data
         })
     
-    # Log memory usage after chapter planning
-    memory_after = log_memory_usage("plan_chapters_end")
-    
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
     
@@ -674,16 +727,6 @@ def plan_chapters(state: StoryState) -> Dict:
         "chapters": chapters,
         "current_chapter": "1",  # Start with the first chapter
         "current_scene": "1",    # Start with the first scene
-        
-        # Add memory usage tracking
-        "memory_usage": {
-            "plan_chapters": {
-                "before": memory_before,
-                "after": memory_after,
-                "chapter_count": len(chapters),
-                "timestamp": "now"
-            }
-        },
         
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],

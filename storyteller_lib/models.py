@@ -236,6 +236,7 @@ class StoryState(TypedDict):
     tone: str
     author: str  # Author whose style to emulate
     author_style_guidance: str  # Specific notes on author's style
+    language: str  # Target language for story generation
     global_story: str  # Overall storyline and hero's journey phases
     
     # Complex fields that need custom reducers

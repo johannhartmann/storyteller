@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage
 from storyteller_lib.graph import build_story_graph
 from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE
 
-def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = ""):
+def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = "", language: str = ""):
     """
     Attempt to extract a partial story from memory when normal generation fails.
     This function tries to recover whatever content has been generated so far,
@@ -24,6 +24,7 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
         tone: The tone of the story (e.g., epic, dark, humorous)
         author: Optional author whose style to emulate (e.g., Tolkien, Rowling, Martin)
         initial_idea: Optional initial story idea to use as a starting point
+        language: Optional target language for the story
         
     Returns:
         The partial story as a string, or None if nothing could be recovered
@@ -152,7 +153,7 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
     return None
 
 
-def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = ""):
+def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = "", language: str = ""):
     """
     Generate a complete story using the StoryCraft agent with the refactored graph.
     
@@ -161,6 +162,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         tone: The tone of the story (e.g., epic, dark, humorous)
         author: Optional author whose style to emulate (e.g., Tolkien, Rowling, Martin)
         initial_idea: Optional initial story idea to use as a starting point
+        language: Optional target language for the story
     """
     # Get the graph with our decorated node functions
     graph = build_story_graph()
@@ -185,13 +187,26 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
     idea_text = f" based on this idea: '{initial_idea}'" if initial_idea else ""
     print(f"Generating a {tone} {genre} story{' in the style of '+author if author else ''}{idea_text}...")
     
+    # Get language from config if not provided
+    from storyteller_lib.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+    if not language:
+        language = DEFAULT_LANGUAGE
+    
+    # Validate language
+    if language.lower() not in SUPPORTED_LANGUAGES:
+        language = DEFAULT_LANGUAGE
+    
+    # Add language mention to the message if not English
+    language_mention = f" in {SUPPORTED_LANGUAGES[language.lower()]}" if language.lower() != DEFAULT_LANGUAGE else ""
+    
     # Initial state - remove custom router-related fields
     initial_state = {
-        "messages": [HumanMessage(content=f"Please write a {tone} {genre} story{' in the style of '+author if author else ''}{idea_text} for me.")],
+        "messages": [HumanMessage(content=f"Please write a {tone} {genre} story{' in the style of '+author if author else ''}{language_mention}{idea_text} for me.")],
         "genre": genre,
         "tone": tone,
         "author": author,
         "author_style_guidance": author_style_guidance,
+        "language": language,
         "initial_idea": initial_idea,
         "global_story": "",
         "chapters": {},
@@ -211,11 +226,11 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
     # Progress tracking will happen automatically via the decorated node functions
     # No need for store reference as we're not using checkpointing in single-session mode
     result = graph.invoke(
-        initial_state, 
+        initial_state,
         config={
             "recursion_limit": 200,
             "configurable": {
-                "thread_id": f"{genre}_{tone}_{author}".replace(" ", "_")
+                "thread_id": f"{genre}_{tone}_{language}_{author}".replace(" ", "_")
             }
         }
     )
