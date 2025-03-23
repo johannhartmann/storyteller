@@ -4,7 +4,7 @@ StoryCraft Agent - Scene generation and management nodes.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, log_memory_usage
+from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import creative_brainstorm
@@ -18,6 +18,7 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     genre = state["genre"]
+    language = state.get("language", DEFAULT_LANGUAGE)
     tone = state["tone"]
     author = state["author"]
     author_style_guidance = state["author_style_guidance"]
@@ -50,6 +51,7 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         context=context,
         author=author,
         author_style_guidance=author_style_guidance,
+        language=language,
         num_ideas=4,
         evaluation_criteria=[
             "Visual impact and memorability",
@@ -68,11 +70,12 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         context=context,
         author=author,
         author_style_guidance=author_style_guidance,
+        language=language,
         num_ideas=3,
         evaluation_criteria=[
             "Surprise factor",
             "Logical consistency with established facts",
-            "Impact on future plot development", 
+            "Impact on future plot development",
             "Character reaction potential",
             "Reader engagement"
         ]
@@ -106,9 +109,6 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
 @track_progress
 def write_scene(state: StoryState) -> Dict:
     """Write a detailed scene based on the current chapter and scene."""
-    # Log memory usage at the start of scene writing
-    memory_before = log_memory_usage(f"write_scene_start_{state['current_chapter']}_{state['current_scene']}")
-    
     chapters = state["chapters"]
     characters = state["characters"]
     current_chapter = state["current_chapter"]
@@ -117,6 +117,7 @@ def write_scene(state: StoryState) -> Dict:
     tone = state["tone"]
     author = state["author"]
     author_style_guidance = state["author_style_guidance"]
+    language = state.get("language", DEFAULT_LANGUAGE)
     global_story = state["global_story"]
     revelations = state["revelations"]
     creative_elements = state.get("creative_elements", {})
@@ -133,6 +134,22 @@ def write_scene(state: StoryState) -> Dict:
         You are writing in the style of {author}. Apply these stylistic elements:
         
         {author_style_guidance}
+        """
+    
+    # Prepare language guidance
+    language_section = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_section = f"""
+        LANGUAGE CONSIDERATIONS:
+        You are writing this scene in {SUPPORTED_LANGUAGES[language.lower()]}. Consider the following:
+        
+        1. Use dialogue, expressions, and idioms natural to {SUPPORTED_LANGUAGES[language.lower()]}-speaking characters
+        2. Incorporate cultural references, settings, and descriptions authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+        3. Consider social norms, customs, and interpersonal dynamics typical in {SUPPORTED_LANGUAGES[language.lower()]} culture
+        4. Use narrative techniques, pacing, and stylistic elements common in {SUPPORTED_LANGUAGES[language.lower()]} literature
+        5. Ensure names, places, and cultural elements are appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
+        
+        The scene should read as if it was originally written in {SUPPORTED_LANGUAGES[language.lower()]}, not translated.
         """
     
     # Get brainstormed creative elements for this scene
@@ -233,6 +250,7 @@ def write_scene(state: StoryState) -> Dict:
     
     Write the scene in third-person perspective with a {tone} style appropriate for {genre} fiction.
     {style_section}
+    {language_section}
     """
     
     # Generate the scene content
@@ -256,9 +274,6 @@ def write_scene(state: StoryState) -> Dict:
         }
     })
     
-    # Log memory usage after scene generation
-    memory_after = log_memory_usage(f"write_scene_end_{current_chapter}_{current_scene}")
-    
     # Update state with the new scene using targeted updates
     # Instead of copying the entire chapters dictionary
     scene_update = {
@@ -272,16 +287,6 @@ def write_scene(state: StoryState) -> Dict:
         "chapters": {
             current_chapter: {
                 "scenes": scene_update
-            }
-        },
-        
-        # Add memory usage tracking
-        "memory_usage": {
-            f"write_scene_{current_chapter}_{current_scene}": {
-                "before": memory_before,
-                "after": memory_after,
-                "scene_size": len(scene_content),
-                "timestamp": "now"
             }
         },
         

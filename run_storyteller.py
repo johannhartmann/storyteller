@@ -303,6 +303,8 @@ def main():
                         help="Tone of the story (e.g., epic, dark, humorous)")
     parser.add_argument("--author", type=str, default="",
                         help="Author whose style to emulate (e.g., Tolkien, Rowling, Martin)")
+    parser.add_argument("--language", type=str, default=DEFAULT_LANGUAGE,
+                        help=f"Target language for story generation (e.g., {', '.join(SUPPORTED_LANGUAGES.keys())})")
     parser.add_argument("--idea", type=str, default="",
                         help="Initial story idea to use as a starting point (e.g., 'A detective story set in a zoo')")
     parser.add_argument("--output", type=str, default="story.md",
@@ -311,7 +313,7 @@ def main():
                         help="Display detailed information about the story elements as they're generated")
     parser.add_argument("--cache", type=str, choices=["memory", "sqlite", "none"], default="sqlite",
                         help="LLM cache type to use (default: sqlite)")
-    parser.add_argument("--cache-path", type=str, 
+    parser.add_argument("--cache-path", type=str,
                         help="Path to the cache file (for sqlite cache)")
     parser.add_argument("--recursion-limit", type=int, default=200,
                         help="LangGraph recursion limit (default: 200)")
@@ -324,7 +326,7 @@ def main():
         return
     
     # Set up caching based on command line arguments
-    from storyteller_lib.config import setup_cache, CACHE_LOCATION
+    from storyteller_lib.config import setup_cache, CACHE_LOCATION, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
     if args.cache_path:
         # Setting environment variable before importing other modules
         os.environ["CACHE_LOCATION"] = args.cache_path
@@ -343,7 +345,8 @@ def main():
     try:
         # Generate the story with visual progress display
         author_str = f" in the style of {args.author}" if args.author else ""
-        print(f"Generating a {args.tone} {args.genre} story{author_str}...")
+        language_str = f" in {SUPPORTED_LANGUAGES.get(args.language.lower(), args.language)}" if args.language.lower() != DEFAULT_LANGUAGE else ""
+        print(f"Generating a {args.tone} {args.genre} story{author_str}{language_str}...")
         print(f"This will take some time. Progress updates will be displayed below:")
         
         # Reset progress tracking variables
@@ -360,13 +363,14 @@ def main():
         story = None
         partial_story = None
         try:
-            # Start the story generation 
+            # Start the story generation
             # We don't need to pass progress_callback since we registered it globally
             story = generate_story(
                 genre=args.genre,
                 tone=args.tone,
                 author=args.author,
-                initial_idea=args.idea
+                initial_idea=args.idea,
+                language=args.language
             )
             
             # Show completion message
@@ -385,7 +389,7 @@ def main():
             from storyteller_lib.storyteller import extract_partial_story
             try:
                 print("Attempting to recover partial story...")
-                partial_story = extract_partial_story(args.genre, args.tone, args.author, args.idea)
+                partial_story = extract_partial_story(args.genre, args.tone, args.author, args.idea, args.language)
                 if partial_story:
                     print("Partial story recovered successfully!")
                     story = partial_story

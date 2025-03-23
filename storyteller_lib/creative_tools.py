@@ -5,7 +5,7 @@ StoryCraft Agent - Creative tools and utilities.
 from typing import Dict, List, Any, Optional, Union, Type, TypeVar
 import json
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE
+from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
@@ -14,12 +14,13 @@ from pydantic import BaseModel, Field, create_model
 T = TypeVar('T', bound=BaseModel)
 
 def creative_brainstorm(
-    topic: str, 
-    genre: str, 
-    tone: str, 
-    context: str, 
-    author: str = "", 
+    topic: str,
+    genre: str,
+    tone: str,
+    context: str,
+    author: str = "",
     author_style_guidance: str = "",
+    language: str = DEFAULT_LANGUAGE,
     num_ideas: int = 5,
     evaluation_criteria: List[str] = None
 ) -> Dict:
@@ -33,6 +34,7 @@ def creative_brainstorm(
         context: Current story context
         author: Optional author style to emulate
         author_style_guidance: Optional guidance on author's style
+        language: Target language for story generation
         num_ideas: Number of ideas to generate
         evaluation_criteria: List of criteria to evaluate ideas against
         
@@ -60,6 +62,16 @@ def creative_brainstorm(
         The ideas should feel like they could appear in a story by this author.
         """
     
+    # Prepare language guidance if not English
+    language_section = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_section = f"""
+        LANGUAGE CONSIDERATION:
+        Generate ideas appropriate for a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
+        Character names, places, and cultural references should be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
+        Consider cultural nuances, idioms, and storytelling traditions specific to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions.
+        """
+    
     # Brainstorming prompt
     brainstorm_prompt = f"""
     # Creative Brainstorming Session: {topic}
@@ -69,6 +81,7 @@ def creative_brainstorm(
     - Tone: {tone}
     - Current Story Context: {context}
     {style_section}
+    {language_section}
     
     ## Instructions
     Generate {num_ideas} diverse, creative ideas related to {topic}.
