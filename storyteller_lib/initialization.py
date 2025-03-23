@@ -175,10 +175,12 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     
     # Create custom evaluation criteria that emphasize adherence to the initial idea
     custom_evaluation_criteria = [
-        "Adherence to the initial idea and its key elements",
-        "Originality and surprise factor within the constraints of the initial idea",
+        "Adherence to the initial idea and its key elements (setting, characters, plot)",
+        "Preservation of the essential nature of specified characters and their roles",
+        "Maintenance of the specified setting as the primary location",
+        "Development of the central conflict as described in the initial idea",
+        "Originality and surprise factor while respecting the initial concept",
         "Coherence with the established narrative requirements",
-        "Potential for character development based on specified characters",
         "Reader engagement and emotional impact",
         "Feasibility within the specified story world"
     ]
@@ -213,6 +215,30 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
             },
             "namespace": MEMORY_NAMESPACE
         })
+        
+        # Create a strong initial idea constraint
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "initial_idea_constraint",
+            "value": {
+                "original_idea": initial_idea,
+                "must_include": [
+                    f"Setting: {initial_idea_elements.get('setting', '')}",
+                    f"Characters: {', '.join(initial_idea_elements.get('characters', []))}",
+                    f"Plot: {initial_idea_elements.get('plot', '')}"
+                ],
+                "importance": "These elements are the foundation of the story and must be preserved throughout generation."
+            },
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Add a direct instruction to ensure the initial idea is followed
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "story_directive",
+            "value": f"This story must be based on the initial idea: '{initial_idea}'. The key elements (setting, characters, plot) must be preserved.",
+            "namespace": MEMORY_NAMESPACE
+        })
     
     # Brainstorm different high-level story concepts
     brainstorm_results = creative_brainstorm(
@@ -225,7 +251,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         language=language,
         num_ideas=5,
         evaluation_criteria=custom_evaluation_criteria,
-        constraints=constraints
+        constraints=constraints,
+        strict_adherence=True
     )
     
     # Brainstorm unique world-building elements
@@ -239,7 +266,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         language=language,
         num_ideas=4,
         evaluation_criteria=custom_evaluation_criteria,
-        constraints=constraints
+        constraints=constraints,
+        strict_adherence=True
     )
     
     # Brainstorm central conflicts
@@ -253,7 +281,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         language=language,
         num_ideas=3,
         evaluation_criteria=custom_evaluation_criteria,
-        constraints=constraints
+        constraints=constraints,
+        strict_adherence=True
     )
     
     # Validate that the brainstormed ideas adhere to the initial idea
