@@ -1174,7 +1174,7 @@ def plan_chapters(state: StoryState) -> Dict:
     1. Chapter number and title
     2. A summary of major events (200-300 words)
     3. Which characters appear and how they develop
-    4. 2-4 key scenes that should be included
+    4. 3-6 key scenes that should be included
     5. Any major revelations or plot twists
     
     Ensure the chapters flow logically and maintain the arc of the hero's journey.
@@ -1199,6 +1199,10 @@ def plan_chapters(state: StoryState) -> Dict:
           "2": {
             "content": "",
             "reflection_notes": []
+          },
+          "3": {
+            "content": "",
+            "reflection_notes": []
           }
         },
         "reflection_notes": []
@@ -1213,7 +1217,8 @@ def plan_chapters(state: StoryState) -> Dict:
             "outline": "Introduction to the hero and their mundane life. Hints of adventure to come.",
             "scenes": {
                 "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []}
+                "2": {"content": "", "reflection_notes": []},
+                "3": {"content": "", "reflection_notes": []}
             },
             "reflection_notes": []
         },
@@ -1222,7 +1227,8 @@ def plan_chapters(state: StoryState) -> Dict:
             "outline": "Hero receives a call to adventure and initially hesitates.",
             "scenes": {
                 "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []}
+                "2": {"content": "", "reflection_notes": []},
+                "3": {"content": "", "reflection_notes": []}
             },
             "reflection_notes": []
         },
@@ -1231,7 +1237,8 @@ def plan_chapters(state: StoryState) -> Dict:
             "outline": "Hero meets a wise mentor who provides guidance and tools.",
             "scenes": {
                 "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []}
+                "2": {"content": "", "reflection_notes": []},
+                "3": {"content": "", "reflection_notes": []}
             },
             "reflection_notes": []
         }
