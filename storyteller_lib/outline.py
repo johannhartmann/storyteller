@@ -17,6 +17,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     tone = state["tone"]
     author = state["author"]
     initial_idea = state.get("initial_idea", "")
+    initial_idea_elements = state.get("initial_idea_elements", {})
     author_style_guidance = state["author_style_guidance"]
     language = state.get("language", DEFAULT_LANGUAGE)
     creative_elements = state.get("creative_elements", {})
@@ -112,24 +113,50 @@ def generate_story_outline(state: StoryState) -> Dict:
         The story should feel authentic to readers of {SUPPORTED_LANGUAGES[language.lower()]} rather than like a translated work.
         """
     
-    # Prepare initial idea guidance
+    # Prepare enhanced initial idea guidance using structured elements
     idea_guidance = ""
     if initial_idea:
+        # Extract structured elements for more detailed guidance
+        setting = initial_idea_elements.get("setting", "Unknown")
+        characters = initial_idea_elements.get("characters", [])
+        plot = initial_idea_elements.get("plot", "Unknown")
+        themes = initial_idea_elements.get("themes", [])
+        genre_elements = initial_idea_elements.get("genre_elements", [])
+        
         idea_guidance = f"""
-        INITIAL STORY IDEA:
+        INITIAL STORY IDEA (HIGHEST PRIORITY):
         {initial_idea}
         
-        Use this initial idea as the foundation for your story outline. Incorporate its key elements,
-        characters, setting, and premise while adapting it to fit the hero's journey structure.
+        This initial idea is the FOUNDATION of the story and MUST be followed. The story outline MUST incorporate:
+        
+        1. SETTING: {setting}
+           - This is the primary location where the story takes place
+           - All major events must occur within or be connected to this setting
+        
+        2. MAIN CHARACTERS: {', '.join(characters) if characters else 'To be determined based on the initial idea'}
+           - These characters must be central to the story
+           - Their characteristics and roles must align with the initial idea
+        
+        3. CENTRAL PLOT: {plot}
+           - This is the main storyline that drives the narrative
+           - All other plot elements must support or connect to this central conflict
+        
+        4. THEMES: {', '.join(themes) if themes else 'To be determined based on the initial idea'}
+           - These themes should be woven throughout the story
+        
+        5. GENRE ELEMENTS: {', '.join(genre_elements) if genre_elements else 'To be determined based on the initial idea'}
+           - These elements must be incorporated to maintain genre consistency
+        
+        The hero's journey structure should be adapted to fit this initial idea, NOT the other way around.
+        If any conflict arises between the hero's journey structure and the initial idea, prioritize the initial idea.
         """
     
-    # Prompt for story generation
+    # Prompt for story generation with stronger emphasis on initial idea
     prompt = f"""
     Create a compelling story outline for a {tone} {genre} narrative following the hero's journey structure.
-    {f"Based on this initial idea: '{initial_idea}'" if initial_idea else ""}
+    {f"IMPORTANT: This story MUST be based on this initial idea: '{initial_idea}'" if initial_idea else ""}
     
-    Include all major phases:
-    Include all major phases:
+    Include all major phases of the hero's journey, adapted to fit the initial idea:
     1. The Ordinary World
     2. The Call to Adventure
     3. Refusal of the Call
@@ -145,11 +172,11 @@ def generate_story_outline(state: StoryState) -> Dict:
     
     For each phase, provide a brief description of what happens.
     Also include:
-    - A captivating title for the story
-    - 3-5 main characters with brief descriptions
-    - A central conflict or challenge
-    - The world/setting of the story
-    - Key themes or messages
+    - A captivating title for the story that reflects the initial idea
+    - 3-5 main characters with brief descriptions (must include those specified in the initial idea)
+    - A central conflict or challenge (must align with the plot from the initial idea)
+    - The world/setting of the story (must be the setting from the initial idea)
+    - Key themes or messages (should include those from the initial idea)
     
     Format your response as a structured outline with clear sections.
     
@@ -165,6 +192,251 @@ def generate_story_outline(state: StoryState) -> Dict:
     # Generate the story outline
     story_outline = llm.invoke([HumanMessage(content=prompt)]).content
     
+    # Perform multiple validation checks on the story outline
+    validation_results = {}
+    
+    # 1. Validate that the outline adheres to the initial idea if one was provided
+    if initial_idea and initial_idea_elements:
+        idea_validation_prompt = f"""
+        Evaluate whether this story outline properly incorporates the initial story idea:
+        
+        Initial Idea: "{initial_idea}"
+        
+        Required Elements:
+        - Setting: {initial_idea_elements.get('setting', 'Unknown')}
+        - Characters: {', '.join(initial_idea_elements.get('characters', []))}
+        - Plot: {initial_idea_elements.get('plot', 'Unknown')}
+        - Themes: {', '.join(initial_idea_elements.get('themes', []))}
+        - Genre Elements: {', '.join(initial_idea_elements.get('genre_elements', []))}
+        
+        Story Outline:
+        {story_outline}
+        
+        Provide:
+        1. A score from 1-10 on how well the outline adheres to the initial idea
+        2. Specific feedback on what elements are missing or need adjustment
+        3. A YES/NO determination if the outline is acceptable
+        
+        If the score is below 8 or the determination is NO, provide specific guidance on how to improve it.
+        """
+        
+        idea_validation_result = llm.invoke([HumanMessage(content=idea_validation_prompt)]).content
+        validation_results["initial_idea"] = idea_validation_result
+        
+        # Store the validation result in memory
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "outline_idea_validation",
+            "value": idea_validation_result,
+            "namespace": MEMORY_NAMESPACE
+        })
+    
+    # 2. Validate that the outline adheres to the specified genre
+    genre_validation_prompt = f"""
+    Evaluate whether this story outline properly adheres to the {genre} genre with a {tone} tone:
+    
+    Story Outline:
+    {story_outline}
+    
+    Key elements that should be present in a {genre} story:
+    """
+    
+    # Add genre-specific elements based on the genre
+    if genre.lower() == "mystery":
+        genre_validation_prompt += """
+        - A central mystery or puzzle to be solved
+        - Clues and red herrings
+        - Investigation and deduction
+        - Suspects with motives, means, and opportunities
+        - A resolution that explains the mystery
+        """
+    elif genre.lower() == "fantasy":
+        genre_validation_prompt += """
+        - Magical or supernatural elements
+        - Worldbuilding with consistent rules
+        - Fantastical creatures or beings
+        - Epic conflicts or quests
+        - Themes of good vs. evil, power, or destiny
+        """
+    elif genre.lower() == "sci-fi" or genre.lower() == "science fiction":
+        genre_validation_prompt += """
+        - Scientific or technological concepts
+        - Futuristic or alternative settings
+        - Exploration of the impact of science/technology on society
+        - Speculative elements based on scientific principles
+        - Themes of progress, ethics, or humanity's future
+        """
+    elif genre.lower() == "romance":
+        genre_validation_prompt += """
+        - Focus on a developing relationship between characters
+        - Emotional connection and attraction
+        - Obstacles to the relationship
+        - Character growth through the relationship
+        - Satisfying emotional resolution
+        """
+    elif genre.lower() == "horror":
+        genre_validation_prompt += """
+        - Elements designed to frighten or disturb
+        - Building tension and suspense
+        - Threats to characters' safety or sanity
+        - Atmosphere of dread or unease
+        - Exploration of fears and taboos
+        """
+    elif genre.lower() == "thriller":
+        genre_validation_prompt += """
+        - High stakes and tension
+        - Danger and time pressure
+        - Complex plot with twists
+        - Protagonist facing formidable opposition
+        - Themes of survival, justice, or moral dilemmas
+        """
+    else:
+        # Generic genre guidance for other genres
+        genre_validation_prompt += f"""
+        - Elements typical of {genre} stories
+        - Appropriate pacing and structure for {genre}
+        - Character types commonly found in {genre}
+        - Themes and motifs associated with {genre}
+        - Reader expectations for a {genre} story
+        """
+    
+    genre_validation_prompt += f"""
+    
+    Tone considerations for a {tone} story:
+    - Appropriate language and narrative style for {tone} tone
+    - Consistent mood and atmosphere
+    - Character interactions that reflect the {tone} tone
+    
+    Provide:
+    1. A score from 1-10 on how well the outline adheres to the {genre} genre
+    2. A score from 1-10 on how well the outline maintains a {tone} tone
+    3. Specific feedback on what genre elements are missing or need adjustment
+    4. A YES/NO determination if the outline is acceptable as a {genre} story with {tone} tone
+    
+    If either score is below 8 or the determination is NO, provide specific guidance on how to improve it.
+    """
+    
+    genre_validation_result = llm.invoke([HumanMessage(content=genre_validation_prompt)]).content
+    validation_results["genre"] = genre_validation_result
+    
+    # Store the validation result in memory
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": "outline_genre_validation",
+        "value": genre_validation_result,
+        "namespace": MEMORY_NAMESPACE
+    })
+    
+    # 3. Validate that the outline adheres to the specified setting if one was provided
+    if initial_idea_elements and initial_idea_elements.get('setting'):
+        setting = initial_idea_elements.get('setting')
+        setting_validation_prompt = f"""
+        Evaluate whether this story outline properly incorporates the required setting: "{setting}"
+        
+        Story Outline:
+        {story_outline}
+        
+        A story set in "{setting}" should:
+        - Have most or all scenes take place in this setting
+        - Include details and descriptions specific to this setting
+        - Have plot elements that naturally arise from or connect to this setting
+        - Feature characters whose roles make sense within this setting
+        
+        Provide:
+        1. A score from 1-10 on how well the outline incorporates the "{setting}" setting
+        2. Specific feedback on how the setting is used or could be better utilized
+        3. A YES/NO determination if the setting is adequately incorporated
+        
+        If the score is below 8 or the determination is NO, provide specific guidance on how to improve it.
+        """
+        
+        setting_validation_result = llm.invoke([HumanMessage(content=setting_validation_prompt)]).content
+        validation_results["setting"] = setting_validation_result
+        
+        # Store the validation result in memory
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "outline_setting_validation",
+            "value": setting_validation_result,
+            "namespace": MEMORY_NAMESPACE
+        })
+    
+    # Determine if we need to regenerate the outline based on validation results
+    needs_regeneration = False
+    improvement_guidance = ""
+    
+    # Check initial idea validation
+    if "initial_idea" in validation_results:
+        result = validation_results["initial_idea"]
+        if "NO" in result or any(f"score: {i}" in result.lower() for i in range(1, 8)):
+            needs_regeneration = True
+            improvement_guidance += "INITIAL IDEA ISSUES:\n"
+            improvement_guidance += result.split("guidance on how to improve it:")[-1].strip() if "guidance on how to improve it:" in result else result
+            improvement_guidance += "\n\n"
+    
+    # Check genre validation
+    if "genre" in validation_results:
+        result = validation_results["genre"]
+        if "NO" in result or any(f"score: {i}" in result.lower() for i in range(1, 8)):
+            needs_regeneration = True
+            improvement_guidance += f"GENRE ({genre}) ISSUES:\n"
+            improvement_guidance += result.split("guidance on how to improve it:")[-1].strip() if "guidance on how to improve it:" in result else result
+            improvement_guidance += "\n\n"
+    
+    # Check setting validation
+    if "setting" in validation_results:
+        result = validation_results["setting"]
+        if "NO" in result or any(f"score: {i}" in result.lower() for i in range(1, 8)):
+            needs_regeneration = True
+            improvement_guidance += "SETTING ISSUES:\n"
+            improvement_guidance += result.split("guidance on how to improve it:")[-1].strip() if "guidance on how to improve it:" in result else result
+            improvement_guidance += "\n\n"
+    
+    # If any validation failed, regenerate the outline
+    if needs_regeneration:
+        # Create a revised prompt with the improvement guidance
+        revised_prompt = f"""
+        IMPORTANT: Your previous story outline did not meet one or more requirements. Please revise it based on this feedback:
+        
+        {improvement_guidance}
+        
+        Initial Idea: "{initial_idea}"
+        
+        Required Elements:
+        - Setting: {initial_idea_elements.get('setting', 'Unknown') if initial_idea_elements else 'Not specified'}
+        - Characters: {', '.join(initial_idea_elements.get('characters', [])) if initial_idea_elements else 'Not specified'}
+        - Plot: {initial_idea_elements.get('plot', 'Unknown') if initial_idea_elements else 'Not specified'}
+        - Themes: {', '.join(initial_idea_elements.get('themes', [])) if initial_idea_elements else 'Not specified'}
+        - Genre Elements: {', '.join(initial_idea_elements.get('genre_elements', [])) if initial_idea_elements else 'Not specified'}
+        
+        Genre Requirements: This MUST be a {genre} story with a {tone} tone.
+        
+        {prompt}
+        """
+        
+        # Regenerate the outline
+        story_outline = llm.invoke([HumanMessage(content=revised_prompt)]).content
+        
+        # Store the revised outline
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "story_outline_revised",
+            "value": story_outline,
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Store the combined validation results
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "outline_validation_combined",
+            "value": {
+                "initial_validation": validation_results,
+                "improvement_guidance": improvement_guidance,
+                "regenerated": True
+            },
+            "namespace": MEMORY_NAMESPACE
+        })
+        
     # Store in memory
     manage_memory_tool.invoke({
         "action": "create",
@@ -178,7 +450,9 @@ def generate_story_outline(state: StoryState) -> Dict:
         "key": "procedural_memory_outline_generation",
         "value": {
             "timestamp": "initial_creation",
-            "method": "hero's_journey_structure"
+            "method": "hero's_journey_structure",
+            "initial_idea_used": bool(initial_idea),
+            "validation_performed": bool(initial_idea and initial_idea_elements)
         }
     })
     
@@ -188,7 +462,8 @@ def generate_story_outline(state: StoryState) -> Dict:
     message_ids = [msg.id for msg in state.get("messages", [])]
     
     # Create message for the user
-    new_msg = AIMessage(content="I've created a story outline following the hero's journey structure. Now I'll develop the characters in more detail.")
+    idea_mention = f" based on your idea about {initial_idea_elements.get('setting', 'the specified setting')}" if initial_idea else ""
+    new_msg = AIMessage(content=f"I've created a story outline following the hero's journey structure{idea_mention}. Now I'll develop the characters in more detail.")
     
     return {
         "global_story": story_outline,
@@ -206,6 +481,8 @@ def generate_characters(state: StoryState) -> Dict:
     genre = state["genre"]
     tone = state["tone"]
     author = state["author"]
+    initial_idea = state.get("initial_idea", "")
+    initial_idea_elements = state.get("initial_idea_elements", {})
     author_style_guidance = state["author_style_guidance"]
     language = state.get("language", DEFAULT_LANGUAGE)
     
@@ -271,6 +548,24 @@ def generate_characters(state: StoryState) -> Dict:
         Characters should feel authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like translated or foreign characters.
         """
     
+    # Prepare initial idea character guidance
+    initial_idea_guidance = ""
+    required_characters = []
+    if initial_idea and initial_idea_elements:
+        characters_from_idea = initial_idea_elements.get("characters", [])
+        if characters_from_idea:
+            required_characters = characters_from_idea
+            initial_idea_guidance = f"""
+            REQUIRED CHARACTERS (HIGHEST PRIORITY):
+            
+            The following characters MUST be included in your character profiles as they are central to the initial story idea:
+            {', '.join(characters_from_idea)}
+            
+            These characters are non-negotiable and must be developed in detail according to the initial idea: "{initial_idea}"
+            
+            For each required character, ensure their role, traits, and backstory align with the initial idea and the story outline.
+            """
+    
     # Prompt for character generation
     prompt = f"""
     Based on this story outline:
@@ -278,6 +573,8 @@ def generate_characters(state: StoryState) -> Dict:
     {global_story}
     
     Create detailed profiles for 4-6 characters in this {tone} {genre} story that readers will find compelling and relatable.
+    {f"You MUST include the following characters from the initial idea: {', '.join(required_characters)}" if required_characters else ""}
+    
     For each character, include:
     
     1. Name and role in the story (protagonist, antagonist, mentor, etc.)
@@ -300,6 +597,8 @@ def generate_characters(state: StoryState) -> Dict:
     8. Initial known facts (what the character and reader know at the start)
     9. Secret facts (information hidden from the reader initially)
     
+    {initial_idea_guidance}
+    
     Make these characters:
     - RELATABLE: Give them universal hopes, fears, and struggles readers can empathize with
     - COMPLEX: Include contradictions and inner turmoil that make them feel authentic
@@ -314,6 +613,69 @@ def generate_characters(state: StoryState) -> Dict:
     
     # Generate character profiles
     character_profiles_text = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Validate that the characters are appropriate for the genre and setting
+    if genre and initial_idea_elements and initial_idea_elements.get('setting'):
+        setting = initial_idea_elements.get('setting')
+        validation_prompt = f"""
+        Evaluate whether these character profiles are appropriate for:
+        1. A {genre} story with a {tone} tone
+        2. A story set in "{setting}"
+        
+        Character Profiles:
+        {character_profiles_text}
+        
+        For a {genre} story set in "{setting}", characters should:
+        - Have roles, backgrounds, and motivations that make sense in a {genre} narrative
+        - Have traits and abilities appropriate for the {setting} setting
+        - Fulfill genre expectations for character types in {genre} stories
+        - Have conflicts and relationships that drive a {genre} plot
+        - Be consistent with the tone and atmosphere of a {tone} story
+        
+        Provide:
+        1. A score from 1-10 on how well the characters fit the {genre} genre
+        2. A score from 1-10 on how well the characters fit the "{setting}" setting
+        3. Specific feedback on what character elements are missing or need adjustment
+        4. A YES/NO determination if the characters are acceptable
+        
+        If either score is below 8 or the determination is NO, provide specific guidance on how to improve the characters.
+        """
+        
+        validation_result = llm.invoke([HumanMessage(content=validation_prompt)]).content
+        
+        # Store the validation result in memory
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "character_genre_setting_validation",
+            "value": validation_result,
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Check if we need to regenerate the characters
+        if "NO" in validation_result or any(f"score: {i}" in validation_result.lower() for i in range(1, 8)):
+            # Extract the improvement guidance
+            improvement_guidance = validation_result.split("guidance on how to improve")[-1].strip() if "guidance on how to improve" in validation_result else validation_result
+            
+            # Create a revised prompt with the improvement guidance
+            revised_prompt = f"""
+            IMPORTANT: Your previous character profiles were not appropriate for a {genre} story set in "{setting}".
+            Please revise them based on this feedback:
+            
+            {improvement_guidance}
+            
+            {prompt}
+            """
+            
+            # Regenerate the character profiles
+            character_profiles_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
+            
+            # Store the revised character profiles
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": "character_profiles_revised",
+                "value": character_profiles_text,
+                "namespace": MEMORY_NAMESPACE
+            })
     
     # Define the schema for character data
     character_schema = """
@@ -528,21 +890,153 @@ def generate_characters(state: StoryState) -> Dict:
         print(f"Error parsing character data: {str(e)}")
         # Fallback structure defined above in parse_structured_data call
         characters = default_characters
+        # Validate the structure
+        for char_name, profile in characters.items():
+            required_fields = ["name", "role", "backstory", "evolution", "known_facts",
+                             "secret_facts", "revealed_facts", "relationships"]
+            for field in required_fields:
+                if field not in profile:
+                    profile[field] = [] if field in ["evolution", "known_facts", "secret_facts", "revealed_facts"] else {}
+                    if field == "name":
+                        profile[field] = char_name.capitalize()
+                    elif field == "role":
+                        profile[field] = "Supporting Character"
+                    elif field == "backstory":
+                        profile[field] = "Unknown background"
         
-    # Validate the structure
-    for char_name, profile in characters.items():
-        required_fields = ["name", "role", "backstory", "evolution", "known_facts", 
-                         "secret_facts", "revealed_facts", "relationships"]
-        for field in required_fields:
-            if field not in profile:
-                profile[field] = [] if field in ["evolution", "known_facts", "secret_facts", "revealed_facts"] else {}
-                if field == "name":
-                    profile[field] = char_name.capitalize()
-                elif field == "role":
-                    profile[field] = "Supporting Character"
-                elif field == "backstory":
-                    profile[field] = "Unknown background"
-    
+        # Validate that required characters from the initial idea are included
+        if initial_idea and initial_idea_elements and "characters" in initial_idea_elements:
+            required_characters = initial_idea_elements.get("characters", [])
+            if required_characters:
+                # Check if all required characters are included
+                character_names = [profile.get("name", "").lower() for profile in characters.values()]
+                missing_characters = []
+                
+                for required_char in required_characters:
+                    # Check if any character name contains the required character name
+                    found = False
+                    for name in character_names:
+                        # Check if the required character appears in any character name
+                        if required_char.lower() in name or name in required_char.lower():
+                            found = True
+                            break
+                    
+                    if not found:
+                        missing_characters.append(required_char)
+                
+                # If any required characters are missing, regenerate with stronger emphasis
+                if missing_characters:
+                    # Log the issue
+                    print(f"Missing required characters: {', '.join(missing_characters)}")
+                    
+                    # Create a revised prompt with stronger emphasis on required characters
+                    revised_prompt = f"""
+                    IMPORTANT: Your previous character profiles did not include all the required characters from the initial idea.
+                    
+                    You MUST include these specific characters that are central to the story:
+                    {', '.join(missing_characters)}
+                    
+                    These characters are non-negotiable and must be developed in detail according to the initial idea: "{initial_idea}"
+                    
+                    {prompt}
+                    """
+                    
+                    # Regenerate character profiles
+                    character_profiles_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
+                    
+                    # Try parsing again
+                    try:
+                        characters = generate_structured_json(
+                            character_profiles_text,
+                            character_schema,
+                            "character profiles"
+                        )
+                        
+                        # If generation failed, use the default fallback data
+                        if not characters:
+                            print("Using default character data as JSON generation failed.")
+                            characters = default_characters
+                            
+                            # Add the missing required characters to the default set
+                            for missing_char in missing_characters:
+                                slug = missing_char.lower().replace(" ", "_")
+                                characters[slug] = {
+                                    "name": missing_char,
+                                    "role": "Required Character from Initial Idea",
+                                    "backstory": f"Important character from the initial idea: {initial_idea}",
+                                    "personality": {
+                                        "traits": ["To be developed"],
+                                        "strengths": ["To be developed"],
+                                        "flaws": ["To be developed"],
+                                        "fears": ["To be developed"],
+                                        "desires": ["To be developed"],
+                                        "values": ["To be developed"]
+                                    },
+                                    "emotional_state": {
+                                        "initial": "To be developed",
+                                        "current": "To be developed",
+                                        "journey": []
+                                    },
+                                    "inner_conflicts": [
+                                        {
+                                            "description": "To be developed",
+                                            "resolution_status": "unresolved",
+                                            "impact": "To be developed"
+                                        }
+                                    ],
+                                    "character_arc": {
+                                        "type": "To be determined",
+                                        "stages": [],
+                                        "current_stage": "Beginning"
+                                    },
+                                    "evolution": ["Initial state"],
+                                    "known_facts": ["Required character from initial idea"],
+                                    "secret_facts": [],
+                                    "revealed_facts": [],
+                                    "relationships": {}
+                                }
+                    except Exception as e:
+                        print(f"Error parsing regenerated character data: {str(e)}")
+                        # Add the missing required characters to the default set
+                        characters = default_characters
+                        for missing_char in missing_characters:
+                            slug = missing_char.lower().replace(" ", "_")
+                            characters[slug] = {
+                                "name": missing_char,
+                                "role": "Required Character from Initial Idea",
+                                "backstory": f"Important character from the initial idea: {initial_idea}",
+                                "personality": {
+                                    "traits": ["To be developed"],
+                                    "strengths": ["To be developed"],
+                                    "flaws": ["To be developed"],
+                                    "fears": ["To be developed"],
+                                    "desires": ["To be developed"],
+                                    "values": ["To be developed"]
+                                },
+                                "emotional_state": {
+                                    "initial": "To be developed",
+                                    "current": "To be developed",
+                                    "journey": []
+                                },
+                                "inner_conflicts": [
+                                    {
+                                        "description": "To be developed",
+                                        "resolution_status": "unresolved",
+                                        "impact": "To be developed"
+                                    }
+                                ],
+                                "character_arc": {
+                                    "type": "To be determined",
+                                    "stages": [],
+                                    "current_stage": "Beginning"
+                                },
+                                "evolution": ["Initial state"],
+                                "known_facts": ["Required character from initial idea"],
+                                "secret_facts": [],
+                                "revealed_facts": [],
+                                "relationships": {}
+                            }
+                
     # Store character profiles in memory
     for char_name, profile in characters.items():
         manage_memory_tool.invoke({

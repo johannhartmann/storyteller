@@ -6,12 +6,135 @@ a custom router function, which prevents recursion issues in complex stories.
 """
 
 import os
-from typing import Dict, List
+from typing import Dict, List, Any
 from langchain_core.messages import HumanMessage
+from storyteller_lib.config import llm
 
 # Import the graph builder
 from storyteller_lib.graph import build_story_graph
 from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE
+
+def get_genre_key_elements(genre: str) -> List[str]:
+    """
+    Get key elements that should be present in a story of the specified genre.
+    Uses LLM to generate genre-specific elements for flexibility with any genre.
+    
+    Args:
+        genre: The genre of the story (e.g., fantasy, sci-fi, mystery)
+        
+    Returns:
+        A list of key elements for the genre
+    """
+    # Use LLM to generate genre-specific elements
+    prompt = f"""
+    Identify the 5-7 most important elements that should be present in a {genre} story.
+    
+    These elements should include:
+    - Plot structures typical of {genre}
+    - Character types commonly found in {genre}
+    - Setting characteristics appropriate for {genre}
+    - Themes and motifs associated with {genre}
+    - Stylistic elements expected in {genre}
+    
+    Format your response as a simple list of elements, one per line, without numbering or bullet points.
+    Each element should be a concise phrase (5-10 words) describing a key aspect of {genre} stories.
+    """
+    
+    try:
+        # Get genre elements from LLM
+        response = llm.invoke([HumanMessage(content=prompt)]).content
+        
+        # Process the response into a list
+        elements = [line.strip() for line in response.split('\n') if line.strip()]
+        
+        # Filter out any non-element lines (like explanations or headers)
+        elements = [e for e in elements if len(e.split()) <= 15 and not e.startswith("Note:") and not e.endswith(":")]
+        
+        # Ensure we have at least 5 elements
+        if len(elements) < 5:
+            # Add some generic elements to ensure we have enough
+            generic_elements = [
+                f"Elements typical of {genre} stories",
+                f"Appropriate pacing and structure for {genre}",
+                f"Character types commonly found in {genre}",
+                f"Themes and motifs associated with {genre}",
+                f"Reader expectations for a {genre} story"
+            ]
+            elements.extend(generic_elements[:(5 - len(elements))])
+        
+        # Store the generated elements in memory for reuse
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": f"genre_elements_{genre.lower().replace(' ', '_')}",
+            "value": elements,
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        return elements
+        
+    except Exception as e:
+        print(f"Error generating genre elements: {str(e)}")
+        # Fallback to generic elements
+        return [
+            f"Elements typical of {genre} stories",
+            f"Appropriate pacing and structure for {genre}",
+            f"Character types commonly found in {genre}",
+            f"Themes and motifs associated with {genre}",
+            f"Reader expectations for a {genre} story"
+        ]
+
+def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
+    """
+    Parse an initial story idea to extract key elements.
+    
+    Args:
+        initial_idea: The initial story idea
+        
+    Returns:
+        A dictionary of key elements extracted from the idea
+    """
+    if not initial_idea:
+        return {}
+    
+    # Use LLM to extract key elements
+    prompt = f"""
+    Analyze this initial story idea and extract key elements:
+    
+    "{initial_idea}"
+    
+    Extract and structure the following elements:
+    1. Main setting (e.g., "zoo", "space station", "medieval kingdom")
+    2. Main characters (e.g., "orangutan detective", "space captain", "young wizard")
+    3. Central conflict or plot (e.g., "murder investigation", "alien invasion", "quest for artifact")
+    4. Any specific themes or motifs mentioned
+    5. Any specific genre elements that should be emphasized
+    
+    Format your response as a structured JSON object with these fields.
+    """
+    
+    try:
+        idea_analysis = llm.invoke([HumanMessage(content=prompt)]).content
+        
+        # Try to parse the JSON response
+        from storyteller_lib.creative_tools import parse_json_with_langchain
+        idea_elements = parse_json_with_langchain(idea_analysis, {
+            "setting": "Unknown",
+            "characters": [],
+            "plot": "Unknown",
+            "themes": [],
+            "genre_elements": []
+        })
+        
+        return idea_elements
+    except Exception as e:
+        print(f"Error parsing initial idea: {str(e)}")
+        return {
+            "setting": "Unknown",
+            "characters": [],
+            "plot": "Unknown",
+            "themes": [],
+            "genre_elements": []
+        }
 
 def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = "", language: str = ""):
     """
@@ -198,6 +321,47 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
     
     # Add language mention to the message if not English
     language_mention = f" in {SUPPORTED_LANGUAGES[language.lower()]}" if language.lower() != DEFAULT_LANGUAGE else ""
+    
+    # Create memory anchors for key elements to ensure persistence throughout generation
+    # These will be available to all nodes in the graph
+    
+    # Store genre requirements
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": "genre_requirements",
+        "value": {
+            "genre": genre,
+            "tone": tone,
+            "key_elements": get_genre_key_elements(genre)
+        },
+        "namespace": MEMORY_NAMESPACE
+    })
+    
+    # Store initial idea as a memory anchor
+    if initial_idea:
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "initial_idea_anchor",
+            "value": {
+                "idea": initial_idea,
+                "importance": "critical",
+                "must_be_followed": True
+            },
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Parse initial idea to extract key elements
+        idea_elements = parse_initial_idea(initial_idea)
+        
+        # Store each key element as a separate memory anchor
+        for key, value in idea_elements.items():
+            if value:
+                manage_memory_tool.invoke({
+                    "action": "create",
+                    "key": f"initial_idea_{key}_anchor",
+                    "value": value,
+                    "namespace": MEMORY_NAMESPACE
+                })
     
     # Initial state - remove custom router-related fields
     initial_state = {
