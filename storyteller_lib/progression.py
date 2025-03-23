@@ -323,6 +323,7 @@ def review_continuity(state: StoryState) -> Dict:
         class Config:
             """Configuration for the model."""
             extra = "ignore"  # Ignore extra fields
+            title = None  # Prevent docstring from being used as title
     
     class UnresolvedThread(BaseModel):
         """An unresolved story thread."""
@@ -333,6 +334,7 @@ def review_continuity(state: StoryState) -> Dict:
         class Config:
             """Configuration for the model."""
             extra = "ignore"  # Ignore extra fields
+            title = None  # Prevent docstring from being used as title
     
     class CharacterInconsistency(BaseModel):
         """A character inconsistency in the story."""
@@ -344,6 +346,7 @@ def review_continuity(state: StoryState) -> Dict:
         class Config:
             """Configuration for the model."""
             extra = "ignore"  # Ignore extra fields
+            title = None  # Prevent docstring from being used as title
     
     class HeroJourneyEvaluation(BaseModel):
         """Evaluation of the hero's journey structure."""
@@ -354,6 +357,7 @@ def review_continuity(state: StoryState) -> Dict:
         class Config:
             """Configuration for the model."""
             extra = "ignore"  # Ignore extra fields
+            title = None  # Prevent docstring from being used as title
     class ContinuityReview(BaseModel):
         """Comprehensive continuity review of the story."""
         issues: List[ContinuityIssue] = Field(
@@ -388,6 +392,7 @@ def review_continuity(state: StoryState) -> Dict:
         class Config:
             """Configuration for the model."""
             extra = "ignore"  # Ignore extra fields
+            title = None  # Prevent docstring from being used as title
     
     # Default structure in case parsing fails
     default_continuity_review = {
