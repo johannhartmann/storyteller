@@ -48,7 +48,6 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     
     # Add initial idea constraints to context if available
     if initial_idea:
-        print(f"[STORYTELLER] Using initial_idea from state in brainstorm_scene_elements: '{initial_idea}'")
         
         # Build constraints from initial idea elements
         constraints = []

@@ -119,7 +119,7 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
     if not initial_idea:
         return {}
     
-    print(f"[STORYTELLER] Parsing initial idea: '{initial_idea}'")
+    # Parse the initial idea to extract key elements
     
     try:
         # Create a structured LLM that outputs a StoryElements object
@@ -144,7 +144,6 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
         
         # Invoke the structured LLM
         idea_elements = structured_llm.invoke(prompt)
-        print(f"[STORYTELLER] Extracted elements using Pydantic: {idea_elements}")
         
         # Convert Pydantic model to dictionary
         idea_elements_dict = idea_elements.dict()
@@ -153,25 +152,19 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
         if not idea_elements_dict["setting"] and "village" in initial_idea.lower():
             if "german" in initial_idea.lower() and "coastal" in initial_idea.lower():
                 idea_elements_dict["setting"] = "Small northern German coastal village"
-                print(f"[STORYTELLER] Applied fallback extraction for setting: {idea_elements_dict['setting']}")
         
         if not idea_elements_dict["characters"] and "fisherman" in initial_idea.lower():
             if "detective" in initial_idea.lower() or "figuring out" in initial_idea.lower():
                 idea_elements_dict["characters"] = ["Old fisherman (detective)"]
-                print(f"[STORYTELLER] Applied fallback extraction for characters: {idea_elements_dict['characters']}")
         
         if not idea_elements_dict["plot"] and "stole" in initial_idea.lower():
             if "statue" in initial_idea.lower() and "fish market" in initial_idea.lower():
                 idea_elements_dict["plot"] = "Theft of a statue from the fish market; detective investigates to find the thief."
-                print(f"[STORYTELLER] Applied fallback extraction for plot: {idea_elements_dict['plot']}")
         
         # Add genre elements if missing
         if not idea_elements_dict["genre_elements"] and "detective" in initial_idea.lower():
             if "hard boiled" in initial_idea.lower():
                 idea_elements_dict["genre_elements"] = ["Hard-boiled detective fiction", "Mystery", "Crime"]
-                print(f"[STORYTELLER] Applied fallback extraction for genre elements: {idea_elements_dict['genre_elements']}")
-        
-        print(f"[STORYTELLER] Extracted elements from initial idea: {idea_elements_dict}")
         
         # Create a memory anchor for the initial idea elements to ensure they're followed
         if initial_idea and idea_elements_dict:
@@ -199,11 +192,10 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
                 },
                 "namespace": MEMORY_NAMESPACE
             })
-            print(f"[STORYTELLER] Stored initial idea elements in LangMem with {len(must_include)} must-include constraints")
+            # Store initial idea elements in LangMem with must-include constraints
         
         return idea_elements_dict
     except Exception as e:
-        print(f"[STORYTELLER] Error parsing initial idea: {str(e)}")
         # Create a more robust fallback with direct extraction from the initial idea
         fallback_elements = {
             "setting": "",
@@ -230,7 +222,6 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
             if "hard boiled" in initial_idea.lower():
                 fallback_elements["genre_elements"] = ["Hard-boiled detective fiction", "Mystery", "Crime"]
         
-        print(f"[STORYTELLER] Using fallback extraction for initial idea: {fallback_elements}")
         return fallback_elements
 
 def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = "", language: str = ""):
@@ -387,15 +378,12 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
     # Parse the initial idea once to extract key elements
     idea_elements = {}
     if initial_idea:
-        print(f"[STORYTELLER] Processing initial idea: '{initial_idea}'")
         # Parse the initial idea to extract key elements
         idea_elements = parse_initial_idea(initial_idea)
-        print(f"[STORYTELLER] Extracted elements from initial idea: {idea_elements}")
         
         # Adjust genre if needed based on the initial idea
         if idea_elements.get("plot", "").lower().find("murder") >= 0 or idea_elements.get("plot", "").lower().find("kill") >= 0:
             if genre.lower() not in ["mystery", "thriller", "crime"]:
-                print(f"[STORYTELLER] Adjusting genre to 'mystery' based on initial idea (was: {genre})")
                 genre = "mystery"
         
         # Create a memory anchor for the initial idea to ensure it's followed
@@ -502,12 +490,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         "completed": False,
         "last_node": ""  # Include this for schema compatibility
     }
-    
-    print(f"[STORYTELLER] generate_story setting initial_idea in initial_state: '{initial_idea}'")
-    print(f"[STORYTELLER] generate_story setting initial_idea_elements in initial_state: {idea_elements}")
-    print(f"[STORYTELLER] generate_story initial_state keys: {list(initial_state.keys())}")
-    print(f"[STORYTELLER] generate_story initial_state type: {type(initial_state)}")
-    
+        
     # Configure higher recursion limit to handle longer stories
     # The config dictionary needs to be passed as a named parameter 'config' to invoke()
     

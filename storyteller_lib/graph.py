@@ -35,8 +35,6 @@ from storyteller_lib import track_progress
 
 def should_brainstorm_concepts(state: StoryState) -> bool:
     """Determine if we need to brainstorm story concepts."""
-    print(f"[STORYTELLER] should_brainstorm_concepts checking state: initial_idea='{state.get('initial_idea', '')}'")
-    print(f"[STORYTELLER] should_brainstorm_concepts state keys: {list(state.keys())}")
     return "global_story" not in state or not state["global_story"]
 
 def should_generate_outline(state: StoryState) -> bool:

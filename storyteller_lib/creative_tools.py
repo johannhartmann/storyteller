@@ -46,11 +46,11 @@ def creative_brainstorm(
     """
     if evaluation_criteria is None:
         evaluation_criteria = [
-            "Originality and surprise factor",
+            "Enhancement of the existing storyline",
             "Coherence with the established narrative",
-            "Potential for character development",
+            "Contribution to character development or plot advancement",
             "Reader engagement and emotional impact",
-            "Feasibility within the story world"
+            "Seamless integration with the story world"
         ]
     
     # Default constraints if none provided
@@ -179,7 +179,7 @@ def creative_brainstorm(
     
     # Brainstorming prompt
     brainstorm_prompt = f"""
-    # Creative Brainstorming Session: {topic}
+    # Story Enhancement Brainstorming Session: {topic}
     
     ## Context
     - Genre: {genre}
@@ -193,16 +193,21 @@ def creative_brainstorm(
     ## IMPORTANT INSTRUCTIONS
     {"Your ideas must adhere to the initial story concept and constraints. Maintain consistency with the core elements." if strict_adherence else ""}
     
-    Generate {num_ideas} diverse, interesting ideas related to {topic}.
-    Think outside the box while maintaining coherence with the story context AND adhering to all constraints.
-    Each idea should be surprising yet plausible within the established world.
+    CRITICAL: Generate {num_ideas} ideas that ENHANCE the existing storyline rather than distract from it.
+    Each idea should ADD VALUE to the story by deepening character development, enriching the setting, or advancing the plot in meaningful ways.
+    
+    DO NOT generate ideas that:
+    - Introduce unnecessary complexity
+    - Distract from the main storyline
+    - Contradict established elements
+    - Feel disconnected from the core narrative
     
     {"If the initial idea specifies particular settings, characters, or plot elements, these should be preserved in your ideas. Do not substitute core elements with alternatives." if strict_adherence else ""}
     
     For each idea:
     1. Provide a concise title/headline
     2. Describe the idea in 3-5 sentences
-    3. Note one potential benefit to the story
+    3. Explain specifically how this idea ENHANCES the existing storyline
     4. Note one potential challenge to implementation
     5. Explain how this idea adheres to the genre requirements and constraints
     {"6. Verify that this idea maintains consistency with the initial concept" if strict_adherence else ""}
@@ -210,14 +215,14 @@ def creative_brainstorm(
     Format each idea clearly and number them 1 through {num_ideas}.
     
     IMPORTANT: Double-check each idea to ensure it complies with ALL constraints and genre requirements before finalizing.
-    {"FINAL CHECK: Verify that your ideas preserve the essential elements of the initial concept while adding creative value." if strict_adherence else ""}
+    {"FINAL CHECK: Verify that your ideas preserve the essential elements of the initial concept while ENHANCING the storyline rather than distracting from it." if strict_adherence else ""}
     IMPORTANT: Double-check each idea to ensure it fully complies with ALL constraints and genre requirements before finalizing.
     """
     
     # Generate ideas
     ideas_response = llm.invoke([HumanMessage(content=brainstorm_prompt)]).content
     
-    # Evaluation prompt with stronger emphasis on constraints
+    # Evaluation prompt with emphasis on story enhancement
     eval_prompt = f"""
     # Idea Evaluation for: {topic}
     
@@ -244,6 +249,7 @@ def creative_brainstorm(
     {"1. Significantly alters or omits essential elements from the initial concept" if strict_adherence else ""}
     2. Violates the constraints
     3. Doesn't fit the {genre} genre
+    4. Distracts from rather than enhances the main storyline
     
     {"Ideas should build upon the initial concept while preserving its core elements. Significant deviations from the established setting, characters, or central conflict should be avoided." if strict_adherence else ""}
     
@@ -251,13 +257,13 @@ def creative_brainstorm(
     For each idea:
     1. Provide scores for each criterion
     2. Calculate a total score
-    3. Write a brief justification (2-3 sentences)
+    3. Write a brief justification focusing on how the idea enhances the storyline
     4. Indicate if the idea should be incorporated (YES/MAYBE/NO)
     
     Then rank the ideas from best to worst fit for the story.
-    Finally, recommend the top 1-2 ideas to incorporate, with brief reasoning.
+    Finally, recommend the top 1-2 ideas to incorporate, with brief reasoning that explains how they enhance the storyline without distracting from it.
     
-    {"FINAL CHECK: Verify that your recommended ideas maintain consistency with the initial concept while adding creative value." if strict_adherence else ""}
+    {"FINAL CHECK: Verify that your recommended ideas maintain consistency with the initial concept while enhancing the storyline." if strict_adherence else ""}
     """
     
     # Evaluate ideas
