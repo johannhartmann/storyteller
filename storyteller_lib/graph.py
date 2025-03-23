@@ -35,6 +35,8 @@ from storyteller_lib import track_progress
 
 def should_brainstorm_concepts(state: StoryState) -> bool:
     """Determine if we need to brainstorm story concepts."""
+    print(f"[STORYTELLER] should_brainstorm_concepts checking state: initial_idea='{state.get('initial_idea', '')}'")
+    print(f"[STORYTELLER] should_brainstorm_concepts state keys: {list(state.keys())}")
     return "global_story" not in state or not state["global_story"]
 
 def should_generate_outline(state: StoryState) -> bool:
@@ -253,23 +255,12 @@ def build_story_graph():
     
     # From plan_chapters to the scene iteration phase
     graph_builder.add_edge("plan_chapters", "brainstorm_scene_elements")
-    
     # Scene iteration phase
-    graph_builder.add_conditional_edges(
-        "brainstorm_scene_elements",
-        lambda state: "write_scene" if not is_scene_writing_needed(state) else "write_scene",
-        {
-            "write_scene": "write_scene"
-        }
-    )
+    # Simplified: Always go from brainstorming to writing
+    graph_builder.add_edge("brainstorm_scene_elements", "write_scene")
     
-    graph_builder.add_conditional_edges(
-        "write_scene",
-        lambda state: "reflect_on_scene" if not is_scene_reflection_needed(state) else "reflect_on_scene",
-        {
-            "reflect_on_scene": "reflect_on_scene"
-        }
-    )
+    # Simplified: Always go from writing to reflection
+    graph_builder.add_edge("write_scene", "reflect_on_scene")
     
     # Fixed edge for reflection to revision
     graph_builder.add_edge("reflect_on_scene", "revise_scene_if_needed")

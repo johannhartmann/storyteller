@@ -193,7 +193,7 @@ def creative_brainstorm(
     ## IMPORTANT INSTRUCTIONS
     {"Your ideas must adhere to the initial story concept and constraints. Maintain consistency with the core elements." if strict_adherence else ""}
     
-    Generate {num_ideas} diverse, creative ideas related to {topic}.
+    Generate {num_ideas} diverse, interesting ideas related to {topic}.
     Think outside the box while maintaining coherence with the story context AND adhering to all constraints.
     Each idea should be surprising yet plausible within the established world.
     

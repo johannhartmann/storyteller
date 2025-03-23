@@ -208,61 +208,115 @@ def update_character_arc(character: Dict[str, Any], scene_content: str, chapter_
     2. Has their emotional state changed? If so, how?
     3. Have any inner conflicts developed, progressed, or been resolved?
     4. Any new emotional experiences that should be added to their journey?
-    
     Format your response as a valid JSON object with these keys:
-    {
+    {{
         "new_arc_stage": "Stage name or empty if unchanged",
         "emotional_state_update": "New emotional state or empty if unchanged",
         "inner_conflict_updates": [
-            {
-                "conflict_index": 0,  // Index of the conflict to update, or -1 for new
+            {{
+                "conflict_index": 0,
                 "description": "Description of conflict",
                 "resolution_status": "unresolved|in_progress|resolved",
                 "impact": "How this affects the character"
-            }
+            }}
         ],
         "emotional_journey_addition": "New emotional experience to add to journey or empty"
-    }
+    }}
     """
     
     try:
         # Get the analysis from the LLM
-        response = llm.invoke([HumanMessage(content=prompt)]).content
+        from typing import Optional, List
+        from pydantic import BaseModel, Field
         
-        # Parse the JSON response
-        from storyteller_lib.creative_tools import parse_json_with_langchain
-        updates = parse_json_with_langchain(response, "character arc updates")
+        # Define a Pydantic model for character arc updates
+        class InnerConflictUpdate(BaseModel):
+            """Update to a character's inner conflict."""
+            
+            conflict_index: int = Field(
+                default=0,
+                description="Index of the conflict to update, or -1 for new"
+            )
+            description: str = Field(
+                default="",
+                description="Description of the conflict"
+            )
+            resolution_status: str = Field(
+                default="unresolved",
+                description="Resolution status: unresolved, in_progress, or resolved"
+            )
+            impact: str = Field(
+                default="",
+                description="How this affects the character"
+            )
+            
+            class Config:
+                """Configuration for the model."""
+                extra = "ignore"  # Ignore extra fields
         
-        if not updates:
-            return {}  # No updates if parsing failed
+        class CharacterArcUpdate(BaseModel):
+            """Character arc updates after a scene."""
+            
+            new_arc_stage: Optional[str] = Field(
+                default="",
+                description="The new character arc stage after this scene"
+            )
+            emotional_state_update: Optional[str] = Field(
+                default="",
+                description="The updated emotional state of the character"
+            )
+            inner_conflict_updates: List[InnerConflictUpdate] = Field(
+                default_factory=list,
+                description="Updates to the character's inner conflicts"
+            )
+            emotional_journey_addition: Optional[str] = Field(
+                default="",
+                description="New entry for the character's emotional journey"
+            )
+            
+            class Config:
+                """Configuration for the model."""
+                extra = "ignore"  # Ignore extra fields
+        
+        # Create a structured LLM that outputs a CharacterArcUpdate object
+        structured_llm = llm.with_structured_output(CharacterArcUpdate)
+        
+        # Use the structured LLM to extract updates
+        updates = structured_llm.invoke(prompt)
+        
+        # Convert Pydantic model to dictionary
+        updates_dict = updates.dict()
+        
+        if not any(updates_dict.values()):
+            return {}  # No updates if all fields are empty
         
         # Prepare the character updates
         character_updates = {}
         
         # Update arc stage if provided
-        if updates.get("new_arc_stage") and updates["new_arc_stage"] != "":
+        if updates_dict["new_arc_stage"]:
             character_updates["character_arc"] = character.get("character_arc", {}).copy()
-            character_updates["character_arc"]["current_stage"] = updates["new_arc_stage"]
+            character_updates["character_arc"]["current_stage"] = updates_dict["new_arc_stage"]
         
         # Update emotional state if provided
-        if updates.get("emotional_state_update") and updates["emotional_state_update"] != "":
+        if updates_dict["emotional_state_update"]:
             character_updates["emotional_state"] = character.get("emotional_state", {}).copy()
-            character_updates["emotional_state"]["current"] = updates["emotional_state_update"]
+            character_updates["emotional_state"]["current"] = updates_dict["emotional_state_update"]
         
         # Add to emotional journey if provided
-        if updates.get("emotional_journey_addition") and updates["emotional_journey_addition"] != "":
+        if updates_dict["emotional_journey_addition"]:
             if "emotional_state" not in character_updates:
                 character_updates["emotional_state"] = character.get("emotional_state", {}).copy()
             
             journey = character_updates["emotional_state"].get("journey", []).copy()
-            journey.append(f"Ch{chapter_num}-Sc{scene_num}: {updates['emotional_journey_addition']}")
+            journey.append(f"Ch{chapter_num}-Sc{scene_num}: {updates_dict['emotional_journey_addition']}")
             character_updates["emotional_state"]["journey"] = journey
         
         # Update inner conflicts if provided
-        if updates.get("inner_conflict_updates") and isinstance(updates["inner_conflict_updates"], list):
+        if updates_dict.get("inner_conflict_updates") and isinstance(updates_dict["inner_conflict_updates"], list):
             inner_conflicts = character.get("inner_conflicts", []).copy()
             
-            for conflict_update in updates["inner_conflict_updates"]:
+            for conflict_update in updates_dict["inner_conflict_updates"]:
                 if conflict_update.get("conflict_index", -1) == -1:
                     # Add new conflict
                     inner_conflicts.append({
@@ -337,14 +391,40 @@ def evaluate_arc_consistency(character: Dict[str, Any]) -> Dict[str, Any]:
     """
     
     try:
-        # Get the evaluation from the LLM
-        response = llm.invoke([HumanMessage(content=prompt)]).content
+        from typing import List
+        from pydantic import BaseModel, Field
         
-        # Parse the JSON response
-        from storyteller_lib.creative_tools import parse_json_with_langchain
-        evaluation = parse_json_with_langchain(response, "character arc evaluation")
+        # Define a Pydantic model for character arc evaluation
+        class CharacterArcEvaluation(BaseModel):
+            """Evaluation of a character's arc development."""
+            
+            consistency_score: int = Field(
+                ge=1, le=10,
+                description="Score from 1-10 indicating how consistent the character's arc development is"
+            )
+            strengths: List[str] = Field(
+                description="List of strengths in the character's arc development"
+            )
+            inconsistencies: List[str] = Field(
+                description="List of inconsistencies or issues in the character's arc development"
+            )
+            suggestions: List[str] = Field(
+                description="List of suggestions to improve the character's arc"
+            )
+            next_logical_developments: List[str] = Field(
+                description="List of logical next developments for the character's arc"
+            )
         
-        if not evaluation:
+        # Create a structured LLM that outputs a CharacterArcEvaluation object
+        structured_llm = llm.with_structured_output(CharacterArcEvaluation)
+        
+        # Use the structured LLM to get the evaluation
+        evaluation = structured_llm.invoke(prompt)
+        
+        # Convert Pydantic model to dictionary
+        evaluation_dict = evaluation.dict()
+        
+        if not evaluation_dict:
             # Return a default evaluation if parsing failed
             return {
                 "consistency_score": 7,
@@ -354,7 +434,7 @@ def evaluate_arc_consistency(character: Dict[str, Any]) -> Dict[str, Any]:
                 "next_logical_developments": ["Continue current arc progression"]
             }
         
-        return evaluation
+        return evaluation_dict
     
     except Exception as e:
         print(f"Error evaluating character arc consistency: {str(e)}")

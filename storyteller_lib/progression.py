@@ -308,9 +308,86 @@ def review_continuity(state: StoryState) -> Dict:
     
     If no issues are found, set has_issues to false and include "No major continuity issues detected" in the overall_assessment.
     """
+    # Use Pydantic for structured output
+    from typing import List, Dict, Optional, Literal
+    from pydantic import BaseModel, Field
     
-    # Import the structured output functions from creative_tools
-    from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain
+    # Define Pydantic models for the nested structure
+    class ContinuityIssue(BaseModel):
+        """A continuity issue in the story."""
+        description: str = Field(default="", description="Detailed description of the continuity issue")
+        chapters_affected: str = Field(default="", description="List of chapters affected")
+        severity: str = Field(default="medium", description="Severity level: high, medium, or low")
+        resolution_approach: str = Field(default="", description="Specific suggestion for how to resolve this issue")
+        
+        class Config:
+            """Configuration for the model."""
+            extra = "ignore"  # Ignore extra fields
+    
+    class UnresolvedThread(BaseModel):
+        """An unresolved story thread."""
+        thread_description: str = Field(default="", description="Description of the unresolved story thread")
+        first_mentioned: str = Field(default="", description="Chapter where this thread was first introduced")
+        expected_resolution: str = Field(default="", description="How/where this should be resolved")
+        
+        class Config:
+            """Configuration for the model."""
+            extra = "ignore"  # Ignore extra fields
+    
+    class CharacterInconsistency(BaseModel):
+        """A character inconsistency in the story."""
+        character: str = Field(default="", description="Character name")
+        inconsistency: str = Field(default="", description="Description of the character inconsistency")
+        chapters_affected: str = Field(default="", description="Chapters where this inconsistency appears")
+        resolution_approach: str = Field(default="", description="How to fix this character inconsistency")
+        
+        class Config:
+            """Configuration for the model."""
+            extra = "ignore"  # Ignore extra fields
+    
+    class HeroJourneyEvaluation(BaseModel):
+        """Evaluation of the hero's journey structure."""
+        current_phase: str = Field(default="Unknown", description="Current phase of the hero's journey")
+        issues: str = Field(default="None identified", description="Any issues with the hero's journey structure")
+        recommendations: str = Field(default="Continue following the hero's journey structure", description="Recommendations for maintaining proper structure")
+        
+        class Config:
+            """Configuration for the model."""
+            extra = "ignore"  # Ignore extra fields
+    class ContinuityReview(BaseModel):
+        """Comprehensive continuity review of the story."""
+        issues: List[ContinuityIssue] = Field(
+            default_factory=list,
+            description="List of continuity issues in the story"
+        )
+        unresolved_threads: List[UnresolvedThread] = Field(
+            default_factory=list,
+            description="List of unresolved story threads"
+        )
+        character_inconsistencies: List[CharacterInconsistency] = Field(
+            default_factory=list,
+            description="List of character inconsistencies"
+        )
+        hero_journey_evaluation: HeroJourneyEvaluation = Field(
+            default_factory=lambda: HeroJourneyEvaluation(
+                current_phase="Unknown",
+                issues="None identified",
+                recommendations="Continue following the hero's journey structure"
+            ),
+            description="Evaluation of the hero's journey structure"
+        )
+        has_issues: bool = Field(
+            default=False,
+            description="Whether the story has continuity issues"
+        )
+        overall_assessment: str = Field(
+            default="No major continuity issues detected.",
+            description="Overall assessment of story continuity"
+        )
+        
+        class Config:
+            """Configuration for the model."""
+            extra = "ignore"  # Ignore extra fields
     
     # Default structure in case parsing fails
     default_continuity_review = {
@@ -328,28 +405,16 @@ def review_continuity(state: StoryState) -> Dict:
     
     # Perform continuity review using structured output
     try:
-        # First try with the LLM directly
-        continuity_review_text = llm.invoke([HumanMessage(content=prompt)]).content
+        # Create a structured LLM that outputs a ContinuityReview object
+        structured_llm = llm.with_structured_output(ContinuityReview)
         
-        # Then parse the response into structured format
-        structured_review = parse_json_with_langchain(continuity_review_text, default_continuity_review)
+        # Use the structured LLM to get the continuity review
+        review = structured_llm.invoke(prompt)
         
-        # Fallback to structured JSON generation if parsing fails
-        if not structured_review or structured_review == default_continuity_review:
-            # Simple check to see if there might be issues in the text
-            has_issues_in_text = "issue" in continuity_review_text.lower() or "inconsistenc" in continuity_review_text.lower()
-            
-            # Only try to generate structured JSON if it seems like there are issues
-            if has_issues_in_text:
-                print("Attempting to generate structured JSON from continuity review text")
-                structured_review = generate_structured_json(
-                    continuity_review_text,
-                    continuity_issue_schema,
-                    "continuity review"
-                )
+        # Convert Pydantic model to dictionary
+        structured_review = review.dict()
         
-        # Store the raw text for reference
-        structured_review["raw_review"] = continuity_review_text
+        # No raw text to store with the Pydantic approach
         
         # Validate important fields are present
         if "has_issues" not in structured_review:

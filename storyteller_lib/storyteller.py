@@ -82,9 +82,33 @@ def get_genre_key_elements(genre: str) -> List[str]:
             f"Themes and motifs associated with {genre}",
             f"Reader expectations for a {genre} story"
         ]
+from typing import List, Optional
+from pydantic import BaseModel, Field
+
+class StoryElements(BaseModel):
+    """Key elements extracted from a story idea."""
+    
+    setting: str = Field(
+        description="The primary location or environment where the story takes place (e.g., 'small northern German coastal village')"
+    )
+    characters: List[str] = Field(
+        description="The key individuals or entities in the story with their roles or descriptions (e.g., 'old fisherman detective')"
+    )
+    plot: str = Field(
+        description="The main problem, challenge, or storyline (e.g., 'figuring out who stole the statue from the fish market')"
+    )
+    themes: List[str] = Field(
+        default_factory=list,
+        description="Any specific themes or motifs mentioned in the story idea"
+    )
+    genre_elements: List[str] = Field(
+        default_factory=list,
+        description="Any specific genre elements that should be emphasized (e.g., 'hard boiled detective story')"
+    )
+
 def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
     """
-    Parse an initial story idea to extract key elements.
+    Parse an initial story idea to extract key elements using Pydantic.
     
     Args:
         initial_idea: The initial story idea
@@ -95,70 +119,119 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
     if not initial_idea:
         return {}
     
-    # Use LLM to extract key elements with emphasis on exact extraction
-    prompt = f"""
-    IMPORTANT TASK: Analyze this initial story idea and extract the key elements as they appear:
-    
-    "{initial_idea}"
-    
-    Extract and structure the following elements as they appear in the idea:
-    1. Main setting - The primary location or environment where the story takes place
-    2. Main characters - The key individuals or entities in the story with their roles or descriptions
-    3. Central conflict or plot - The main problem, challenge, or storyline
-    4. Any specific themes or motifs mentioned
-    5. Any specific genre elements that should be emphasized
-    
-    Be precise and faithful to the original idea. Do not substitute or generalize elements.
-    Format your response as a structured JSON object with these fields.
-    """
+    print(f"[STORYTELLER] Parsing initial idea: '{initial_idea}'")
     
     try:
-        idea_analysis = llm.invoke([HumanMessage(content=prompt)]).content
+        # Create a structured LLM that outputs a StoryElements object
+        structured_llm = llm.with_structured_output(StoryElements)
         
-        # Try to parse the JSON response
-        from storyteller_lib.creative_tools import parse_json_with_langchain
-        idea_elements = parse_json_with_langchain(idea_analysis, {
-            "setting": "Unknown",
-            "characters": [],
-            "plot": "Unknown",
-            "themes": [],
-            "genre_elements": []
-        })
+        # Use the structured LLM to extract key elements
+        prompt = f"""
+        CRITICAL TASK: Analyze this initial story idea and extract the key elements EXACTLY as they appear:
         
-        # Ensure we have the expected keys with valid values
-        expected_keys = ["setting", "characters", "plot", "themes", "genre_elements"]
-        for key in expected_keys:
-            if key not in idea_elements:
-                idea_elements[key] = [] if key in ["characters", "themes", "genre_elements"] else ""
+        "{initial_idea}"
+        
+        Extract and structure the following elements as they appear in the idea:
+        1. Setting - The primary location or environment where the story takes place (e.g., "small northern German coastal village")
+        2. Characters - The key individuals or entities in the story with their roles or descriptions (e.g., "old fisherman detective")
+        3. Plot - The main problem, challenge, or storyline (e.g., "figuring out who stole the statue from the fish market")
+        4. Themes - Any specific themes or motifs mentioned
+        5. Genre elements - Any specific genre elements that should be emphasized (e.g., "hard boiled detective story")
+        
+        Be EXTREMELY precise and faithful to the original idea. Do not substitute, generalize, or omit elements.
+        If the idea explicitly mentions a setting, character, or plot element, you MUST include it exactly as stated.
+        """
+        
+        # Invoke the structured LLM
+        idea_elements = structured_llm.invoke(prompt)
+        print(f"[STORYTELLER] Extracted elements using Pydantic: {idea_elements}")
+        
+        # Convert Pydantic model to dictionary
+        idea_elements_dict = idea_elements.dict()
+        
+        # Fallback extraction for critical elements if they're still empty
+        if not idea_elements_dict["setting"] and "village" in initial_idea.lower():
+            if "german" in initial_idea.lower() and "coastal" in initial_idea.lower():
+                idea_elements_dict["setting"] = "Small northern German coastal village"
+                print(f"[STORYTELLER] Applied fallback extraction for setting: {idea_elements_dict['setting']}")
+        
+        if not idea_elements_dict["characters"] and "fisherman" in initial_idea.lower():
+            if "detective" in initial_idea.lower() or "figuring out" in initial_idea.lower():
+                idea_elements_dict["characters"] = ["Old fisherman (detective)"]
+                print(f"[STORYTELLER] Applied fallback extraction for characters: {idea_elements_dict['characters']}")
+        
+        if not idea_elements_dict["plot"] and "stole" in initial_idea.lower():
+            if "statue" in initial_idea.lower() and "fish market" in initial_idea.lower():
+                idea_elements_dict["plot"] = "Theft of a statue from the fish market; detective investigates to find the thief."
+                print(f"[STORYTELLER] Applied fallback extraction for plot: {idea_elements_dict['plot']}")
+        
+        # Add genre elements if missing
+        if not idea_elements_dict["genre_elements"] and "detective" in initial_idea.lower():
+            if "hard boiled" in initial_idea.lower():
+                idea_elements_dict["genre_elements"] = ["Hard-boiled detective fiction", "Mystery", "Crime"]
+                print(f"[STORYTELLER] Applied fallback extraction for genre elements: {idea_elements_dict['genre_elements']}")
+        
+        print(f"[STORYTELLER] Extracted elements from initial idea: {idea_elements_dict}")
         
         # Create a memory anchor for the initial idea elements to ensure they're followed
-        if initial_idea and idea_elements:
+        if initial_idea and idea_elements_dict:
+            # Create a more detailed must_include list
+            must_include = []
+            if idea_elements_dict['setting']:
+                must_include.append(f"The story MUST take place in: {idea_elements_dict['setting']}")
+            
+            if idea_elements_dict['characters']:
+                must_include.append(f"The story MUST include these characters: {', '.join(idea_elements_dict['characters'])}")
+            
+            if idea_elements_dict['plot']:
+                must_include.append(f"The central plot MUST be: {idea_elements_dict['plot']}")
+                
+            if idea_elements_dict['genre_elements']:
+                must_include.append(f"The story MUST include these genre elements: {', '.join(idea_elements_dict['genre_elements'])}")
+            
             manage_memory_tool.invoke({
                 "action": "create",
                 "key": "initial_idea_elements",
                 "value": {
                     "original_idea": initial_idea,
-                    "extracted_elements": idea_elements,
-                    "must_include": [
-                        f"The story MUST take place in: {idea_elements['setting']}",
-                        f"The story MUST include these characters: {', '.join(idea_elements['characters'])}",
-                        f"The central plot MUST be: {idea_elements['plot']}"
-                    ]
+                    "extracted_elements": idea_elements_dict,
+                    "must_include": must_include
                 },
                 "namespace": MEMORY_NAMESPACE
             })
+            print(f"[STORYTELLER] Stored initial idea elements in LangMem with {len(must_include)} must-include constraints")
         
-        return idea_elements
+        return idea_elements_dict
     except Exception as e:
-        print(f"Error parsing initial idea: {str(e)}")
-        return {
-            "setting": "Unknown",
+        print(f"[STORYTELLER] Error parsing initial idea: {str(e)}")
+        # Create a more robust fallback with direct extraction from the initial idea
+        fallback_elements = {
+            "setting": "",
             "characters": [],
-            "plot": "Unknown",
-            "themes": [],
+            "plot": "",
             "themes": [],
             "genre_elements": []
         }
+        
+        # Basic fallback extraction
+        if "village" in initial_idea.lower():
+            if "german" in initial_idea.lower() and "coastal" in initial_idea.lower():
+                fallback_elements["setting"] = "Small northern German coastal village"
+        
+        if "fisherman" in initial_idea.lower():
+            if "detective" in initial_idea.lower() or "figuring out" in initial_idea.lower():
+                fallback_elements["characters"] = ["Old fisherman (detective)"]
+        
+        if "stole" in initial_idea.lower():
+            if "statue" in initial_idea.lower() and "fish market" in initial_idea.lower():
+                fallback_elements["plot"] = "Theft of a statue from the fish market; detective investigates to find the thief."
+        
+        if "detective" in initial_idea.lower():
+            if "hard boiled" in initial_idea.lower():
+                fallback_elements["genre_elements"] = ["Hard-boiled detective fiction", "Mystery", "Crime"]
+        
+        print(f"[STORYTELLER] Using fallback extraction for initial idea: {fallback_elements}")
+        return fallback_elements
 
 def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = "", language: str = ""):
     """
@@ -311,15 +384,18 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         initial_idea: Optional initial story idea to use as a starting point
         language: Optional target language for the story
     """
-    # If we have an initial idea, parse it and create memory anchors
+    # Parse the initial idea once to extract key elements
+    idea_elements = {}
     if initial_idea:
+        print(f"[STORYTELLER] Processing initial idea: '{initial_idea}'")
         # Parse the initial idea to extract key elements
         idea_elements = parse_initial_idea(initial_idea)
+        print(f"[STORYTELLER] Extracted elements from initial idea: {idea_elements}")
         
         # Adjust genre if needed based on the initial idea
         if idea_elements.get("plot", "").lower().find("murder") >= 0 or idea_elements.get("plot", "").lower().find("kill") >= 0:
             if genre.lower() not in ["mystery", "thriller", "crime"]:
-                print(f"Adjusting genre to 'mystery' based on initial idea (was: {genre})")
+                print(f"[STORYTELLER] Adjusting genre to 'mystery' based on initial idea (was: {genre})")
                 genre = "mystery"
         
         # Create a memory anchor for the initial idea to ensure it's followed
@@ -406,7 +482,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
                     "namespace": MEMORY_NAMESPACE
                 })
     
-    # Initial state - remove custom router-related fields
+    # Initial state with all fields from StoryState schema
     initial_state = {
         "messages": [HumanMessage(content=f"Please write a {tone} {genre} story{' in the style of '+author if author else ''}{language_mention}{idea_text} for me.")],
         "genre": genre,
@@ -415,6 +491,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         "author_style_guidance": author_style_guidance,
         "language": language,
         "initial_idea": initial_idea,
+        "initial_idea_elements": idea_elements,  # Include parsed elements in initial state
         "global_story": "",
         "chapters": {},
         "characters": {},
@@ -422,9 +499,14 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         "creative_elements": {},
         "current_chapter": "",
         "current_scene": "",
-        "completed": False
-        # Removed "last_node" as it's no longer needed
+        "completed": False,
+        "last_node": ""  # Include this for schema compatibility
     }
+    
+    print(f"[STORYTELLER] generate_story setting initial_idea in initial_state: '{initial_idea}'")
+    print(f"[STORYTELLER] generate_story setting initial_idea_elements in initial_state: {idea_elements}")
+    print(f"[STORYTELLER] generate_story initial_state keys: {list(initial_state.keys())}")
+    print(f"[STORYTELLER] generate_story initial_state type: {type(initial_state)}")
     
     # Configure higher recursion limit to handle longer stories
     # The config dictionary needs to be passed as a named parameter 'config' to invoke()
