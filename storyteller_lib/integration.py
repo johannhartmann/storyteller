@@ -1,8 +1,14 @@
 """
-StoryCraft Agent - Integration of pacing, dialogue, and exposition improvements.
+StoryCraft Agent - Integration of storyteller improvements.
 
-This module provides functions to integrate the new pacing, dialogue, and exposition
-modules into the existing storyteller system.
+This module provides functions to integrate the new improvement modules
+into the existing storyteller system:
+- Pacing Control (pacing.py)
+- Dialogue Enhancement (dialogue.py)
+- Key Concepts Tracker (exposition.py)
+- Scene/Chapter Transition Enhancement (transitions.py)
+- Character Consistency System (consistency.py)
+- Repetition Detection (repetition.py)
 """
 
 from typing import Dict, List, Any
@@ -11,7 +17,7 @@ from storyteller_lib.config import llm
 
 def integrate_improvements(state: StoryState) -> Dict:
     """
-    Integrate pacing, dialogue, and exposition improvements into the scene writing process.
+    Integrate all improvement modules into the scene writing process.
     
     Args:
         state: The current state
@@ -19,10 +25,12 @@ def integrate_improvements(state: StoryState) -> Dict:
     Returns:
         Updates to the state with integrated improvements
     """
-    # Import the new modules
+    # Import the improvement modules
     from storyteller_lib.pacing import generate_pacing_guidance
     from storyteller_lib.dialogue import generate_dialogue_guidance
     from storyteller_lib.exposition import check_and_generate_exposition_guidance
+    from storyteller_lib.consistency import generate_consistency_guidance
+    from storyteller_lib.repetition import generate_variation_guidance
     
     # Get basic state information
     genre = state["genre"]
@@ -96,11 +104,27 @@ def integrate_improvements(state: StoryState) -> Dict:
     exposition_guidance = exposition_result.get("exposition_guidance", "")
     concepts_to_introduce = exposition_result.get("concepts_to_introduce", [])
     
+    # Generate character consistency guidance
+    consistency_guidance = generate_consistency_guidance(characters)
+    
+    # Get repetitive elements from previous scenes if available
+    repetitive_elements = []
+    story_repetition = state.get("story_repetition_analysis", {})
+    if story_repetition:
+        repetitive_elements.extend(story_repetition.get("repetitive_phrases", []))
+        repetitive_elements.extend(story_repetition.get("repetitive_descriptions", []))
+        repetitive_elements.extend(story_repetition.get("repetitive_character_traits", []))
+    
+    # Generate variation guidance to avoid repetition
+    variation_guidance = generate_variation_guidance(repetitive_elements)
+    
     # Combine all guidance
     integrated_guidance = {
         "pacing_guidance": pacing_guidance,
         "dialogue_guidance": dialogue_guidance,
         "exposition_guidance": exposition_guidance,
+        "consistency_guidance": consistency_guidance,
+        "variation_guidance": variation_guidance,
         "concepts_to_introduce": concepts_to_introduce,
         "scene_purpose": scene_purpose,
         "chapter_position": chapter_position,
@@ -122,64 +146,116 @@ def post_scene_improvements(state: StoryState) -> Dict:
     # Import the improvement functions
     from storyteller_lib.pacing import analyze_and_optimize_scene
     from storyteller_lib.dialogue import analyze_and_improve_dialogue
+    from storyteller_lib.consistency import track_character_consistency
+    from storyteller_lib.repetition import analyze_scene_repetition
+    from storyteller_lib.transitions import add_scene_transition, add_chapter_transition
     
-    # Apply pacing improvements
+    current_chapter = state["current_chapter"]
+    current_scene = state["current_scene"]
+    
+    # Step 1: Apply pacing improvements
     pacing_updates = analyze_and_optimize_scene(state)
     
-    # If pacing was optimized, use the optimized scene for dialogue improvements
+    # Create a state copy with pacing improvements if available
+    updated_state = state.copy()
     if pacing_updates.get("pacing_optimized", False):
-        # Create a new state with the pacing-optimized scene
-        updated_state = state.copy()
-        current_chapter = state["current_chapter"]
-        current_scene = state["current_scene"]
-        
         # Update the scene content in the state copy
         updated_state["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
             pacing_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
         )
-        
-        # Apply dialogue improvements to the pacing-optimized scene
-        dialogue_updates = analyze_and_improve_dialogue(updated_state)
-    else:
-        # Apply dialogue improvements to the original scene
-        dialogue_updates = analyze_and_improve_dialogue(state)
     
-    # Combine updates
+    # Step 2: Apply dialogue improvements to the updated state
+    dialogue_updates = analyze_and_improve_dialogue(updated_state)
+    
+    # Create another state copy with dialogue improvements if available
+    if dialogue_updates.get("dialogue_improved", False):
+        updated_state["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
+            dialogue_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
+        )
+    
+    # Step 3: Apply character consistency checks and fixes
+    consistency_updates = track_character_consistency(updated_state)
+    
+    # Create another state copy with consistency improvements if available
+    if consistency_updates.get("chapters", {}).get(current_chapter, {}).get("scenes", {}).get(current_scene, {}).get("content"):
+        updated_state["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
+            consistency_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
+        )
+    
+    # Step 4: Apply repetition detection and reduction
+    repetition_updates = analyze_scene_repetition(updated_state)
+    
+    # Create another state copy with repetition improvements if available
+    if repetition_updates.get("repetition_reduced", False):
+        updated_state["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
+            repetition_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
+        )
+    
+    # Step 5: Add scene or chapter transitions if needed
+    transition_updates = add_scene_transition(updated_state)
+    
+    # If no scene transition was added, check if we need a chapter transition
+    if not transition_updates:
+        transition_updates = add_chapter_transition(updated_state)
+    
+    # Combine all updates
     combined_updates = {
         "chapters": {
-            state["current_chapter"]: {
+            current_chapter: {
                 "scenes": {
-                    state["current_scene"]: {}
+                    current_scene: {}
                 }
             }
         }
     }
     
-    # Add pacing analysis
-    if "pacing_analysis" in pacing_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]:
-        combined_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]["pacing_analysis"] = (
-            pacing_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]["pacing_analysis"]
+    # Add all analysis results
+    if "pacing_analysis" in pacing_updates.get("chapters", {}).get(current_chapter, {}).get("scenes", {}).get(current_scene, {}):
+        combined_updates["chapters"][current_chapter]["scenes"][current_scene]["pacing_analysis"] = (
+            pacing_updates["chapters"][current_chapter]["scenes"][current_scene]["pacing_analysis"]
         )
     
-    # Add dialogue analysis
-    if "dialogue_analysis" in dialogue_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]:
-        combined_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]["dialogue_analysis"] = (
-            dialogue_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]["dialogue_analysis"]
+    if "dialogue_analysis" in dialogue_updates.get("chapters", {}).get(current_chapter, {}).get("scenes", {}).get(current_scene, {}):
+        combined_updates["chapters"][current_chapter]["scenes"][current_scene]["dialogue_analysis"] = (
+            dialogue_updates["chapters"][current_chapter]["scenes"][current_scene]["dialogue_analysis"]
         )
     
-    # Use the final improved content
-    if dialogue_updates.get("dialogue_improved", False):
-        combined_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]["content"] = (
-            dialogue_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]["content"]
+    if "repetition_analysis" in repetition_updates.get("chapters", {}).get(current_chapter, {}).get("scenes", {}).get(current_scene, {}):
+        combined_updates["chapters"][current_chapter]["scenes"][current_scene]["repetition_analysis"] = (
+            repetition_updates["chapters"][current_chapter]["scenes"][current_scene]["repetition_analysis"]
+        )
+    
+    if "character_consistency_analyses" in consistency_updates:
+        combined_updates["character_consistency_analyses"] = consistency_updates["character_consistency_analyses"]
+    
+    # Use the final improved content (from the last improvement that was applied)
+    if transition_updates and "content" in transition_updates.get("chapters", {}).get(current_chapter, {}).get("scenes", {}).get(current_scene, {}):
+        combined_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
+            transition_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
+        )
+    elif repetition_updates.get("repetition_reduced", False):
+        combined_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
+            repetition_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
+        )
+    elif consistency_updates.get("chapters", {}).get(current_chapter, {}).get("scenes", {}).get(current_scene, {}).get("consistency_fixed", False):
+        combined_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
+            consistency_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
+        )
+    elif dialogue_updates.get("dialogue_improved", False):
+        combined_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
+            dialogue_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
         )
     elif pacing_updates.get("pacing_optimized", False):
-        combined_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]["content"] = (
-            pacing_updates["chapters"][state["current_chapter"]]["scenes"][state["current_scene"]]["content"]
+        combined_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = (
+            pacing_updates["chapters"][current_chapter]["scenes"][current_scene]["content"]
         )
     
     # Add improvement flags
     combined_updates["pacing_optimized"] = pacing_updates.get("pacing_optimized", False)
     combined_updates["dialogue_improved"] = dialogue_updates.get("dialogue_improved", False)
+    combined_updates["consistency_fixed"] = consistency_updates.get("chapters", {}).get(current_chapter, {}).get("scenes", {}).get(current_scene, {}).get("consistency_fixed", False)
+    combined_updates["repetition_reduced"] = repetition_updates.get("repetition_reduced", False)
+    combined_updates["transition_added"] = bool(transition_updates)
     
     return combined_updates
 

@@ -512,6 +512,10 @@ def write_scene(state: StoryState) -> Dict:
     {dialogue_guidance}
     
     {exposition_guidance}
+    
+    {integrated_guidance.get("consistency_guidance", "")}
+    
+    {integrated_guidance.get("variation_guidance", "")}
     Your task is to write an engaging, vivid scene of 2100-3360 words that advances the story according to the chapter outline.
     Use rich descriptions, meaningful dialogue, and show character development.
     Ensure consistency with established character traits and previous events.
