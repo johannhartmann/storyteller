@@ -9,6 +9,7 @@ from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm
 from storyteller_lib.models import StoryState
+from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 
 def check_character_consistency(character_data: Dict, scene_content: str, 
                               previous_scenes: List[str] = None) -> Dict[str, Any]:
@@ -165,8 +166,8 @@ def check_character_consistency(character_data: Dict, scene_content: str,
             "strengths": []
         }
 
-def fix_character_inconsistencies(scene_content: str, character_data: Dict, 
-                                consistency_analysis: Dict[str, Any]) -> str:
+def fix_character_inconsistencies(scene_content: str, character_data: Dict,
+                                consistency_analysis: Dict[str, Any], state: StoryState = None) -> str:
     """
     Fix character inconsistencies in a scene.
     
@@ -174,6 +175,7 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
         scene_content: The content of the scene
         character_data: The character data
         consistency_analysis: The consistency analysis results
+        state: The current state (optional, for plot thread integration)
         
     Returns:
         The scene content with fixed inconsistencies
@@ -184,6 +186,33 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
     
     # Extract character name
     character_name = character_data.get("name", "")
+    
+    # Get active plot threads if state is provided
+    plot_thread_guidance = ""
+    if state:
+        active_plot_threads = get_active_plot_threads_for_scene(state)
+        
+        if active_plot_threads:
+            # Filter plot threads related to this character
+            character_threads = []
+            for thread in active_plot_threads:
+                if character_name in thread.get("related_characters", []):
+                    character_threads.append(thread)
+            
+            if character_threads:
+                # Format character-related threads
+                thread_text = "Plot threads involving this character:\n"
+                for thread in character_threads:
+                    thread_text += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
+                
+                # Combine thread guidance
+                plot_thread_guidance = f"""
+                CHARACTER PLOT THREAD INVOLVEMENT:
+                {thread_text}
+                
+                Ensure that {character_name}'s actions, motivations, and dialogue remain consistent with their involvement in these plot threads.
+                Character behavior should align with their role in each thread and reflect their knowledge of thread-related events.
+                """
     
     # Prepare the prompt for fixing inconsistencies
     prompt = f"""
@@ -205,12 +234,15 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
     Issues to fix:
     {consistency_analysis["issues"]}
     
+    {plot_thread_guidance}
+    
     Your task:
     1. Revise {character_name}'s actions to be consistent with their established traits
     2. Clarify their motivations to align with previous behavior
     3. Adjust dialogue to match their established voice
     4. Make emotional reactions appropriate to their personality
     5. Ensure character development is gradual and believable
+    6. Maintain consistency with the character's involvement in plot threads
     
     IMPORTANT:
     - Maintain the overall plot and scene structure
@@ -283,7 +315,7 @@ def track_character_consistency(state: StoryState) -> Dict:
                 
                 # If there are significant inconsistencies, fix them
                 if consistency_analysis["consistency_score"] < 7 and consistency_analysis["issues"]:
-                    improved_scene = fix_character_inconsistencies(scene_content, char_data, consistency_analysis)
+                    improved_scene = fix_character_inconsistencies(scene_content, char_data, consistency_analysis, state)
                     
                     # Update the scene content with the improved version
                     consistency_updates = {
@@ -310,12 +342,13 @@ def track_character_consistency(state: StoryState) -> Dict:
         "character_consistency_analyses": character_consistency_analyses
     }
 
-def generate_consistency_guidance(characters: Dict[str, Any]) -> str:
+def generate_consistency_guidance(characters: Dict[str, Any], plot_threads: List[Dict[str, Any]] = None) -> str:
     """
     Generate character consistency guidance for scene writing.
     
     Args:
         characters: The character data
+        plot_threads: Optional list of active plot threads
         
     Returns:
         Consistency guidance text to include in scene writing prompts
@@ -336,21 +369,36 @@ def generate_consistency_guidance(characters: Dict[str, Any]) -> str:
         
         character_info.append(f"- {name}: Traits: {', '.join(traits) if traits else 'Not specified'}, Voice: {voice}, Arc: {arc}, Current Stage: {stage}, Current Emotion: {emotion}")
     
+    # Prepare plot thread information if provided
+    plot_thread_info = []
+    if plot_threads:
+        for thread in plot_threads:
+            thread_name = thread.get("name", "")
+            thread_desc = thread.get("description", "")
+            thread_status = thread.get("status", "")
+            related_chars = thread.get("related_characters", [])
+            
+            if related_chars:
+                plot_thread_info.append(f"- {thread_name}: {thread_desc} (Status: {thread_status}, Characters: {', '.join(related_chars)})")
+    
     # Prepare the prompt for generating consistency guidance
     prompt = f"""
     Generate character consistency guidance for scene writing based on these character profiles:
     
     {chr(10).join(character_info)}
     
+    {f"Active plot threads involving these characters:\n{chr(10).join(plot_thread_info)}" if plot_thread_info else ""}
+    
     Provide guidance on:
     1. How to maintain consistent character voices and behaviors
     2. How to ensure character motivations are clear and consistent
     3. How to handle character development in a gradual, believable way
     4. How to ensure emotional reactions are appropriate to personalities
-    5. Common consistency pitfalls to avoid
+    5. How to maintain character consistency with their involvement in plot threads
+    6. Common consistency pitfalls to avoid
     
     Format your response as concise, actionable guidelines that could be included in a scene writing prompt.
-    Focus on creating consistent, believable characters.
+    Focus on creating consistent, believable characters whose actions align with their involvement in plot threads.
     """
     
     try:

@@ -9,6 +9,7 @@ from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm
 from storyteller_lib.models import StoryState
+from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 
 def analyze_transition_needs(current_content: str, next_content_outline: str, 
                            transition_type: str = "scene") -> Dict[str, Any]:
@@ -94,19 +95,54 @@ def analyze_transition_needs(current_content: str, next_content_outline: str,
             "transition_length": "medium"
         }
 
-def create_scene_transition(current_scene_content: str, next_scene_outline: str) -> str:
+def create_scene_transition(current_scene_content: str, next_scene_outline: str, state: StoryState = None) -> str:
     """
     Create a smooth transition between scenes.
     
     Args:
         current_scene_content: The content of the current scene
         next_scene_outline: The outline of the next scene
+        state: The current state (optional, for plot thread integration)
         
     Returns:
         The transition text
     """
     # Analyze transition needs
     transition_analysis = analyze_transition_needs(current_scene_content, next_scene_outline, "scene")
+    
+    # Get active plot threads if state is provided
+    plot_thread_guidance = ""
+    if state:
+        active_plot_threads = get_active_plot_threads_for_scene(state)
+        
+        if active_plot_threads:
+            # Group threads by importance
+            major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
+            minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
+            
+            # Format major threads
+            major_thread_text = ""
+            if major_threads:
+                major_thread_text = "Major plot threads to maintain continuity for:\n"
+                for thread in major_threads:
+                    major_thread_text += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
+            
+            # Format minor threads
+            minor_thread_text = ""
+            if minor_threads:
+                minor_thread_text = "Minor plot threads to consider:\n"
+                for thread in minor_threads:
+                    minor_thread_text += f"- {thread['name']}: {thread['description']}\n"
+            
+            # Combine thread guidance
+            plot_thread_guidance = f"""
+            PLOT THREAD CONTINUITY:
+            {major_thread_text}
+            {minor_thread_text}
+            
+            Ensure your transition maintains continuity of major plot threads.
+            Reference relevant plot threads to create a cohesive narrative flow between scenes.
+            """
     
     # Prepare the prompt for creating a scene transition
     prompt = f"""
@@ -125,12 +161,15 @@ def create_scene_transition(current_scene_content: str, next_scene_outline: str)
     Recommended Elements: {', '.join(transition_analysis["recommended_elements"])}
     Recommended Tone: {transition_analysis["recommended_tone"]}
     
+    {plot_thread_guidance}
+    
     Write a {transition_analysis["transition_length"]} transition (1-3 paragraphs) that:
     1. Provides closure to the current scene
     2. Creates a bridge to the next scene
     3. Maintains narrative flow and reader engagement
     4. Addresses any unresolved immediate tensions
     5. Sets up the next scene naturally
+    6. Maintains continuity of relevant plot threads
     
     The transition should feel organic and maintain the story's rhythm.
     """
@@ -148,13 +187,14 @@ def create_scene_transition(current_scene_content: str, next_scene_outline: str)
         print(f"Error creating scene transition: {str(e)}")
         return ""
 
-def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dict) -> str:
+def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dict, state: StoryState = None) -> str:
     """
     Create a smooth transition between chapters.
     
     Args:
         current_chapter_data: The data for the current chapter
         next_chapter_data: The data for the next chapter
+        state: The current state (optional, for plot thread integration)
         
     Returns:
         The transition text
@@ -172,6 +212,42 @@ def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dic
     
     # Analyze transition needs
     transition_analysis = analyze_transition_needs(last_scene_content, next_chapter_outline, "chapter")
+    
+    # Get active plot threads if state is provided
+    plot_thread_guidance = ""
+    if state:
+        # Save the original current_chapter and current_scene
+        original_chapter = state.get("current_chapter", "")
+        original_scene = state.get("current_scene", "")
+        
+        # Temporarily set the current chapter and scene to the last scene of the current chapter
+        # This is needed for get_active_plot_threads_for_scene to work correctly
+        temp_state = state.copy()
+        temp_state["current_chapter"] = current_chapter_data.get("number", "")
+        temp_state["current_scene"] = last_scene_num
+        
+        active_plot_threads = get_active_plot_threads_for_scene(temp_state)
+        
+        if active_plot_threads:
+            # Group threads by importance
+            major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
+            
+            # Format major threads
+            major_thread_text = ""
+            if major_threads:
+                major_thread_text = "Major plot threads to carry forward to the next chapter:\n"
+                for thread in major_threads:
+                    major_thread_text += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
+            
+            # Combine thread guidance
+            plot_thread_guidance = f"""
+            PLOT THREAD CONTINUITY BETWEEN CHAPTERS:
+            {major_thread_text}
+            
+            Ensure your chapter transition maintains continuity of major plot threads.
+            Reference key plot elements that will carry forward into the next chapter.
+            Consider how plot threads will evolve or develop in the upcoming chapter.
+            """
     
     # Prepare the prompt for creating a chapter transition
     prompt = f"""
@@ -193,12 +269,15 @@ def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dic
     Recommended Elements: {', '.join(transition_analysis["recommended_elements"])}
     Recommended Tone: {transition_analysis["recommended_tone"]}
     
+    {plot_thread_guidance}
+    
     Write a {transition_analysis["transition_length"]} chapter transition (2-4 paragraphs) that:
     1. Provides satisfying closure to the current chapter
     2. Creates anticipation for the next chapter
     3. Maintains narrative momentum
     4. Connects thematically to both chapters
     5. Addresses any unresolved immediate tensions
+    6. Maintains continuity of major plot threads between chapters
     
     The transition should be 2-4 paragraphs that could either end the current chapter
     or begin the next chapter.
@@ -246,7 +325,7 @@ def add_scene_transition(state: StoryState) -> Dict:
         next_scene_outline = chapter["scenes"][next_scene].get("outline", "")
         
         # Create a transition to the next scene
-        transition = create_scene_transition(scene_content, next_scene_outline)
+        transition = create_scene_transition(scene_content, next_scene_outline, state)
         
         # Add the transition to the current scene
         updated_scene_content = scene_content + "\n\n" + transition
@@ -291,7 +370,7 @@ def add_chapter_transition(state: StoryState) -> Dict:
         next_chapter_data = chapters[next_chapter]
         
         # Create a transition between chapters
-        transition = create_chapter_transition(current_chapter_data, next_chapter_data)
+        transition = create_chapter_transition(current_chapter_data, next_chapter_data, state)
         
         # Get the last scene of the current chapter
         current_chapter_scenes = current_chapter_data.get("scenes", {})

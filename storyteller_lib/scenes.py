@@ -8,6 +8,7 @@ from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, 
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import creative_brainstorm
+from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 from storyteller_lib import track_progress
 
 @track_progress
@@ -619,6 +620,9 @@ def reflect_on_scene(state: StoryState) -> Dict:
     
     # Get worldbuilding elements if available
     world_elements = state.get("world_elements", {})
+    
+    # Get previously addressed issues if available
+    previously_addressed_issues = chapters[current_chapter]["scenes"][current_scene].get("issues_addressed", [])
     # Update plot threads based on this scene
     from storyteller_lib.plot_threads import update_plot_threads
     plot_thread_updates = update_plot_threads(state)
@@ -669,6 +673,19 @@ def reflect_on_scene(state: StoryState) -> Dict:
         
         worldbuilding_context = "Established World Elements:\n" + "\n".join(worldbuilding_sections)
     
+    # Format previously addressed issues if any
+    previously_addressed_section = ""
+    if previously_addressed_issues:
+        issues_text = "\n".join([f"- {issue.get('type', 'unknown').upper()}: {issue.get('description', 'No description')}"
+                               for issue in previously_addressed_issues])
+        previously_addressed_section = f"""
+        IMPORTANT - Previously Addressed Issues:
+        The following issues have already been identified and addressed in previous revisions.
+        DO NOT report these issues again unless they still exist in the current version:
+        
+        {issues_text}
+        """
+    
     # Prompt for structured reflection
     prompt = f"""
     Analyze this scene from Chapter {current_chapter}, Scene {current_scene}:
@@ -694,6 +711,8 @@ def reflect_on_scene(state: StoryState) -> Dict:
     Score: {closure_analysis["closure_score"]}/10
     Issues: {', '.join(closure_analysis["issues"]) if closure_analysis["issues"] else "None"}
     
+    {previously_addressed_section}
+    
     Evaluate the scene on these criteria and include in criteria_ratings:
     - character_consistency: Consistency with established character traits and motivations
     - plot_advancement: Advancement of the plot according to the chapter outline
@@ -714,18 +733,23 @@ def reflect_on_scene(state: StoryState) -> Dict:
     - Any progress in character arcs or inner conflicts
     - Any world elements introduced or expanded upon in this scene
     - Any changes to the established world (geography, culture, politics, etc.)
-    - Any inconsistencies or continuity errors (e.g., contradictions with previous scenes, plot holes)
-    - Any worldbuilding inconsistencies (e.g., contradictions with established world elements)
-    - Any areas that need improvement in emotional depth or character development
-    - Any areas that need improvement in worldbuilding integration
-    - Any areas that need improvement
+    - Any NEW inconsistencies or continuity errors (e.g., contradictions with previous scenes, plot holes)
+    - Any NEW worldbuilding inconsistencies (e.g., contradictions with established world elements)
+    - Any NEW areas that need improvement in emotional depth or character development
+    - Any NEW areas that need improvement in worldbuilding integration
+    - Any NEW areas that need improvement
     
-    IMPORTANT: For each issue you identify, you MUST provide:
+    DO NOT report issues that have already been addressed in previous revisions (listed above).
+    Focus ONLY on identifying NEW issues that still exist in the current version of the scene.
+    
+    IMPORTANT: For each NEW issue you identify, you MUST provide:
     1. A SPECIFIC and DETAILED description of the issue (not just "plot hole" or "pacing issue")
     2. A CONCRETE example from the scene that demonstrates the issue
     3. A SPECIFIC recommendation for how to fix the issue
     
     For example, instead of "Plot hole detected", write "Plot hole: The detective claims he's never been to Lüneburg before, but in the previous scene he mentioned growing up there. This contradicts his established backstory."
+    
+    Remember to ONLY report NEW issues that haven't been addressed in previous revisions.
     
     For severity ratings:
     - 8-10: Critical issues that significantly impact story coherence or reader experience
@@ -735,17 +759,19 @@ def reflect_on_scene(state: StoryState) -> Dict:
     
     DO NOT default to a middle severity - evaluate each issue carefully and assign a specific severity.
     DO NOT use generic descriptions like "Unspecified plot hole" - be specific and detailed about each issue.
+    DO NOT report issues that have already been addressed in previous revisions - focus only on NEW issues.
     
     CRITICAL INSTRUCTION: You MUST set 'needs_revision' to true if ANY of these conditions are met:
     - Any criteria score is 5 or below
-    - There are any continuity errors, character inconsistencies, plot holes, or worldbuilding inconsistencies
-    - There are multiple issues of any type
+    - There are any NEW continuity errors, character inconsistencies, plot holes, or worldbuilding inconsistencies
+    - There are multiple NEW issues of any type
     - The overall quality of the scene is significantly below the standards of the story
     - The scene contradicts established world elements in significant ways
     - The scene_closure score is 4 or below, indicating an abrupt or incomplete ending
     
-    If you identify ANY issues at all, you should carefully consider whether revision is needed.
-    Do not leave issues unaddressed - if you find problems, set needs_revision=true.
+    If you identify ANY NEW issues at all, you should carefully consider whether revision is needed.
+    Do not report issues that have already been addressed in previous revisions unless they still exist.
+    Do not leave NEW issues unaddressed - if you find NEW problems, set needs_revision=true.
     """
     
     # Use Pydantic for structured output
@@ -1376,6 +1402,50 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             Do not include any text in English or any other language.
             The complete scene must be written only in {SUPPORTED_LANGUAGES[language.lower()]}.
             """
+        # Get active plot threads for this scene
+        active_plot_threads = get_active_plot_threads_for_scene(state)
+        
+        # Create plot thread guidance
+        plot_thread_guidance = ""
+        if active_plot_threads:
+            plot_thread_sections = []
+            
+            # Group threads by importance
+            major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
+            minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
+            background_threads = [t for t in active_plot_threads if t["importance"] == "background"]
+            
+            # Format major threads
+            if major_threads:
+                major_section = "MAJOR PLOT THREADS (must be addressed):\n"
+                for thread in major_threads:
+                    major_section += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n  Last development: {thread['last_development']}\n"
+                plot_thread_sections.append(major_section)
+            
+            # Format minor threads
+            if minor_threads:
+                minor_section = "MINOR PLOT THREADS (should be addressed if relevant):\n"
+                for thread in minor_threads:
+                    minor_section += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
+                plot_thread_sections.append(minor_section)
+            
+            # Format background threads
+            if background_threads:
+                background_section = "BACKGROUND THREADS (can be referenced):\n"
+                for thread in background_threads:
+                    background_section += f"- {thread['name']}: {thread['description']}\n"
+                plot_thread_sections.append(background_section)
+            
+            # Combine all sections
+            plot_thread_guidance = f"""
+            ACTIVE PLOT THREADS:
+            
+            {'\n'.join(plot_thread_sections)}
+            
+            Ensure that major plot threads are meaningfully advanced in this scene.
+            Minor threads should be addressed if they fit naturally with the scene's purpose.
+            Background threads can be referenced to maintain continuity.
+            """
         
         # Prompt for scene revision
         prompt = f"""
@@ -1402,15 +1472,19 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         PREVIOUSLY REVEALED INFORMATION:
         {revelations.get('reader', [])}
         
+        {plot_thread_guidance}
+        
         YOUR REVISION TASK:
         1. Rewrite the scene to address ALL identified issues, especially those marked with higher severity.
         2. Ensure consistency with previous events, character traits, and established facts.
         3. Maintain the same general plot progression and purpose of the scene.
         4. Improve the quality, style, and flow as needed.
         5. Ensure no NEW continuity errors are introduced.
+        6. Properly address and advance all major plot threads, and incorporate minor threads where relevant.
         
         {language_section}
         
+        Provide a complete, polished scene that can replace the original.
         Provide a complete, polished scene that can replace the original.
         
         CRITICAL INSTRUCTION: Return ONLY the actual revised scene content. Do NOT include any explanations, comments, notes, or meta-information about your revision process or choices. Do NOT include any text like "Here's the revised scene" or "Key improvements" or any other commentary. The output should be ONLY the narrative text that will appear in the final story.
@@ -1450,17 +1524,17 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             revised_scene = llm.invoke([HumanMessage(content=prompt)]).content
         # Increment revision count
         revised_counts[f"{current_chapter}_{current_scene}"] = revision_count + 1
-        
         # Log that an improved scene was generated based on the reflection
         print(f"\n==== IMPROVED SCENE GENERATED FOR Ch:{current_chapter}/Sc:{current_scene} ====")
         print(f"Based on the reflection analysis, an improved scene was generated (revision #{revision_count + 1})")
-        print(f"Issues addressed in this revision:")
+        print(f"Issues that were addressed in this revision:")
         for i, issue in enumerate(issues):
             issue_type = issue.get("type", "unknown")
             severity = issue.get("severity", "N/A")
             description = issue.get("description", "No description")
             if description:
                 description = description[:100]
+            print(f"  {i+1}. {issue_type.upper()} (Severity: {severity}/10): {description}... [ADDRESSED]")
             print(f"  {i+1}. {issue_type.upper()} (Severity: {severity}/10): {description}...")
         print(f"====================================================\n")
         # Store revision information in memory
@@ -1470,7 +1544,11 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             "value": {
                 "structured_reflection": structured_reflection,
                 "revision_number": revision_count + 1,
-                "timestamp": "now"
+                "timestamp": "now",
+                "plot_threads_addressed": [
+                    {"name": thread["name"], "importance": thread["importance"], "status": thread["status"]}
+                    for thread in active_plot_threads
+                ] if active_plot_threads else []
             }
         })
         
@@ -1487,7 +1565,15 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             current_scene: {
                 "content": revised_scene,
                 "reflection_notes": [f"Scene has been revised (revision #{revision_count + 1})"],
-                "structured_reflection": None  # Clear structured reflection to trigger fresh analysis
+                "structured_reflection": None,  # Clear structured reflection to trigger fresh analysis
+                "issues_addressed": [
+                    {
+                        "type": issue.get("type", "unknown"),
+                        "description": issue.get("description", "No description"),
+                        "revision_number": revision_count + 1
+                    }
+                    for issue in issues
+                ]
             }
         }
         
@@ -1509,13 +1595,15 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
                     "timestamp": "now",
                     "original_size": len(scene_content) if scene_content else 0,
                     "revised_size": len(revised_scene) if revised_scene else 0,
-                    "revision_number": revision_count + 1
+                    "revision_number": revision_count + 1,
+                    "plot_threads_count": len(active_plot_threads) if active_plot_threads else 0,
+                    "major_threads_count": len([t for t in active_plot_threads if t["importance"] == "major"]) if active_plot_threads else 0
                 }
             },
             
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address the identified issues (revision #{revision_count + 1}).")
+                AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address the identified issues and plot threads (revision #{revision_count + 1}).")
             ]
         }
     else:

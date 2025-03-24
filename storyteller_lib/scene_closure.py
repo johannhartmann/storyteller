@@ -9,6 +9,7 @@ from typing import Dict, List, Any, Tuple
 from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm
 from storyteller_lib.models import StoryState
+from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 
 # Scene closure status options
 CLOSURE_STATUS = {
@@ -97,8 +98,8 @@ def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str) 
             "recommendations": ["Review the scene ending manually"]
         }
 
-def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str, 
-                          closure_analysis: Dict[str, Any]) -> str:
+def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
+                          closure_analysis: Dict[str, Any], state: StoryState = None) -> str:
     """
     Generate improved scene closure for a scene that ends abruptly.
     
@@ -107,6 +108,7 @@ def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
         chapter_num: The chapter number
         scene_num: The scene number
         closure_analysis: The closure analysis results
+        state: The current state (optional, for plot thread integration)
         
     Returns:
         The improved scene content with proper closure
@@ -114,6 +116,40 @@ def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
     # Extract the last few paragraphs of the scene
     paragraphs = scene_content.split('\n\n')
     last_paragraphs = '\n\n'.join(paragraphs[-min(5, len(paragraphs)):])
+    
+    # Get active plot threads if state is provided
+    plot_thread_guidance = ""
+    if state:
+        active_plot_threads = get_active_plot_threads_for_scene(state)
+        
+        if active_plot_threads:
+            # Group threads by importance
+            major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
+            minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
+            
+            # Format major threads
+            major_thread_text = ""
+            if major_threads:
+                major_thread_text = "Major plot threads that need attention:\n"
+                for thread in major_threads:
+                    major_thread_text += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
+            
+            # Format minor threads
+            minor_thread_text = ""
+            if minor_threads:
+                minor_thread_text = "Minor plot threads to consider:\n"
+                for thread in minor_threads:
+                    minor_thread_text += f"- {thread['name']}: {thread['description']}\n"
+            
+            # Combine thread guidance
+            plot_thread_guidance = f"""
+            ACTIVE PLOT THREADS:
+            {major_thread_text}
+            {minor_thread_text}
+            
+            Ensure your scene closure addresses or advances major plot threads where appropriate.
+            Minor threads can be referenced if they fit naturally with the scene's purpose.
+            """
     
     # Prepare the prompt for generating improved scene closure
     prompt = f"""
@@ -131,6 +167,8 @@ def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
     Recommendations:
     {chr(10).join(f"- {rec}" for rec in closure_analysis["recommendations"])}
     
+    {plot_thread_guidance}
+    
     YOUR TASK:
     Write an improved ending for this scene that provides proper narrative closure.
     Your ending should:
@@ -138,6 +176,7 @@ def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
     2. Complete any unfinished action or dialogue
     3. Provide a sense of completion or transition to the next scene
     4. Feel natural and consistent with the scene's tone and content
+    5. Address relevant plot threads, especially major ones
     
     Write 1-3 paragraphs that would replace or extend the current ending.
     The improved ending should flow seamlessly from the existing content.
@@ -213,7 +252,7 @@ def check_and_improve_scene_closure(state: StoryState) -> Tuple[bool, Dict[str, 
     improved_scene = scene_content
     if needs_improved_closure:
         improved_scene = generate_scene_closure(
-            scene_content, current_chapter, current_scene, closure_analysis
+            scene_content, current_chapter, current_scene, closure_analysis, state
         )
     
     return needs_improved_closure, closure_analysis, improved_scene
