@@ -91,10 +91,14 @@ def merge_scenes(existing: SceneStateDict, new: SceneStateDict) -> SceneStateDic
             if "content" in scene_data and scene_data["content"]:
                 result_scene["content"] = scene_data["content"]
                 
+            # Structured reflection should always replace if provided
+            if "structured_reflection" in scene_data and scene_data["structured_reflection"]:
+                result_scene["structured_reflection"] = scene_data["structured_reflection"]
+                
             # Reflection notes might need to append or replace depending on context
             if "reflection_notes" in scene_data:
                 # If reflection notes indicate scene was revised, we want to completely replace
-                if (len(scene_data["reflection_notes"]) == 1 and 
+                if (len(scene_data["reflection_notes"]) == 1 and
                     scene_data["reflection_notes"][0] == "Scene has been revised"):
                     result_scene["reflection_notes"] = scene_data["reflection_notes"]
                 # Otherwise append

@@ -720,13 +720,32 @@ def reflect_on_scene(state: StoryState) -> Dict:
     - Any areas that need improvement in worldbuilding integration
     - Any areas that need improvement
     
-    Set 'needs_revision' to true if ANY of these conditions are met:
+    IMPORTANT: For each issue you identify, you MUST provide:
+    1. A SPECIFIC and DETAILED description of the issue (not just "plot hole" or "pacing issue")
+    2. A CONCRETE example from the scene that demonstrates the issue
+    3. A SPECIFIC recommendation for how to fix the issue
+    
+    For example, instead of "Plot hole detected", write "Plot hole: The detective claims he's never been to Lüneburg before, but in the previous scene he mentioned growing up there. This contradicts his established backstory."
+    
+    For severity ratings:
+    - 8-10: Critical issues that significantly impact story coherence or reader experience
+    - 6-7: Moderate issues that should be addressed but don't break the story
+    - 3-5: Minor issues that would improve the story if fixed
+    - 1-2: Nitpicks or stylistic preferences
+    
+    DO NOT default to a middle severity - evaluate each issue carefully and assign a specific severity.
+    DO NOT use generic descriptions like "Unspecified plot hole" - be specific and detailed about each issue.
+    
+    CRITICAL INSTRUCTION: You MUST set 'needs_revision' to true if ANY of these conditions are met:
     - Any criteria score is 5 or below
     - There are any continuity errors, character inconsistencies, plot holes, or worldbuilding inconsistencies
     - There are multiple issues of any type
     - The overall quality of the scene is significantly below the standards of the story
     - The scene contradicts established world elements in significant ways
     - The scene_closure score is 4 or below, indicating an abrupt or incomplete ending
+    
+    If you identify ANY issues at all, you should carefully consider whether revision is needed.
+    Do not leave issues unaddressed - if you find problems, set needs_revision=true.
     """
     
     # Use Pydantic for structured output
@@ -752,6 +771,60 @@ def reflect_on_scene(state: StoryState) -> Dict:
         description: str = Field(default="", description="Description of the issue")
         severity: int = Field(ge=1, le=10, default=5, description="Severity from 1-10")
         recommendation: str = Field(default="", description="Recommendation to fix the issue")
+        
+        def __init__(self, **data):
+            """Initialize with dynamic severity based on issue type if not provided."""
+            # If severity is not provided, calculate based on issue type
+            if 'severity' not in data:
+                issue_type = data.get('type', 'other').lower()
+                # Assign higher default severity to critical issues
+                if issue_type in ['plot_hole', 'continuity_error', 'character_inconsistency']:
+                    data['severity'] = 8
+                elif issue_type in ['pacing_issue', 'tone_mismatch']:
+                    data['severity'] = 6
+                else:
+                    data['severity'] = 5
+            
+            # Ensure description is not empty and is specific
+            if 'description' not in data or not data['description'] or data['description'].strip() == "":
+                issue_type = data.get('type', 'other')
+                # Provide more specific default descriptions based on issue type
+                if issue_type == 'plot_hole':
+                    data['description'] = "A logical inconsistency or contradiction in the plot that needs to be resolved"
+                elif issue_type == 'continuity_error':
+                    data['description'] = "An inconsistency with previously established facts or events"
+                elif issue_type == 'character_inconsistency':
+                    data['description'] = "Character behavior that contradicts their established traits or motivations"
+                elif issue_type == 'pacing_issue':
+                    data['description'] = "Problems with the scene's rhythm, speed, or flow that affect reader engagement"
+                elif issue_type == 'tone_mismatch':
+                    data['description'] = "Elements that don't match the established tone or style of the story"
+                else:
+                    data['description'] = f"An issue with the scene that needs attention"
+                
+                # Flag this as a generic description
+                data['is_generic_description'] = True
+            else:
+                data['is_generic_description'] = False
+                
+            # Ensure recommendation is not empty and is specific
+            if 'recommendation' not in data or not data['recommendation'] or data['recommendation'].strip() == "":
+                issue_type = data.get('type', 'other')
+                # Provide more specific default recommendations based on issue type
+                if issue_type == 'plot_hole':
+                    data['recommendation'] = "Revise the scene to ensure logical consistency with the established plot"
+                elif issue_type == 'continuity_error':
+                    data['recommendation'] = "Align this scene with previously established facts and events"
+                elif issue_type == 'character_inconsistency':
+                    data['recommendation'] = "Adjust character actions and dialogue to match their established traits"
+                elif issue_type == 'pacing_issue':
+                    data['recommendation'] = "Adjust the scene's rhythm by adding or removing content as needed"
+                elif issue_type == 'tone_mismatch':
+                    data['recommendation'] = "Revise elements that don't match the story's established tone"
+                else:
+                    data['recommendation'] = "Review the scene carefully and make appropriate adjustments"
+                
+            super().__init__(**data)
         
         class Config:
             """Configuration for the model."""
@@ -947,6 +1020,71 @@ def reflect_on_scene(state: StoryState) -> Dict:
     if not issues_summary:
         issues_summary.append("No significant issues detected")
     
+    # Print debug information about the issues
+    print(f"\nDEBUG BEFORE STORAGE: Found {len(reflection_dict.get('issues', []))} issues in reflection_dict")
+    for i, issue in enumerate(reflection_dict.get('issues', [])):
+        print(f"DEBUG BEFORE STORAGE: Issue {i+1} - Type: {issue.get('type', 'unknown')}, Severity: {issue.get('severity', 'N/A')}")
+        print(f"DEBUG BEFORE STORAGE: Description: '{issue.get('description', '')}'")
+    
+    # Check if issues exist in issues_summary but not in reflection_dict
+    if issues_summary and not reflection_dict.get('issues', []):
+        print("WARNING: Issues found in summary but not in structured data. Reconstructing issues...")
+        reconstructed_issues = []
+        for summary in issues_summary:
+            if "Severity:" in summary:
+                parts = summary.split("(Severity:", 1)
+                issue_type = parts[0].strip()
+                rest = parts[1].split(")", 1)
+                try:
+                    severity = int(rest[0].strip().split("/")[0])
+                except:
+                    severity = 5
+                description = rest[1].strip(": ") if len(rest) > 1 else "Unspecified issue"
+                
+                reconstructed_issues.append({
+                    "type": issue_type.lower(),
+                    "description": description,
+                    "severity": severity,
+                    "recommendation": "Review and address this issue"
+                })
+        
+        if reconstructed_issues:
+            print(f"Reconstructed {len(reconstructed_issues)} issues from summary")
+            reflection_dict["issues"] = reconstructed_issues
+            # Also set needs_revision to True since we found issues
+            reflection_dict["needs_revision"] = True
+            reflection_dict["revision_priority"] = "medium"
+    # Ensure issues are properly stored
+    # If we have issues in the formatted_issues but not in reflection_dict["issues"],
+    # reconstruct the issues from the formatted_issues
+    if issues_summary and not reflection_dict.get("issues"):
+        print("CRITICAL: Issues found in formatted_issues but not in reflection_dict['issues']. Reconstructing...")
+        reconstructed_issues = []
+        for summary in issues_summary:
+            if "Severity:" in summary:
+                parts = summary.split("(Severity:", 1)
+                issue_type = parts[0].strip()
+                rest = parts[1].split(")", 1)
+                try:
+                    severity = int(rest[0].strip().split("/")[0])
+                except:
+                    severity = 5
+                description = rest[1].strip(": ") if len(rest) > 1 else "Unspecified issue"
+                
+                reconstructed_issues.append({
+                    "type": issue_type.lower(),
+                    "description": description,
+                    "severity": severity,
+                    "recommendation": "Review and address this issue"
+                })
+        
+        if reconstructed_issues:
+            print(f"Reconstructed {len(reconstructed_issues)} issues from formatted_issues")
+            reflection_dict["issues"] = reconstructed_issues
+            # Also set needs_revision to True since we found issues
+            reflection_dict["needs_revision"] = True
+            reflection_dict["revision_priority"] = "medium"
+    
     # Format for storage - now we store the entire structured reflection directly
     # since we're using proper structured output
     reflection_formatted = {
@@ -954,7 +1092,7 @@ def reflect_on_scene(state: StoryState) -> Dict:
         "issues": reflection_dict.get("issues", []),
         "strengths": reflection_dict.get("strengths", []),
         "formatted_issues": issues_summary,  # For easy display
-        "needs_revision": reflection_dict.get("needs_revision", False),
+        "needs_revision": reflection_dict.get("needs_revision", False) or bool(reflection_dict.get("issues", [])),  # Set needs_revision to True if there are issues
         "revision_priority": reflection_dict.get("revision_priority", "low"),
         "overall_assessment": reflection_summary,
         "scene_closure": {
@@ -979,6 +1117,21 @@ def reflect_on_scene(state: StoryState) -> Dict:
             "key": f"reflection_text_chapter_{current_chapter}_scene_{current_scene}",
             "value": reflection_dict["original_text"]
         })
+    
+    # Print the scene analysis in a structured format
+    print(f"\n------ SCENE ANALYSIS [Ch:{current_chapter}/Sc:{current_scene}] ------")
+    print(f"Analysis of scene {current_scene} in chapter {current_chapter}:")
+    print(f"1. {reflection_summary}")
+    
+    # Print issues with proper formatting
+    if issues_summary:
+        print("2. " + issues_summary[0])
+        for i in range(1, len(issues_summary)):
+            print(issues_summary[i])
+    else:
+        print("2. No significant issues detected")
+    
+    print("-----------------------------\n")
     
     # Create readable reflection notes for the chapter data structure
     reflection_notes = [
@@ -1119,6 +1272,29 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
     revision_priority = structured_reflection.get("revision_priority", "low")
     issues = structured_reflection.get("issues", [])
     
+    # Automatically set needs_revision to True if issues are found
+    # Print detailed debug information about the issues
+    print(f"\nDEBUG: Found {len(issues)} issues in structured_reflection")
+    for i, issue in enumerate(issues):
+        print(f"DEBUG: Issue {i+1} - Type: {issue.get('type', 'unknown')}, Severity: {issue.get('severity', 'N/A')}")
+        print(f"DEBUG: Description: '{issue.get('description', '')}'")
+    
+    # Check if issues exist and have meaningful content
+    valid_issues = [issue for issue in issues
+                   if issue.get('description') and len(issue.get('description', '').strip()) > 0]
+    
+    print(f"DEBUG: Found {len(valid_issues)} valid issues with descriptions")
+    
+    if valid_issues and not needs_revision:
+        needs_revision = True
+        revision_priority = "medium"  # Default to medium priority
+        print("Auto-setting needs_revision to True because valid issues were found")
+    elif issues and not valid_issues and not needs_revision:
+        # Issues exist but have empty descriptions
+        needs_revision = True
+        revision_priority = "medium"
+        print("Auto-setting needs_revision to True because issues were found (even with empty descriptions)")
+    
     # Log detailed revision decision with more diagnostic information
     print(f"\n==== REVISION DECISION FOR Ch:{current_chapter}/Sc:{current_scene} ====")
     print(f"needs_revision flag: {needs_revision}")
@@ -1138,7 +1314,20 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             issue_type = issue.get("type", "unknown")
             severity = issue.get("severity", "N/A")
             description = issue.get("description", "No description")
-            print(f"  {idx+1}. {issue_type.upper()} (Severity: {severity}/10): {description[:100]}...")
+            recommendation = issue.get("recommendation", "No recommendation")
+            # Check if description is empty or just whitespace
+            if not description or description.strip() == "":
+                description = "[EMPTY DESCRIPTION]"
+            
+            # Check if this is a generic description
+            is_generic = issue.get("is_generic_description", False)
+            if is_generic:
+                print(f"  {idx+1}. {issue_type.upper()} (Severity: {severity}/10): {description[:100]}... [GENERIC DESCRIPTION - LLM FAILED TO PROVIDE SPECIFICS]")
+                print(f"     Recommendation: {recommendation[:100]}... [GENERIC RECOMMENDATION]")
+            else:
+                print(f"  {idx+1}. {issue_type.upper()} (Severity: {severity}/10): {description[:100]}...")
+                print(f"     Recommendation: {recommendation[:100]}...")
+            print(f"     Recommendation: {recommendation[:100]}...")
     
     # Print the final decision
     if needs_revision:
@@ -1259,10 +1448,21 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             print(f"Error using structured output for revised scene {current_chapter}_{current_scene}: {str(e)}")
             print("Falling back to regular output")
             revised_scene = llm.invoke([HumanMessage(content=prompt)]).content
-        
         # Increment revision count
         revised_counts[f"{current_chapter}_{current_scene}"] = revision_count + 1
         
+        # Log that an improved scene was generated based on the reflection
+        print(f"\n==== IMPROVED SCENE GENERATED FOR Ch:{current_chapter}/Sc:{current_scene} ====")
+        print(f"Based on the reflection analysis, an improved scene was generated (revision #{revision_count + 1})")
+        print(f"Issues addressed in this revision:")
+        for i, issue in enumerate(issues):
+            issue_type = issue.get("type", "unknown")
+            severity = issue.get("severity", "N/A")
+            description = issue.get("description", "No description")
+            if description:
+                description = description[:100]
+            print(f"  {i+1}. {issue_type.upper()} (Severity: {severity}/10): {description}...")
+        print(f"====================================================\n")
         # Store revision information in memory
         manage_memory_tool.invoke({
             "action": "create",
