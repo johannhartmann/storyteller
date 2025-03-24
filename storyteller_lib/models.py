@@ -33,23 +33,36 @@ def merge_dicts(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]
 
 def merge_characters(existing: CharacterProfileDict, new: CharacterProfileDict) -> CharacterProfileDict:
     """Deep merge character profiles to properly handle lists and nested content."""
+    # Handle the case where existing or new is None
+    if existing is None:
+        return new if new is not None else {}
+    if new is None:
+        return existing
+    
     result = existing.copy()
     for char_id, char_data in new.items():
+        # Skip if char_data is None
+        if char_data is None:
+            continue
+            
         if char_id in result:
             # If character exists, update fields intelligently
             result_char = result[char_id].copy()
             
             # Special handling for list fields that should be appended
             for list_field in ["evolution", "known_facts", "secret_facts", "revealed_facts"]:
-                if list_field in char_data and char_data[list_field]:
-                    if list_field in result_char:
-                        result_char[list_field] = result_char[list_field] + char_data[list_field]
-                    else:
-                        result_char[list_field] = char_data[list_field]
+                # Check if the field exists in char_data and is not None
+                if list_field in char_data and char_data[list_field] is not None:
+                    # Only process if the field has a value (not empty)
+                    if char_data[list_field]:
+                        if list_field in result_char and result_char[list_field] is not None:
+                            result_char[list_field] = result_char[list_field] + char_data[list_field]
+                        else:
+                            result_char[list_field] = char_data[list_field]
             
             # Special handling for relationships dict
-            if "relationships" in char_data:
-                if "relationships" in result_char:
+            if "relationships" in char_data and char_data["relationships"] is not None:
+                if "relationships" in result_char and result_char["relationships"] is not None:
                     result_char["relationships"] = {**result_char["relationships"], **char_data["relationships"]}
                 else:
                     result_char["relationships"] = char_data["relationships"]

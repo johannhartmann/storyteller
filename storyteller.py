@@ -33,6 +33,7 @@ from storyteller_lib.config import (
 
 # Import from creative_tools module
 from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain, creative_brainstorm
+from storyteller_lib.integration import integrate_improvements, post_scene_improvements, update_concept_introduction_statuses
 
 # Define the state schema
 class CharacterProfile(TypedDict):
@@ -192,6 +193,9 @@ def generate_story_outline(state: StoryState) -> Dict:
     author_style_guidance = state["author_style_guidance"]
     creative_elements = state.get("creative_elements", {})
     
+    # Initialize key concepts tracker for exposition clarity
+    from storyteller_lib.exposition import track_key_concepts
+    
     # Prepare author style guidance
     style_guidance = ""
     if author:
@@ -334,11 +338,15 @@ def generate_story_outline(state: StoryState) -> Dict:
         }
     })
     
+    # Initialize key concepts tracker for exposition clarity
+    key_concepts_result = track_key_concepts(state)
+    
     # Update the state
     return {
         "global_story": story_outline,
+        "key_concepts_tracker": key_concepts_result.get("key_concepts_tracker", {}),
         "last_node": "generate_story_outline",
-        "messages": [AIMessage(content="I've created a story outline following the hero's journey structure. Now I'll develop the characters in more detail.")]
+        "messages": [AIMessage(content="I've created a story outline following the hero's journey structure and identified key concepts that will need clear exposition. Now I'll develop the characters in more detail.")]
     }
 
 def generate_characters(state: StoryState) -> Dict:

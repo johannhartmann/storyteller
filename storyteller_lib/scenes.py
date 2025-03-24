@@ -156,6 +156,17 @@ def write_scene(state: StoryState) -> Dict:
     # Get worldbuilding elements if available
     world_elements = state.get("world_elements", {})
     
+    # Integrate pacing, dialogue, and exposition improvements
+    from storyteller_lib.integration import integrate_improvements
+    integrated_guidance = integrate_improvements(state)
+    
+    # Extract guidance components
+    pacing_guidance = integrated_guidance.get("pacing_guidance", "")
+    dialogue_guidance = integrated_guidance.get("dialogue_guidance", "")
+    exposition_guidance = integrated_guidance.get("exposition_guidance", "")
+    concepts_to_introduce = integrated_guidance.get("concepts_to_introduce", [])
+    scene_purpose = integrated_guidance.get("scene_purpose", "")
+    
     # Prepare author style guidance
     style_section = ""
     if author:
@@ -480,6 +491,7 @@ def write_scene(state: StoryState) -> Dict:
     - Genre: {genre}
     - Tone: {tone}
     - Chapter outline: {chapter['outline']}
+    - Scene purpose: {scene_purpose}
     
     Characters present:
     {characters}
@@ -494,6 +506,12 @@ def write_scene(state: StoryState) -> Dict:
     {emotional_guidance}
     
     {plot_thread_guidance}
+    
+    {pacing_guidance}
+    
+    {dialogue_guidance}
+    
+    {exposition_guidance}
     Your task is to write an engaging, vivid scene of 2100-3360 words that advances the story according to the chapter outline.
     Use rich descriptions, meaningful dialogue, and show character development.
     Ensure consistency with established character traits and previous events.
@@ -971,6 +989,15 @@ def reflect_on_scene(state: StoryState) -> Dict:
     # Get initial idea from state
     initial_idea = state.get("initial_idea", "")
     
+    # Apply post-generation improvements (pacing and dialogue)
+    from storyteller_lib.integration import post_scene_improvements, update_concept_introduction_statuses
+    
+    # Apply pacing and dialogue improvements
+    improvement_updates = post_scene_improvements(state)
+    
+    # Update concept introduction statuses
+    concept_updates = update_concept_introduction_statuses(state)
+    
     # Merge the plot thread updates with our reflection updates
     updates = {
         # Update the reflection notes and add structured reflection data for this specific scene
@@ -999,12 +1026,40 @@ def reflect_on_scene(state: StoryState) -> Dict:
         
         "messages": [
             *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=f"I've analyzed scene {current_scene} of chapter {current_chapter} for quality and consistency, tracked plot threads, and " +
-                     (f"improved scene closure to address abrupt ending (closure score: {closure_analysis['closure_score']}/10)."
+            AIMessage(content=f"I've analyzed scene {current_scene} of chapter {current_chapter} for quality and consistency, tracked plot threads, " +
+                     (f"improved scene closure to address abrupt ending (closure score: {closure_analysis['closure_score']}/10), "
                       if needs_improved_closure else
-                      f"verified proper scene closure (closure score: {closure_analysis['closure_score']}/10)."))
+                      f"verified proper scene closure (closure score: {closure_analysis['closure_score']}/10), ") +
+                     f"and optimized pacing and dialogue.")
         ]
     }
+    
+    # Add improvement updates if available
+    if improvement_updates.get("pacing_optimized", False) or improvement_updates.get("dialogue_improved", False):
+        # If scene content was improved, update it
+        if "chapters" in improvement_updates and current_chapter in improvement_updates["chapters"]:
+            if "scenes" in improvement_updates["chapters"][current_chapter]:
+                if current_scene in improvement_updates["chapters"][current_chapter]["scenes"]:
+                    scene_updates = improvement_updates["chapters"][current_chapter]["scenes"][current_scene]
+                    
+                    # Update content if available
+                    if "content" in scene_updates:
+                        updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = scene_updates["content"]
+                    
+                    # Add analysis results
+                    if "pacing_analysis" in scene_updates:
+                        updates["chapters"][current_chapter]["scenes"][current_scene]["pacing_analysis"] = scene_updates["pacing_analysis"]
+                    
+                    if "dialogue_analysis" in scene_updates:
+                        updates["chapters"][current_chapter]["scenes"][current_scene]["dialogue_analysis"] = scene_updates["dialogue_analysis"]
+    
+    # Add concept introduction updates if available
+    if concept_updates and "concept_introductions" in concept_updates:
+        updates["concept_introductions"] = concept_updates["concept_introductions"]
+    
+    # Add improvement flags
+    updates["pacing_optimized"] = improvement_updates.get("pacing_optimized", False)
+    updates["dialogue_improved"] = improvement_updates.get("dialogue_improved", False)
     
     # If we have plot thread updates, include them in our state updates
     if plot_thread_updates:

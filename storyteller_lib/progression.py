@@ -242,6 +242,10 @@ def update_character_profiles(state: StoryState) -> Dict:
         if structured_updates and isinstance(structured_updates, dict):
             # Apply the structured updates
             for char_name, updates in structured_updates.items():
+                # Skip if updates is None
+                if updates is None:
+                    continue
+                    
                 if char_name in characters:
                     character_updates[char_name] = updates
     except Exception as e:
@@ -249,19 +253,26 @@ def update_character_profiles(state: StoryState) -> Dict:
     
     # Then, use the character arc tracking module for each character that appears in the scene
     for char_name, char_data in characters.items():
+        # Skip if char_data is None
+        if char_data is None:
+            continue
+            
         # Check if character appears in the scene
         if char_name.lower() in scene_content.lower() or (char_data.get("name", "").lower() in scene_content.lower()):
-            # Update character arc
-            arc_updates = update_character_arc(char_data, scene_content, current_chapter, current_scene)
-            
-            if arc_updates:
-                # If we already have updates for this character, merge them
-                if char_name in character_updates:
-                    for key, value in arc_updates.items():
-                        if key not in character_updates[char_name]:
-                            character_updates[char_name][key] = value
-                else:
-                    character_updates[char_name] = arc_updates
+            try:
+                # Update character arc
+                arc_updates = update_character_arc(char_data, scene_content, current_chapter, current_scene)
+                
+                if arc_updates and isinstance(arc_updates, dict):
+                    # If we already have updates for this character, merge them
+                    if char_name in character_updates:
+                        for key, value in arc_updates.items():
+                            if key not in character_updates[char_name]:
+                                character_updates[char_name][key] = value
+                    else:
+                        character_updates[char_name] = arc_updates
+            except Exception as e:
+                print(f"Error updating character arc for {char_name}: {str(e)}")
             
             # Store the character's updated profile in memory
             manage_memory_tool.invoke({
