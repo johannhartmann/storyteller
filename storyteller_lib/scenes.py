@@ -168,7 +168,89 @@ def write_scene(state: StoryState) -> Dict:
     
     # Prepare language guidance
     language_section = ""
+    language_elements = None
     if language.lower() != DEFAULT_LANGUAGE:
+        # Try to retrieve language elements from memory
+        try:
+            language_elements_result = search_memory_tool.invoke({
+                "query": f"language_elements_{language.lower()}",
+                "namespace": MEMORY_NAMESPACE
+            })
+            
+            # Handle different return types from search_memory_tool
+            if language_elements_result:
+                if isinstance(language_elements_result, dict) and "value" in language_elements_result:
+                    # Direct dictionary with value
+                    language_elements = language_elements_result["value"]
+                elif isinstance(language_elements_result, list):
+                    # List of objects
+                    for item in language_elements_result:
+                        if hasattr(item, 'key') and item.key == f"language_elements_{language.lower()}":
+                            language_elements = item.value
+                            break
+                elif isinstance(language_elements_result, str):
+                    # Try to parse JSON string
+                    try:
+                        import json
+                        language_elements = json.loads(language_elements_result)
+                    except:
+                        # If not JSON, use as is
+                        language_elements = language_elements_result
+        except Exception as e:
+            print(f"Error retrieving language elements: {str(e)}")
+        
+        # Create language guidance with specific examples if available
+        language_examples = ""
+        if language_elements:
+            # Add cultural references if available
+            if "CULTURAL REFERENCES" in language_elements:
+                cultural_refs = language_elements["CULTURAL REFERENCES"]
+                
+                idioms = cultural_refs.get("Common idioms and expressions", "")
+                if idioms:
+                    language_examples += f"\nCommon idioms and expressions in {SUPPORTED_LANGUAGES[language.lower()]}:\n{idioms}\n"
+                
+                traditions = cultural_refs.get("Cultural traditions and customs", "")
+                if traditions:
+                    language_examples += f"\nCultural traditions and customs in {SUPPORTED_LANGUAGES[language.lower()]}:\n{traditions}\n"
+            
+            # Add narrative elements if available
+            if "NARRATIVE ELEMENTS" in language_elements:
+                narrative_elements = language_elements["NARRATIVE ELEMENTS"]
+                
+                storytelling = narrative_elements.get("Storytelling traditions", "")
+                if storytelling:
+                    language_examples += f"\nStorytelling traditions in {SUPPORTED_LANGUAGES[language.lower()]} literature:\n{storytelling}\n"
+                
+                dialogue = narrative_elements.get("Dialogue patterns or speech conventions", "")
+                if dialogue:
+                    language_examples += f"\nDialogue patterns in {SUPPORTED_LANGUAGES[language.lower()]}:\n{dialogue}\n"
+        
+        # Try to retrieve language consistency instruction
+        consistency_instruction = ""
+        try:
+            consistency_result = search_memory_tool.invoke({
+                "query": "language_consistency_instruction",
+                "namespace": MEMORY_NAMESPACE
+            })
+            
+            # Handle different return types from search_memory_tool
+            if consistency_result:
+                if isinstance(consistency_result, dict) and "value" in consistency_result:
+                    # Direct dictionary with value
+                    consistency_instruction = consistency_result["value"]
+                elif isinstance(consistency_result, list):
+                    # List of objects
+                    for item in consistency_result:
+                        if hasattr(item, 'key') and item.key == "language_consistency_instruction":
+                            consistency_instruction = item.value
+                            break
+                elif isinstance(consistency_result, str):
+                    # Use as is
+                    consistency_instruction = consistency_result
+        except Exception as e:
+            print(f"Error retrieving language consistency instruction: {str(e)}")
+        
         language_section = f"""
         LANGUAGE CONSIDERATIONS:
         You are writing this scene in {SUPPORTED_LANGUAGES[language.lower()]}. Consider the following:
@@ -178,6 +260,10 @@ def write_scene(state: StoryState) -> Dict:
         3. Consider social norms, customs, and interpersonal dynamics typical in {SUPPORTED_LANGUAGES[language.lower()]} culture
         4. Use narrative techniques, pacing, and stylistic elements common in {SUPPORTED_LANGUAGES[language.lower()]} literature
         5. Ensure names, places, and cultural elements are appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
+        
+        {language_examples}
+        
+        {consistency_instruction}
         
         The scene should read as if it was originally written in {SUPPORTED_LANGUAGES[language.lower()]}, not translated.
         """

@@ -43,7 +43,7 @@ CACHE_LOCATION = os.environ.get("CACHE_LOCATION", str(Path.home() / ".storytelle
 MEMORY_DB_PATH = os.environ.get("MEMORY_DB_PATH", str(Path.home() / ".storyteller" / "memory.sqlite"))
 
 # Language Configuration
-DEFAULT_LANGUAGE = "english"  # Default language for story generation
+DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "english")  # Default language from .env or fallback to english
 # Dictionary mapping language codes to their full names
 SUPPORTED_LANGUAGES = {
     "english": "English",

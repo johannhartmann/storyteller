@@ -12,7 +12,7 @@ from storyteller_lib.config import llm
 
 # Import the graph builder
 from storyteller_lib.graph import build_story_graph
-from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE
+from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 
 def get_genre_key_elements(genre: str) -> List[str]:
     """
@@ -426,7 +426,6 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
     print(f"Generating a {tone} {genre} story{' in the style of '+author if author else ''}{idea_text}...")
     
     # Get language from config if not provided
-    from storyteller_lib.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
     if not language:
         language = DEFAULT_LANGUAGE
     
@@ -451,6 +450,32 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         },
         "namespace": MEMORY_NAMESPACE
     })
+    
+    # Store language requirements if not English
+    if language.lower() != DEFAULT_LANGUAGE:
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "language_requirements",
+            "value": {
+                "language": language,
+                "language_name": SUPPORTED_LANGUAGES[language.lower()],
+                "requirement": f"This story must be written entirely in {SUPPORTED_LANGUAGES[language.lower()]} with culturally appropriate names, places, and references."
+            },
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Create a strong language consistency anchor
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "language_consistency_anchor",
+            "value": {
+                "language": language,
+                "importance": "critical",
+                "must_be_followed": True,
+                "instruction": f"All story elements including character names, place names, cultural references, and dialogue must be consistent with {SUPPORTED_LANGUAGES[language.lower()]} language and culture."
+            },
+            "namespace": MEMORY_NAMESPACE
+        })
     
     # Store initial idea as a memory anchor
     if initial_idea:
