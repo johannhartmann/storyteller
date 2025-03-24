@@ -391,10 +391,8 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         # Parse the initial idea to extract key elements
         idea_elements = parse_initial_idea(initial_idea)
         
-        # Adjust genre if needed based on the initial idea
-        if idea_elements.get("plot", "").lower().find("murder") >= 0 or idea_elements.get("plot", "").lower().find("kill") >= 0:
-            if genre.lower() not in ["mystery", "thriller", "crime"]:
-                genre = "mystery"
+        # Let the LLM determine the appropriate genre based on the initial idea
+        # instead of hardcoding specific genre rules
         
         # Create a memory anchor for the initial idea to ensure it's followed
         manage_memory_tool.invoke({
@@ -595,9 +593,14 @@ if __name__ == "__main__":
     output_file = "generated_story.md"
     
     try:    
-        # Generate a fantasy story
-        print("Generating fantasy story...")
-        story = generate_story(genre="fantasy", tone="epic")
+        # Generate a story (using genre and tone from command line args or environment variables)
+        print("Generating story...")
+        # Use configurable parameters instead of hardcoded values
+        import os
+        genre = os.environ.get("STORY_GENRE", "fantasy")
+        tone = os.environ.get("STORY_TONE", "epic")
+        print(f"Using genre: {genre}, tone: {tone}")
+        story = generate_story(genre=genre, tone=tone)
         
         # Write to file with robust error handling
         try:
