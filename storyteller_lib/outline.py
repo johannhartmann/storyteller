@@ -258,57 +258,18 @@ def generate_story_outline(state: StoryState) -> Dict:
     Key elements that should be present in a {genre} story:
     """
     
-    # Add genre-specific elements based on the genre
-    if genre.lower() == "mystery":
-        genre_validation_prompt += """
-        - A central mystery or puzzle to be solved
-        - Clues and red herrings
-        - Investigation and deduction
-        - Suspects with motives, means, and opportunities
-        - A resolution that explains the mystery
-        """
-    elif genre.lower() == "fantasy":
-        genre_validation_prompt += """
-        - Magical or supernatural elements
-        - Worldbuilding with consistent rules
-        - Fantastical creatures or beings
-        - Epic conflicts or quests
-        - Themes of good vs. evil, power, or destiny
-        """
-    elif genre.lower() == "sci-fi" or genre.lower() == "science fiction":
-        genre_validation_prompt += """
-        - Scientific or technological concepts
-        - Futuristic or alternative settings
-        - Exploration of the impact of science/technology on society
-        - Speculative elements based on scientific principles
-        - Themes of progress, ethics, or humanity's future
-        """
-    elif genre.lower() == "romance":
-        genre_validation_prompt += """
-        - Focus on a developing relationship between characters
-        - Emotional connection and attraction
-        - Obstacles to the relationship
-        - Character growth through the relationship
-        - Satisfying emotional resolution
-        """
-    elif genre.lower() == "horror":
-        genre_validation_prompt += """
-        - Elements designed to frighten or disturb
-        - Building tension and suspense
-        - Threats to characters' safety or sanity
-        - Atmosphere of dread or unease
-        - Exploration of fears and taboos
-        """
-    elif genre.lower() == "thriller":
-        genre_validation_prompt += """
-        - High stakes and tension
-        - Danger and time pressure
-        - Complex plot with twists
-        - Protagonist facing formidable opposition
-        - Themes of survival, justice, or moral dilemmas
-        """
+    # Generate genre-specific validation criteria using the LLM
+    from storyteller_lib.creative_tools import generate_genre_guidance
+    
+    # Extract just the bullet points from the genre guidance
+    genre_guidance = generate_genre_guidance(genre, tone)
+    
+    # Extract the bullet points from the guidance
+    if "Key elements that must be present" in genre_guidance:
+        elements_section = genre_guidance.split("Key elements that must be present")[1]
+        genre_validation_prompt += elements_section
     else:
-        # Generic genre guidance for other genres
+        # Fallback if the format is unexpected
         genre_validation_prompt += f"""
         - Elements typical of {genre} stories
         - Appropriate pacing and structure for {genre}

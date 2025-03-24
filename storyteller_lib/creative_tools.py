@@ -7,11 +7,78 @@ import json
 
 from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field, create_model
 
 T = TypeVar('T', bound=BaseModel)
+
+def generate_genre_guidance(genre: str, tone: str) -> str:
+    """
+    Dynamically generate genre-specific guidance using the LLM.
+    
+    Args:
+        genre: Story genre
+        tone: Story tone
+        
+    Returns:
+        String containing genre-specific guidance
+    """
+    # Prompt the LLM to generate genre-specific guidance
+    prompt = f"""
+    You are a literary expert specializing in genre fiction. I need you to provide guidance on the key elements
+    and conventions of the "{genre}" genre with a "{tone}" tone.
+    
+    Please provide:
+    1. A brief description of what makes the {genre} genre distinctive
+    2. 5-7 key elements that must be present for a story to be considered part of this genre
+    3. Common tropes, themes, or motifs associated with this genre
+    4. How the "{tone}" tone typically manifests in this genre
+    
+    Format your response as follows:
+    
+    GENRE REQUIREMENTS:
+    This is a {genre} story with a {tone} tone. All ideas MUST adhere to the conventions and expectations of the {genre} genre.
+    
+    Key elements that must be present for a {genre} story:
+    - [Element 1]
+    - [Element 2]
+    - [Element 3]
+    - [Element 4]
+    - [Element 5]
+    - [Additional elements if relevant]
+    
+    Provide only the formatted guidance without any additional explanations or commentary.
+    """
+    
+    # Get the response from the LLM
+    response = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # If the response doesn't start with "GENRE REQUIREMENTS", extract just the relevant part
+    if "GENRE REQUIREMENTS:" not in response:
+        # Create a properly formatted response
+        formatted_guidance = f"""
+    GENRE REQUIREMENTS:
+    This is a {genre} story with a {tone} tone. All ideas MUST adhere to the conventions and expectations of the {genre} genre.
+    
+    Key elements that must be present for a {genre} story:
+    """
+        # Extract bullet points if they exist
+        if "-" in response:
+            bullet_points = [line.strip() for line in response.split("\n") if line.strip().startswith("-")]
+            if bullet_points:
+                formatted_guidance += "\n        " + "\n        ".join(bullet_points)
+            else:
+                # If no bullet points found, use the whole response
+                formatted_guidance += f"\n        - {response.strip()}"
+        else:
+            # If no bullet points, create some from the response
+            formatted_guidance += f"\n        - {response.strip()}"
+        
+        return formatted_guidance
+    
+    return response
 
 def creative_brainstorm(
     topic: str,
@@ -110,72 +177,8 @@ def creative_brainstorm(
         Consider cultural nuances, idioms, and storytelling traditions specific to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions.
         """
     
-    # Genre-specific guidance
-    genre_guidance = f"""
-    GENRE REQUIREMENTS:
-    This is a {genre} story with a {tone} tone. All ideas MUST adhere to the conventions and expectations of the {genre} genre.
-    
-    Key elements that must be present for a {genre} story:
-    """
-    
-    # Add genre-specific elements based on the genre
-    if genre.lower() == "mystery":
-        genre_guidance += """
-        - A central mystery or puzzle to be solved
-        - Clues and red herrings
-        - Investigation and deduction
-        - Suspects with motives, means, and opportunities
-        - A resolution that explains the mystery
-        """
-    elif genre.lower() == "fantasy":
-        genre_guidance += """
-        - Magical or supernatural elements
-        - Worldbuilding with consistent rules
-        - Fantastical creatures or beings
-        - Epic conflicts or quests
-        - Themes of good vs. evil, power, or destiny
-        """
-    elif genre.lower() == "sci-fi" or genre.lower() == "science fiction":
-        genre_guidance += """
-        - Scientific or technological concepts
-        - Futuristic or alternative settings
-        - Exploration of the impact of science/technology on society
-        - Speculative elements based on scientific principles
-        - Themes of progress, ethics, or humanity's future
-        """
-    elif genre.lower() == "romance":
-        genre_guidance += """
-        - Focus on a developing relationship between characters
-        - Emotional connection and attraction
-        - Obstacles to the relationship
-        - Character growth through the relationship
-        - Satisfying emotional resolution
-        """
-    elif genre.lower() == "horror":
-        genre_guidance += """
-        - Elements designed to frighten or disturb
-        - Building tension and suspense
-        - Threats to characters' safety or sanity
-        - Atmosphere of dread or unease
-        - Exploration of fears and taboos
-        """
-    elif genre.lower() == "thriller":
-        genre_guidance += """
-        - High stakes and tension
-        - Danger and time pressure
-        - Complex plot with twists
-        - Protagonist facing formidable opposition
-        - Themes of survival, justice, or moral dilemmas
-        """
-    else:
-        # Generic genre guidance for other genres
-        genre_guidance += f"""
-        - Elements typical of {genre} stories
-        - Appropriate pacing and structure for {genre}
-        - Character types commonly found in {genre}
-        - Themes and motifs associated with {genre}
-        - Reader expectations for a {genre} story
-        """
+    # Generate genre-specific guidance dynamically using the LLM
+    genre_guidance = generate_genre_guidance(genre, tone)
     
     # Brainstorming prompt
     brainstorm_prompt = f"""
