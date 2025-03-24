@@ -498,7 +498,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
     result = graph.invoke(
         initial_state,
         config={
-            "recursion_limit": 200,
+            "recursion_limit": 400,
             "configurable": {
                 "thread_id": f"{genre}_{tone}_{language}_{author}".replace(" ", "_")
             }
