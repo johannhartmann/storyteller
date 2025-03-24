@@ -7,7 +7,7 @@ based on the story parameters (genre, tone, author style, and initial idea).
 
 from typing import Dict, Any, List, Optional
 from langchain_core.messages import HumanMessage, AIMessage, RemoveMessage
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from storyteller_lib import track_progress
 from storyteller_lib.creative_tools import parse_json_with_langchain
@@ -36,9 +36,71 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     initial_idea = state.get("initial_idea", "")
     global_story = state["global_story"]
     
+    # Get language elements if not English
+    language = state.get("language", DEFAULT_LANGUAGE)
+    language_elements = None
+    language_guidance = ""
+    
+    if language.lower() != DEFAULT_LANGUAGE:
+        # Try to retrieve language elements from memory
+        try:
+            language_elements_result = search_memory_tool.invoke({
+                "query": f"language_elements_{language.lower()}",
+                "namespace": MEMORY_NAMESPACE
+            })
+            
+            # Handle different return types from search_memory_tool
+            if language_elements_result:
+                if isinstance(language_elements_result, dict) and "value" in language_elements_result:
+                    # Direct dictionary with value
+                    language_elements = language_elements_result["value"]
+                elif isinstance(language_elements_result, list):
+                    # List of objects
+                    for item in language_elements_result:
+                        if hasattr(item, 'key') and item.key == f"language_elements_{language.lower()}":
+                            language_elements = item.value
+                            break
+                elif isinstance(language_elements_result, str):
+                    # Try to parse JSON string
+                    try:
+                        import json
+                        language_elements = json.loads(language_elements_result)
+                    except:
+                        # If not JSON, use as is
+                        language_elements = language_elements_result
+        except Exception as e:
+            print(f"Error retrieving language elements: {str(e)}")
+        
+        # Create language guidance with specific place name examples if available
+        place_name_examples = ""
+        if language_elements and "PLACE NAMES" in language_elements:
+            place_names = language_elements["PLACE NAMES"]
+            
+            place_name_examples = "Examples of authentic place naming conventions:\n"
+            
+            for key, value in place_names.items():
+                if value:
+                    place_name_examples += f"- {key}: {value}\n"
+            
+        language_guidance = f"""
+        LANGUAGE CONSIDERATIONS:
+        This world will be part of a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        When creating worldbuilding elements:
+        1. Use place names that follow {SUPPORTED_LANGUAGES[language.lower()]} naming conventions
+        2. Include cultural elements authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+        3. Incorporate historical references, myths, and legends familiar to {SUPPORTED_LANGUAGES[language.lower()]} speakers
+        4. Design social structures, governance, and customs that reflect {SUPPORTED_LANGUAGES[language.lower()]} cultural contexts
+        5. Create religious systems, beliefs, and practices that resonate with {SUPPORTED_LANGUAGES[language.lower()]} cultural traditions
+        
+        {place_name_examples}
+        
+        The world should feel authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like a translated setting.
+        """
+    
     # Create a prompt for worldbuilding
     prompt = f"""
-    Generate detailed worldbuilding elements for a {genre} story with a {tone} tone, 
+    Generate detailed worldbuilding elements for a {genre} story with a {tone} tone,
     written in the style of {author}, based on this initial idea:
     
     {initial_idea}
@@ -46,6 +108,8 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     And this story outline:
     
     {global_story[:1000]}...
+    
+    {language_guidance}
     
     Create a comprehensive world with rich details across these categories:
     

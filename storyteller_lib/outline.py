@@ -4,7 +4,7 @@ StoryCraft Agent - Story outline and planning nodes.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain
@@ -565,7 +565,63 @@ def generate_characters(state: StoryState) -> Dict:
     
     # Prepare language guidance for characters
     language_guidance = ""
+    language_elements = None
     if language.lower() != DEFAULT_LANGUAGE:
+        # Try to retrieve language elements from memory
+        try:
+            language_elements_result = search_memory_tool.invoke({
+                "query": f"language_elements_{language.lower()}",
+                "namespace": MEMORY_NAMESPACE
+            })
+            
+            # Handle different return types from search_memory_tool
+            if language_elements_result:
+                if isinstance(language_elements_result, dict) and "value" in language_elements_result:
+                    # Direct dictionary with value
+                    language_elements = language_elements_result["value"]
+                elif isinstance(language_elements_result, list):
+                    # List of objects
+                    for item in language_elements_result:
+                        if hasattr(item, 'key') and item.key == f"language_elements_{language.lower()}":
+                            language_elements = item.value
+                            break
+                elif isinstance(language_elements_result, str):
+                    # Try to parse JSON string
+                    try:
+                        import json
+                        language_elements = json.loads(language_elements_result)
+                    except:
+                        # If not JSON, use as is
+                        language_elements = language_elements_result
+        except Exception as e:
+            print(f"Error retrieving language elements: {str(e)}")
+        
+        # Create language guidance with specific naming examples if available
+        naming_examples = ""
+        if language_elements and "NAMING CONVENTIONS" in language_elements:
+            naming_conventions = language_elements["NAMING CONVENTIONS"]
+            
+            male_names = naming_conventions.get("Common first names for male characters", [])
+            if isinstance(male_names, str):
+                male_names = male_names.split(", ")
+            
+            female_names = naming_conventions.get("Common first names for female characters", [])
+            if isinstance(female_names, str):
+                female_names = female_names.split(", ")
+            
+            family_names = naming_conventions.get("Common family/last names", [])
+            if isinstance(family_names, str):
+                family_names = family_names.split(", ")
+            
+            # Create examples using the retrieved names
+            if male_names and female_names and family_names:
+                naming_examples = f"""
+                Examples of authentic {SUPPORTED_LANGUAGES[language.lower()]} names:
+                - Male names: {', '.join(male_names[:5] if len(male_names) > 5 else male_names)}
+                - Female names: {', '.join(female_names[:5] if len(female_names) > 5 else female_names)}
+                - Family/last names: {', '.join(family_names[:5] if len(family_names) > 5 else family_names)}
+                """
+        
         language_guidance = f"""
         CHARACTER LANGUAGE CONSIDERATIONS:
         Create characters appropriate for a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
@@ -577,7 +633,11 @@ def generate_characters(state: StoryState) -> Dict:
         5. Include character traits, expressions, and mannerisms that feel natural in {SUPPORTED_LANGUAGES[language.lower()]} culture
         6. Develop character speech patterns and dialogue styles that reflect {SUPPORTED_LANGUAGES[language.lower()]} communication norms
         
+        {naming_examples}
+        
         Characters should feel authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like translated or foreign characters.
+        
+        IMPORTANT: Maintain consistency with any character names already established in the story outline.
         """
     
     # Prepare initial idea character guidance

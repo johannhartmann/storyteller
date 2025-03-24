@@ -100,6 +100,77 @@ def initialize_state(state: StoryState) -> Dict:
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
     
+    # Initialize language-specific naming and cultural elements if not English
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_elements_prompt = f"""
+        Create a comprehensive guide for generating story elements in {SUPPORTED_LANGUAGES[language.lower()]} that will ensure consistency throughout the story.
+        
+        Provide the following:
+        
+        1. NAMING CONVENTIONS:
+           - Common first names for male characters in {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
+           - Common first names for female characters in {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
+           - Common family/last names in {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
+           - Naming patterns or traditions (e.g., patronymics, compound names)
+           
+        2. PLACE NAMES:
+           - Types of place names common in {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+           - Common prefixes/suffixes for cities, towns, villages
+           - Geographical feature naming patterns (mountains, rivers, forests)
+           
+        3. CULTURAL REFERENCES:
+           - Common idioms and expressions in {SUPPORTED_LANGUAGES[language.lower()]}
+           - Cultural traditions and customs specific to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+           - Historical references that would be familiar to {SUPPORTED_LANGUAGES[language.lower()]} speakers
+           
+        4. NARRATIVE ELEMENTS:
+           - Storytelling traditions in {SUPPORTED_LANGUAGES[language.lower()]} literature
+           - Common literary devices or techniques in {SUPPORTED_LANGUAGES[language.lower()]} writing
+           - Dialogue patterns or speech conventions in {SUPPORTED_LANGUAGES[language.lower()]}
+           
+        Format your response as a structured JSON object with these categories as keys.
+        """
+        
+        try:
+            # Generate language-specific elements
+            language_elements_response = llm.invoke([HumanMessage(content=language_elements_prompt)]).content
+            
+            # Parse the response into structured data
+            from storyteller_lib.creative_tools import parse_json_with_langchain
+            language_elements = parse_json_with_langchain(language_elements_response, "language elements")
+            
+            # Store language elements in memory for reference throughout story generation
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": f"language_elements_{language.lower()}",
+                "value": language_elements,
+                "namespace": MEMORY_NAMESPACE
+            })
+            
+            # Create a specific instruction to ensure language consistency
+            language_consistency_instruction = f"""
+            CRITICAL LANGUAGE CONSISTENCY INSTRUCTION:
+            
+            All story elements must be consistent with {SUPPORTED_LANGUAGES[language.lower()]} language and culture:
+            
+            1. Character names must be authentic {SUPPORTED_LANGUAGES[language.lower()]} names
+            2. Place names must follow {SUPPORTED_LANGUAGES[language.lower()]} naming conventions
+            3. Cultural references must be appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
+            4. Dialogue must use expressions and idioms natural to {SUPPORTED_LANGUAGES[language.lower()]}
+            
+            Refer to the stored language elements guide when creating any new names or cultural references.
+            """
+            
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": "language_consistency_instruction",
+                "value": language_consistency_instruction,
+                "namespace": MEMORY_NAMESPACE
+            })
+        except Exception as e:
+            print(f"Error generating language elements: {str(e)}")
+            # If there's an error, we'll proceed without the language elements
+    
     # Initialize the state
     result_state = {
         "genre": genre,
