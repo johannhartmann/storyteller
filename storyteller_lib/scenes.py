@@ -153,6 +153,9 @@ def write_scene(state: StoryState) -> Dict:
     chapter = chapters[current_chapter]
     scene = chapter["scenes"][current_scene]
     
+    # Get worldbuilding elements if available
+    world_elements = state.get("world_elements", {})
+    
     # Prepare author style guidance
     style_section = ""
     if author:
@@ -249,6 +252,94 @@ def write_scene(state: StoryState) -> Dict:
        - Use sensory details to make emotional moments vivid and immersive
     """
     
+    # Create worldbuilding guidance based on the established world elements
+    worldbuilding_guidance = ""
+    if world_elements:
+        # Determine which world elements are most relevant to this scene
+        relevant_categories = []
+        
+        # Geography is almost always relevant
+        if "geography" in world_elements:
+            relevant_categories.append("geography")
+        
+        # Check chapter outline for keywords that might indicate relevant world elements
+        chapter_outline_lower = chapter.get('outline', '').lower()
+        
+        if any(keyword in chapter_outline_lower for keyword in ["government", "law", "ruler", "authority", "power"]):
+            if "politics" in world_elements:
+                relevant_categories.append("politics")
+                
+        if any(keyword in chapter_outline_lower for keyword in ["god", "faith", "belief", "pray", "ritual", "worship"]):
+            if "religion" in world_elements:
+                relevant_categories.append("religion")
+                
+        if any(keyword in chapter_outline_lower for keyword in ["technology", "machine", "device", "magic", "spell"]):
+            if "technology_magic" in world_elements:
+                relevant_categories.append("technology_magic")
+                
+        if any(keyword in chapter_outline_lower for keyword in ["history", "past", "ancient", "legend", "myth"]):
+            if "history" in world_elements:
+                relevant_categories.append("history")
+                
+        if any(keyword in chapter_outline_lower for keyword in ["culture", "tradition", "custom", "art", "music"]):
+            if "culture" in world_elements:
+                relevant_categories.append("culture")
+                
+        if any(keyword in chapter_outline_lower for keyword in ["trade", "money", "market", "business", "economy"]):
+            if "economics" in world_elements:
+                relevant_categories.append("economics")
+                
+        if any(keyword in chapter_outline_lower for keyword in ["food", "clothing", "home", "family", "daily"]):
+            if "daily_life" in world_elements:
+                relevant_categories.append("daily_life")
+        
+        # If no specific categories were identified, include all categories
+        if not relevant_categories and world_elements:
+            relevant_categories = list(world_elements.keys())
+        
+        # Limit to at most 3 most relevant categories to avoid overwhelming the prompt
+        if len(relevant_categories) > 3:
+            # Geography is most important, so keep it if it's there
+            if "geography" in relevant_categories:
+                relevant_categories.remove("geography")
+                selected_categories = ["geography"] + relevant_categories[:2]
+            else:
+                selected_categories = relevant_categories[:3]
+        else:
+            selected_categories = relevant_categories
+        
+        # Create the worldbuilding guidance section
+        worldbuilding_sections = []
+        for category in selected_categories:
+            if category in world_elements:
+                category_elements = world_elements[category]
+                category_section = f"{category.upper()}:\n"
+                
+                for key, value in category_elements.items():
+                    if isinstance(value, list) and value:
+                        # For lists, include the first 2-3 items
+                        items_to_include = value[:min(3, len(value))]
+                        category_section += f"- {key.replace('_', ' ').title()}: {', '.join(items_to_include)}\n"
+                    elif value:
+                        # For strings or other values
+                        category_section += f"- {key.replace('_', ' ').title()}: {value}\n"
+                
+                worldbuilding_sections.append(category_section)
+        
+        # Combine the sections
+        worldbuilding_details = "\n".join(worldbuilding_sections)
+        
+        worldbuilding_guidance = f"""
+        WORLDBUILDING ELEMENTS:
+        
+        Incorporate these established world elements into your scene:
+        
+        {worldbuilding_details}
+        
+        Ensure consistency with these world elements while writing the scene. The setting, cultural references,
+        technology/magic, and other world details should align with these established elements.
+        """
+    
     # Create a prompt for scene writing
     prompt = f"""
     Write a detailed scene for Chapter {current_chapter}: "{chapter['title']}" (Scene {current_scene}).
@@ -263,6 +354,8 @@ def write_scene(state: StoryState) -> Dict:
     
     Previously revealed information:
     {revelations.get('reader', [])}
+    
+    {worldbuilding_guidance}
     
     {creative_guidance}
     
@@ -366,8 +459,11 @@ def reflect_on_scene(state: StoryState) -> Dict:
     characters = state["characters"]
     revelations = state["revelations"]
     global_story = state["global_story"]
-    
     # Get the scene content
+    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    
+    # Get worldbuilding elements if available
+    world_elements = state.get("world_elements", {})
     scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
     
     # Gather previous scenes for context and continuity checking
@@ -383,6 +479,24 @@ def reflect_on_scene(state: StoryState) -> Dict:
     previous_context = "\n".join(previous_scenes[-5:])  # Last 5 scenes for context
     
     # We're using a JSON-based approach rather than structured output with Pydantic models
+    
+    # Prepare worldbuilding context
+    worldbuilding_context = ""
+    if world_elements:
+        # Format the world elements for the prompt
+        worldbuilding_sections = []
+        for category, elements in world_elements.items():
+            category_section = f"{category.upper()}:\n"
+            for key, value in elements.items():
+                if isinstance(value, list) and value:
+                    # For lists, include a summary
+                    category_section += f"- {key.replace('_', ' ').title()}: {', '.join(value[:3])}\n"
+                elif value:
+                    # For strings or other values
+                    category_section += f"- {key.replace('_', ' ').title()}: {value}\n"
+            worldbuilding_sections.append(category_section)
+        
+        worldbuilding_context = "Established World Elements:\n" + "\n".join(worldbuilding_sections)
     
     # Prompt for structured reflection
     prompt = f"""
@@ -402,6 +516,8 @@ def reflect_on_scene(state: StoryState) -> Dict:
     Previously revealed information:
     {revelations['reader'] if 'reader' in revelations else []}
     
+    {worldbuilding_context}
+    
     Evaluate the scene on these criteria and include in criteria_ratings:
     - character_consistency: Consistency with established character traits and motivations
     - plot_advancement: Advancement of the plot according to the chapter outline
@@ -409,6 +525,7 @@ def reflect_on_scene(state: StoryState) -> Dict:
     - tone_appropriateness: Tone and style appropriateness
     - information_management: Information management (revelations and secrets)
     - continuity: Continuity with previous scenes and the overall story arc
+    - worldbuilding_consistency: Consistency with established world elements (geography, culture, politics, etc.)
     - emotional_depth: Depth and authenticity of emotional content and resonance
     - character_relatability: How relatable and human the characters feel to readers
     - inner_conflict_development: Development of characters' inner struggles and dilemmas
@@ -418,15 +535,20 @@ def reflect_on_scene(state: StoryState) -> Dict:
     - Any character developments or relationship changes
     - Any emotional developments or shifts in characters
     - Any progress in character arcs or inner conflicts
+    - Any world elements introduced or expanded upon in this scene
+    - Any changes to the established world (geography, culture, politics, etc.)
     - Any inconsistencies or continuity errors (e.g., contradictions with previous scenes, plot holes)
+    - Any worldbuilding inconsistencies (e.g., contradictions with established world elements)
     - Any areas that need improvement in emotional depth or character development
+    - Any areas that need improvement in worldbuilding integration
     - Any areas that need improvement
     
     Set 'needs_revision' to true if ANY of these conditions are met:
     - Any criteria score is 5 or below
-    - There are any continuity errors, character inconsistencies, or plot holes
+    - There are any continuity errors, character inconsistencies, plot holes, or worldbuilding inconsistencies
     - There are multiple issues of any type
     - The overall quality of the scene is significantly below the standards of the story
+    - The scene contradicts established world elements in significant ways
     """
     
     # Use Pydantic for structured output

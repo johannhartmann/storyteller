@@ -7,10 +7,161 @@ removing router-specific code that could cause infinite loops.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, memory_manager, prompt_optimizer, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, memory_manager, prompt_optimizer, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib import track_progress
+
+@track_progress
+def update_world_elements(state: StoryState) -> Dict:
+    """Update world elements based on developments in the current scene."""
+    chapters = state["chapters"]
+    world_elements = state.get("world_elements", {})
+    current_chapter = state["current_chapter"]
+    current_scene = state["current_scene"]
+    
+    # Get the scene content
+    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    
+    # Prompt for world element updates
+    prompt = f"""
+    Based on this scene from Chapter {current_chapter}, Scene {current_scene}:
+    
+    {scene_content}
+    
+    Identify any developments or new information about the world.
+    Consider:
+    1. New geographical locations or details about existing locations
+    2. Historical information revealed
+    3. Cultural elements introduced or expanded upon
+    4. Political developments or revelations
+    5. Economic systems or changes
+    6. Technology or magic details revealed
+    7. Religious or belief system information
+    8. Daily life elements shown
+    
+    For each category of world elements, specify what should be added or modified.
+    """
+    
+    # Generate world updates
+    world_updates_text = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Get the existing world elements for reference
+    world_update_prompt = f"""
+    Based on these potential world updates:
+    
+    {world_updates_text}
+    
+    And these existing world elements:
+    
+    {world_elements}
+    
+    For each category of world elements that needs updates, provide:
+    1. Category name (geography, history, culture, politics, economics, technology_magic, religion, daily_life)
+    2. Specific elements within that category to add or update
+    
+    Format as a JSON object where keys are category names and values are objects with the elements to update.
+    Only include categories and elements that have meaningful updates from this scene.
+    """
+    
+    # Get structured world updates
+    world_updates_structured = llm.invoke([HumanMessage(content=world_update_prompt)]).content
+    
+    # Process updates for world elements
+    world_updates = {}
+    
+    # Try to parse the structured updates from the LLM
+    try:
+        from storyteller_lib.creative_tools import parse_json_with_langchain
+        structured_updates = parse_json_with_langchain(world_updates_structured, "world updates")
+        
+        if structured_updates and isinstance(structured_updates, dict):
+            # Apply the structured updates
+            world_updates = structured_updates
+    except Exception as e:
+        print(f"Error parsing world updates: {str(e)}")
+    
+    # Store the world updates in memory
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": f"world_updates_ch{current_chapter}_sc{current_scene}",
+        "value": world_updates,
+        "namespace": MEMORY_NAMESPACE
+    })
+    
+    # Update the world state tracker in memory
+    try:
+        # Use search_memory_tool to retrieve the world state tracker
+        results = search_memory_tool.invoke({
+            "query": "world_state_tracker"
+        })
+        
+        # Extract the world state tracker from the results
+        world_state_tracker = None
+        if results and len(results) > 0:
+            for item in results:
+                if hasattr(item, 'key') and item.key == "world_state_tracker":
+                    world_state_tracker = {"key": item.key, "value": item.value}
+                    break
+        
+        if world_state_tracker and "value" in world_state_tracker:
+            tracker = world_state_tracker["value"]
+            
+            # Update the current state with the new changes
+            current_state = tracker.get("current_state", {}).copy()
+            for category, updates in world_updates.items():
+                if category in current_state:
+                    # Update existing category
+                    for key, value in updates.items():
+                        current_state[category][key] = value
+                else:
+                    # Add new category
+                    current_state[category] = updates
+            
+            # Record the changes
+            changes = tracker.get("changes", [])
+            if world_updates:
+                changes.append({
+                    "chapter": current_chapter,
+                    "scene": current_scene,
+                    "updates": world_updates
+                })
+            
+            # Update the tracker
+            updated_tracker = {
+                "initial_state": tracker.get("initial_state", {}),
+                "current_state": current_state,
+                "changes": changes,
+                "revelations": tracker.get("revelations", [])
+            }
+            
+            # Store the updated tracker
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": "world_state_tracker",
+                "value": updated_tracker,
+                "namespace": MEMORY_NAMESPACE
+            })
+    except Exception as e:
+        print(f"Error updating world state tracker: {str(e)}")
+    
+    # Only return updates if there are any
+    if not world_updates:
+        return {
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"I've checked for world developments in scene {current_scene} of chapter {current_chapter}, but found no significant updates to the established world elements.")
+            ]
+        }
+    
+    # Return the updates
+    return {
+        "world_elements": world_updates,
+        "messages": [
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            AIMessage(content=f"I've updated the world elements with new developments from scene {current_scene} of chapter {current_chapter}.")
+        ]
+    }
 
 @track_progress
 def update_character_profiles(state: StoryState) -> Dict:
@@ -129,6 +280,291 @@ def update_character_profiles(state: StoryState) -> Dict:
     }
 
 @track_progress
+def review_continuity(state: StoryState) -> Dict:
+    """Dedicated continuity review module that checks the overall story for inconsistencies."""
+    # This is called after completing a chapter to check for broader continuity issues
+    chapters = state["chapters"]
+    characters = state["characters"]
+    revelations = state["revelations"]
+    global_story = state["global_story"]
+    current_chapter = state.get("current_chapter", "1")
+    world_elements = state.get("world_elements", {})
+    
+    # Default message in case of early returns
+    message = AIMessage(content=f"I've performed a continuity review after Chapter {current_chapter}.")
+    
+    # Create a consistent key for references
+    review_key = f"continuity_review_ch{current_chapter}"
+    
+    # Get all completed chapters and their scenes for review
+    completed_chapters = []
+    for chapter_num in sorted(chapters.keys(), key=int):
+        chapter = chapters[chapter_num]
+        if all(scene.get("content") for scene in chapter["scenes"].values()):
+            completed_chapters.append(chapter_num)
+    
+    # If there are fewer than 2 completed chapters, not enough for full continuity check
+    if len(completed_chapters) < 2:
+        return {
+            "continuity_phase": "complete",  # Mark this phase as complete
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content="Not enough completed chapters for a full continuity review yet.")
+            ]
+        }
+    
+    # Prepare chapter summaries for review
+    chapter_summaries = []
+    for chapter_num in completed_chapters:
+        chapter = chapters[chapter_num]
+        scenes_summary = []
+        for scene_num, scene in sorted(chapter["scenes"].items(), key=lambda x: int(x[0])):
+            scenes_summary.append(f"Scene {scene_num}: {scene['content'][:150]}...")
+        
+        chapter_summaries.append(f"Chapter {chapter_num}: {chapter['title']}\n{chapter['outline']}\nKey scenes: {'; '.join(scenes_summary)}")
+    
+    # Prepare world elements section
+    world_elements_section = ""
+    if world_elements:
+        world_elements_section = f"""
+        WORLD ELEMENTS:
+        {world_elements}
+        
+        Check for any inconsistencies in how the world elements are portrayed across chapters.
+        """
+    
+    # Prompt for continuity review
+    prompt = f"""
+    Perform a comprehensive continuity review of the story so far:
+    
+    STORY OUTLINE:
+    {global_story[:1000]}...
+    
+    COMPLETED CHAPTERS:
+    {'\n\n'.join(chapter_summaries)}
+    
+    CHARACTER PROFILES:
+    {characters}
+    
+    {world_elements_section}
+    
+    Analyze the story for:
+    1. Continuity issues (contradictions, timeline problems, etc.)
+    2. Unresolved plot threads or elements
+    3. Character inconsistencies (behavior, motivation, etc.)
+    4. Hero's journey structure evaluation
+    5. World building inconsistencies
+    
+    For each issue, provide:
+    - Description of the issue
+    - Affected chapters and characters
+    - Severity (1-10)
+    - Suggestion for resolution
+    
+    Determine if any issues need immediate resolution before continuing the story.
+    """
+    
+    # Generate the continuity review
+    review_result = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Store the review in memory
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": review_key,
+        "value": review_result,
+        "namespace": MEMORY_NAMESPACE
+    })
+    
+    # Check if there are issues that need resolution
+    needs_resolution = "needs resolution" in review_result.lower() or "critical issue" in review_result.lower()
+    
+    # Create a continuity issue object for revelations
+    if needs_resolution:
+        # Extract issues to resolve
+        issues_to_resolve = []
+        for line in review_result.split("\n"):
+            if "issue:" in line.lower() or "problem:" in line.lower() or "inconsistency:" in line.lower():
+                issues_to_resolve.append(line.strip())
+        
+        continuity_issue = {
+            "after_chapter": current_chapter,
+            "review_key": review_key,
+            "needs_resolution": True,
+            "resolution_status": "pending",
+            "issues_to_resolve": issues_to_resolve
+        }
+        
+        # Update revelations with the continuity issue
+        revelations_update = {
+            "continuity_issues": [continuity_issue]
+        }
+        
+        # Set the continuity phase to indicate resolution is needed
+        return {
+            "revelations": revelations_update,
+            "continuity_phase": "needs_resolution",
+            "resolution_index": 0,  # Start with the first issue
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"I've completed a continuity review after Chapter {current_chapter} and found issues that need resolution before continuing.")
+            ]
+        }
+    else:
+        # No issues that need resolution
+        return {
+            "continuity_phase": "complete",
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"I've completed a continuity review after Chapter {current_chapter}. No critical issues found.")
+            ]
+        }
+
+@track_progress
+def resolve_continuity_issues(state: StoryState) -> Dict:
+    """Resolve identified continuity issues."""
+    chapters = state["chapters"]
+    characters = state["characters"]
+    revelations = state["revelations"]
+    current_chapter = state.get("current_chapter", "1")
+    resolution_index = state.get("resolution_index", 0)
+    world_elements = state.get("world_elements", {})
+    
+    # Find the current continuity review that needs resolution
+    current_review = None
+    for review in revelations.get("continuity_issues", []):
+        if review.get("needs_resolution") and review.get("resolution_status") == "pending":
+            current_review = review
+            break
+    
+    # If no review needs resolution, we're done
+    if not current_review:
+        return {
+            "continuity_phase": "complete",
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content="No continuity issues need resolution at this time.")
+            ]
+        }
+    
+    # Get the issues to resolve
+    issues_to_resolve = current_review.get("issues_to_resolve", [])
+    
+    # If no issues or we've resolved all issues, mark the review as complete
+    if not issues_to_resolve or resolution_index >= len(issues_to_resolve):
+        # Update the review status
+        updated_review = current_review.copy()
+        updated_review["resolution_status"] = "completed"
+        updated_review["needs_resolution"] = False
+        
+        # Update revelations with the updated review
+        revelations_update = {
+            "continuity_issues": [updated_review]
+        }
+        
+        return {
+            "revelations": revelations_update,
+            "continuity_phase": "complete",
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content="All continuity issues have been resolved.")
+            ]
+        }
+    
+    # Get the current issue to resolve
+    current_issue = issues_to_resolve[resolution_index]
+    
+    # Get the review key to retrieve the full review from memory
+    review_key = current_review.get("review_key")
+    full_review = None
+    
+    if review_key:
+        try:
+            # Use search_memory_tool to retrieve the review
+            results = search_memory_tool.invoke({
+                "query": review_key
+            })
+            
+            # Extract the review from the results
+            review_obj = None
+            if results and len(results) > 0:
+                for item in results:
+                    if hasattr(item, 'key') and item.key == review_key:
+                        review_obj = {"key": item.key, "value": item.value}
+                        break
+            
+            if review_obj and "value" in review_obj:
+                full_review = review_obj["value"]
+        except Exception as e:
+            print(f"Error retrieving full review: {str(e)}")
+    
+    # Prepare the prompt for resolving the issue
+    prompt = f"""
+    You need to resolve the following continuity issue in the story:
+    
+    ISSUE TO RESOLVE:
+    {current_issue}
+    
+    STORY CONTEXT:
+    {full_review if full_review else "No additional context available."}
+    
+    WORLD ELEMENTS:
+    {world_elements}
+    
+    Provide a detailed plan to resolve this continuity issue. Your plan should:
+    1. Identify the specific changes needed to resolve the issue
+    2. Explain how these changes maintain consistency with the rest of the story
+    3. Specify which chapters and scenes need to be updated
+    4. Provide any new content or revisions needed
+    
+    Your resolution should be comprehensive and ensure that the story remains coherent and engaging.
+    """
+    
+    # Generate the resolution plan
+    resolution_plan = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Store the resolution plan in memory
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": f"resolution_plan_{review_key}_{resolution_index}",
+        "value": resolution_plan,
+        "namespace": MEMORY_NAMESPACE
+    })
+    
+    # Increment the resolution index for the next issue
+    next_resolution_index = resolution_index + 1
+    
+    # Check if we've resolved all issues
+    if next_resolution_index >= len(issues_to_resolve):
+        # Update the review status
+        updated_review = current_review.copy()
+        updated_review["resolution_status"] = "completed"
+        updated_review["needs_resolution"] = False
+        
+        # Update revelations with the updated review
+        revelations_update = {
+            "continuity_issues": [updated_review]
+        }
+        
+        return {
+            "revelations": revelations_update,
+            "resolution_index": next_resolution_index,
+            "continuity_phase": "complete",
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"I've resolved the continuity issue: {current_issue}\n\nResolution Plan:\n{resolution_plan}\n\nAll continuity issues have been resolved.")
+            ]
+        }
+    else:
+        # More issues to resolve
+        return {
+            "resolution_index": next_resolution_index,
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"I've resolved the continuity issue: {current_issue}\n\nResolution Plan:\n{resolution_plan}\n\nMoving on to the next issue.")
+            ]
+        }
+
+@track_progress
 def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
     """Move to the next scene or chapter, or complete the story if all chapters are done."""
     chapters = state["chapters"]
@@ -189,912 +625,99 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
             }
 
 @track_progress
-def review_continuity(state: StoryState) -> Dict:
-    """Dedicated continuity review module that checks the overall story for inconsistencies."""
-    # This is called after completing a chapter to check for broader continuity issues
-    chapters = state["chapters"]
-    characters = state["characters"]
-    revelations = state["revelations"]
-    global_story = state["global_story"]
-    current_chapter = state.get("current_chapter", "1")
-    completed_chapters = []
-    
-    # Default message in case of early returns
-    message = AIMessage(content=f"I've performed a continuity review after Chapter {current_chapter}.")
-    
-    # Create a consistent key for references
-    review_key = f"continuity_review_ch{current_chapter}"
-    
-    # Log debugging info
-    print(f"\n==== CONTINUITY REVIEW DEBUG ====")
-    print(f"Current chapter: {current_chapter}")
-    print(f"Review key: {review_key}")
-    print(f"Continuity issues in revelations: {len(revelations.get('continuity_issues', []))}")
-    for idx, issue in enumerate(revelations.get('continuity_issues', [])):
-        print(f"Issue {idx}: Chapter {issue.get('after_chapter')}, Status: {issue.get('resolution_status')}")
-    
-    # Get all completed chapters and their scenes for review
-    for chapter_num in sorted(chapters.keys(), key=int):
-        chapter = chapters[chapter_num]
-        if all(scene.get("content") for scene in chapter["scenes"].values()):
-            completed_chapters.append(chapter_num)
-    
-    # If there are fewer than 2 completed chapters, not enough for full continuity check
-    if len(completed_chapters) < 2:
-        return {
-            "continuity_phase": "complete",  # Mark this phase as complete
-            "messages": [
-                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content="Not enough completed chapters for a full continuity review yet.")
-            ]
-        }
-    
-    # Prepare chapter summaries for review
-    chapter_summaries = []
-    for chapter_num in completed_chapters:
-        chapter = chapters[chapter_num]
-        scenes_summary = []
-        for scene_num, scene in sorted(chapter["scenes"].items(), key=lambda x: int(x[0])):
-            scenes_summary.append(f"Scene {scene_num}: {scene['content'][:150]}...")
-        
-        chapter_summaries.append(f"Chapter {chapter_num}: {chapter['title']}\n{chapter['outline']}\nKey scenes: {'; '.join(scenes_summary)}")
-    
-    # Define the schema for structured continuity review
-    continuity_issue_schema = """
-    {
-      "issues": [
-        {
-          "description": "Detailed description of the continuity issue",
-          "chapters_affected": "List of chapters affected (e.g., 'Chapters 1 and 3' or 'Chapter 2, Scene 4')",
-          "severity": "high|medium|low",
-          "resolution_approach": "Specific suggestion for how to resolve this issue"
-        }
-      ],
-      "unresolved_threads": [
-        {
-          "thread_description": "Description of the unresolved story thread",
-          "first_mentioned": "Chapter where this thread was first introduced",
-          "expected_resolution": "How/where this should be resolved"
-        }
-      ],
-      "character_inconsistencies": [
-        {
-          "character": "Character name",
-          "inconsistency": "Description of the character inconsistency",
-          "chapters_affected": "Chapters where this inconsistency appears",
-          "resolution_approach": "How to fix this character inconsistency"
-        }
-      ],
-      "hero_journey_evaluation": {
-        "current_phase": "Current phase of the hero's journey",
-        "issues": "Any issues with the hero's journey structure",
-        "recommendations": "Recommendations for maintaining proper structure"
-      },
-      "has_issues": true,
-      "overall_assessment": "Overall assessment of story continuity"
-    }
-    """
-    
-    # Prompt for continuity review with structured output
-    prompt = f"""
-    Perform a comprehensive continuity review of the story so far.
-    
-    Overall story outline:
-    {global_story[:500]}...
-    
-    Character profiles:
-    {characters}
-    
-    Chapter summaries:
-    {chapter_summaries}
-    
-    Information revealed to readers:
-    {revelations.get('reader', [])}
-    
-    Your task:
-    1. Identify any major continuity errors across chapters (e.g., character actions that contradict earlier established traits).
-    2. Note any plot holes or unresolved story threads.
-    3. Check if character development is consistent and logical.
-    4. Verify that revelations are properly paced and not contradictory.
-    5. Ensure the hero's journey structure is being properly followed.
-    
-    For each issue found, specify:
-    - The exact nature of the inconsistency
-    - Which chapters/scenes it affects
-    - Specific suggestions for resolution
-    
-    Format your response as a structured JSON object following this schema:
-    {continuity_issue_schema}
-    
-    If no issues are found, set has_issues to false and include "No major continuity issues detected" in the overall_assessment.
-    """
-    # Use Pydantic for structured output
-    from typing import List, Dict, Optional, Literal
-    from pydantic import BaseModel, Field
-    
-    # Define Pydantic models for the nested structure
-    class ContinuityIssue(BaseModel):
-        """A continuity issue in the story."""
-        description: str = Field(default="", description="Detailed description of the continuity issue")
-        chapters_affected: str = Field(default="", description="List of chapters affected")
-        severity: str = Field(default="medium", description="Severity level: high, medium, or low")
-        resolution_approach: str = Field(default="", description="Specific suggestion for how to resolve this issue")
-        
-        class Config:
-            """Configuration for the model."""
-            extra = "ignore"  # Ignore extra fields
-            title = None  # Prevent docstring from being used as title
-    
-    class UnresolvedThread(BaseModel):
-        """An unresolved story thread."""
-        thread_description: str = Field(default="", description="Description of the unresolved story thread")
-        first_mentioned: str = Field(default="", description="Chapter where this thread was first introduced")
-        expected_resolution: str = Field(default="", description="How/where this should be resolved")
-        
-        class Config:
-            """Configuration for the model."""
-            extra = "ignore"  # Ignore extra fields
-            title = None  # Prevent docstring from being used as title
-    
-    class CharacterInconsistency(BaseModel):
-        """A character inconsistency in the story."""
-        character: str = Field(default="", description="Character name")
-        inconsistency: str = Field(default="", description="Description of the character inconsistency")
-        chapters_affected: str = Field(default="", description="Chapters where this inconsistency appears")
-        resolution_approach: str = Field(default="", description="How to fix this character inconsistency")
-        
-        class Config:
-            """Configuration for the model."""
-            extra = "ignore"  # Ignore extra fields
-            title = None  # Prevent docstring from being used as title
-    
-    class HeroJourneyEvaluation(BaseModel):
-        """Evaluation of the hero's journey structure."""
-        current_phase: str = Field(default="Unknown", description="Current phase of the hero's journey")
-        issues: str = Field(default="None identified", description="Any issues with the hero's journey structure")
-        recommendations: str = Field(default="Continue following the hero's journey structure", description="Recommendations for maintaining proper structure")
-        
-        class Config:
-            """Configuration for the model."""
-            extra = "ignore"  # Ignore extra fields
-            title = None  # Prevent docstring from being used as title
-    class ContinuityReview(BaseModel):
-        """Comprehensive continuity review of the story."""
-        issues: List[ContinuityIssue] = Field(
-            default_factory=list,
-            description="List of continuity issues in the story"
-        )
-        unresolved_threads: List[UnresolvedThread] = Field(
-            default_factory=list,
-            description="List of unresolved story threads"
-        )
-        character_inconsistencies: List[CharacterInconsistency] = Field(
-            default_factory=list,
-            description="List of character inconsistencies"
-        )
-        hero_journey_evaluation: HeroJourneyEvaluation = Field(
-            default_factory=lambda: HeroJourneyEvaluation(
-                current_phase="Unknown",
-                issues="None identified",
-                recommendations="Continue following the hero's journey structure"
-            ),
-            description="Evaluation of the hero's journey structure"
-        )
-        has_issues: bool = Field(
-            default=False,
-            description="Whether the story has continuity issues"
-        )
-        overall_assessment: str = Field(
-            default="No major continuity issues detected.",
-            description="Overall assessment of story continuity"
-        )
-        
-        class Config:
-            """Configuration for the model."""
-            extra = "ignore"  # Ignore extra fields
-            title = None  # Prevent docstring from being used as title
-    
-    # Default structure in case parsing fails
-    default_continuity_review = {
-        "issues": [],
-        "unresolved_threads": [],
-        "character_inconsistencies": [],
-        "hero_journey_evaluation": {
-            "current_phase": "Unknown",
-            "issues": "None identified",
-            "recommendations": "Continue following the hero's journey structure"
-        },
-        "has_issues": False,
-        "overall_assessment": "No major continuity issues detected."
-    }
-    
-    # Perform continuity review using structured output
-    try:
-        # Create a structured LLM that outputs a ContinuityReview object
-        structured_llm = llm.with_structured_output(ContinuityReview)
-        
-        # Use the structured LLM to get the continuity review
-        review = structured_llm.invoke(prompt)
-        
-        # Convert Pydantic model to dictionary
-        structured_review = review.dict()
-        
-        # No raw text to store with the Pydantic approach
-        
-        # Validate important fields are present
-        if "has_issues" not in structured_review:
-            # Infer has_issues from content if not explicitly set
-            has_issues = (len(structured_review.get("issues", [])) > 0 or 
-                         len(structured_review.get("unresolved_threads", [])) > 0 or
-                         len(structured_review.get("character_inconsistencies", [])) > 0 or
-                         structured_review.get("hero_journey_evaluation", {}).get("issues", "") != "None identified")
-            structured_review["has_issues"] = has_issues
-        
-        if "overall_assessment" not in structured_review:
-            if structured_review["has_issues"]:
-                structured_review["overall_assessment"] = "There are continuity issues that need resolution"
-            else:
-                structured_review["overall_assessment"] = "No major continuity issues detected."
-        
-        print(f"Successfully parsed structured continuity review")
-    except Exception as e:
-        print(f"Error generating structured continuity review: {str(e)}")
-        print("Using default continuity review data")
-        structured_review = default_continuity_review
-    
-    # Store both raw and structured continuity review in memory using consistent key format
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": f"continuity_review_ch{current_chapter}",
-        "value": structured_review
-    })
-    
-    # Also store the raw text for backward compatibility using consistent key format
-    # No raw text to store with the Pydantic approach
-    # Create a targeted update for the review history
-    review_history_update = {
-        review_key: {
-            "status": "completed",
-            "issues_found": structured_review["has_issues"],
-            "chapter": current_chapter,
-            "timestamp": "now"
-        }
-    }
-    
-    # Process the continuity review results using the structured format
-    has_issues = structured_review["has_issues"]
-    
-    if has_issues:
-        # Compile all issues into a single list for resolution
-        all_issues = []
-        
-        # Add regular continuity issues
-        for issue in structured_review.get("issues", []):
-            all_issues.append(issue)
-            
-        # Add character inconsistencies
-        for char_issue in structured_review.get("character_inconsistencies", []):
-            # Convert to standard issue format
-            all_issues.append({
-                "description": f"Character inconsistency for {char_issue.get('character')}: {char_issue.get('inconsistency')}",
-                "chapters_affected": char_issue.get("chapters_affected", ""),
-                "severity": "medium",
-                "resolution_approach": char_issue.get("resolution_approach", "")
-            })
-        
-        # Add unresolved threads that need attention
-        for thread in structured_review.get("unresolved_threads", []):
-            all_issues.append({
-                "description": f"Unresolved thread: {thread.get('thread_description')}",
-                "chapters_affected": thread.get("first_mentioned", ""),
-                "severity": "low",
-                "resolution_approach": thread.get("expected_resolution", "")
-            })
-            
-        # Create the review entry with structured data
-        review_entry = {
-            "after_chapter": current_chapter,
-            "issues_to_resolve": all_issues,
-            "structured_review": structured_review,
-            "needs_resolution": has_issues,
-            "resolution_status": "pending",
-            "review_key": review_key  # Store the review key for tracking
-        }
-        
-        print(f"Adding continuity review for Chapter {current_chapter}")
-        
-        # Return targeted updates
-        return {
-            "revelations": {
-                "continuity_issues": [review_entry]
-            },
-            "continuity_phase": "needs_resolution",
-            "continuity_review_history": review_history_update,
-            "resolution_index": 0,
-            "messages": [
-                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                message
-            ]
-        }
-    else:
-        # No issues found - explicitly set phase to complete
-        print("No continuity issues detected, setting phase to complete")
-    
-    # Perform background memory processing for completed chapters
-    try:
-        # Collect all content from completed chapters
-        all_chapter_content = []
-        for chapter_num in completed_chapters:
-            chapter = chapters[chapter_num]
-            chapter_content = f"Chapter {chapter_num}: {chapter['title']}\n{chapter['outline']}\n\n"
-            
-            for scene_num, scene in sorted(chapter["scenes"].items(), key=lambda x: int(x[0])):
-                if scene.get('content'):
-                    chapter_content += f"Scene {scene_num}:\n{scene['content']}\n\n"
-            
-            all_chapter_content.append({"role": "assistant", "content": chapter_content})
-            
-        # Process the content with memory manager to extract narrative memories
-        if all_chapter_content:
-            memories = memory_manager.invoke({"messages": all_chapter_content})
-            
-            # Store extracted memories
-            if memories:
-                manage_memory_tool.invoke({
-                    "action": "create",
-                    "key": f"narrative_memories_chapter_{max(completed_chapters)}",
-                    "value": memories
-                })
-    except Exception as e:
-        # Log the error but don't halt execution
-        print(f"Background memory processing error: {str(e)}")
-    
-    # Return updated state with proper LangGraph state management - using targeted updates
-    return {
-        "continuity_phase": "complete",          # Track where we are in the continuity review process
-        "continuity_review_history": review_history_update,  # Only update this specific key
-        "resolution_index": 0,                   # Reset resolution index
-        "messages": [
-            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            message
-        ]
-    }
-
-@track_progress
-def resolve_continuity_issues(state: StoryState) -> Dict:
-    """Resolve continuity issues by making targeted changes to previous chapters."""
-    chapters = state["chapters"]
-    characters = state["characters"]
-    revelations = state["revelations"]
-    current_chapter = state.get("current_chapter", "1")
-    
-    # Get continuity phase - LangGraph will handle state transitions
-    continuity_phase = state.get("continuity_phase", "complete")
-    
-    # If we're not in resolution mode, exit
-    if continuity_phase != "needs_resolution":
-        print(f"NOTICE: Not in resolution mode for Chapter {current_chapter}, skipping")
-        return {
-            "continuity_phase": "complete",
-            "messages": [
-                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=f"No continuity issues require resolution for Chapter {current_chapter}.")
-            ]
-        }
-    
-    # Get continuity reviews from state
-    continuity_reviews = revelations.get("continuity_issues", [])
-    
-    # Find the most recent continuity review that needs resolution
-    current_review = None
-    for review in continuity_reviews:
-        if review.get("needs_resolution") and review.get("resolution_status") == "pending":
-            current_review = review
-            break
-    
-    # If no review found, exit resolution mode
-    if not current_review:
-        print("No continuity issues found that need resolution.")
-        return {
-            "continuity_phase": "complete",
-            "resolution_index": 0,
-            "resolution_count": 0,
-            "messages": [
-                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content="No continuity issues requiring resolution were found.")
-            ]
-        }
-    
-    # Get the structured issues to resolve
-    issues_to_resolve = current_review.get("issues_to_resolve", [])
-    
-    # Fallback mechanism - if no structured issues are available, try to extract from raw review
-    if not issues_to_resolve and "raw_review" in current_review:
-        print("No structured issues found - attempting to extract from raw review")
-        # Create a default issue from the raw review
-        raw_review = current_review.get("raw_review", "")
-        issues_to_resolve = [{
-            "description": "Continuity issue detected in raw review",
-            "chapters_affected": f"Chapter {current_review.get('after_chapter', '1')}",
-            "severity": "medium",
-            "resolution_approach": "Review and resolve any inconsistencies found in the text"
-        }]
-        # Store these extracted issues back to the review
-        current_review["issues_to_resolve"] = issues_to_resolve
-    
-    # Track our progress through issues
-    resolution_index = state.get("resolution_index", 0)
-    resolution_count = state.get("resolution_count", 0)
-    
-    # Log the resolution attempt with detailed diagnostics
-    print(f"\n==== CONTINUITY RESOLUTION ATTEMPT ====")
-    print(f"Resolution index: {resolution_index}/{len(issues_to_resolve)}")
-    print(f"Resolution count: {resolution_count}")
-    print(f"After chapter: {current_review.get('after_chapter', 'unknown')}")
-    
-    # Safety check - if we're out of issues or have tried too many times, exit resolution mode
-    if resolution_index >= len(issues_to_resolve) or resolution_count >= 3:
-        # Log completion of resolution phase
-        print(f"Continuity resolution complete or max attempts reached.")
-        print(f"Issues processed: {resolution_index}/{len(issues_to_resolve)}")
-        print(f"Resolution attempts: {resolution_count}/3")
-        
-        # Get a copy of the revelations as we'll be updating it
-        updated_revelations = state["revelations"].copy()
-        
-        # Simply create a resolved version of the current review
-        # Our custom reducer will handle merging and deduplication
-        if current_review:
-            current_chapter = current_review.get("after_chapter")
-            
-            # Create a resolved version of the review with only the necessary fields
-            resolved_review = {
-                "after_chapter": current_review.get("after_chapter"),
-                "resolution_status": "completed",
-                "needs_resolution": False,
-                "issues_to_resolve": [],  # Clear issues
-                "resolved": True,
-                "resolution_timestamp": "now",
-                "review_key": current_review.get("review_key")
-            }
-            
-            print(f"Creating resolved review for Chapter {current_chapter}")
-        
-        # Create a summary of what was resolved
-        resolution_summary = state.get("resolution_summary", [])
-        
-        if resolution_summary:
-            summary_message = f"I've resolved {len(resolution_summary)} continuity issues across chapters:"
-            for idx, item in enumerate(resolution_summary):
-                summary_message += f"\n{idx+1}. {item.get('description', 'Issue')} - {item.get('status', 'Unknown')}"
-        else:
-            summary_message = "I've analyzed the continuity issues but no changes were necessary."
-        
-        # Return updated state to exit resolution mode
-        # Return only the essential state that changed
-        return {
-            "continuity_phase": "complete",     # Mark resolution as complete
-            "resolution_index": 0,              # Reset for next time
-            "resolution_count": 0,              # Reset for next time
-            "revelations": {
-                "continuity_issues": [resolved_review]  # Only return the resolved review
-            },
-            "messages": [
-                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=summary_message)
-            ]
-        }
-    
-    # Get the current issue to resolve
-    current_issue = issues_to_resolve[resolution_index]
-    
-    # Extract key information from the issue
-    issue_description = current_issue.get("description", "")
-    issue_chapters = current_issue.get("chapters_affected", "")
-    issue_resolution = current_issue.get("resolution_approach", "")
-    issue_severity = current_issue.get("severity", "medium")
-    
-    print(f"Resolving issue: {issue_description[:100]}...")
-    print(f"Severity: {issue_severity}")
-    print(f"Chapters affected: {issue_chapters}")
-    
-    # Parse affected chapters - extract chapter numbers from the text
-    import re
-    affected_chapter_nums = re.findall(r'Chapter (\d+)', issue_chapters)
-    
-    # If no specific chapters found, look for common patterns
-    if not affected_chapter_nums:
-        # Try different formats (e.g., "Chapters 2-4", "Ch 2, 3, and 5")
-        range_match = re.search(r'Chapters? (\d+)[- ](\d+)', issue_chapters)
-        if range_match:
-            start, end = int(range_match.group(1)), int(range_match.group(2))
-            affected_chapter_nums = [str(i) for i in range(start, end+1)]
-        else:
-            # Try to extract numbers directly
-            direct_nums = re.findall(r'\b(\d+)\b', issue_chapters)
-            if direct_nums:
-                affected_chapter_nums = direct_nums
-            else:
-                # Final fallback - look at recent chapters which might contain relevant info
-                after_chapter = int(current_review.get("after_chapter", 1))
-                affected_chapter_nums = [str(i) for i in range(max(1, after_chapter-2), after_chapter+1)]
-    
-    # Convert to list of valid chapter numbers
-    affected_chapters = [ch for ch in affected_chapter_nums if ch in chapters]
-    
-    # Log affected chapters
-    print(f"Identified chapters for resolution: {affected_chapters}")
-    
-    if not affected_chapters:
-        print("No valid chapters identified for resolution.")
-        # Skip to next issue
-        return {
-            "resolution_index": resolution_index + 1,
-            "resolution_count": resolution_count + 1,
-            "messages": [
-                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=f"Analyzed continuity issue but couldn't identify specific chapters to revise.")
-            ]
-        }
-    
-    # Track changes made for this issue
-    resolution_changes = []
-    updated_chapters = state["chapters"].copy()
-    
-    # Process each affected chapter
-    for chapter_num in affected_chapters:
-        chapter = chapters[chapter_num]
-        
-        # Find scenes that might contain the relevant content
-        candidate_scenes = []
-        for scene_num, scene in chapter["scenes"].items():
-            scene_content = scene.get("content", "")
-            if not scene_content:
-                continue
-            
-            # Enhanced relevance matching using multiple factors
-            relevance_score = 0
-            
-            # 1. Keyword matching from issue description
-            issue_keywords = set([word.lower() for word in re.findall(r'\b\w{4,}\b', issue_description.lower())])
-            if issue_keywords:
-                # Count matching keywords in content
-                keywords_found = sum(1 for keyword in issue_keywords if keyword in scene_content.lower())
-                # Calculate percentage of matching keywords
-                keywords_percentage = keywords_found / len(issue_keywords)
-                relevance_score += keywords_percentage * 5  # Weight this factor
-            
-            # 2. Specific entity matching (character names, locations, objects)
-            # Extract potential entities (capitalized words)
-            entities = set(re.findall(r'\b[A-Z][a-z]{2,}\b', issue_description))
-            if entities:
-                entity_matches = sum(1 for entity in entities if entity in scene_content)
-                entity_percentage = entity_matches / len(entities) if entities else 0
-                relevance_score += entity_percentage * 10  # Weight entities more heavily
-            
-            # 3. Chapter/scene explicit mentions
-            scene_pattern = f"Scene {scene_num}"
-            if scene_pattern in issue_description or scene_pattern in issue_chapters:
-                relevance_score += 15  # Strong boost for explicit scene mentions
-            
-            # 4. Longer scenes might have more content relevant to issues
-            scene_length_factor = min(len(scene_content) / 2000, 1.0)  # Cap at 1.0
-            relevance_score += scene_length_factor * 2
-            
-            # Only include scenes with some relevance
-            if relevance_score > 0:
-                candidate_scenes.append((scene_num, relevance_score))
-            # Always include at least one scene even if no relevance
-            elif not candidate_scenes and scene_content:
-                candidate_scenes.append((scene_num, 0.1))
-        
-        # Sort scenes by relevance score
-        candidate_scenes.sort(key=lambda x: x[1], reverse=True)
-        
-        # Log candidate scenes with scores
-        if candidate_scenes:
-            print(f"Candidate scenes for Chapter {chapter_num}:")
-            for scene_num, score in candidate_scenes[:3]:  # Show top 3
-                print(f"  - Scene {scene_num}: relevance score {score:.2f}")
-        
-        # Take the most relevant scene
-        if candidate_scenes:
-            scene_to_revise = candidate_scenes[0][0]
-            current_content = chapter["scenes"][scene_to_revise].get("content", "")
-            
-            # Create a prompt for targeted revision with more detailed context
-            revision_prompt = f"""
-            You need to make targeted edits to fix a specific continuity issue.
-            
-            CONTINUITY ISSUE:
-            {issue_description}
-            
-            SEVERITY: {issue_severity}
-            
-            CHAPTERS AFFECTED:
-            {issue_chapters}
-            
-            RESOLUTION APPROACH:
-            {issue_resolution}
-            
-            CHAPTER CONTEXT:
-            Chapter {chapter_num}: {chapter.get('title', '')}
-            {chapter.get('outline', '')}
-            
-            CURRENT SCENE CONTENT (Chapter {chapter_num}, Scene {scene_to_revise}):
-            {current_content}
-            
-            Your task:
-            1. Make MINIMAL, PRECISE changes to resolve the continuity issue
-            2. Preserve the scene's original structure and purpose
-            3. Only change what's necessary to fix the inconsistency
-            4. Maintain the same tone, style, and approximate length
-            5. Ensure the edits fit naturally into the existing content
-            
-            Return the revised scene text that fixes the continuity issue.
-            """
-            
-            # Generate the revised scene
-            try:
-                print(f"Revising Chapter {chapter_num}, Scene {scene_to_revise} to fix continuity...")
-                revised_content = llm.invoke([HumanMessage(content=revision_prompt)]).content
-                
-                # Verify the revision actually made changes
-                if revised_content == current_content:
-                    print(f"⚠️ Warning: Revision didn't change the content")
-                    continue
-                
-                # Update the scene with revised content
-                updated_chapters[chapter_num]["scenes"][scene_to_revise]["content"] = revised_content
-                
-                # Create structured info about what was changed
-                change_info = {
-                    "chapter": chapter_num,
-                    "scene": scene_to_revise,
-                    "issue": issue_description[:100] + "..." if len(issue_description) > 100 else issue_description,
-                    "status": "Revised to fix continuity issue",
-                    "severity": issue_severity
-                }
-                
-                # Track the revision
-                resolution_changes.append(change_info)
-                
-                # Store the revision record for later reference
-                manage_memory_tool.invoke({
-                    "action": "create",
-                    "key": f"continuity_revision_ch{chapter_num}_sc{scene_to_revise}_{resolution_index}",
-                    "value": {
-                        "original_content": current_content,
-                        "revised_content": revised_content,
-                        "issue": issue_description,
-                        "resolution_approach": issue_resolution,
-                        "timestamp": "now",
-                        "severity": issue_severity
-                    }
-                })
-                
-                # Generate a verification check to confirm the issue is resolved
-                verification_prompt = f"""
-                You need to verify if a continuity issue has been properly resolved.
-                
-                ORIGINAL CONTINUITY ISSUE:
-                {issue_description}
-                
-                ORIGINAL CONTENT:
-                {current_content}
-                
-                REVISED CONTENT:
-                {revised_content}
-                
-                Has the continuity issue been successfully resolved? Answer YES or NO and briefly explain why.
-                """
-                
-                verification_result = llm.invoke([HumanMessage(content=verification_prompt)]).content
-                is_resolved = "yes" in verification_result.lower()
-                
-                if is_resolved:
-                    print(f"✅ Successfully resolved issue in Chapter {chapter_num}, Scene {scene_to_revise}")
-                else:
-                    print(f"⚠️ Issue may not be fully resolved: {verification_result[:100]}...")
-                
-                # Store verification result
-                manage_memory_tool.invoke({
-                    "action": "create",
-                    "key": f"continuity_verification_ch{chapter_num}_sc{scene_to_revise}_{resolution_index}",
-                    "value": {
-                        "verification_result": verification_result,
-                        "is_resolved": is_resolved
-                    }
-                })
-            
-            except Exception as e:
-                print(f"Error while revising: {str(e)}")
-    
-    # Update the resolution summary with what we fixed
-    resolution_summary = state.get("resolution_summary", [])
-    
-    if resolution_changes:
-        resolution_summary.append({
-            "index": resolution_index,
-            "description": issue_description[:100] + "..." if len(issue_description) > 100 else issue_description,
-            "changes": resolution_changes,
-            "status": "Resolved",
-            "severity": issue_severity
-        })
-    else:
-        resolution_summary.append({
-            "index": resolution_index,
-            "description": issue_description[:100] + "..." if len(issue_description) > 100 else issue_description,
-            "changes": [],
-            "status": "No changes needed",
-            "severity": issue_severity
-        })
-    
-    # Move to the next issue or finish if all issues are resolved
-    next_index = resolution_index + 1
-    message = ""
-    
-    if next_index >= len(issues_to_resolve):
-        message = f"I've completed resolving continuity issues across chapters. Made changes to {len(resolution_changes)} scenes."
-    else:
-        message = f"I've resolved continuity issue {resolution_index + 1}/{len(issues_to_resolve)}. Moving to next issue."
-    
-    # Return updated state according to LangGraph state management principles
-    return {
-        "chapters": updated_chapters,            # Return updated chapters
-        "resolution_index": next_index,          # Increment resolution index
-        "resolution_count": resolution_count + 1, # Increment resolution count
-        "resolution_summary": resolution_summary, # Track what we've resolved
-        
-        "messages": [
-            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=message)
-        ]
-    }
-
-@track_progress
 def compile_final_story(state: StoryState) -> Dict:
-    """Compile the complete story when all chapters and scenes are finished."""
-    if not state["completed"]:
-        # Skip if the story isn't marked as complete
-        return {}
-    
+    """Compile the final story from all chapters and scenes."""
     chapters = state["chapters"]
-    revelations = state["revelations"]
+    characters = state["characters"]
+    global_story = state["global_story"]
+    genre = state["genre"]
+    tone = state["tone"]
+    author = state["author"]
+    initial_idea = state.get("initial_idea", "")
+    world_elements = state.get("world_elements", {})
     
-    # Perform a final continuity check across the entire story
-    global_continuity_prompt = f"""
-    Perform a final comprehensive continuity check on the entire story before compilation.
+    # Compile the story content
+    story_content = []
     
-    Story outline:
-    {state['global_story']}
+    # Add a title and introduction
+    story_title = "Untitled Story"  # Default title
     
-    Character profiles:
-    {state['characters']}
+    # Try to extract a title from the global story
+    title_lines = [line for line in global_story.split("\n") if "title" in line.lower()]
+    if title_lines:
+        # Extract the title from the first line that mentions "title"
+        title_line = title_lines[0]
+        title_parts = title_line.split(":")
+        if len(title_parts) > 1:
+            story_title = title_parts[1].strip()
     
-    Chapters:
-    {[f"Chapter {num}: {chapter['title']}" for num, chapter in chapters.items()]}
+    # Add the title
+    story_content.append(f"# {story_title}")
+    story_content.append("")
     
-    Previous continuity issues:
-    {revelations.get('continuity_issues', [])}
+    # Add an introduction if available
+    story_content.append("## Introduction")
+    story_content.append("")
+    story_content.append(global_story[:500] + "...")
+    story_content.append("")
     
-    Identify any remaining continuity errors, plot holes, or unresolved threads that should be addressed.
-    Format your response as a list of issues with page numbers/chapter references.
-    If no issues remain, state "Story is internally consistent and complete."
-    """
-    
-    # Generate final continuity check
-    final_continuity_check = llm.invoke([HumanMessage(content=global_continuity_prompt)]).content
-    
-    # Store the final continuity check
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "final_continuity_check",
-        "value": final_continuity_check
-    })
-    
-    # Compile the story
-    story = []
-    
-    # Extract title from global story
-    story_title = state['global_story'].split('\n')[0]
-    # Clean up title if needed (remove any "Title: " prefix)
-    if ":" in story_title and len(story_title.split(":")) > 1:
-        story_title = story_title.split(":", 1)[1].strip()
-        
-    # Add just the title (without "Story Outline for")
-    story.append(f"# {story_title}")
-    
-    # Add each chapter with simplified titles (no "Chapter X:" prefix)
+    # Add each chapter and its scenes
     for chapter_num in sorted(chapters.keys(), key=int):
         chapter = chapters[chapter_num]
-        story.append(f"\n## {chapter['title']}\n")
         
-        # Add each scene without scene headlines
+        # Add chapter title
+        story_content.append(f"## Chapter {chapter_num}: {chapter['title']}")
+        story_content.append("")
+        
+        # Add each scene
         for scene_num in sorted(chapter["scenes"].keys(), key=int):
             scene = chapter["scenes"][scene_num]
-            # No scene headline, just add the content directly
-            story.append(scene["content"])
-            story.append("\n\n")
+            
+            # Add scene content
+            story_content.append(scene["content"])
+            story_content.append("")
     
-    # Import the visualization module
-    from storyteller_lib.visualization import generate_character_summary, generate_character_network
+    # Join all content
+    final_story = "\n".join(story_content)
     
-    # Add character arc summaries
-    characters = state["characters"]
-    if characters:
-        story.append("\n## Character Arcs\n")
-        
-        # Add character relationship network
-        story.append("### Character Relationships\n")
-        story.append(generate_character_network(characters))
-        story.append("\n\n")
-        
-        # Add individual character summaries
-        for char_name, char_data in characters.items():
-            if "character_arc" in char_data and char_data.get("character_arc"):
-                arc_type = char_data["character_arc"].get("type", "Undefined")
-                arc_summary = f"\n### {char_data.get('name', char_name)}'s {arc_type.capitalize()} Arc\n\n"
-                
-                # Add emotional journey summary
-                if "emotional_state" in char_data and "journey" in char_data["emotional_state"]:
-                    journey = char_data["emotional_state"]["journey"]
-                    if journey:
-                        arc_summary += "**Emotional Journey:**\n\n"
-                        for stage in journey:
-                            arc_summary += f"- {stage}\n"
-                        arc_summary += "\n"
-                
-                # Add inner conflict resolution
-                if "inner_conflicts" in char_data:
-                    resolved_conflicts = [c for c in char_data["inner_conflicts"]
-                                         if c.get("resolution_status") == "resolved"]
-                    if resolved_conflicts:
-                        arc_summary += "**Resolved Inner Conflicts:**\n\n"
-                        for conflict in resolved_conflicts:
-                            arc_summary += f"- {conflict.get('description')}\n"
-                        arc_summary += "\n"
-                
-                story.append(arc_summary)
-    
-    # Join the story parts
-    complete_story = "\n".join(story)
-    
-    # Store the complete story in memory
+    # Store the final story in memory
     manage_memory_tool.invoke({
         "action": "create",
-        "key": "complete_story",
-        "value": complete_story
+        "key": "final_story",
+        "value": final_story,
+        "namespace": MEMORY_NAMESPACE
     })
     
-    # Generate detailed character summaries for reference
-    character_summaries = {}
-    for char_name, char_data in characters.items():
-        character_summaries[char_name] = generate_character_summary(char_data)
+    # Create a summary of the story
+    summary_prompt = f"""
+    Create a brief summary of this story:
     
-    # Store character summaries
+    Title: {story_title}
+    Genre: {genre}
+    Tone: {tone}
+    
+    {global_story[:1000]}...
+    
+    The summary should capture the essence of the story, its main characters, and key plot points.
+    Keep it concise but engaging, around 200-300 words.
+    """
+    
+    story_summary = llm.invoke([HumanMessage(content=summary_prompt)]).content
+    
+    # Store the summary in memory
     manage_memory_tool.invoke({
         "action": "create",
-        "key": "character_summaries",
-        "value": character_summaries
+        "key": "story_summary",
+        "value": story_summary,
+        "namespace": MEMORY_NAMESPACE
     })
     
-    # Final message to the user
+    # Return the final state
     return {
+        "final_story": final_story,
+        "story_summary": story_summary,
         "messages": [
-                    *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                    AIMessage(content="I've compiled the complete story. Here's a summary of what I created:"),
-                    AIMessage(content=f"A {state['tone']} {state['genre']} story with {len(chapters)} chapters and {sum(len(chapter['scenes']) for chapter in chapters.values())} scenes. The story follows the hero's journey structure and features {len(state['characters'])} main characters with detailed emotional arcs and inner conflicts. I've maintained consistency throughout the narrative and carefully managed character development and plot revelations. The story includes character arc summaries showing each character's emotional journey and resolved inner conflicts.")],
-        "compiled_story": complete_story,
-        "character_summaries": character_summaries,
-        
-        # Add memory usage tracking for the final compilation
-        "memory_usage": {
-            "final_compilation": {
-                "timestamp": "now",
-                "story_size": len(complete_story),
-                "chapter_count": len(chapters),
-                "scene_count": sum(len(chapter['scenes']) for chapter in chapters.values())
-            }
-        }
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            AIMessage(content=f"I've compiled the final story: {story_title}\n\nSummary:\n{story_summary}\n\nThe complete story has been generated successfully.")
+        ]
     }

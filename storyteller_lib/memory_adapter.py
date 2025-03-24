@@ -169,16 +169,23 @@ class MemoryStoreAdapter:
         
         # Process checkpoints in batches to reduce memory usage
         batch_size = 5  # Reduced from 10 to lower memory footprint
-        offset = 0
+        current_batch = 0
         
         try:
             while True:
-                # Get a batch of checkpoints
+                # Get a batch of checkpoints - SqliteSaver doesn't support offset parameter
                 batch_config = config.copy()
-                batch = list(self.store.list(batch_config, limit=batch_size, offset=offset))
+                
+                # Use limit parameter only (no offset)
+                batch = list(self.store.list(batch_config, limit=batch_size))
                 
                 # If no more checkpoints, we're done
                 if not batch:
+                    break
+                
+                # Skip checkpoints we've already processed
+                start_idx = current_batch * batch_size
+                if start_idx >= len(batch):
                     break
                     
                 # Search for the key in this batch
@@ -198,7 +205,7 @@ class MemoryStoreAdapter:
                         return result
                 
                 # Move to the next batch
-                offset += batch_size
+                current_batch += 1
                 
                 # Clear batch reference before collection
                 batch = None
@@ -263,18 +270,26 @@ class MemoryStoreAdapter:
         
         # Process checkpoints in batches to reduce memory usage
         batch_size = 5  # Reduced from 10 to lower memory footprint
-        offset = 0
+        current_batch = 0
         
         try:
             while True:
-                # Get a batch of checkpoints
+                # Get a batch of checkpoints - SqliteSaver doesn't support offset parameter
+                # Instead, we'll use a different approach to paginate through results
                 batch_config = config.copy()
-                batch = list(self.store.list(batch_config, limit=batch_size, offset=offset))
+                
+                # Use limit parameter only (no offset)
+                batch = list(self.store.list(batch_config, limit=batch_size))
                 
                 # If no more checkpoints, we're done
                 if not batch:
                     break
-                    
+                
+                # Skip checkpoints we've already processed
+                start_idx = current_batch * batch_size
+                if start_idx >= len(batch):
+                    break
+                
                 # Process this batch
                 for checkpoint_tuple in batch:
                     checkpoint = checkpoint_tuple[1]  # The actual checkpoint data
@@ -286,7 +301,7 @@ class MemoryStoreAdapter:
                     checkpoint = None
                 
                 # Move to the next batch
-                offset += batch_size
+                current_batch += 1
                 
                 # Clear batch reference before collection
                 batch = None
@@ -297,3 +312,94 @@ class MemoryStoreAdapter:
             gc.collect()
         
         return keys
+        
+    def search(self, namespace: Optional[Tuple[str, ...]] = None, query: str = "", filter: Optional[Dict] = None, limit: int = 10, offset: int = 0) -> List[Any]:
+        """
+        Search for values in memory based on a query.
+        
+        This implementation returns all values where the key contains the query string
+        or where the value contains the query string.
+        
+        Args:
+            namespace: Optional namespace to use instead of the default
+            query: The query string to search for
+            filter: Optional filter criteria (not used in this implementation)
+            limit: Maximum number of results to return
+            offset: Number of results to skip
+            
+        Returns:
+            A list of matching items
+        """
+        config = self._get_config(namespace)
+        results = []
+        
+        # Process checkpoints in batches to reduce memory usage
+        batch_size = 5  # Reduced from 10 to lower memory footprint
+        current_batch = 0
+        
+        try:
+            while True and len(results) < limit + offset:
+                # Get a batch of checkpoints - SqliteSaver doesn't support offset parameter
+                batch_config = config.copy()
+                
+                # Use limit parameter only (no offset)
+                batch = list(self.store.list(batch_config, limit=batch_size))
+                
+                # If no more checkpoints, we're done
+                if not batch:
+                    break
+                
+                # Skip checkpoints we've already processed
+                start_idx = current_batch * batch_size
+                if start_idx >= len(batch):
+                    break
+                
+                # Process this batch
+                for checkpoint_tuple in batch:
+                    checkpoint = checkpoint_tuple[1]  # The actual checkpoint data
+                    if "data" in checkpoint and "key" in checkpoint["data"]:
+                        key = checkpoint["data"]["key"]
+                        value = checkpoint["data"].get("value")
+                        
+                        # Check if query is in key or value
+                        key_match = query.lower() in key.lower() if key else False
+                        value_match = False
+                        
+                        # Check if query is in value (if value is a string or has a string representation)
+                        if value is not None:
+                            if isinstance(value, str):
+                                value_match = query.lower() in value.lower()
+                            elif isinstance(value, dict) and "content" in value and isinstance(value["content"], str):
+                                value_match = query.lower() in value["content"].lower()
+                            elif hasattr(value, "__str__"):
+                                value_match = query.lower() in str(value).lower()
+                        
+                        # If query is empty or there's a match, add to results
+                        if query == "" or key_match or value_match:
+                            # Create an item that mimics the expected format
+                            item = type('Item', (), {
+                                'namespace': namespace or self.namespace,
+                                'key': key,
+                                'value': value,
+                                'dict': lambda self=None, key=key, value=value, namespace=namespace or self.namespace:
+                                    {'namespace': namespace or self.namespace, 'key': key, 'value': value}
+                            })
+                            results.append(item)
+                    
+                    # Clear individual checkpoint references
+                    checkpoint_tuple = None
+                    checkpoint = None
+                
+                # Move to the next batch
+                current_batch += 1
+                
+                # Clear batch reference before collection
+                batch = None
+                gc.collect()  # Force garbage collection after processing each batch
+        finally:
+            # Ensure cleanup happens even if exceptions occur
+            batch = None
+            gc.collect()
+        
+        # Apply offset and limit
+        return results[offset:offset + limit]

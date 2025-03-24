@@ -4,7 +4,7 @@ StoryCraft Agent - Initialization nodes.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.messages.modifier import RemoveMessage
@@ -72,11 +72,18 @@ def initialize_state(state: StoryState) -> Dict:
     if author and not author_style_guidance:
         # See if we have cached guidance
         try:
-            author_style_object = manage_memory_tool.invoke({
-                "action": "get",
-                "key": f"author_style_{author.lower().replace(' ', '_')}",
-                "namespace": MEMORY_NAMESPACE
+            # Use search_memory_tool to retrieve the author style
+            results = search_memory_tool.invoke({
+                "query": f"author_style_{author.lower().replace(' ', '_')}"
             })
+            
+            # Extract the author style from the results
+            author_style_object = None
+            if results and len(results) > 0:
+                for item in results:
+                    if hasattr(item, 'key') and item.key == f"author_style_{author.lower().replace(' ', '_')}":
+                        author_style_object = {"key": item.key, "value": item.value}
+                        break
             
             if author_style_object and "value" in author_style_object:
                 author_style_guidance = author_style_object["value"]
@@ -125,11 +132,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     # Try to recover from memory if initial_idea is not in state
     if "initial_idea" not in state:
         try:
-            initial_idea_obj = manage_memory_tool.invoke({
-                "action": "get",
-                "key": "initial_idea_raw",
-                "namespace": MEMORY_NAMESPACE
-            })
+            initial_idea_obj = memory_store.get("initial_idea_raw", MEMORY_NAMESPACE)
         except Exception:
             pass
     
@@ -140,11 +143,18 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     initial_idea = state.get("initial_idea", "")
     if not initial_idea:
         try:
-            initial_idea_obj = manage_memory_tool.invoke({
-                "action": "get",
-                "key": "initial_idea_raw",
-                "namespace": MEMORY_NAMESPACE
+            # Use search_memory_tool to retrieve the initial idea
+            results = search_memory_tool.invoke({
+                "query": "initial_idea_raw"
             })
+            
+            # Extract the initial idea from the results
+            initial_idea_obj = None
+            if results and len(results) > 0:
+                for item in results:
+                    if hasattr(item, 'key') and item.key == "initial_idea_raw":
+                        initial_idea_obj = {"key": item.key, "value": item.value}
+                        break
             if initial_idea_obj and "value" in initial_idea_obj:
                 initial_idea = initial_idea_obj["value"]
         except Exception:
@@ -156,8 +166,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     # If we have an initial idea but no elements, try to get them from memory
     if not initial_idea_elements and initial_idea:
         try:
-            elements_obj = manage_memory_tool.invoke({
-                "action": "get",
+            elements_obj = search_memory_tool.invoke({
+                "query": "initial_idea_elements",
                 "key": "initial_idea_elements",
                 "namespace": MEMORY_NAMESPACE
             })
