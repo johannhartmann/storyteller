@@ -636,6 +636,22 @@ def compile_final_story(state: StoryState) -> Dict:
     initial_idea = state.get("initial_idea", "")
     world_elements = state.get("world_elements", {})
     
+    # Check for unresolved plot threads
+    from storyteller_lib.plot_threads import check_plot_thread_resolution
+    plot_thread_resolution = check_plot_thread_resolution(state)
+    
+    # Add a warning about unresolved plot threads if any exist
+    unresolved_threads_warning = ""
+    if not plot_thread_resolution.get("all_major_threads_resolved", True):
+        unresolved_threads = plot_thread_resolution.get("unresolved_major_threads", [])
+        unresolved_threads_warning = "\n\n## WARNING: Unresolved Plot Threads\n\n"
+        unresolved_threads_warning += "The following major plot threads were not resolved in the story:\n\n"
+        
+        for thread in unresolved_threads:
+            unresolved_threads_warning += f"- **{thread['name']}**: {thread['description']}\n"
+            unresolved_threads_warning += f"  - First appeared: {thread['first_appearance']}\n"
+            unresolved_threads_warning += f"  - Last mentioned: {thread['last_appearance']}\n\n"
+    
     # Compile the story content
     story_content = []
     
@@ -660,6 +676,10 @@ def compile_final_story(state: StoryState) -> Dict:
     story_content.append("")
     story_content.append(global_story[:500] + "...")
     story_content.append("")
+    
+    # Add warning about unresolved plot threads if any exist
+    if unresolved_threads_warning:
+        story_content.append(unresolved_threads_warning)
     
     # Add each chapter and its scenes
     for chapter_num in sorted(chapters.keys(), key=int):
@@ -712,12 +732,15 @@ def compile_final_story(state: StoryState) -> Dict:
         "namespace": MEMORY_NAMESPACE
     })
     
-    # Return the final state
+    # Return the final state with plot thread resolution information
     return {
         "final_story": final_story,
         "story_summary": story_summary,
+        "plot_thread_resolution": plot_thread_resolution,
         "messages": [
             *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=f"I've compiled the final story: {story_title}\n\nSummary:\n{story_summary}\n\nThe complete story has been generated successfully.")
+            AIMessage(content=f"I've compiled the final story: {story_title}\n\nSummary:\n{story_summary}\n\nThe complete story has been generated successfully." +
+                      (f"\n\nNote: {len(plot_thread_resolution.get('unresolved_major_threads', []))} major plot threads remain unresolved."
+                       if not plot_thread_resolution.get("all_major_threads_resolved", True) else ""))
         ]
     }

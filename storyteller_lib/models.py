@@ -203,6 +203,59 @@ def merge_creative_elements(existing: Dict[str, Dict], new: Dict[str, Dict]) -> 
         result[key] = value  # Simply replace since these are typically not incrementally updated
     return result
 
+def merge_plot_threads(existing: Dict[str, Dict[str, Any]], new: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """
+    Merge plot thread dictionaries, preserving thread history and development.
+    
+    Args:
+        existing: The existing plot threads dictionary
+        new: The new plot threads dictionary to merge in
+        
+    Returns:
+        The merged plot threads dictionary
+    """
+    result = existing.copy()
+    
+    for thread_name, thread_data in new.items():
+        if thread_name in result:
+            # Update existing thread
+            existing_thread = result[thread_name]
+            
+            # Update status if it's changed
+            if thread_data.get("status") != existing_thread.get("status"):
+                existing_thread["status"] = thread_data["status"]
+            
+            # Update last chapter/scene if newer
+            if thread_data.get("last_chapter") and thread_data.get("last_scene"):
+                existing_thread["last_chapter"] = thread_data["last_chapter"]
+                existing_thread["last_scene"] = thread_data["last_scene"]
+            
+            # Append new development history entries
+            if "development_history" in thread_data and thread_data["development_history"]:
+                existing_history = existing_thread.get("development_history", [])
+                new_history = thread_data["development_history"]
+                
+                # Only add entries that don't already exist
+                existing_entries = {
+                    f"{entry.get('chapter')}_{entry.get('scene')}_{entry.get('development')}"
+                    for entry in existing_history
+                }
+                
+                for entry in new_history:
+                    entry_key = f"{entry.get('chapter')}_{entry.get('scene')}_{entry.get('development')}"
+                    if entry_key not in existing_entries:
+                        existing_history.append(entry)
+                
+                existing_thread["development_history"] = existing_history
+            
+            # Update the thread in the result
+            result[thread_name] = existing_thread
+        else:
+            # New thread, just add it
+            result[thread_name] = thread_data
+    
+    return result
+
 def merge_world_elements(existing: WorldElementsDict, new: WorldElementsDict) -> WorldElementsDict:
     """
     Merge worldbuilding elements dictionaries with intelligent handling of nested structures.
@@ -295,6 +348,7 @@ class StoryState(TypedDict):
     revelations: Annotated[Dict[str, Any], merge_revelations]  # Custom reducer for revelations with continuity_issues
     creative_elements: Annotated[Dict[str, Dict], merge_creative_elements]  # Custom reducer for creative elements
     world_elements: Annotated[Dict[str, Dict], merge_world_elements]  # Custom reducer for worldbuilding elements
+    plot_threads: Annotated[Dict[str, Dict[str, Any]], merge_plot_threads]  # Custom reducer for plot threads
     
     # Tracking fields
     current_chapter: str  # Track which chapter is being written

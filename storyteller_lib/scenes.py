@@ -426,6 +426,52 @@ def write_scene(state: StoryState) -> Dict:
         technology/magic, and other world details should align with these established elements.
         """
     
+    # Get active plot threads for this scene
+    from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
+    active_plot_threads = get_active_plot_threads_for_scene(state)
+    
+    # Create plot thread guidance
+    plot_thread_guidance = ""
+    if active_plot_threads:
+        plot_thread_sections = []
+        
+        # Group threads by importance
+        major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
+        minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
+        background_threads = [t for t in active_plot_threads if t["importance"] == "background"]
+        
+        # Format major threads
+        if major_threads:
+            major_section = "MAJOR PLOT THREADS (must be addressed):\n"
+            for thread in major_threads:
+                major_section += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n  Last development: {thread['last_development']}\n"
+            plot_thread_sections.append(major_section)
+        
+        # Format minor threads
+        if minor_threads:
+            minor_section = "MINOR PLOT THREADS (should be addressed if relevant):\n"
+            for thread in minor_threads:
+                minor_section += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
+            plot_thread_sections.append(minor_section)
+        
+        # Format background threads
+        if background_threads:
+            background_section = "BACKGROUND THREADS (can be referenced):\n"
+            for thread in background_threads:
+                background_section += f"- {thread['name']}: {thread['description']}\n"
+            plot_thread_sections.append(background_section)
+        
+        # Combine all sections
+        plot_thread_guidance = f"""
+        ACTIVE PLOT THREADS:
+        
+        {'\n'.join(plot_thread_sections)}
+        
+        Ensure that major plot threads are meaningfully advanced in this scene.
+        Minor threads should be addressed if they fit naturally with the scene's purpose.
+        Background threads can be referenced to maintain continuity.
+        """
+    
     # Create a prompt for scene writing
     prompt = f"""
     Write a detailed scene for Chapter {current_chapter}: "{chapter['title']}" (Scene {current_scene}).
@@ -446,6 +492,8 @@ def write_scene(state: StoryState) -> Dict:
     {creative_guidance}
     
     {emotional_guidance}
+    
+    {plot_thread_guidance}
     Your task is to write an engaging, vivid scene of 2100-3360 words that advances the story according to the chapter outline.
     Use rich descriptions, meaningful dialogue, and show character development.
     Ensure consistency with established character traits and previous events.
@@ -535,7 +583,6 @@ def write_scene(state: StoryState) -> Dict:
             AIMessage(content=f"I've written scene {current_scene} of chapter {current_chapter} incorporating creative elements and surprising twists. Now I'll reflect on it to ensure quality and consistency.")
         ]
     }
-
 @track_progress
 def reflect_on_scene(state: StoryState) -> Dict:
     """Reflect on the current scene to evaluate quality and consistency."""
@@ -549,6 +596,22 @@ def reflect_on_scene(state: StoryState) -> Dict:
     scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
     
     # Get worldbuilding elements if available
+    world_elements = state.get("world_elements", {})
+    # Update plot threads based on this scene
+    from storyteller_lib.plot_threads import update_plot_threads
+    plot_thread_updates = update_plot_threads(state)
+    
+    # Check scene closure
+    from storyteller_lib.scene_closure import check_and_improve_scene_closure
+    needs_improved_closure, closure_analysis, improved_scene = check_and_improve_scene_closure(state)
+    
+    # Update scene content if closure improvement is needed
+    if needs_improved_closure:
+        scene_content = improved_scene
+        # Update the scene content in the state
+        chapters[current_chapter]["scenes"][current_scene]["content"] = improved_scene
+        print(f"Improved scene closure for Chapter {current_chapter}, Scene {current_scene}")
+    
     world_elements = state.get("world_elements", {})
     scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
     
@@ -604,6 +667,11 @@ def reflect_on_scene(state: StoryState) -> Dict:
     
     {worldbuilding_context}
     
+    Scene Closure Analysis:
+    Status: {closure_analysis["closure_status"]}
+    Score: {closure_analysis["closure_score"]}/10
+    Issues: {', '.join(closure_analysis["issues"]) if closure_analysis["issues"] else "None"}
+    
     Evaluate the scene on these criteria and include in criteria_ratings:
     - character_consistency: Consistency with established character traits and motivations
     - plot_advancement: Advancement of the plot according to the chapter outline
@@ -615,6 +683,7 @@ def reflect_on_scene(state: StoryState) -> Dict:
     - emotional_depth: Depth and authenticity of emotional content and resonance
     - character_relatability: How relatable and human the characters feel to readers
     - inner_conflict_development: Development of characters' inner struggles and dilemmas
+    - scene_closure: How well the scene concludes with proper narrative closure
     
     Identify:
     - Any new information revealed to the reader that should be tracked
@@ -635,6 +704,7 @@ def reflect_on_scene(state: StoryState) -> Dict:
     - There are multiple issues of any type
     - The overall quality of the scene is significantly below the standards of the story
     - The scene contradicts established world elements in significant ways
+    - The scene_closure score is 4 or below, indicating an abrupt or incomplete ending
     """
     
     # Use Pydantic for structured output
@@ -864,7 +934,13 @@ def reflect_on_scene(state: StoryState) -> Dict:
         "formatted_issues": issues_summary,  # For easy display
         "needs_revision": reflection_dict.get("needs_revision", False),
         "revision_priority": reflection_dict.get("revision_priority", "low"),
-        "overall_assessment": reflection_summary
+        "overall_assessment": reflection_summary,
+        "scene_closure": {
+            "status": closure_analysis["closure_status"],
+            "score": closure_analysis["closure_score"],
+            "issues": closure_analysis["issues"],
+            "improved": needs_improved_closure
+        }
     }
     
     # Store the structured reflection in memory
@@ -895,7 +971,8 @@ def reflect_on_scene(state: StoryState) -> Dict:
     # Get initial idea from state
     initial_idea = state.get("initial_idea", "")
     
-    return {
+    # Merge the plot thread updates with our reflection updates
+    updates = {
         # Update the reflection notes and add structured reflection data for this specific scene
         "chapters": {
             current_chapter: {
@@ -922,9 +999,28 @@ def reflect_on_scene(state: StoryState) -> Dict:
         
         "messages": [
             *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=f"I've analyzed scene {current_scene} of chapter {current_chapter} for quality and consistency.")
+            AIMessage(content=f"I've analyzed scene {current_scene} of chapter {current_chapter} for quality and consistency, tracked plot threads, and " +
+                     (f"improved scene closure to address abrupt ending (closure score: {closure_analysis['closure_score']}/10)."
+                      if needs_improved_closure else
+                      f"verified proper scene closure (closure score: {closure_analysis['closure_score']}/10)."))
         ]
     }
+    
+    # If we have plot thread updates, include them in our state updates
+    if plot_thread_updates:
+        # Update the plot_threads in state
+        if "plot_threads" in plot_thread_updates:
+            updates["plot_threads"] = plot_thread_updates["plot_threads"]
+        
+        # Update the scene's plot_threads if they exist
+        if "chapters" in plot_thread_updates and current_chapter in plot_thread_updates["chapters"]:
+            if "scenes" in plot_thread_updates["chapters"][current_chapter]:
+                if current_scene in plot_thread_updates["chapters"][current_chapter]["scenes"]:
+                    scene_updates = plot_thread_updates["chapters"][current_chapter]["scenes"][current_scene]
+                    if "plot_threads" in scene_updates:
+                        updates["chapters"][current_chapter]["scenes"][current_scene]["plot_threads"] = scene_updates["plot_threads"]
+    
+    return updates
 
 @track_progress
 def revise_scene_if_needed(state: StoryState) -> Dict:
