@@ -361,50 +361,185 @@ def structured_output_with_pydantic(
         print(f"Structured output parsing failed: {str(e)}")
         return {}
 
-def parse_json_with_langchain(text: str, default_data: Optional[Dict] = None) -> Dict[str, Any]:
+def parse_json_with_langchain(text: str, description: str = "world elements") -> Dict[str, Any]:
     """
-    Parse JSON from text using LangChain's JSON parser.
-    Falls back to default_data if parsing fails.
+    Parse JSON from text using LangChain's JSON parser with multiple fallback methods.
     
     Args:
         text: Text containing JSON to parse
-        default_data: Default data to return if parsing fails
+        description: Description of what we're parsing (for error messages)
         
     Returns:
         Parsed JSON data as a dictionary
     """
+    # First try direct parsing without LLM
     try:
-        # Use LangChain's JsonOutputParser to parse the text
+        # Try to extract JSON if it's within a code block
+        if "```json" in text and "```" in text.split("```json", 1)[1]:
+            json_content = text.split("```json", 1)[1].split("```", 1)[0].strip()
+            return json.loads(json_content)
+        # Try direct JSON parsing
+        elif text.strip().startswith("{") and text.strip().endswith("}"):
+            return json.loads(text)
+    except Exception:
+        pass
+    
+    # Try to manually parse the structure if it looks like the example in the error
+    try:
+        # Check if this is the format from the error message
+        if "GEOGRAPHY" in text and "HISTORY" in text and "CULTURE" in text:
+            result = {}
+            
+            # Define the main categories we expect
+            categories = [
+                "GEOGRAPHY", "HISTORY", "CULTURE", "POLITICS",
+                "ECONOMICS", "TECHNOLOGY/MAGIC", "RELIGION", "DAILY_LIFE"
+            ]
+            
+            # Extract each category's content
+            for i, category in enumerate(categories):
+                if category in text:
+                    # Find the start of this category
+                    start_idx = text.find(category)
+                    
+                    # Find the end (either the next category or the end of text)
+                    end_idx = len(text)
+                    for next_cat in categories[i+1:]:
+                        next_idx = text.find(next_cat)
+                        if next_idx > start_idx:
+                            end_idx = next_idx
+                            break
+                    
+                    # Extract the category content
+                    category_content = text[start_idx:end_idx].strip()
+                    
+                    # Process the content into a dictionary
+                    category_dict = {}
+                    lines = category_content.split('\n')
+                    
+                    # Skip the category name line
+                    current_key = None
+                    for line in lines[1:]:
+                        line = line.strip()
+                        if not line:
+                            continue
+                            
+                        # Check if this is a new key
+                        if ":" in line and not line.startswith(" ") and not line.startswith("\t"):
+                            parts = line.split(":", 1)
+                            current_key = parts[0].strip()
+                            value = parts[1].strip() if len(parts) > 1 else ""
+                            category_dict[current_key] = value
+                        elif current_key and (line.startswith(" ") or line.startswith("\t")):
+                            # This is a continuation of the previous value
+                            category_dict[current_key] += " " + line
+                    
+                    result[category] = category_dict
+            
+            # If we successfully extracted at least some categories, return the result
+            if result:
+                return result
+    except Exception as e:
+        print(f"Manual parsing failed: {str(e)}")
+    
+    # Try with direct LLM JSON generation
+    try:
+        prompt = f"""
+        I need to convert this world building information into a valid JSON object:
+        
+        {text}
+        
+        Format it as a JSON object with these top-level keys:
+        - GEOGRAPHY
+        - HISTORY
+        - CULTURE
+        - POLITICS
+        - ECONOMICS
+        - TECHNOLOGY/MAGIC
+        - RELIGION
+        - DAILY_LIFE
+        
+        Each top-level key should contain a nested object with the elements for that category.
+        For example:
+        
+        {{
+          "GEOGRAPHY": {{
+            "Major Locations": "Description of locations",
+            "Physical Features": "Description of features"
+          }},
+          "HISTORY": {{
+            "Timeline": "Historical events",
+            "Past Conflicts": "Description of conflicts"
+          }}
+        }}
+        
+        Return ONLY the valid JSON object without any additional text, explanation, or code block markers.
+        """
+        
+        json_response = llm.invoke(prompt).content
+        
+        # Try to extract JSON if it's within a code block
+        if "```json" in json_response and "```" in json_response.split("```json", 1)[1]:
+            json_content = json_response.split("```json", 1)[1].split("```", 1)[0].strip()
+            return json.loads(json_content)
+        # Try to extract JSON if it's within any code block
+        elif "```" in json_response and "```" in json_response.split("```", 1)[1]:
+            json_content = json_response.split("```", 1)[1].split("```", 1)[0].strip()
+            return json.loads(json_content)
+        # Try direct JSON parsing
+        elif json_response.strip().startswith("{") and json_response.strip().endswith("}"):
+            return json.loads(json_response)
+    except Exception as e:
+        print(f"Direct LLM JSON generation failed: {str(e)}")
+    
+    # If all else fails, try with JsonOutputParser
+    try:
         json_parser = JsonOutputParser()
         
-        # First try direct parsing without LLM
-        try:
-            return json_parser.parse(text)
-        except Exception:
-            # If direct parsing fails, use the LLM to fix and generate valid JSON
-            fix_prompt = PromptTemplate(
-                template="""The following text contains JSON that needs to be fixed and parsed:
+        fix_prompt = PromptTemplate(
+            template="""The following text contains world building information that needs to be converted to JSON:
 
 {text}
 
-Extract and fix the JSON to make it valid. Return ONLY the fixed JSON without any additional text or markup.
+Convert this to a valid JSON object with these top-level keys:
+- GEOGRAPHY
+- HISTORY
+- CULTURE
+- POLITICS
+- ECONOMICS
+- TECHNOLOGY/MAGIC
+- RELIGION
+- DAILY_LIFE
+
+Each top-level key should contain a nested object with the elements for that category.
 
 {format_instructions}""",
-                input_variables=["text"],
-                partial_variables={"format_instructions": json_parser.get_format_instructions()}
-            )
-            
-            # Create and run the chain
-            fix_chain = fix_prompt | llm | json_parser
-            
-            try:
-                return fix_chain.invoke({"text": text})
-            except Exception as e:
-                print(f"LangChain JSON parser failed: {str(e)}")
-                return default_data if default_data is not None else {}
+            input_variables=["text"],
+            partial_variables={"format_instructions": json_parser.get_format_instructions()}
+        )
+        
+        # Create and run the chain
+        fix_chain = fix_prompt | llm | json_parser
+        
+        try:
+            return fix_chain.invoke({"text": text})
+        except Exception as e:
+            print(f"LangChain JSON parser failed: {str(e)}")
     except Exception as e:
-        print(f"Unexpected error parsing JSON: {str(e)}")
-        return default_data if default_data is not None else {}
+        print(f"All JSON parsing methods failed: {str(e)}")
+    
+    # Last resort: return a minimal structure with the original text preserved
+    # This ensures we don't lose the content even if parsing fails
+    return {
+        "GEOGRAPHY": {"content": text.split("HISTORY")[0] if "HISTORY" in text else "Geographic elements"},
+        "HISTORY": {"content": text.split("HISTORY")[1].split("CULTURE")[0] if "HISTORY" in text and "CULTURE" in text else "Historical elements"},
+        "CULTURE": {"content": text.split("CULTURE")[1].split("POLITICS")[0] if "CULTURE" in text and "POLITICS" in text else "Cultural elements"},
+        "POLITICS": {"content": text.split("POLITICS")[1].split("ECONOMICS")[0] if "POLITICS" in text and "ECONOMICS" in text else "Political elements"},
+        "ECONOMICS": {"content": text.split("ECONOMICS")[1].split("TECHNOLOGY/MAGIC")[0] if "ECONOMICS" in text and "TECHNOLOGY/MAGIC" in text else "Economic elements"},
+        "TECHNOLOGY/MAGIC": {"content": text.split("TECHNOLOGY/MAGIC")[1].split("RELIGION")[0] if "TECHNOLOGY/MAGIC" in text and "RELIGION" in text else "Technology or magic"},
+        "RELIGION": {"content": text.split("RELIGION")[1].split("DAILY_LIFE")[0] if "RELIGION" in text and "DAILY_LIFE" in text else "Religious elements"},
+        "DAILY_LIFE": {"content": text.split("DAILY_LIFE")[1] if "DAILY_LIFE" in text else "Daily life elements"}
+    }
 
 def generate_structured_json(text_content: str, schema: str, description: str) -> Dict[str, Any]:
     """

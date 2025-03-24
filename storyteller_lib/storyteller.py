@@ -273,10 +273,9 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
     # Try to retrieve chapters and scenes from memory
     try:
         # Get all chapters and scenes from memory
-        chapter_data = manage_memory_tool.invoke({
-            "action": "list",
-            "prefix": "chapter_",
-            "namespace": MEMORY_NAMESPACE
+        # Use search_memory_tool to list all chapters
+        chapter_data = search_memory_tool.invoke({
+            "query": "chapter_"
         })
         
         if chapter_data and "keys" in chapter_data:
@@ -290,11 +289,18 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
                     try:
                         ch_num = key.split("_")[1]
                         # Get chapter content
-                        ch_data = manage_memory_tool.invoke({
-                            "action": "get",
-                            "key": key,
-                            "namespace": MEMORY_NAMESPACE
+                        ch_data = search_memory_tool.invoke({
+                            "query": f"chapter_{ch_num}"
                         })
+                        
+                        # Extract the chapter data from the results
+                        ch_data_result = None
+                        if ch_data and len(ch_data) > 0:
+                            for item in ch_data:
+                                if hasattr(item, 'key') and item.key == key:
+                                    ch_data_result = {"key": item.key, "value": item.value}
+                                    break
+                        ch_data = ch_data_result
                         
                         if ch_data and "value" in ch_data:
                             chapter_dict[ch_num] = ch_data["value"]
@@ -302,10 +308,9 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
                         pass
             
             # Get scene data
-            scene_data = manage_memory_tool.invoke({
-                "action": "list",
-                "prefix": "scene_",
-                "namespace": MEMORY_NAMESPACE
+            # Use search_memory_tool to list all scenes
+            scene_data = search_memory_tool.invoke({
+                "query": "scene_"
             })
             
             scene_dict = {}
@@ -321,11 +326,18 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
                             sc_num = parts[2]
                             
                             # Get scene content
-                            sc_data = manage_memory_tool.invoke({
-                                "action": "get",
-                                "key": key,
-                                "namespace": MEMORY_NAMESPACE
+                            sc_data = search_memory_tool.invoke({
+                                "query": f"scene_{ch_num}_{sc_num}"
                             })
+                            
+                            # Extract the scene data from the results
+                            sc_data_result = None
+                            if sc_data and len(sc_data) > 0:
+                                for item in sc_data:
+                                    if hasattr(item, 'key') and item.key == key:
+                                        sc_data_result = {"key": item.key, "value": item.value}
+                                        break
+                            sc_data = sc_data_result
                             
                             if sc_data and "value" in sc_data:
                                 if ch_num not in scene_dict:
@@ -512,8 +524,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
     # Try to retrieve the complete story using search
     try:
         complete_story = search_memory_tool.invoke({
-            "query": "complete final story with all chapters and scenes",
-            "namespace": MEMORY_NAMESPACE
+            "query": "complete final story with all chapters and scenes"
         })
         
         if complete_story:
@@ -523,11 +534,18 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
     
     # If search fails, try direct key lookup
     try:
-        complete_story_obj = manage_memory_tool.invoke({
-            "action": "get",
-            "key": "complete_story",
-            "namespace": MEMORY_NAMESPACE
+        complete_story_obj = search_memory_tool.invoke({
+            "query": "final_story"
         })
+        
+        # Extract the complete story from the results
+        complete_story_result = None
+        if complete_story_obj and len(complete_story_obj) > 0:
+            for item in complete_story_obj:
+                if hasattr(item, 'key') and (item.key == "complete_story" or item.key == "final_story"):
+                    complete_story_result = {"key": item.key, "value": item.value}
+                    break
+        complete_story_obj = complete_story_result
         
         if complete_story_obj and "value" in complete_story_obj:
             return complete_story_obj["value"]

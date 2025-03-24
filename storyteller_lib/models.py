@@ -14,6 +14,7 @@ from langgraph.graph.message import add_messages
 SceneStateDict = Dict[str, Dict[str, Union[str, List[str]]]]
 ChapterStateDict = Dict[str, Dict[str, Union[str, Dict]]]
 CharacterProfileDict = Dict[str, Dict[str, Union[str, List[str], Dict]]]
+WorldElementsDict = Dict[str, Dict[str, Union[str, List[str], Dict]]]
 
 def merge_lists(existing: List[Any], new: List[Any]) -> List[Any]:
     """Merge two lists, appending new values to existing list."""
@@ -195,12 +196,59 @@ def merge_revelations(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str
             result[key] = value
             
     return result
-
 def merge_creative_elements(existing: Dict[str, Dict], new: Dict[str, Dict]) -> Dict[str, Dict]:
     """Merge creative elements dictionaries."""
     result = existing.copy()
     for key, value in new.items():
         result[key] = value  # Simply replace since these are typically not incrementally updated
+    return result
+
+def merge_world_elements(existing: WorldElementsDict, new: WorldElementsDict) -> WorldElementsDict:
+    """
+    Merge worldbuilding elements dictionaries with intelligent handling of nested structures.
+    
+    This function allows for updating specific categories of world elements while preserving
+    others, and handles both replacement and appending of elements depending on their type.
+    
+    Args:
+        existing: The existing world elements dictionary
+        new: The new world elements dictionary to merge in
+        
+    Returns:
+        The merged world elements dictionary
+    """
+    result = existing.copy()
+    
+    for category, elements in new.items():
+        if category in result:
+            # If category exists, update it intelligently
+            result_category = result[category].copy()
+            
+            for key, value in elements.items():
+                if key in result_category:
+                    # Handle lists by appending
+                    if isinstance(value, list) and isinstance(result_category[key], list):
+                        # For lists, append new items to avoid duplicates
+                        existing_items = set(str(item) for item in result_category[key])
+                        for item in value:
+                            if str(item) not in existing_items:
+                                result_category[key].append(item)
+                    # Handle nested dictionaries recursively
+                    elif isinstance(value, dict) and isinstance(result_category[key], dict):
+                        result_category[key] = {**result_category[key], **value}
+                    else:
+                        # For other types, replace if the new value is not empty
+                        if value:
+                            result_category[key] = value
+                else:
+                    # If key doesn't exist in the category, add it
+                    result_category[key] = value
+            
+            result[category] = result_category
+        else:
+            # If category doesn't exist, add it
+            result[category] = elements
+    
     return result
 
 class CharacterProfile(TypedDict):
@@ -246,6 +294,7 @@ class StoryState(TypedDict):
     characters: Annotated[Dict[str, CharacterProfile], merge_characters]  # Custom reducer for characters
     revelations: Annotated[Dict[str, Any], merge_revelations]  # Custom reducer for revelations with continuity_issues
     creative_elements: Annotated[Dict[str, Dict], merge_creative_elements]  # Custom reducer for creative elements
+    world_elements: Annotated[Dict[str, Dict], merge_world_elements]  # Custom reducer for worldbuilding elements
     
     # Tracking fields
     current_chapter: str  # Track which chapter is being written

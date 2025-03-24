@@ -15,6 +15,7 @@ from storyteller_lib.models import StoryState
 # No checkpointer needed for single-session generation
 from storyteller_lib.initialization import initialize_state, brainstorm_story_concepts
 from storyteller_lib.outline import generate_story_outline, generate_characters, plan_chapters
+from storyteller_lib.worldbuilding import generate_worldbuilding
 from storyteller_lib.scenes import (
     brainstorm_scene_elements, 
     write_scene, 
@@ -23,10 +24,11 @@ from storyteller_lib.scenes import (
 )
 # Import the optimized progression functions
 from storyteller_lib.progression import (
-    update_character_profiles, 
+    update_world_elements,
+    update_character_profiles,
     review_continuity,
     resolve_continuity_issues,
-    advance_to_next_scene_or_chapter, 
+    advance_to_next_scene_or_chapter,
     compile_final_story
 )
 from storyteller_lib import track_progress
@@ -43,11 +45,17 @@ def should_generate_outline(state: StoryState) -> bool:
     no_outline = "global_story" not in state or not state["global_story"]
     return has_concepts and no_outline
 
+def should_generate_worldbuilding(state: StoryState) -> bool:
+    """Determine if we need to generate worldbuilding elements."""
+    has_outline = "global_story" in state and state["global_story"]
+    no_world_elements = "world_elements" not in state or not state["world_elements"]
+    return has_outline and no_world_elements
+
 def should_generate_characters(state: StoryState) -> bool:
     """Determine if we need to generate character profiles."""
-    has_outline = "global_story" in state and state["global_story"]
+    has_worldbuilding = "world_elements" in state and state["world_elements"]
     no_characters = "characters" not in state or not state["characters"]
-    return has_outline and no_characters
+    return has_worldbuilding and no_characters
 
 def should_plan_chapters(state: StoryState) -> bool:
     """Determine if we need to plan chapters."""
@@ -199,12 +207,14 @@ def build_story_graph():
     graph_builder.add_node("initialize_state", initialize_state)
     graph_builder.add_node("brainstorm_story_concepts", brainstorm_story_concepts)
     graph_builder.add_node("generate_story_outline", generate_story_outline)
+    graph_builder.add_node("generate_worldbuilding", generate_worldbuilding)
     graph_builder.add_node("generate_characters", generate_characters)
     graph_builder.add_node("plan_chapters", plan_chapters)
     graph_builder.add_node("brainstorm_scene_elements", brainstorm_scene_elements)
     graph_builder.add_node("write_scene", write_scene)
     graph_builder.add_node("reflect_on_scene", reflect_on_scene)
     graph_builder.add_node("revise_scene_if_needed", revise_scene_if_needed)
+    graph_builder.add_node("update_world_elements", update_world_elements)
     graph_builder.add_node("update_character_profiles", update_character_profiles)
     graph_builder.add_node("review_continuity", review_continuity)
     graph_builder.add_node("resolve_continuity_issues", resolve_continuity_issues)
@@ -235,10 +245,19 @@ def build_story_graph():
     
     graph_builder.add_conditional_edges(
         "generate_story_outline",
-        lambda state: "generate_characters" if should_generate_characters(state) else "generate_story_outline",
+        lambda state: "generate_worldbuilding" if should_generate_worldbuilding(state) else "generate_story_outline",
+        {
+            "generate_worldbuilding": "generate_worldbuilding",
+            "generate_story_outline": "generate_story_outline"
+        }
+    )
+    
+    graph_builder.add_conditional_edges(
+        "generate_worldbuilding",
+        lambda state: "generate_characters" if should_generate_characters(state) else "generate_worldbuilding",
         {
             "generate_characters": "generate_characters",
-            "generate_story_outline": "generate_story_outline"
+            "generate_worldbuilding": "generate_worldbuilding"
         }
     )
     
@@ -263,8 +282,11 @@ def build_story_graph():
     # Fixed edge for reflection to revision
     graph_builder.add_edge("reflect_on_scene", "revise_scene_if_needed")
     
-    # Fixed edge for revision to character profile updates
-    graph_builder.add_edge("revise_scene_if_needed", "update_character_profiles")
+    # Fixed edge for revision to world element updates
+    graph_builder.add_edge("revise_scene_if_needed", "update_world_elements")
+    
+    # Fixed edge for world element updates to character profile updates
+    graph_builder.add_edge("update_world_elements", "update_character_profiles")
     
     # Character profiles to either continuity review or next scene
     graph_builder.add_conditional_edges(
