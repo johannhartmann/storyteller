@@ -871,7 +871,13 @@ def write_scene(state: StoryState) -> Dict:
     {style_section}
     {language_section}
     
-    IMPORTANT: If the language is set to {SUPPORTED_LANGUAGES[language.lower()]}, you MUST write the ENTIRE scene in {SUPPORTED_LANGUAGES[language.lower()]}. Do not include any text in English or any other language. The complete scene must be written only in {SUPPORTED_LANGUAGES[language.lower()]}.
+    CRITICAL LANGUAGE INSTRUCTION:
+    This scene MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+    ALL content - including narrative, dialogue, descriptions, and character thoughts - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+    DO NOT switch to any other language at ANY point in the scene.
+    DO NOT include ANY English text in your response.
+    
+    This is a STRICT requirement. The ENTIRE scene must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
     
     CRITICAL INSTRUCTION: Return ONLY the actual scene content. Do NOT include any explanations, comments, notes, or meta-information about your writing process or choices. Do NOT include any text like "Here's the scene" or "Key improvements" or any other commentary. The output should be ONLY the narrative text that will appear in the final story.
     IMPORTANT: If the language is set to {SUPPORTED_LANGUAGES[language.lower()]}, you MUST write the ENTIRE scene in {SUPPORTED_LANGUAGES[language.lower()]}. Do not include any text in English or any other language. The complete scene must be written only in {SUPPORTED_LANGUAGES[language.lower()]}.
@@ -1162,6 +1168,17 @@ def reflect_on_scene(state: StoryState) -> Dict:
         f"Do not report issues that have already been addressed in previous revisions unless they still exist.\n"
         f"Do not leave NEW issues unaddressed - if you find NEW problems, set needs_revision=true."
     )
+    
+    # Add language instruction for reflection
+    if language.lower() != DEFAULT_LANGUAGE:
+        prompt += (
+            f"\nCRITICAL LANGUAGE INSTRUCTION:\n"
+            f"Your analysis MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.\n"
+            f"ALL content - including your analysis, comments, and recommendations - must be in {SUPPORTED_LANGUAGES[language.lower()]}.\n"
+            f"DO NOT switch to any other language at ANY point in your analysis.\n"
+            f"DO NOT include ANY English text in your response.\n\n"
+            f"This is a STRICT requirement. The ENTIRE analysis must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.\n"
+        )
     
     # Use Pydantic for structured output
     from typing import List, Dict, Optional, Literal, Any, Union

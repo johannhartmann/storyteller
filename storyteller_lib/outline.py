@@ -185,6 +185,11 @@ def generate_story_outline(state: StoryState) -> Dict:
     
     Format your response as a structured outline with clear sections.
     
+    CRITICAL LANGUAGE INSTRUCTION:
+    This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+    ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+    DO NOT include ANY English text in your response.
+    
     VERIFICATION STEP: After completing the outline, review it to ensure that:
     1. The setting from the initial idea is well-integrated throughout
     2. The characters from the initial idea are included with appropriate roles
@@ -693,6 +698,11 @@ def generate_characters(state: StoryState) -> Dict:
     
     Make these characters:
     - RELATABLE: Give them universal hopes, fears, and struggles readers can empathize with
+    
+    CRITICAL LANGUAGE INSTRUCTION:
+    These character profiles MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+    ALL content - including names, descriptions, backstories, and personality traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+    DO NOT include ANY English text in your response.
     - COMPLEX: Include contradictions and inner turmoil that make them feel authentic
     - DISTINCTIVE: Ensure each character has a unique voice, perspective, and emotional journey
     

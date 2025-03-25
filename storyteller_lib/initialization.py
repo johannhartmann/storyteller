@@ -151,14 +151,21 @@ def initialize_state(state: StoryState) -> Dict:
             language_consistency_instruction = f"""
             CRITICAL LANGUAGE CONSISTENCY INSTRUCTION:
             
-            All story elements must be consistent with {SUPPORTED_LANGUAGES[language.lower()]} language and culture:
+            This story MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+            ALL content - including outlines, character descriptions, scene elements, reflections, and revisions - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+            DO NOT switch to any other language at ANY point in the story generation process.
             
-            1. Character names must be authentic {SUPPORTED_LANGUAGES[language.lower()]} names
-            2. Place names must follow {SUPPORTED_LANGUAGES[language.lower()]} naming conventions
-            3. Cultural references must be appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
-            4. Dialogue must use expressions and idioms natural to {SUPPORTED_LANGUAGES[language.lower()]}
+            When writing in {SUPPORTED_LANGUAGES[language.lower()]}, ensure that:
+            1. ALL text is in {SUPPORTED_LANGUAGES[language.lower()]} without ANY English phrases or words
+            2. Character names must be authentic {SUPPORTED_LANGUAGES[language.lower()]} names
+            3. Place names must follow {SUPPORTED_LANGUAGES[language.lower()]} naming conventions
+            4. Cultural references must be appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
+            5. Dialogue must use expressions and idioms natural to {SUPPORTED_LANGUAGES[language.lower()]}
+            6. ALL planning, outlining, and internal notes are also in {SUPPORTED_LANGUAGES[language.lower()]}
             
-            Refer to the stored language elements guide when creating any new names or cultural references.
+            CRITICAL: Maintain {SUPPORTED_LANGUAGES[language.lower()]} throughout ALL parts of the story and ALL stages of the generation process without ANY exceptions.
+            
+            REMINDER: Even if you are analyzing, planning, or reflecting on the story, you MUST do so in {SUPPORTED_LANGUAGES[language.lower()]}.
             """
             
             manage_memory_tool.invoke({
