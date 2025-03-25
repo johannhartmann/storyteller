@@ -13,13 +13,14 @@ from pydantic import BaseModel, Field, create_model
 
 T = TypeVar('T', bound=BaseModel)
 
-def generate_genre_guidance(genre: str, tone: str) -> str:
+def generate_genre_guidance(genre: str, tone: str, language: str = DEFAULT_LANGUAGE) -> str:
     """
     Dynamically generate genre-specific guidance using the LLM.
     
     Args:
         genre: Story genre
         tone: Story tone
+        language: Target language for story generation
         
     Returns:
         String containing genre-specific guidance
@@ -50,6 +51,18 @@ def generate_genre_guidance(genre: str, tone: str) -> str:
     
     Provide only the formatted guidance without any additional explanations or commentary.
     """
+    
+    # Add language instruction if not English
+    if language.lower() != DEFAULT_LANGUAGE:
+        prompt += f"""
+        
+        CRITICAL LANGUAGE INSTRUCTION:
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content - including descriptions, elements, and guidance - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        DO NOT include ANY English text in your response.
+        
+        This is a STRICT requirement. Your ENTIRE response must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
     
     # Get the response from the LLM
     response = llm.invoke([HumanMessage(content=prompt)]).content
@@ -170,14 +183,22 @@ def creative_brainstorm(
     language_section = ""
     if language.lower() != DEFAULT_LANGUAGE:
         language_section = f"""
-        LANGUAGE CONSIDERATION:
-        Generate ideas appropriate for a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
-        Character names, places, and cultural references should be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
-        Consider cultural nuances, idioms, and storytelling traditions specific to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions.
+        CRITICAL LANGUAGE INSTRUCTION:
+        You MUST generate ALL ideas ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content - including idea titles, descriptions, explanations, and analyses - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        DO NOT switch to any other language at ANY point in your response.
+        DO NOT include ANY English text in your response.
+        
+        Additionally:
+        - Character names, places, and cultural references should be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
+        - Consider cultural nuances, idioms, and storytelling traditions specific to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+        - Use vocabulary, expressions, and sentence structures natural to {SUPPORTED_LANGUAGES[language.lower()]}
+        
+        This is a STRICT requirement. Your ENTIRE response must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
         """
     
     # Generate genre-specific guidance dynamically using the LLM
-    genre_guidance = generate_genre_guidance(genre, tone)
+    genre_guidance = generate_genre_guidance(genre, tone, language)
     
     # Brainstorming prompt
     brainstorm_prompt = f"""
@@ -248,6 +269,25 @@ def creative_brainstorm(
     
     First, check each idea for compliance with the constraints and genre requirements.
     REJECT any idea that:
+    """
+    
+    # Add language instruction for evaluation if not English
+    if language.lower() != DEFAULT_LANGUAGE:
+        eval_prompt += f"""
+    - Is not written entirely in {SUPPORTED_LANGUAGES[language.lower()]}
+    - Contains any English text or other languages
+    - Uses character names or cultural references not authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
+    
+    CRITICAL LANGUAGE INSTRUCTION:
+    Your evaluation MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+    ALL content - including your analysis, ratings, and recommendations - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+    DO NOT switch to any other language at ANY point in your evaluation.
+    DO NOT include ANY English text in your response.
+    
+    This is a STRICT requirement. Your ENTIRE evaluation must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
+    """
+    
+    eval_prompt += """
     {"1. Significantly alters or omits essential elements from the initial concept" if strict_adherence else ""}
     2. Violates the constraints
     3. Doesn't fit the {genre} genre
