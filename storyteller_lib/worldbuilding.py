@@ -216,8 +216,67 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         "initial_state": world_elements,
         "current_state": world_elements,
         "changes": [],
-        "revelations": []
+        "revelations": [],
+        "mystery_elements": {  # New section for tracking mystery elements
+            "key_mysteries": [],
+            "clues_revealed": {},
+            "reader_knowledge": {},
+            "character_knowledge": {}
+        }
     }
+    
+    # Identify potential mystery elements from the world elements
+    mystery_prompt = f"""
+    Analyze these world elements and identify key mystery elements that should be gradually revealed:
+    
+    {world_elements}
+    
+    Identify 3-5 elements that would work well as mysteries in the story. For each mystery:
+    1. Provide the name of the mystery element
+    2. Explain why it would make a compelling mystery
+    3. Suggest 3-5 clues that could gradually reveal this mystery
+    
+    Format your response as a structured JSON object with "key_mysteries" as a list of objects.
+    """
+    
+    try:
+        # Define Pydantic model for structured output
+        from pydantic import BaseModel, Field
+        from typing import List, Dict
+        
+        class MysteryClue(BaseModel):
+            """A clue that reveals part of a mystery."""
+            description: str = Field(description="Description of the clue")
+            revelation_level: int = Field(ge=1, le=5, description="How much this reveals (1=subtle hint, 5=full revelation)")
+            
+        class MysteryElement(BaseModel):
+            """A key mystery element in the story."""
+            name: str = Field(description="Name of the mystery element")
+            description: str = Field(description="Description of why it's a compelling mystery")
+            clues: List[MysteryClue] = Field(description="Clues that could reveal this mystery")
+            
+        class MysteryAnalysis(BaseModel):
+            """Analysis of potential mystery elements in the world."""
+            key_mysteries: List[MysteryElement] = Field(description="List of key mystery elements")
+            
+        # Create a structured LLM that outputs a MysteryAnalysis
+        structured_llm = llm.with_structured_output(MysteryAnalysis)
+        
+        # Use the structured LLM to identify mystery elements
+        mystery_analysis = structured_llm.invoke(mystery_prompt)
+        
+        # Update the world state tracker with the identified mysteries
+        world_state_tracker["mystery_elements"]["key_mysteries"] = [
+            {
+                "name": mystery.name,
+                "description": mystery.description,
+                "clues": [{"description": clue.description, "revelation_level": clue.revelation_level, "revealed": False}
+                         for clue in mystery.clues]
+            }
+            for mystery in mystery_analysis.key_mysteries
+        ]
+    except Exception as e:
+        print(f"Error identifying mystery elements: {str(e)}")
     
     # Store the world state tracker in memory
     manage_memory_tool.invoke({

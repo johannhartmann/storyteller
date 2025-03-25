@@ -7,7 +7,7 @@ addressing issues with character motivation inconsistencies.
 
 from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE
 from storyteller_lib.models import StoryState
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 
@@ -104,6 +104,24 @@ def check_character_consistency(character_data: Dict, scene_content: str,
                 description="Severity of the inconsistency (1=minor, 10=major)"
             )
         
+        class CharacterMotivation(BaseModel):
+            """A character's motivation."""
+            
+            motivation: str = Field(
+                description="Description of the motivation"
+            )
+            source: str = Field(
+                description="Source of the motivation (backstory, recent event, etc.)"
+            )
+            strength: int = Field(
+                ge=1, le=10,
+                description="Strength of the motivation (1=weak, 10=driving force)"
+            )
+            consistency: int = Field(
+                ge=1, le=10,
+                description="How consistently this motivation is reflected in actions"
+            )
+        
         class ConsistencyAnalysis(BaseModel):
             """Analysis of character consistency in a scene."""
             
@@ -133,6 +151,23 @@ def check_character_consistency(character_data: Dict, scene_content: str,
             development_believability: int = Field(
                 ge=1, le=10,
                 description="Believability of character development"
+            )
+            # New fields
+            motivation_alignment: int = Field(
+                ge=1, le=10,
+                description="How well actions align with established motivations"
+            )
+            decision_consistency: int = Field(
+                ge=1, le=10,
+                description="Consistency of decisions with past choices"
+            )
+            knowledge_consistency: int = Field(
+                ge=1, le=10,
+                description="Consistency of character knowledge"
+            )
+            motivations: List[CharacterMotivation] = Field(
+                default_factory=list,
+                description="Character's motivations identified in the scene"
             )
             issues: List[ConsistencyIssue] = Field(
                 default_factory=list,
@@ -263,6 +298,52 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
         print(f"Error fixing character inconsistencies: {str(e)}")
         return scene_content
 
+def _extract_character_motivations(char_name: str, scene_content: str) -> List[Dict[str, Any]]:
+    """Extract character motivations from a scene."""
+    # Prepare the prompt for extracting motivations
+    prompt = f"""
+    Extract the motivations driving {char_name}'s actions in this scene:
+    
+    {scene_content}
+    
+    For each motivation:
+    1. Identify the specific motivation
+    2. Determine its source (backstory, recent event, immediate situation, etc.)
+    3. Assess its strength (1-10 scale)
+    4. Evaluate how consistently it's reflected in the character's actions
+    
+    Format your response as a structured JSON array of motivation objects.
+    """
+    
+    try:
+        # Define Pydantic model for structured output
+        from pydantic import BaseModel, Field
+        from typing import List
+        
+        class Motivation(BaseModel):
+            """A character motivation."""
+            motivation: str = Field(description="Description of the motivation")
+            source: str = Field(description="Source of the motivation")
+            strength: int = Field(ge=1, le=10, description="Strength of the motivation")
+            consistency: int = Field(ge=1, le=10, description="Consistency in actions")
+        
+        class MotivationList(BaseModel):
+            """List of character motivations."""
+            motivations: List[Motivation] = Field(description="List of motivations")
+        
+        # Create a structured LLM that outputs a MotivationList
+        structured_llm = llm.with_structured_output(MotivationList)
+        
+        # Use the structured LLM to extract motivations
+        motivation_list = structured_llm.invoke(prompt)
+        
+        # Convert Pydantic model to list of dictionaries
+        return [m.dict() for m in motivation_list.motivations]
+    
+    except Exception as e:
+        print(f"Error extracting character motivations: {str(e)}")
+        return []
+
 def track_character_consistency(state: StoryState) -> Dict:
     """
     Track character consistency throughout the story.
@@ -298,6 +379,7 @@ def track_character_consistency(state: StoryState) -> Dict:
     # Check consistency for each character in the scene
     consistency_updates = {}
     character_consistency_analyses = {}
+    character_motivations = {}
     
     for char_name, char_data in characters.items():
         # Skip if char_data is None
@@ -312,6 +394,24 @@ def track_character_consistency(state: StoryState) -> Dict:
                 
                 # Store the analysis
                 character_consistency_analyses[char_name] = consistency_analysis
+                
+                # Extract and store character motivations
+                motivations = _extract_character_motivations(char_data.get("name", char_name), scene_content)
+                if motivations:
+                    character_motivations[char_name] = motivations
+                    
+                    # Store in memory using existing memory tool
+                    manage_memory_tool.invoke({
+                        "action": "create",
+                        "key": f"character_motivations_{char_name}",
+                        "value": {
+                            "motivations": motivations,
+                            "chapter": current_chapter,
+                            "scene": current_scene,
+                            "timestamp": "now"
+                        },
+                        "namespace": MEMORY_NAMESPACE
+                    })
                 
                 # If there are significant inconsistencies, fix them
                 if consistency_analysis["consistency_score"] < 7 and consistency_analysis["issues"]:
@@ -336,10 +436,11 @@ def track_character_consistency(state: StoryState) -> Dict:
             except Exception as e:
                 print(f"Error tracking consistency for {char_name}: {str(e)}")
     
-    # Store the consistency analyses
+    # Store the consistency analyses and motivations
     return {
         **consistency_updates,
-        "character_consistency_analyses": character_consistency_analyses
+        "character_consistency_analyses": character_consistency_analyses,
+        "character_motivations": character_motivations
     }
 
 def generate_consistency_guidance(characters: Dict[str, Any], plot_threads: List[Dict[str, Any]] = None) -> str:

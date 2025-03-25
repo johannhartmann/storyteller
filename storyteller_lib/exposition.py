@@ -442,7 +442,352 @@ def check_and_generate_exposition_guidance(state: StoryState) -> Dict:
     # Generate exposition guidance
     exposition_guidance = generate_exposition_guidance(concepts_to_introduce, genre, tone)
     
+    # Add sensory checklists for each concept
+    sensory_checklists = {}
+    for concept in concepts_to_introduce:
+        sensory_checklists[concept["name"]] = generate_concept_sensory_checklist(concept)
+    
+    # Add sensory checklists to exposition guidance
+    if sensory_checklists:
+        sensory_guidance = "\n\nSENSORY CHECKLISTS FOR KEY CONCEPTS:\n"
+        for concept_name, checklist in sensory_checklists.items():
+            sensory_guidance += f"\n{concept_name}:\n{checklist}\n"
+        
+        exposition_guidance += sensory_guidance
+    
+    # Add showing vs. telling guidance
+    showing_telling_guidance = """
+    SHOWING VS. TELLING FOR CONCEPT INTRODUCTION:
+    
+    Instead of explaining concepts directly, demonstrate them through:
+    
+    1. CHARACTER INTERACTIONS:
+       - Show characters using or encountering the concept
+       - Reveal information through character reactions
+       - Use dialogue that naturally incorporates the concept
+    
+    2. SENSORY EXPERIENCES:
+       - Describe how the concept looks, sounds, smells, feels, or tastes
+       - Show physical manifestations of abstract concepts
+       - Create vivid imagery that embodies the concept
+    
+    3. ENVIRONMENTAL CUES:
+       - Use the setting to reflect or embody the concept
+       - Show how the concept affects the environment
+       - Create atmosphere that reinforces the concept
+    
+    4. CONCRETE EXAMPLES:
+       - Show specific instances rather than general explanations
+       - Use representative examples that illustrate the concept
+       - Create symbolic objects or events that embody the concept
+    """
+    
+    exposition_guidance += showing_telling_guidance
+    
     return {
         "concepts_to_introduce": concepts_to_introduce,
-        "exposition_guidance": exposition_guidance
+        "exposition_guidance": exposition_guidance,
+        "sensory_checklists": sensory_checklists
     }
+
+def convert_exposition_to_sensory(exposition_text: str) -> str:
+    """
+    Convert expository statements into sensory descriptions.
+    
+    Args:
+        exposition_text: The expository text to convert
+        
+    Returns:
+        Sensory descriptions that show rather than tell
+    """
+    # Prepare the prompt for converting exposition to sensory descriptions
+    prompt = f"""
+    Convert this expository text into sensory descriptions that show rather than tell:
+    
+    {exposition_text}
+    
+    Focus on:
+    - Visual details (what would a character SEE?)
+    - Sounds (what would a character HEAR?)
+    - Smells, tastes, and textures (what physical sensations are associated?)
+    - Character reactions and emotions (how do characters physically respond?)
+    - Environmental cues (how does the environment reflect the information?)
+    
+    EXAMPLES:
+    
+    TELLING: "The Sülfmeister were resentful of the Patrizier's power over the salt trade."
+    SHOWING: "Müller's knuckles whitened around his salt measure as the Patrizier's tax collector approached. The other Sülfmeister exchanged glances, their shoulders tensing beneath salt-crusted coats. No one spoke, but their silence carried the weight of generations of resentment."
+    
+    TELLING: "The Salzmal was an ancient salt tax that caused conflict between social classes."
+    SHOWING: "The iron seal of the Salzmal glinted on the collection box, its worn edges smoothed by centuries of reluctant tributes. When it appeared, conversations hushed and eyes darted to worn boots. A Sülfmeister spat on the ground, the gesture small but defiant, while the Patrizier's man adjusted his clean collar with manicured fingers."
+    
+    Return only the converted text with no explanations or comments.
+    """
+    
+    try:
+        # Generate the sensory descriptions
+        response = llm.invoke([HumanMessage(content=prompt)])
+        
+        # Check if we got a valid response
+        if response is None or response.content is None:
+            print("Error converting exposition to sensory: LLM returned None")
+            return exposition_text  # Return original text if conversion fails
+        
+        # Clean up the response
+        sensory_text = response.content.strip()
+        
+        return sensory_text
+    
+    except Exception as e:
+        print(f"Error converting exposition to sensory: {str(e)}")
+        return exposition_text  # Return original text if conversion fails
+
+def identify_telling_passages(scene_content: str) -> List[str]:
+    """
+    Identify passages in a scene that tell rather than show.
+    
+    Args:
+        scene_content: The content of the scene
+        
+    Returns:
+        A list of passages that tell rather than show
+    """
+    # Prepare the prompt for identifying telling passages
+    prompt = f"""
+    Identify passages in this scene that "tell" rather than "show":
+    
+    {scene_content}
+    
+    Look for:
+    1. Direct statements about emotions rather than physical manifestations
+    2. Explanations of world elements rather than interactions with them
+    3. Abstract descriptions rather than concrete sensory details
+    4. Statements that explain character traits rather than demonstrating them
+    5. Exposition that could be converted to action, dialogue, or sensory experience
+    
+    For each passage, extract ONLY the exact text that should be converted to showing.
+    Format your response as a JSON array of strings, with each string being a passage to convert.
+    """
+    
+    try:
+        # Define Pydantic model for structured output
+        from pydantic import BaseModel, Field
+        from typing import List
+        
+        class TellingPassages(BaseModel):
+            """Passages that tell rather than show."""
+            passages: List[str] = Field(
+                description="List of passages that tell rather than show"
+            )
+        
+        # Create a structured LLM that outputs TellingPassages
+        structured_llm = llm.with_structured_output(TellingPassages)
+        
+        # Use the structured LLM to identify telling passages
+        telling_passages = structured_llm.invoke(prompt)
+        
+        # Check if we got a valid response
+        if telling_passages is None:
+            print("Error identifying telling passages: LLM returned None")
+            return []
+        
+        # Return the list of passages
+        return telling_passages.passages
+    
+    except Exception as e:
+        print(f"Error identifying telling passages: {str(e)}")
+        return []  # Return empty list if identification fails
+
+def analyze_showing_vs_telling(scene_content: str) -> Dict[str, Any]:
+    """
+    Analyze the balance of showing vs. telling in a scene.
+    
+    Args:
+        scene_content: The content of the scene
+        
+    Returns:
+        A dictionary with showing vs. telling analysis results
+    """
+    # Prepare the prompt for analyzing showing vs. telling
+    prompt = f"""
+    Analyze this scene for the balance of showing vs. telling:
+    
+    {scene_content}
+    
+    Evaluate:
+    1. How effectively does the scene use sensory details?
+    2. Are emotions shown through physical manifestations or just stated?
+    3. Are world elements experienced through character interaction or just explained?
+    4. Is character development demonstrated through actions or just described?
+    5. What is the overall ratio of showing to telling?
+    
+    Identify specific examples of:
+    - Effective showing (with excerpts)
+    - Instances of telling that could be improved (with excerpts)
+    - Missed opportunities for sensory details
+    
+    Format your response as a structured JSON object.
+    """
+    
+    try:
+        # Define Pydantic models for structured output
+        from pydantic import BaseModel, Field
+        from typing import List
+        
+        class TellingInstance(BaseModel):
+            """An instance of telling rather than showing."""
+            text: str = Field(
+                description="The text that tells rather than shows"
+            )
+            issue: str = Field(
+                description="What type of telling issue this is"
+            )
+            improvement_suggestion: str = Field(
+                description="Suggestion for how to convert to showing"
+            )
+        
+        class ShowingInstance(BaseModel):
+            """An instance of effective showing."""
+            text: str = Field(
+                description="The text that effectively shows"
+            )
+            strength: str = Field(
+                description="What makes this an effective example of showing"
+            )
+        
+        class ShowingTellingAnalysis(BaseModel):
+            """Analysis of showing vs. telling in a scene."""
+            sensory_details_score: int = Field(
+                ge=1, le=10,
+                description="Effectiveness of sensory details (1=poor, 10=excellent)"
+            )
+            emotion_showing_score: int = Field(
+                ge=1, le=10,
+                description="How well emotions are shown rather than told"
+            )
+            world_element_showing_score: int = Field(
+                ge=1, le=10,
+                description="How well world elements are shown rather than explained"
+            )
+            character_development_showing_score: int = Field(
+                ge=1, le=10,
+                description="How well character development is shown rather than described"
+            )
+            overall_showing_ratio: int = Field(
+                ge=1, le=10,
+                description="Overall ratio of showing to telling (1=all telling, 10=all showing)"
+            )
+            telling_instances: List[TellingInstance] = Field(
+                default_factory=list,
+                description="Instances of telling that could be improved"
+            )
+            showing_instances: List[ShowingInstance] = Field(
+                default_factory=list,
+                description="Examples of effective showing"
+            )
+            missed_opportunities: List[str] = Field(
+                default_factory=list,
+                description="Missed opportunities for sensory details"
+            )
+            improvement_suggestions: List[str] = Field(
+                default_factory=list,
+                description="General suggestions for improving showing vs. telling"
+            )
+        
+        # Create a structured LLM that outputs a ShowingTellingAnalysis
+        structured_llm = llm.with_structured_output(ShowingTellingAnalysis)
+        
+        # Use the structured LLM to analyze showing vs. telling
+        showing_telling_analysis = structured_llm.invoke(prompt)
+        
+        # Check if we got a valid response
+        if showing_telling_analysis is None:
+            print("Error analyzing showing vs. telling: LLM returned None")
+            return {
+                "sensory_details_score": 5,
+                "emotion_showing_score": 5,
+                "world_element_showing_score": 5,
+                "character_development_showing_score": 5,
+                "overall_showing_ratio": 5,
+                "telling_instances": [],
+                "showing_instances": [],
+                "missed_opportunities": [],
+                "improvement_suggestions": ["Error analyzing showing vs. telling: LLM returned None"]
+            }
+        
+        # Convert Pydantic model to dictionary
+        return showing_telling_analysis.dict()
+    
+    except Exception as e:
+        print(f"Error analyzing showing vs. telling: {str(e)}")
+        return {
+            "sensory_details_score": 5,
+            "emotion_showing_score": 5,
+            "world_element_showing_score": 5,
+            "character_development_showing_score": 5,
+            "overall_showing_ratio": 5,
+            "telling_instances": [],
+            "showing_instances": [],
+            "missed_opportunities": [],
+            "improvement_suggestions": ["Error analyzing showing vs. telling"]
+        }
+
+def generate_concept_sensory_checklist(concept: Dict[str, Any]) -> str:
+    """
+    Generate a sensory checklist for a key concept.
+    
+    Args:
+        concept: The concept data
+        
+    Returns:
+        A sensory checklist for the concept
+    """
+    # Prepare the prompt for generating a sensory checklist
+    prompt = f"""
+    Generate a sensory checklist for introducing this concept:
+    
+    CONCEPT: {concept['name']}
+    DESCRIPTION: {concept['description']}
+    
+    Create a checklist of sensory details that could be used to introduce this concept through showing rather than telling.
+    Include at least one item for each sensory category:
+    - Visual details
+    - Sounds
+    - Smells/tastes
+    - Textures/physical sensations
+    - Character reactions
+    
+    Format your response as a concise, actionable checklist.
+    """
+    
+    try:
+        # Generate the sensory checklist
+        response = llm.invoke([HumanMessage(content=prompt)])
+        
+        # Check if we got a valid response
+        if response is None or response.content is None:
+            print("Error generating concept sensory checklist: LLM returned None")
+            return f"""
+            Sensory Checklist for {concept['name']}:
+            - Visual: Show a physical manifestation of the concept
+            - Sound: Include sounds associated with the concept
+            - Smell/Taste: Add olfactory or gustatory details
+            - Touch: Describe textures or physical sensations
+            - Reaction: Show character physical/emotional reactions
+            """
+        
+        # Clean up the response
+        sensory_checklist = response.content.strip()
+        
+        return sensory_checklist
+    
+    except Exception as e:
+        print(f"Error generating concept sensory checklist: {str(e)}")
+        return f"""
+        Sensory Checklist for {concept['name']}:
+        - Visual: Show a physical manifestation of the concept
+        - Sound: Include sounds associated with the concept
+        - Smell/Taste: Add olfactory or gustatory details
+        - Touch: Describe textures or physical sensations
+        - Reaction: Show character physical/emotional reactions
+        """

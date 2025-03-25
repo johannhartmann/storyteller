@@ -1316,82 +1316,65 @@ def reflect_on_scene(state: StoryState) -> Dict:
     # Create a summary of the reflection for display
     reflection_summary = reflection_dict.get("overall_assessment", "No summary available")
     
-    # Create a list of issues for quick reference
-    issues_summary = []
-    for issue in reflection_dict.get("issues", []):
-        issue_type = issue.get("type", "unknown")
-        description = issue.get("description", "No description")
-        severity = issue.get("severity", 0)
-        issues_summary.append(f"{issue_type.upper()} (Severity: {severity}/10): {description}")
-    
-    # If no issues were found, note that
-    if not issues_summary:
-        issues_summary.append("No significant issues detected")
-    
     # Print debug information about the issues
     print(f"\nDEBUG BEFORE STORAGE: Found {len(reflection_dict.get('issues', []))} issues in reflection_dict")
     for i, issue in enumerate(reflection_dict.get('issues', [])):
         print(f"DEBUG BEFORE STORAGE: Issue {i+1} - Type: {issue.get('type', 'unknown')}, Severity: {issue.get('severity', 'N/A')}")
         print(f"DEBUG BEFORE STORAGE: Description: '{issue.get('description', '')}'")
     
-    # Check if issues exist in issues_summary but not in reflection_dict
-    if issues_summary and not reflection_dict.get('issues', []):
-        print("WARNING: Issues found in summary but not in structured data. Reconstructing issues...")
-        reconstructed_issues = []
-        for summary in issues_summary:
-            if "Severity:" in summary:
-                parts = summary.split("(Severity:", 1)
-                issue_type = parts[0].strip()
-                rest = parts[1].split(")", 1)
-                try:
-                    severity = int(rest[0].strip().split("/")[0])
-                except:
-                    severity = 5
-                description = rest[1].strip(": ") if len(rest) > 1 else "Unspecified issue"
+    # Create a list of issues for quick reference
+    issues_summary = []
+    
+    # If we have issues in reflection_dict, use them to create the summary
+    if reflection_dict.get("issues", []):
+        for issue in reflection_dict.get("issues", []):
+            issue_type = issue.get("type", "unknown")
+            description = issue.get("description", "No description")
+            severity = issue.get("severity", 0)
+            issues_summary.append(f"{issue_type.upper()} (Severity: {severity}/10): {description}")
+    else:
+        # Check if we can extract issues from the overall assessment
+        overall_assessment = reflection_dict.get("overall_assessment", "")
+        if "issue" in overall_assessment.lower() or "problem" in overall_assessment.lower() or "concern" in overall_assessment.lower():
+            print("WARNING: Issues mentioned in overall assessment but not in structured data. Attempting to extract...")
+            # Use a simple approach to extract issues from the overall assessment
+            sentences = overall_assessment.split(". ")
+            for sentence in sentences:
+                if "issue" in sentence.lower() or "problem" in sentence.lower() or "concern" in sentence.lower():
+                    issues_summary.append(f"EXTRACTED (Severity: 5/10): {sentence.strip()}")
+            
+            # Reconstruct issues from the extracted sentences
+            if issues_summary:
+                print(f"Extracted {len(issues_summary)} potential issues from overall assessment")
+                reconstructed_issues = []
+                for summary in issues_summary:
+                    if "Severity:" in summary:
+                        parts = summary.split("(Severity:", 1)
+                        issue_type = parts[0].strip()
+                        rest = parts[1].split(")", 1)
+                        try:
+                            severity = int(rest[0].strip().split("/")[0])
+                        except:
+                            severity = 5
+                        description = rest[1].strip(": ") if len(rest) > 1 else "Unspecified issue"
+                        
+                        reconstructed_issues.append({
+                            "type": issue_type.lower(),
+                            "description": description,
+                            "severity": severity,
+                            "recommendation": "Review and address this issue"
+                        })
                 
-                reconstructed_issues.append({
-                    "type": issue_type.lower(),
-                    "description": description,
-                    "severity": severity,
-                    "recommendation": "Review and address this issue"
-                })
-        
-        if reconstructed_issues:
-            print(f"Reconstructed {len(reconstructed_issues)} issues from summary")
-            reflection_dict["issues"] = reconstructed_issues
-            # Also set needs_revision to True since we found issues
-            reflection_dict["needs_revision"] = True
-            reflection_dict["revision_priority"] = "medium"
-    # Ensure issues are properly stored
-    # If we have issues in the formatted_issues but not in reflection_dict["issues"],
-    # reconstruct the issues from the formatted_issues
-    if issues_summary and not reflection_dict.get("issues"):
-        print("CRITICAL: Issues found in formatted_issues but not in reflection_dict['issues']. Reconstructing...")
-        reconstructed_issues = []
-        for summary in issues_summary:
-            if "Severity:" in summary:
-                parts = summary.split("(Severity:", 1)
-                issue_type = parts[0].strip()
-                rest = parts[1].split(")", 1)
-                try:
-                    severity = int(rest[0].strip().split("/")[0])
-                except:
-                    severity = 5
-                description = rest[1].strip(": ") if len(rest) > 1 else "Unspecified issue"
-                
-                reconstructed_issues.append({
-                    "type": issue_type.lower(),
-                    "description": description,
-                    "severity": severity,
-                    "recommendation": "Review and address this issue"
-                })
-        
-        if reconstructed_issues:
-            print(f"Reconstructed {len(reconstructed_issues)} issues from formatted_issues")
-            reflection_dict["issues"] = reconstructed_issues
-            # Also set needs_revision to True since we found issues
-            reflection_dict["needs_revision"] = True
-            reflection_dict["revision_priority"] = "medium"
+                if reconstructed_issues:
+                    print(f"Reconstructed {len(reconstructed_issues)} issues from assessment")
+                    reflection_dict["issues"] = reconstructed_issues
+                    # Also set needs_revision to True since we found issues
+                    reflection_dict["needs_revision"] = True
+                    reflection_dict["revision_priority"] = "medium"
+    
+    # If no issues were found after all attempts, note that
+    if not issues_summary:
+        issues_summary.append("No significant issues detected")
     
     # Format for storage - now we store the entire structured reflection directly
     # since we're using proper structured output
