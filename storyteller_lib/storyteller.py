@@ -472,7 +472,23 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
                 "language": language,
                 "importance": "critical",
                 "must_be_followed": True,
-                "instruction": f"All story elements including character names, place names, cultural references, and dialogue must be consistent with {SUPPORTED_LANGUAGES[language.lower()]} language and culture."
+                "instruction": f"""
+                CRITICAL LANGUAGE INSTRUCTION:
+                
+                This story MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+                ALL content - including outlines, character descriptions, scene elements, reflections, and revisions - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+                DO NOT switch to any other language at ANY point in the story generation process.
+                
+                This applies to ALL stages of story creation:
+                - Story outline and planning
+                - Character development
+                - Chapter planning
+                - Scene writing
+                - Scene reflection and revision
+                - Continuity reviews
+                
+                CRITICAL: Maintain {SUPPORTED_LANGUAGES[language.lower()]} throughout ALL parts of the story and ALL stages of the generation process without ANY exceptions.
+                """
             },
             "namespace": MEMORY_NAMESPACE
         })
