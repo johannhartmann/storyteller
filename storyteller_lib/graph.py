@@ -17,9 +17,10 @@ from storyteller_lib.initialization import initialize_state, brainstorm_story_co
 from storyteller_lib.outline import generate_story_outline, generate_characters, plan_chapters
 from storyteller_lib.worldbuilding import generate_worldbuilding
 from storyteller_lib.scenes import (
-    brainstorm_scene_elements, 
-    write_scene, 
-    reflect_on_scene, 
+    brainstorm_scene_elements,
+    write_scene,
+    process_showing_telling,
+    reflect_on_scene,
     revise_scene_if_needed
 )
 # Import the optimized progression functions
@@ -212,6 +213,7 @@ def build_story_graph():
     graph_builder.add_node("plan_chapters", plan_chapters)
     graph_builder.add_node("brainstorm_scene_elements", brainstorm_scene_elements)
     graph_builder.add_node("write_scene", write_scene)
+    graph_builder.add_node("process_showing_telling", process_showing_telling)
     graph_builder.add_node("reflect_on_scene", reflect_on_scene)
     graph_builder.add_node("revise_scene_if_needed", revise_scene_if_needed)
     graph_builder.add_node("update_world_elements", update_world_elements)
@@ -276,8 +278,11 @@ def build_story_graph():
     # Simplified: Always go from brainstorming to writing
     graph_builder.add_edge("brainstorm_scene_elements", "write_scene")
     
-    # Simplified: Always go from writing to reflection
-    graph_builder.add_edge("write_scene", "reflect_on_scene")
+    # Add edge from writing to showing/telling processing
+    graph_builder.add_edge("write_scene", "process_showing_telling")
+    
+    # Add edge from showing/telling processing to reflection
+    graph_builder.add_edge("process_showing_telling", "reflect_on_scene")
     
     # Fixed edge for reflection to revision
     graph_builder.add_edge("reflect_on_scene", "revise_scene_if_needed")
