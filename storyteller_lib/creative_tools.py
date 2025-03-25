@@ -323,12 +323,31 @@ def creative_brainstorm(
         },
         "namespace": MEMORY_NAMESPACE
     })
-    
     # Return results
+    # Extract recommended ideas from evaluation, with fallback to the best idea from ideas_response
+    recommended_ideas = None
+    if "recommend" in evaluation.lower():
+        recommended_ideas = evaluation.split("recommend")[-1].strip()
+    else:
+        # Try to extract the first idea as a fallback
+        idea_sections = ideas_response.split("\n\n")
+        for section in idea_sections:
+            if section.strip().startswith("1.") or section.strip().startswith("1)") or "Idea 1:" in section:
+                recommended_ideas = section.strip()
+                break
+        
+        # If still no recommended ideas, use the first paragraph of the evaluation
+        if not recommended_ideas and evaluation:
+            recommended_ideas = evaluation.split("\n\n")[0] if "\n\n" in evaluation else evaluation
+    
+    # Ensure we always have some content
+    if not recommended_ideas:
+        recommended_ideas = f"Best idea for {topic}: " + (ideas_response.split("\n")[0] if "\n" in ideas_response else ideas_response[:100])
+    
     return {
         "ideas": ideas_response,
         "evaluation": evaluation,
-        "recommended_ideas": evaluation.split("recommend")[-1].strip() if "recommend" in evaluation.lower() else None
+        "recommended_ideas": recommended_ideas
     }
 
 def create_pydantic_model_from_dict(schema_dict: Dict, model_name: str = "DynamicModel") -> Type[BaseModel]:
