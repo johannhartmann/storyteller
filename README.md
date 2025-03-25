@@ -122,6 +122,94 @@ StoryCraft uses LangGraph to orchestrate the story generation process through se
 
 The agent maintains state throughout the process using LangGraph's state management and uses LangMem for memory operations to ensure consistency and continuity.
 
+## System Components
+
+### Plot Thread Tracking
+
+The plot tracking system manages narrative threads throughout the story generation process:
+
+1. **Thread Identification**:
+   - After each scene is written, the system analyzes it to identify plot threads
+   - Uses LLM with structured output to extract thread information
+   - Recognizes various types of threads: mysteries, quests, relationships, conflicts, secrets
+
+2. **Thread Management**:
+   - `PlotThread` class represents individual threads with properties like name, description, importance, and status
+   - `PlotThreadRegistry` maintains all threads and provides filtering methods
+   - Threads have statuses (INTRODUCED, DEVELOPED, RESOLVED, ABANDONED) and importance levels (MAJOR, MINOR, BACKGROUND)
+
+3. **Thread Integration**:
+   - When writing new scenes, the system provides guidance on active threads that need attention
+   - Major threads must be addressed, minor threads should be addressed if relevant
+   - At story completion, the system verifies all major threads are resolved
+
+### Scene Generation
+
+The scene generation process combines creativity with structural coherence:
+
+1. **Brainstorming**:
+   - `brainstorm_scene_elements` generates creative elements and potential surprises
+   - Evaluates ideas based on criteria like visual impact, character development, and plot advancement
+
+2. **Writing**:
+   - `write_scene` uses comprehensive context including plot threads, character information, and worldbuilding
+   - Incorporates author style, language considerations, and emotional guidance
+   - Ensures scene serves both character and plot development
+
+3. **Reflection & Revision**:
+   - `reflect_on_scene` evaluates the scene against quality criteria
+   - `revise_scene_if_needed` addresses identified issues
+   - Ensures consistency with established world elements and character traits
+
+### Character Management
+
+Characters evolve dynamically throughout the story:
+
+1. **Profile Creation**:
+   - Generates detailed character profiles with backstory, motivations, and traits
+   - Establishes relationships between characters
+   - Defines inner conflicts and character arcs
+
+2. **Knowledge Tracking**:
+   - Maintains what each character knows at any point in the story
+   - Prevents knowledge inconsistencies (characters knowing things they shouldn't)
+
+3. **Profile Updates**:
+   - After each scene, character profiles are updated to reflect developments
+   - Tracks character growth, relationship changes, and new knowledge
+
+### Worldbuilding System
+
+The worldbuilding system creates and maintains a consistent story world:
+
+1. **Element Generation**:
+   - Creates detailed world elements across categories (geography, politics, culture, etc.)
+   - Tailors elements to the story's genre and tone
+
+2. **Scene Integration**:
+   - Identifies which world elements are relevant to each scene
+   - Provides worldbuilding guidance to ensure consistency
+
+3. **Dynamic Updates**:
+   - World elements evolve as the story progresses
+   - New locations, cultural details, and world rules can be added organically
+
+### Consistency Management
+
+The system maintains narrative consistency through several mechanisms:
+
+1. **Continuity Review**:
+   - After each chapter, reviews for continuity issues
+   - Identifies plot holes, character inconsistencies, and worldbuilding contradictions
+
+2. **Issue Resolution**:
+   - Resolves identified issues through targeted revisions
+   - Updates relevant state elements to maintain consistency
+
+3. **Memory Integration**:
+   - Uses LangMem to store and retrieve important story elements
+   - Creates memory anchors for critical elements that must be preserved
+
 ## Architecture
 
 The agent is built using:
@@ -132,6 +220,48 @@ The agent is built using:
 - **LangChain Caching**: For improved performance and cost efficiency
 
 The architecture follows a graph structure with nodes for each step of the story generation process, connected by conditional edges that determine the flow based on the current state.
+
+### Core Modules
+
+1. **Initialization (`initialization.py`)**:
+   - Sets up initial state based on user parameters
+   - Generates author style guidance if an author is specified
+   - Initializes memory with key constraints and requirements
+
+2. **Outline Generation (`outline.py`)**:
+   - Creates the global story structure following the hero's journey
+   - Generates character profiles with backstories and motivations
+   - Plans chapters with scene breakdowns
+
+3. **Worldbuilding (`worldbuilding.py`)**:
+   - Generates detailed world elements across multiple categories
+   - Creates geography, politics, culture, history, and more
+   - Ensures world elements align with genre conventions
+
+4. **Scene Management (`scenes.py`)**:
+   - Handles scene brainstorming, writing, reflection, and revision
+   - Integrates plot threads, character information, and world elements
+   - Ensures scenes advance both character arcs and plot development
+
+5. **Plot Thread Tracking (`plot_threads.py`)**:
+   - Identifies and manages narrative threads throughout the story
+   - Tracks thread status (introduced, developed, resolved, abandoned)
+   - Ensures major plot threads are properly resolved
+
+6. **Progression Management (`progression.py`)**:
+   - Handles transitions between scenes and chapters
+   - Updates character profiles and world elements
+   - Reviews continuity and resolves issues
+
+7. **Graph Construction (`graph.py`)**:
+   - Defines the LangGraph workflow with nodes and conditional edges
+   - Implements decision functions that determine the flow
+   - Manages state transitions between components
+
+8. **Storyteller Core (`storyteller.py`)**:
+   - Provides the main entry point for story generation
+   - Handles initial idea parsing and genre element extraction
+   - Manages memory anchors for critical story elements
 
 ## LangGraph Workflow
 
@@ -200,6 +330,101 @@ The system includes detailed progress tracking through every step of the story g
 - **Detailed Progress Reporting**: Provides context-specific information for each step (brainstorming, writing, reflection)
 - **Percentage Completion**: Calculates and displays overall progress through chapters and scenes
 - **Error Handling**: Gracefully handles errors and provides meaningful error messages
+
+## Technical Implementation Details
+
+### Plot Thread Tracking Implementation
+
+The plot tracking system is implemented with several key components:
+
+1. **Data Structures**:
+   ```python
+   class PlotThread:
+       """Class representing a plot thread with tracking information."""
+       def __init__(self, name, description, importance="minor", status="introduced", ...):
+           self.name = name
+           self.description = description
+           self.importance = importance
+           self.status = status
+           self.development_history = []
+           # Additional tracking properties...
+   
+   class PlotThreadRegistry:
+       """Registry for tracking all plot threads in a story."""
+       def __init__(self):
+           self.threads = {}
+       
+       def list_active_threads(self):
+           """List all active (non-resolved, non-abandoned) plot threads."""
+           return [thread for thread in self.threads.values()
+                  if thread.status not in ["resolved", "abandoned"]]
+   ```
+
+2. **Thread Identification Process**:
+   ```python
+   def identify_plot_threads_in_scene(scene_content, chapter_num, scene_num, characters):
+       """Identify plot threads introduced or developed in a scene."""
+       # Use LLM with structured output to analyze the scene
+       structured_llm = llm.with_structured_output(PlotThreadUpdateContainer)
+       container = structured_llm.invoke(prompt_analyzing_scene)
+       return [update.dict() for update in container.updates]
+   ```
+
+3. **Thread Integration with Scene Generation**:
+   ```python
+   def _prepare_plot_thread_guidance(active_plot_threads):
+       """Prepare plot thread guidance section for scene writing."""
+       # Group threads by importance
+       major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
+       minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
+       # Format guidance for the scene writer...
+   ```
+
+4. **State Management Integration**:
+   ```python
+   def update_plot_threads(state):
+       """Update plot threads based on the current scene."""
+       # Get the scene content
+       scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+       # Identify plot threads in the scene
+       thread_updates = identify_plot_threads_in_scene(scene_content, ...)
+       # Update the registry with new information
+       registry = PlotThreadRegistry.from_state(state)
+       # Process each thread update...
+       return {
+           "plot_threads": registry.to_dict(),  # Store in state
+           "plot_thread_updates": thread_updates
+       }
+   ```
+
+This implementation ensures that plot threads are dynamically identified, tracked, and integrated into the story generation process, maintaining narrative coherence throughout.
+
+## Component Interactions
+
+### Plot Tracking Integration with Story Flow
+
+The plot tracking system interacts with other components throughout the story generation process:
+
+1. **Scene Generation Integration**:
+   - Before writing a scene, the system retrieves active plot threads using `get_active_plot_threads_for_scene`
+   - These threads are incorporated into the scene writing prompt via `_prepare_plot_thread_guidance`
+   - This ensures the writer is aware of which threads need development or resolution
+
+2. **State Management Integration**:
+   - After a scene is written, `update_plot_threads` analyzes the scene and updates the thread registry
+   - The updated registry is stored in the state and passed to subsequent nodes
+   - This creates a feedback loop where each scene influences future scenes
+
+3. **Continuity Review Integration**:
+   - During continuity review, `check_plot_thread_resolution` verifies all major threads are resolved
+   - Unresolved threads are flagged as continuity issues that need resolution
+   - This prevents the story from ending with unresolved major plot elements
+
+4. **Story Compilation Integration**:
+   - Before final compilation, a final check ensures all major threads are resolved
+   - This provides a safeguard against plot holes in the finished story
+
+This integrated approach ensures that plot threads are not just tracked passively but actively influence the story generation process at multiple points, creating a coherent narrative with properly developed and resolved plot elements.
 
 ## Recent Improvements
 
