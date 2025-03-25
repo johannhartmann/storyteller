@@ -149,18 +149,35 @@ def progress_callback(node_name, state):
             if "story_concepts" in creative and "recommended_ideas" in creative["story_concepts"]:
                 # Extract just the first paragraph for a quick preview
                 concept = creative['story_concepts']['recommended_ideas']
-                concept_preview = concept.split('\n\n')[0] if '\n\n' in concept else concept
-                sys.stdout.write(f"STORY CONCEPT: \n{concept_preview}\n\n")
+                if concept:  # Check if concept is not None
+                    concept_preview = concept.split('\n\n')[0] if '\n\n' in concept else concept
+                    sys.stdout.write(f"STORY CONCEPT: \n{concept_preview}\n\n")
+                else:
+                    sys.stdout.write(f"STORY CONCEPT: \nNo concept available\n\n")
+            else:
+                sys.stdout.write(f"STORY CONCEPT: \nNo concept available\n\n")
+                    
             if "world_building" in creative and "recommended_ideas" in creative["world_building"]:
                 # Extract just the title and first sentence
                 world = creative['world_building']['recommended_ideas']
-                world_preview = ': '.join(world.split(':')[:2]) if ':' in world else world.split('.')[0]
-                sys.stdout.write(f"WORLD BUILDING: \n{world_preview}\n\n")
+                if world:  # Check if world is not None
+                    world_preview = ': '.join(world.split(':')[:2]) if ':' in world else world.split('.')[0]
+                    sys.stdout.write(f"WORLD BUILDING: \n{world_preview}\n\n")
+                else:
+                    sys.stdout.write(f"WORLD BUILDING: \nNo world building available\n\n")
+            else:
+                sys.stdout.write(f"WORLD BUILDING: \nNo world building available\n\n")
+                    
             if "central_conflicts" in creative and "recommended_ideas" in creative["central_conflicts"]:
                 # Extract just the title and first sentence
                 conflict = creative['central_conflicts']['recommended_ideas']
-                conflict_preview = ': '.join(conflict.split(':')[:2]) if ':' in conflict else conflict.split('.')[0]
-                sys.stdout.write(f"CENTRAL CONFLICT: \n{conflict_preview}\n\n")
+                if conflict:  # Check if conflict is not None
+                    conflict_preview = ': '.join(conflict.split(':')[:2]) if ':' in conflict else conflict.split('.')[0]
+                    sys.stdout.write(f"CENTRAL CONFLICT: \n{conflict_preview}\n\n")
+                else:
+                    sys.stdout.write(f"CENTRAL CONFLICT: \nNo central conflict available\n\n")
+            else:
+                sys.stdout.write(f"CENTRAL CONFLICT: \nNo central conflict available\n\n")
             sys.stdout.write("------------------------------\n\n")
             
     elif node_name == "generate_story_outline":

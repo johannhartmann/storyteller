@@ -157,7 +157,21 @@ def generate_story_outline(state: StoryState) -> Dict:
         """
     
     # Prompt for story generation with emphasis on initial idea
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        DO NOT include ANY English text in your response.
+        DO NOT translate the hero's journey structure - create the outline directly in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any outline that contains English.
+        """
+    
     prompt = f"""
+    {language_instruction}
+    
     Create a compelling story outline for a {tone} {genre} narrative following the hero's journey structure.
     {f"This story should be based on this initial idea: '{initial_idea}'" if initial_idea else ""}
     
@@ -185,10 +199,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     
     Format your response as a structured outline with clear sections.
     
-    CRITICAL LANGUAGE INSTRUCTION:
-    This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-    ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-    DO NOT include ANY English text in your response.
+    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
     
     VERIFICATION STEP: After completing the outline, review it to ensure that:
     1. The setting from the initial idea is well-integrated throughout
@@ -210,6 +221,33 @@ def generate_story_outline(state: StoryState) -> Dict:
     
     # Perform multiple validation checks on the story outline
     validation_results = {}
+    
+    # Validate language if not English
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_validation_prompt = f"""
+        LANGUAGE VALIDATION: Check if this text is written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        Text to validate:
+        {story_outline}
+        
+        Provide:
+        1. A YES/NO determination if the text is completely in {SUPPORTED_LANGUAGES[language.lower()]}
+        2. If NO, identify which parts are not in {SUPPORTED_LANGUAGES[language.lower()]}
+        3. A score from 1-10 on language authenticity (does it feel like it was written by a native speaker?)
+        
+        Your response should be in English for this validation only.
+        """
+        
+        language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
+        validation_results["language"] = language_validation_result
+        
+        # Store the validation result in memory
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "outline_language_validation",
+            "value": language_validation_result,
+            "namespace": MEMORY_NAMESPACE
+        })
     
     # 1. Validate that the outline adheres to the initial idea if one was provided
     if initial_idea and initial_idea_elements:
@@ -347,6 +385,18 @@ def generate_story_outline(state: StoryState) -> Dict:
     needs_regeneration = False
     improvement_guidance = ""
     
+    # Check language validation first if not English
+    if language.lower() != DEFAULT_LANGUAGE and "language" in validation_results:
+        result = validation_results["language"]
+        if "NO" in result:
+            needs_regeneration = True
+            improvement_guidance += "LANGUAGE ISSUES:\n"
+            improvement_guidance += "The outline must be written ENTIRELY in " + SUPPORTED_LANGUAGES[language.lower()] + ".\n"
+            if "parts are not in" in result:
+                parts_section = result.split("parts are not in")[1].strip() if "parts are not in" in result else ""
+                improvement_guidance += "The following parts were not in the correct language: " + parts_section + "\n"
+            improvement_guidance += "\n\n"
+    
     # Check initial idea validation
     if "initial_idea" in validation_results:
         result = validation_results["initial_idea"]
@@ -355,7 +405,6 @@ def generate_story_outline(state: StoryState) -> Dict:
             needs_regeneration = True
             improvement_guidance += "INITIAL IDEA INTEGRATION ISSUES:\n"
             improvement_guidance += result.split("guidance on how to improve it")[-1].strip() if "guidance on how to improve it" in result else result
-            improvement_guidance += "\n\n"
             improvement_guidance += "\n\n"
     
     # Check genre validation
@@ -379,8 +428,22 @@ def generate_story_outline(state: StoryState) -> Dict:
     # If any validation failed, regenerate the outline
     if needs_regeneration:
         # Create a revised prompt with the improvement guidance
+        language_instruction = ""
+        if language.lower() != DEFAULT_LANGUAGE:
+            language_instruction = f"""
+            !!!CRITICAL LANGUAGE INSTRUCTION!!!
+            This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+            ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+            DO NOT include ANY English text in your response.
+            DO NOT translate the hero's journey structure - create the outline directly in {SUPPORTED_LANGUAGES[language.lower()]}.
+            
+            I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any outline that contains English.
+            """
+            
         revised_prompt = f"""
-        REVISION NEEDED: Your previous story outline needs improvement to better incorporate the initial idea. Please revise it based on this feedback:
+        {language_instruction}
+        
+        REVISION NEEDED: Your previous story outline needs improvement. Please revise it based on this feedback:
         
         AREAS NEEDING IMPROVEMENT:
         {improvement_guidance}
@@ -404,15 +467,16 @@ def generate_story_outline(state: StoryState) -> Dict:
         
         Genre Requirements: This MUST be a {genre} story with a {tone} tone.
         
+        {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
+        
         {prompt}
         """
         
         # Regenerate the outline
         story_outline = llm.invoke([HumanMessage(content=revised_prompt)]).content
-        
         # Perform a final verification check to ensure the regenerated outline meets the requirements
         final_verification_prompt = f"""
-        VERIFICATION CHECK: Evaluate whether this revised story outline effectively incorporates the initial idea.
+        VERIFICATION CHECK: Evaluate whether this revised story outline meets all requirements.
         
         Initial Idea: "{initial_idea}"
         
@@ -424,18 +488,37 @@ def generate_story_outline(state: StoryState) -> Dict:
         Revised Story Outline:
         {story_outline}
         
-        Provide a YES/NO determination if the outline now effectively incorporates the initial idea.
+        Check the following:
+        1. Does the outline effectively incorporate the initial idea? (YES/NO)
+        2. Does the outline adhere to the {genre} genre with a {tone} tone? (YES/NO)
+        {f'3. Is the outline written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]} without any English text? (YES/NO)' if language.lower() != DEFAULT_LANGUAGE else ''}
+        
+        Provide a YES/NO determination for each question.
+        If any answer is NO, specify what still needs improvement.
         If NO, specify what still needs improvement.
         """
         
         final_verification_result = llm.invoke([HumanMessage(content=final_verification_prompt)]).content
-        
         # If the outline still doesn't meet requirements, try one more time with additional guidance
         if "NO" in final_verification_result:
+            language_instruction = ""
+            if language.lower() != DEFAULT_LANGUAGE:
+                language_instruction = f"""
+                !!!CRITICAL LANGUAGE INSTRUCTION!!!
+                This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+                ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+                DO NOT include ANY English text in your response.
+                DO NOT translate the hero's journey structure - create the outline directly in {SUPPORTED_LANGUAGES[language.lower()]}.
+                
+                I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any outline that contains English.
+                """
+                
             final_attempt_prompt = f"""
+            {language_instruction}
+            
             FINAL REVISION NEEDED:
             
-            The story outline still needs improvement to better incorporate the initial idea:
+            The story outline still needs improvement:
             
             Initial Idea: "{initial_idea}"
             
@@ -446,7 +529,12 @@ def generate_story_outline(state: StoryState) -> Dict:
             1. Uses "{initial_idea_elements.get('setting', 'Unknown')}" as the primary setting
             2. Features "{', '.join(initial_idea_elements.get('characters', []))}" as central characters
             3. Centers around "{initial_idea_elements.get('plot', 'Unknown')}" as the main conflict
+            4. Adheres to the {genre} genre with a {tone} tone
+            {f'5. Is written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]} without ANY English text' if language.lower() != DEFAULT_LANGUAGE else ''}
             
+            Maintain the essence of the initial idea while crafting a compelling narrative.
+            
+            {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
             Maintain the essence of the initial idea while crafting a compelling narrative.
             """
             
@@ -663,8 +751,23 @@ def generate_characters(state: StoryState) -> Dict:
             For each required character, ensure their role, traits, and backstory align with the initial idea and the story outline.
             """
     
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        These character profiles MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content - including names, descriptions, backstories, and personality traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        DO NOT include ANY English text in your response.
+        DO NOT translate character archetypes - create the profiles directly in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any profiles that contain English.
+        """
+    
     # Prompt for character generation
     prompt = f"""
+    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
+    
     Based on this story outline:
     
     {global_story}
@@ -698,11 +801,6 @@ def generate_characters(state: StoryState) -> Dict:
     
     Make these characters:
     - RELATABLE: Give them universal hopes, fears, and struggles readers can empathize with
-    
-    CRITICAL LANGUAGE INSTRUCTION:
-    These character profiles MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-    ALL content - including names, descriptions, backstories, and personality traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-    DO NOT include ANY English text in your response.
     - COMPLEX: Include contradictions and inner turmoil that make them feel authentic
     - DISTINCTIVE: Ensure each character has a unique voice, perspective, and emotional journey
     
@@ -710,12 +808,69 @@ def generate_characters(state: StoryState) -> Dict:
     
     {char_style_section}
     
+    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
+    
     {language_guidance}
     """
-    
     # Generate character profiles
     character_profiles_text = llm.invoke([HumanMessage(content=prompt)]).content
     
+    # Validate language if not English
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_validation_prompt = f"""
+        LANGUAGE VALIDATION: Check if this text is written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        Text to validate:
+        {character_profiles_text}
+        
+        Provide:
+        1. A YES/NO determination if the text is completely in {SUPPORTED_LANGUAGES[language.lower()]}
+        2. If NO, identify which parts are not in {SUPPORTED_LANGUAGES[language.lower()]}
+        3. A score from 1-10 on language authenticity (does it feel like it was written by a native speaker?)
+        
+        Your response should be in English for this validation only.
+        """
+        
+        language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
+        
+        # Store the validation result in memory
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "character_profiles_language_validation",
+            "value": language_validation_result,
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # If language validation fails, regenerate with stronger language instruction
+        if "NO" in language_validation_result:
+            stronger_language_instruction = f"""
+            !!!CRITICAL LANGUAGE INSTRUCTION - PREVIOUS ATTEMPT FAILED!!!
+            
+            Your previous response contained English text. This is NOT acceptable.
+            
+            These character profiles MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+            ALL content - including names, descriptions, backstories, and personality traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+            DO NOT include ANY English text in your response.
+            DO NOT translate character archetypes - create the profiles directly in {SUPPORTED_LANGUAGES[language.lower()]}.
+            
+            I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any profiles that contain English.
+            
+            The following parts were not in {SUPPORTED_LANGUAGES[language.lower()]}:
+            {language_validation_result.split("which parts are not in")[1].strip() if "which parts are not in" in language_validation_result else "Some parts of the text"}
+            """
+            
+            # Regenerate with stronger language instruction
+            revised_prompt = f"""
+            {stronger_language_instruction}
+            
+            {prompt}
+            
+            {stronger_language_instruction}
+            """
+            
+            character_profiles_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
+    
+    # Validate that the characters are appropriate for the genre and setting
     # Validate that the characters are appropriate for the genre and setting
     if genre and initial_idea_elements and initial_idea_elements.get('setting'):
         setting = initial_idea_elements.get('setting')
@@ -1172,10 +1327,20 @@ def plan_chapters(state: StoryState) -> Dict:
     genre = state["genre"]
     tone = state["tone"]
     language = state.get("language", DEFAULT_LANGUAGE)
-    
-    # Prepare language guidance for chapters
+    # Prepare language instruction and guidance
+    language_instruction = ""
     language_guidance = ""
     if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        This chapter plan MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content - including chapter titles, summaries, scene descriptions, and character development - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        DO NOT include ANY English text in your response.
+        DO NOT translate the hero's journey structure - create the chapter plan directly in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any plan that contains English.
+        """
+        
         language_guidance = f"""
         CHAPTER LANGUAGE CONSIDERATIONS:
         Plan chapters appropriate for a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
@@ -1191,6 +1356,8 @@ def plan_chapters(state: StoryState) -> Dict:
     
     # Prompt for chapter planning
     prompt = f"""
+    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
+    
     Based on this story outline:
     
     {global_story}
@@ -1211,10 +1378,68 @@ def plan_chapters(state: StoryState) -> Dict:
     Ensure the chapters flow logically and maintain the arc of the hero's journey.
     
     {language_guidance}
+    
+    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
+    {language_guidance}
     """
     
     # Generate chapter plan
     chapter_plan_text = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Validate language if not English
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_validation_prompt = f"""
+        LANGUAGE VALIDATION: Check if this text is written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
+        
+        Text to validate:
+        {chapter_plan_text}
+        
+        Provide:
+        1. A YES/NO determination if the text is completely in {SUPPORTED_LANGUAGES[language.lower()]}
+        2. If NO, identify which parts are not in {SUPPORTED_LANGUAGES[language.lower()]}
+        3. A score from 1-10 on language authenticity (does it feel like it was written by a native speaker?)
+        
+        Your response should be in English for this validation only.
+        """
+        
+        language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
+        
+        # Store the validation result in memory
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": "chapter_plan_language_validation",
+            "value": language_validation_result,
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # If language validation fails, regenerate with stronger language instruction
+        if "NO" in language_validation_result:
+            stronger_language_instruction = f"""
+            !!!CRITICAL LANGUAGE INSTRUCTION - PREVIOUS ATTEMPT FAILED!!!
+            
+            Your previous response contained English text. This is NOT acceptable.
+            
+            This chapter plan MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+            ALL content - including chapter titles, summaries, scene descriptions, and character development - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+            DO NOT include ANY English text in your response.
+            DO NOT translate the hero's journey structure - create the chapter plan directly in {SUPPORTED_LANGUAGES[language.lower()]}.
+            
+            I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any plan that contains English.
+            
+            The following parts were not in {SUPPORTED_LANGUAGES[language.lower()]}:
+            {language_validation_result.split("which parts are not in")[1].strip() if "which parts are not in" in language_validation_result else "Some parts of the text"}
+            """
+            
+            # Regenerate with stronger language instruction
+            revised_prompt = f"""
+            {stronger_language_instruction}
+            
+            {prompt}
+            
+            {stronger_language_instruction}
+            """
+            
+            chapter_plan_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
     
     # Define the schema for chapter data
     chapter_schema = """
