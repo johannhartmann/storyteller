@@ -7,7 +7,6 @@ import json
 
 from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from langchain_core.messages import HumanMessage
-from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field, create_model

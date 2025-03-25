@@ -2,14 +2,516 @@
 StoryCraft Agent - Scene generation and management nodes.
 """
 
-from typing import Dict
+from typing import Dict, List, Any
 
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import creative_brainstorm
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
+from storyteller_lib.exposition import identify_telling_passages, convert_exposition_to_sensory, analyze_showing_vs_telling
 from storyteller_lib import track_progress
+
+def _prepare_author_style_guidance(author: str, author_style_guidance: str) -> str:
+    """Prepare author style guidance section for scene writing."""
+    if not author:
+        return ""
+        
+    return f"""
+    AUTHOR STYLE GUIDANCE:
+    You are writing in the style of {author}. Apply these stylistic elements:
+    
+    {author_style_guidance}
+    """
+
+def _retrieve_language_elements(language: str) -> tuple:
+    """Retrieve language elements and consistency instructions from memory."""
+    language_elements = None
+    consistency_instruction = ""
+    language_examples = ""
+    
+    if language.lower() == DEFAULT_LANGUAGE:
+        return language_elements, consistency_instruction, language_examples
+    
+    # Try to retrieve language elements from memory
+    try:
+        language_elements_result = search_memory_tool.invoke({
+            "query": f"language_elements_{language.lower()}",
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Handle different return types from search_memory_tool
+        if language_elements_result:
+            if isinstance(language_elements_result, dict) and "value" in language_elements_result:
+                # Direct dictionary with value
+                language_elements = language_elements_result["value"]
+            elif isinstance(language_elements_result, list):
+                # List of objects
+                for item in language_elements_result:
+                    if hasattr(item, 'key') and item.key == f"language_elements_{language.lower()}":
+                        language_elements = item.value
+                        break
+            elif isinstance(language_elements_result, str):
+                # Try to parse JSON string
+                try:
+                    import json
+                    language_elements = json.loads(language_elements_result)
+                except:
+                    # If not JSON, use as is
+                    language_elements = language_elements_result
+    except Exception as e:
+        print(f"Error retrieving language elements: {str(e)}")
+    
+    # Create language guidance with specific examples if available
+    if language_elements:
+        # Add cultural references if available
+        if "CULTURAL REFERENCES" in language_elements:
+            cultural_refs = language_elements["CULTURAL REFERENCES"]
+            
+            idioms = cultural_refs.get("Common idioms and expressions", "")
+            if idioms:
+                language_examples += f"\nCommon idioms and expressions in {SUPPORTED_LANGUAGES[language.lower()]}:\n{idioms}\n"
+            
+            traditions = cultural_refs.get("Cultural traditions and customs", "")
+            if traditions:
+                language_examples += f"\nCultural traditions and customs in {SUPPORTED_LANGUAGES[language.lower()]}:\n{traditions}\n"
+        
+        # Add narrative elements if available
+        if "NARRATIVE ELEMENTS" in language_elements:
+            narrative_elements = language_elements["NARRATIVE ELEMENTS"]
+            
+            storytelling = narrative_elements.get("Storytelling traditions", "")
+            if storytelling:
+                language_examples += f"\nStorytelling traditions in {SUPPORTED_LANGUAGES[language.lower()]} literature:\n{storytelling}\n"
+            
+            dialogue = narrative_elements.get("Dialogue patterns or speech conventions", "")
+            if dialogue:
+                language_examples += f"\nDialogue patterns in {SUPPORTED_LANGUAGES[language.lower()]}:\n{dialogue}\n"
+    
+    # Try to retrieve language consistency instruction
+    try:
+        consistency_result = search_memory_tool.invoke({
+            "query": "language_consistency_instruction",
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Handle different return types from search_memory_tool
+        if consistency_result:
+            if isinstance(consistency_result, dict) and "value" in consistency_result:
+                # Direct dictionary with value
+                consistency_instruction = consistency_result["value"]
+            elif isinstance(consistency_result, list):
+                # List of objects
+                for item in consistency_result:
+                    if hasattr(item, 'key') and item.key == "language_consistency_instruction":
+                        consistency_instruction = item.value
+                        break
+            elif isinstance(consistency_result, str):
+                # Use as is
+                consistency_instruction = consistency_result
+    except Exception as e:
+        print(f"Error retrieving language consistency instruction: {str(e)}")
+        
+    return language_elements, consistency_instruction, language_examples
+
+def _prepare_language_guidance(language: str) -> str:
+    """Prepare language guidance section for scene writing."""
+    if language.lower() == DEFAULT_LANGUAGE:
+        return ""
+        
+    _, consistency_instruction, language_examples = _retrieve_language_elements(language)
+    
+    return f"""
+    LANGUAGE CONSIDERATIONS:
+    You are writing this scene in {SUPPORTED_LANGUAGES[language.lower()]}. Consider the following:
+    
+    1. Use dialogue, expressions, and idioms natural to {SUPPORTED_LANGUAGES[language.lower()]}-speaking characters
+    2. Incorporate cultural references, settings, and descriptions authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+    3. Consider social norms, customs, and interpersonal dynamics typical in {SUPPORTED_LANGUAGES[language.lower()]} culture
+    4. Use narrative techniques, pacing, and stylistic elements common in {SUPPORTED_LANGUAGES[language.lower()]} literature
+    5. Ensure names, places, and cultural elements are appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
+    
+    {language_examples}
+    
+    {consistency_instruction}
+    
+    The scene should read as if it was originally written in {SUPPORTED_LANGUAGES[language.lower()]}, not translated.
+    """
+
+def _prepare_creative_guidance(creative_elements: Dict, current_chapter: str, current_scene: str) -> str:
+    """Prepare creative guidance section for scene writing."""
+    scene_elements_key = f"scene_elements_ch{current_chapter}_sc{current_scene}"
+    scene_surprises_key = f"scene_surprises_ch{current_chapter}_sc{current_scene}"
+    
+    if not creative_elements or scene_elements_key not in creative_elements:
+        return ""
+    
+    # Extract recommended creative elements
+    scene_elements = ""
+    if creative_elements[scene_elements_key].get("recommended_ideas"):
+        scene_elements = creative_elements[scene_elements_key]["recommended_ideas"]
+    
+    # Extract recommended surprises/twists
+    scene_surprises = ""
+    if scene_surprises_key in creative_elements and creative_elements[scene_surprises_key].get("recommended_ideas"):
+        scene_surprises = creative_elements[scene_surprises_key]["recommended_ideas"]
+    
+    # Compile creative guidance
+    return f"""
+    BRAINSTORMED CREATIVE ELEMENTS:
+    
+    Recommended Scene Elements:
+    {scene_elements}
+    
+    Recommended Surprise Elements:
+    {scene_surprises}
+    
+    Incorporate these creative elements into your scene in natural, organic ways. Adapt them as needed
+    while ensuring they serve the overall narrative and character development.
+    """
+def _identify_scene_characters(chapter_outline: str, characters: Dict) -> List[str]:
+    """Identify which characters are likely to appear in the scene."""
+    scene_characters = []
+    
+    for char_name, char_data in characters.items():
+        if char_name.lower() in chapter_outline.lower() or char_data.get('name', '').lower() in chapter_outline.lower():
+            scene_characters.append(char_name)
+    
+    # If no characters were identified, include all characters
+    if not scene_characters:
+        scene_characters = list(characters.keys())
+        
+    return scene_characters
+
+def _get_character_motivations(char_name: str) -> List[Dict[str, Any]]:
+    """Get character motivations from memory."""
+    try:
+        # Try to retrieve character motivations from memory
+        results = search_memory_tool.invoke({
+            "query": f"character_motivations_{char_name}",
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        if results:
+            # Handle different return types from search_memory_tool
+            if isinstance(results, dict) and "value" in results:
+                if "motivations" in results["value"]:
+                    return results["value"]["motivations"]
+                return results["value"]
+            elif isinstance(results, list):
+                for item in results:
+                    if hasattr(item, 'key') and item.key == f"character_motivations_{char_name}":
+                        if hasattr(item.value, 'motivations'):
+                            return item.value.motivations
+                        return item.value
+        
+        return []
+    
+    except Exception as e:
+        print(f"Error retrieving character motivations: {str(e)}")
+        return []
+
+def _prepare_emotional_guidance(characters: Dict, scene_characters: List[str], tone: str, genre: str) -> str:
+    """Prepare emotional guidance section for scene writing."""
+    # Get motivation chains for each character
+    motivation_chains = []
+    for name in scene_characters:
+        if name in characters:
+            char = characters[name]
+            char_name = char.get('name', name)
+            
+            # Get motivations from memory
+            motivations = _get_character_motivations(name)
+            
+            # Format motivations
+            if motivations:
+                motivation_text = f"{char_name}'s motivations:\n"
+                for m in motivations:
+                    motivation_text += f"  - {m.get('motivation', 'Unknown')}"
+                    if 'source' in m:
+                        motivation_text += f" (from {m.get('source')})"
+                    motivation_text += "\n"
+                motivation_chains.append(motivation_text)
+            else:
+                # Use inner conflicts as fallback
+                inner_conflicts = char.get('inner_conflicts', [{'description': 'No conflicts defined'}])
+                if inner_conflicts:
+                    conflict_desc = inner_conflicts[0].get('description', 'No conflicts defined')
+                    motivation_chains.append(f"{char_name}'s conflict-based motivation: {conflict_desc}")
+    
+    # Format motivation chains text
+    motivation_chains_text = "\n".join(motivation_chains) if motivation_chains else "No specific motivations identified."
+    
+    return f"""
+    EMOTIONAL DEPTH GUIDANCE:
+    
+    Focus on creating emotional resonance in this scene through:
+    
+    1. CHARACTER EMOTIONS:
+       - Show how characters feel through actions, dialogue, and internal thoughts
+       - Reveal the emotional impact of events on each character
+       - Demonstrate emotional contrasts between different characters
+    
+    2. INNER STRUGGLES:
+       - Highlight the inner conflicts of these characters:
+         {', '.join([f"{characters[name].get('name', name)} ({characters[name].get('inner_conflicts', [{'description': 'No conflicts defined'}])[0].get('description', 'No conflicts defined')})"
+                    for name in scene_characters if name in characters])}
+       - Show characters wrestling with difficult choices or moral dilemmas
+       - Reveal how external events trigger internal turmoil
+    
+    3. EMOTIONAL JOURNEY:
+       - Connect emotions to character arcs and development
+       - Show subtle shifts in emotional states that build toward larger changes
+       - Create moments of emotional revelation or realization
+    
+    4. READER ENGAGEMENT:
+       - Craft scenes that evoke {tone} emotional responses appropriate for {genre}
+       - Balance multiple emotional notes (e.g., tension with humor, fear with hope)
+       - Use sensory details to make emotional moments vivid and immersive
+       
+    5. MOTIVATION-ACTION-REACTION CHAINS:
+       - Ensure these character motivations drive their actions and emotional reactions:
+       
+       {motivation_chains_text}
+       
+       - Show how competing motivations create internal conflicts
+       - Demonstrate how character motivations drive their emotional reactions
+       - Reveal motivations through actions and choices rather than statements
+       - Ensure character reactions reflect both immediate circumstances AND long-term goals
+    """
+
+def _identify_relevant_world_categories(chapter_outline: str, world_elements: Dict) -> List[str]:
+    """Identify which world element categories are most relevant to the scene."""
+    relevant_categories = []
+    chapter_outline_lower = chapter_outline.lower()
+    
+    # Geography is almost always relevant
+    if "geography" in world_elements:
+        relevant_categories.append("geography")
+    
+    # Check chapter outline for keywords that might indicate relevant world elements
+    if any(keyword in chapter_outline_lower for keyword in ["government", "law", "ruler", "authority", "power"]):
+        if "politics" in world_elements:
+            relevant_categories.append("politics")
+            
+    if any(keyword in chapter_outline_lower for keyword in ["god", "faith", "belief", "pray", "ritual", "worship"]):
+        if "religion" in world_elements:
+            relevant_categories.append("religion")
+            
+    if any(keyword in chapter_outline_lower for keyword in ["technology", "machine", "device", "magic", "spell"]):
+        if "technology_magic" in world_elements:
+            relevant_categories.append("technology_magic")
+            
+    if any(keyword in chapter_outline_lower for keyword in ["history", "past", "ancient", "legend", "myth"]):
+        if "history" in world_elements:
+            relevant_categories.append("history")
+            
+    if any(keyword in chapter_outline_lower for keyword in ["culture", "tradition", "custom", "art", "music"]):
+        if "culture" in world_elements:
+            relevant_categories.append("culture")
+            
+    if any(keyword in chapter_outline_lower for keyword in ["trade", "money", "market", "business", "economy"]):
+        if "economics" in world_elements:
+            relevant_categories.append("economics")
+            
+    if any(keyword in chapter_outline_lower for keyword in ["food", "clothing", "home", "family", "daily"]):
+        if "daily_life" in world_elements:
+            relevant_categories.append("daily_life")
+    
+    # If no specific categories were identified, include all categories
+    if not relevant_categories and world_elements:
+        relevant_categories = list(world_elements.keys())
+    
+    return relevant_categories
+def _get_previously_established_elements(world_elements: Dict) -> str:
+    """Get previously established world elements from memory."""
+    try:
+        # Try to retrieve world state tracker from memory
+        results = search_memory_tool.invoke({
+            "query": "world_state_tracker",
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        world_state_tracker = None
+        if results:
+            # Handle different return types from search_memory_tool
+            if isinstance(results, dict) and "value" in results:
+                world_state_tracker = results["value"]
+            elif isinstance(results, list):
+                for item in results:
+                    if hasattr(item, 'key') and item.key == "world_state_tracker":
+                        world_state_tracker = item.value
+                        break
+        
+        if not world_state_tracker or "revelations" not in world_state_tracker or not world_state_tracker["revelations"]:
+            return "No previously established elements."
+        
+        # Extract the most recent revelations (up to 5)
+        recent_revelations = world_state_tracker["revelations"][-5:]
+        
+        # Format the revelations
+        revelations_text = ""
+        for revelation in recent_revelations:
+            revelations_text += f"- {revelation['element']}: {revelation['description']}\n"
+        
+        return revelations_text
+    
+    except Exception as e:
+        print(f"Error retrieving previously established elements: {str(e)}")
+        return "Error retrieving previously established elements."
+
+def _prepare_worldbuilding_guidance(world_elements: Dict, chapter_outline: str, mystery_relevance: bool = False) -> str:
+    """Prepare worldbuilding guidance section for scene writing."""
+    if not world_elements:
+        return ""
+        
+    relevant_categories = _identify_relevant_world_categories(chapter_outline, world_elements)
+    
+    # Apply mystery relevance filtering if requested
+    if mystery_relevance and "mystery_elements" in world_elements:
+        # Get key mysteries
+        key_mysteries = []
+        if isinstance(world_elements["mystery_elements"], dict) and "key_mysteries" in world_elements["mystery_elements"]:
+            key_mysteries = [m["name"] for m in world_elements["mystery_elements"]["key_mysteries"]]
+        
+        # Filter categories that contain references to key mysteries
+        if key_mysteries:
+            mystery_relevant_categories = []
+            for category in relevant_categories:
+                if category in world_elements:
+                    category_str = str(world_elements[category])
+                    if any(mystery.lower() in category_str.lower() for mystery in key_mysteries):
+                        mystery_relevant_categories.append(category)
+            
+            # If we found mystery-relevant categories, prioritize them
+            if mystery_relevant_categories:
+                # Still keep geography if it's in the original relevant categories
+                if "geography" in relevant_categories and "geography" not in mystery_relevant_categories:
+                    mystery_relevant_categories.insert(0, "geography")
+                
+                # Update relevant categories to prioritize mystery-relevant ones
+                relevant_categories = mystery_relevant_categories + [c for c in relevant_categories if c not in mystery_relevant_categories]
+    
+    # Limit to at most 3 most relevant categories to avoid overwhelming the prompt
+    if len(relevant_categories) > 3:
+        # Geography is most important, so keep it if it's there
+        if "geography" in relevant_categories:
+            relevant_categories.remove("geography")
+            selected_categories = ["geography"] + relevant_categories[:2]
+        else:
+            selected_categories = relevant_categories[:3]
+    else:
+        selected_categories = relevant_categories
+        selected_categories = relevant_categories
+    
+    # Create the worldbuilding guidance section
+    worldbuilding_sections = []
+    for category in selected_categories:
+        if category in world_elements:
+            category_elements = world_elements[category]
+            category_section = f"{category.upper()}:\n"
+            
+            for key, value in category_elements.items():
+                if isinstance(value, list) and value:
+                    # For lists, include the first 2-3 items
+                    items_to_include = value[:min(3, len(value))]
+                    category_section += f"- {key.replace('_', ' ').title()}: {', '.join(items_to_include)}\n"
+                elif value:
+                    # For strings or other values
+                    category_section += f"- {key.replace('_', ' ').title()}: {value}\n"
+            
+            worldbuilding_sections.append(category_section)
+    
+    # Combine the sections
+    worldbuilding_details = "\n".join(worldbuilding_sections)
+    
+    # Get previously established elements
+    previously_established = _get_previously_established_elements(world_elements)
+    
+    # Check if there are mystery elements to emphasize
+    mystery_guidance = ""
+    if mystery_relevance and "mystery_elements" in world_elements:
+        key_mysteries = []
+        if isinstance(world_elements["mystery_elements"], dict) and "key_mysteries" in world_elements["mystery_elements"]:
+            key_mysteries = world_elements["mystery_elements"]["key_mysteries"]
+        
+        if key_mysteries:
+            mystery_guidance = """
+            MYSTERY ELEMENTS GUIDANCE:
+            - Introduce mystery elements through character interactions rather than narrator explanation
+            - Show characters' different perspectives on these elements
+            - Create scenes where characters must interact with these elements
+            - Use physical artifacts, locations, or rituals to embody abstract concepts
+            - Reveal information gradually through subtle clues rather than exposition
+            """
+    
+    return f"""
+    WORLDBUILDING ELEMENTS:
+    
+    Previously Established Elements:
+    {previously_established}
+    
+    Incorporate these established world elements into your scene:
+    
+    {worldbuilding_details}
+    
+    {mystery_guidance}
+    
+    Ensure consistency with these world elements while writing the scene. The setting, cultural references,
+    technology/magic, and other world details should align with these established elements.
+    
+    SENSORY EXPERIENCE GUIDANCE:
+    When describing world elements, focus on how they would be EXPERIENCED through:
+    - Visual details (what would a character SEE?)
+    - Sounds (what would a character HEAR?)
+    - Smells, tastes, and textures (what physical sensations are associated?)
+    - Emotional reactions (how do characters FEEL about these elements?)
+    """
+
+def _prepare_plot_thread_guidance(active_plot_threads: List[Dict]) -> str:
+    """Prepare plot thread guidance section for scene writing."""
+    if not active_plot_threads:
+        return ""
+        
+    plot_thread_sections = []
+    
+    # Group threads by importance
+    major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
+    minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
+    background_threads = [t for t in active_plot_threads if t["importance"] == "background"]
+    
+    # Format major threads
+    if major_threads:
+        major_section = "MAJOR PLOT THREADS (must be addressed):\n"
+        for thread in major_threads:
+            major_section += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n  Last development: {thread['last_development']}\n"
+        plot_thread_sections.append(major_section)
+    
+    # Format minor threads
+    if minor_threads:
+        minor_section = "MINOR PLOT THREADS (should be addressed if relevant):\n"
+        for thread in minor_threads:
+            minor_section += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
+        plot_thread_sections.append(minor_section)
+    
+    # Format background threads
+    if background_threads:
+        background_section = "BACKGROUND THREADS (can be referenced):\n"
+        for thread in background_threads:
+            background_section += f"- {thread['name']}: {thread['description']}\n"
+        plot_thread_sections.append(background_section)
+    
+    # Combine all sections
+    return f"""
+    ACTIVE PLOT THREADS:
+    
+    {'\n'.join(plot_thread_sections)}
+    
+    Ensure that major plot threads are meaningfully advanced in this scene.
+    Minor threads should be addressed if they fit naturally with the scene's purpose.
+    Background threads can be referenced to maintain continuity.
+    """
+    return scene_characters
 
 @track_progress
 def brainstorm_scene_elements(state: StoryState) -> Dict:
@@ -133,10 +635,10 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             AIMessage(content=f"I've brainstormed creative elements and unexpected twists for scene {current_scene} of chapter {current_chapter}. Now I'll write the scene incorporating the most promising ideas.")
         ]
     }
-
 @track_progress
 def write_scene(state: StoryState) -> Dict:
     """Write a detailed scene based on the current chapter and scene."""
+    # Extract state variables
     chapters = state["chapters"]
     characters = state["characters"]
     current_chapter = state["current_chapter"]
@@ -149,6 +651,10 @@ def write_scene(state: StoryState) -> Dict:
     global_story = state["global_story"]
     revelations = state["revelations"]
     creative_elements = state.get("creative_elements", {})
+    
+    # Get showing vs. telling parameters
+    showing_ratio = state.get("showing_ratio", 8)  # Default to 8/10 showing vs telling
+    post_process_showing = state.get("post_process_showing", True)  # Default to post-processing
     
     # Get the current chapter and scene data
     chapter = chapters[current_chapter]
@@ -168,321 +674,51 @@ def write_scene(state: StoryState) -> Dict:
     concepts_to_introduce = integrated_guidance.get("concepts_to_introduce", [])
     scene_purpose = integrated_guidance.get("scene_purpose", "")
     
-    # Prepare author style guidance
-    style_section = ""
-    if author:
-        style_section = f"""
-        AUTHOR STYLE GUIDANCE:
-        You are writing in the style of {author}. Apply these stylistic elements:
-        
-        {author_style_guidance}
-        """
-    
-    # Prepare language guidance
-    language_section = ""
-    language_elements = None
-    if language.lower() != DEFAULT_LANGUAGE:
-        # Try to retrieve language elements from memory
-        try:
-            language_elements_result = search_memory_tool.invoke({
-                "query": f"language_elements_{language.lower()}",
-                "namespace": MEMORY_NAMESPACE
-            })
-            
-            # Handle different return types from search_memory_tool
-            if language_elements_result:
-                if isinstance(language_elements_result, dict) and "value" in language_elements_result:
-                    # Direct dictionary with value
-                    language_elements = language_elements_result["value"]
-                elif isinstance(language_elements_result, list):
-                    # List of objects
-                    for item in language_elements_result:
-                        if hasattr(item, 'key') and item.key == f"language_elements_{language.lower()}":
-                            language_elements = item.value
-                            break
-                elif isinstance(language_elements_result, str):
-                    # Try to parse JSON string
-                    try:
-                        import json
-                        language_elements = json.loads(language_elements_result)
-                    except:
-                        # If not JSON, use as is
-                        language_elements = language_elements_result
-        except Exception as e:
-            print(f"Error retrieving language elements: {str(e)}")
-        
-        # Create language guidance with specific examples if available
-        language_examples = ""
-        if language_elements:
-            # Add cultural references if available
-            if "CULTURAL REFERENCES" in language_elements:
-                cultural_refs = language_elements["CULTURAL REFERENCES"]
-                
-                idioms = cultural_refs.get("Common idioms and expressions", "")
-                if idioms:
-                    language_examples += f"\nCommon idioms and expressions in {SUPPORTED_LANGUAGES[language.lower()]}:\n{idioms}\n"
-                
-                traditions = cultural_refs.get("Cultural traditions and customs", "")
-                if traditions:
-                    language_examples += f"\nCultural traditions and customs in {SUPPORTED_LANGUAGES[language.lower()]}:\n{traditions}\n"
-            
-            # Add narrative elements if available
-            if "NARRATIVE ELEMENTS" in language_elements:
-                narrative_elements = language_elements["NARRATIVE ELEMENTS"]
-                
-                storytelling = narrative_elements.get("Storytelling traditions", "")
-                if storytelling:
-                    language_examples += f"\nStorytelling traditions in {SUPPORTED_LANGUAGES[language.lower()]} literature:\n{storytelling}\n"
-                
-                dialogue = narrative_elements.get("Dialogue patterns or speech conventions", "")
-                if dialogue:
-                    language_examples += f"\nDialogue patterns in {SUPPORTED_LANGUAGES[language.lower()]}:\n{dialogue}\n"
-        
-        # Try to retrieve language consistency instruction
-        consistency_instruction = ""
-        try:
-            consistency_result = search_memory_tool.invoke({
-                "query": "language_consistency_instruction",
-                "namespace": MEMORY_NAMESPACE
-            })
-            
-            # Handle different return types from search_memory_tool
-            if consistency_result:
-                if isinstance(consistency_result, dict) and "value" in consistency_result:
-                    # Direct dictionary with value
-                    consistency_instruction = consistency_result["value"]
-                elif isinstance(consistency_result, list):
-                    # List of objects
-                    for item in consistency_result:
-                        if hasattr(item, 'key') and item.key == "language_consistency_instruction":
-                            consistency_instruction = item.value
-                            break
-                elif isinstance(consistency_result, str):
-                    # Use as is
-                    consistency_instruction = consistency_result
-        except Exception as e:
-            print(f"Error retrieving language consistency instruction: {str(e)}")
-        
-        language_section = f"""
-        LANGUAGE CONSIDERATIONS:
-        You are writing this scene in {SUPPORTED_LANGUAGES[language.lower()]}. Consider the following:
-        
-        1. Use dialogue, expressions, and idioms natural to {SUPPORTED_LANGUAGES[language.lower()]}-speaking characters
-        2. Incorporate cultural references, settings, and descriptions authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
-        3. Consider social norms, customs, and interpersonal dynamics typical in {SUPPORTED_LANGUAGES[language.lower()]} culture
-        4. Use narrative techniques, pacing, and stylistic elements common in {SUPPORTED_LANGUAGES[language.lower()]} literature
-        5. Ensure names, places, and cultural elements are appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
-        
-        {language_examples}
-        
-        {consistency_instruction}
-        
-        The scene should read as if it was originally written in {SUPPORTED_LANGUAGES[language.lower()]}, not translated.
-        """
-    
-    # Get brainstormed creative elements for this scene
+    # Get scene elements key and scene surprises key
     scene_elements_key = f"scene_elements_ch{current_chapter}_sc{current_scene}"
     scene_surprises_key = f"scene_surprises_ch{current_chapter}_sc{current_scene}"
     
-    creative_guidance = ""
-    if creative_elements and scene_elements_key in creative_elements:
-        # Extract recommended creative elements
-        scene_elements = ""
-        if creative_elements[scene_elements_key].get("recommended_ideas"):
-            scene_elements = creative_elements[scene_elements_key]["recommended_ideas"]
-        
-        # Extract recommended surprises/twists
-        scene_surprises = ""
-        if scene_surprises_key in creative_elements and creative_elements[scene_surprises_key].get("recommended_ideas"):
-            scene_surprises = creative_elements[scene_surprises_key]["recommended_ideas"]
-        
-        # Compile creative guidance
-        creative_guidance = f"""
-        BRAINSTORMED CREATIVE ELEMENTS:
-        
-        Recommended Scene Elements:
-        {scene_elements}
-        
-        Recommended Surprise Elements:
-        {scene_surprises}
-        
-        Incorporate these creative elements into your scene in natural, organic ways. Adapt them as needed
-        while ensuring they serve the overall narrative and character development.
-        """
+    # Use helper functions to prepare guidance sections
+    style_section = _prepare_author_style_guidance(author, author_style_guidance)
+    language_section = _prepare_language_guidance(language)
+    creative_guidance = _prepare_creative_guidance(creative_elements, current_chapter, current_scene)
     
-    # Identify which characters are likely to appear in this scene based on the chapter outline
-    scene_characters = []
-    chapter_outline = chapter.get('outline', '')
-    for char_name, char_data in characters.items():
-        if char_name.lower() in chapter_outline.lower() or char_data.get('name', '').lower() in chapter_outline.lower():
-            scene_characters.append(char_name)
-    
-    # If no characters were identified, include all characters
-    if not scene_characters:
-        scene_characters = list(characters.keys())
+    # Identify which characters are likely to appear in this scene
+    scene_characters = _identify_scene_characters(chapter.get('outline', ''), characters)
     
     # Create emotional guidance based on character arcs and inner conflicts
-    emotional_guidance = f"""
-    EMOTIONAL DEPTH GUIDANCE:
+    emotional_guidance = _prepare_emotional_guidance(characters, scene_characters, tone, genre)
     
-    Focus on creating emotional resonance in this scene through:
-    
-    1. CHARACTER EMOTIONS:
-       - Show how characters feel through actions, dialogue, and internal thoughts
-       - Reveal the emotional impact of events on each character
-       - Demonstrate emotional contrasts between different characters
-    
-    2. INNER STRUGGLES:
-       - Highlight the inner conflicts of these characters:
-         {', '.join([f"{characters[name].get('name', name)} ({characters[name].get('inner_conflicts', [{'description': 'No conflicts defined'}])[0].get('description', 'No conflicts defined')})"
-                    for name in scene_characters if name in characters])}
-       - Show characters wrestling with difficult choices or moral dilemmas
-       - Reveal how external events trigger internal turmoil
-    
-    3. EMOTIONAL JOURNEY:
-       - Connect emotions to character arcs and development
-       - Show subtle shifts in emotional states that build toward larger changes
-       - Create moments of emotional revelation or realization
-    
-    4. READER ENGAGEMENT:
-       - Craft scenes that evoke {tone} emotional responses appropriate for {genre}
-       - Balance multiple emotional notes (e.g., tension with humor, fear with hope)
-       - Use sensory details to make emotional moments vivid and immersive
-    """
-    
-    # Create worldbuilding guidance based on the established world elements
-    worldbuilding_guidance = ""
-    if world_elements:
-        # Determine which world elements are most relevant to this scene
-        relevant_categories = []
-        
-        # Geography is almost always relevant
-        if "geography" in world_elements:
-            relevant_categories.append("geography")
-        
-        # Check chapter outline for keywords that might indicate relevant world elements
-        chapter_outline_lower = chapter.get('outline', '').lower()
-        
-        if any(keyword in chapter_outline_lower for keyword in ["government", "law", "ruler", "authority", "power"]):
-            if "politics" in world_elements:
-                relevant_categories.append("politics")
-                
-        if any(keyword in chapter_outline_lower for keyword in ["god", "faith", "belief", "pray", "ritual", "worship"]):
-            if "religion" in world_elements:
-                relevant_categories.append("religion")
-                
-        if any(keyword in chapter_outline_lower for keyword in ["technology", "machine", "device", "magic", "spell"]):
-            if "technology_magic" in world_elements:
-                relevant_categories.append("technology_magic")
-                
-        if any(keyword in chapter_outline_lower for keyword in ["history", "past", "ancient", "legend", "myth"]):
-            if "history" in world_elements:
-                relevant_categories.append("history")
-                
-        if any(keyword in chapter_outline_lower for keyword in ["culture", "tradition", "custom", "art", "music"]):
-            if "culture" in world_elements:
-                relevant_categories.append("culture")
-                
-        if any(keyword in chapter_outline_lower for keyword in ["trade", "money", "market", "business", "economy"]):
-            if "economics" in world_elements:
-                relevant_categories.append("economics")
-                
-        if any(keyword in chapter_outline_lower for keyword in ["food", "clothing", "home", "family", "daily"]):
-            if "daily_life" in world_elements:
-                relevant_categories.append("daily_life")
-        
-        # If no specific categories were identified, include all categories
-        if not relevant_categories and world_elements:
-            relevant_categories = list(world_elements.keys())
-        
-        # Limit to at most 3 most relevant categories to avoid overwhelming the prompt
-        if len(relevant_categories) > 3:
-            # Geography is most important, so keep it if it's there
-            if "geography" in relevant_categories:
-                relevant_categories.remove("geography")
-                selected_categories = ["geography"] + relevant_categories[:2]
-            else:
-                selected_categories = relevant_categories[:3]
-        else:
-            selected_categories = relevant_categories
-        
-        # Create the worldbuilding guidance section
-        worldbuilding_sections = []
-        for category in selected_categories:
-            if category in world_elements:
-                category_elements = world_elements[category]
-                category_section = f"{category.upper()}:\n"
-                
-                for key, value in category_elements.items():
-                    if isinstance(value, list) and value:
-                        # For lists, include the first 2-3 items
-                        items_to_include = value[:min(3, len(value))]
-                        category_section += f"- {key.replace('_', ' ').title()}: {', '.join(items_to_include)}\n"
-                    elif value:
-                        # For strings or other values
-                        category_section += f"- {key.replace('_', ' ').title()}: {value}\n"
-                
-                worldbuilding_sections.append(category_section)
-        
-        # Combine the sections
-        worldbuilding_details = "\n".join(worldbuilding_sections)
-        
-        worldbuilding_guidance = f"""
-        WORLDBUILDING ELEMENTS:
-        
-        Incorporate these established world elements into your scene:
-        
-        {worldbuilding_details}
-        
-        Ensure consistency with these world elements while writing the scene. The setting, cultural references,
-        technology/magic, and other world details should align with these established elements.
-        """
+    # Create worldbuilding guidance
+    worldbuilding_guidance = _prepare_worldbuilding_guidance(world_elements, chapter.get('outline', ''))
     
     # Get active plot threads for this scene
-    from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
     active_plot_threads = get_active_plot_threads_for_scene(state)
     
     # Create plot thread guidance
-    plot_thread_guidance = ""
-    if active_plot_threads:
-        plot_thread_sections = []
-        
-        # Group threads by importance
-        major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
-        minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
-        background_threads = [t for t in active_plot_threads if t["importance"] == "background"]
-        
-        # Format major threads
-        if major_threads:
-            major_section = "MAJOR PLOT THREADS (must be addressed):\n"
-            for thread in major_threads:
-                major_section += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n  Last development: {thread['last_development']}\n"
-            plot_thread_sections.append(major_section)
-        
-        # Format minor threads
-        if minor_threads:
-            minor_section = "MINOR PLOT THREADS (should be addressed if relevant):\n"
-            for thread in minor_threads:
-                minor_section += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
-            plot_thread_sections.append(minor_section)
-        
-        # Format background threads
-        if background_threads:
-            background_section = "BACKGROUND THREADS (can be referenced):\n"
-            for thread in background_threads:
-                background_section += f"- {thread['name']}: {thread['description']}\n"
-            plot_thread_sections.append(background_section)
-        
-        # Combine all sections
-        plot_thread_guidance = f"""
-        ACTIVE PLOT THREADS:
-        
-        {'\n'.join(plot_thread_sections)}
-        
-        Ensure that major plot threads are meaningfully advanced in this scene.
-        Minor threads should be addressed if they fit naturally with the scene's purpose.
-        Background threads can be referenced to maintain continuity.
-        """
+    plot_thread_guidance = _prepare_plot_thread_guidance(active_plot_threads)
+    
+    # Create showing vs. telling guidance
+    showing_telling_guidance = f"""
+    SHOWING VS TELLING BALANCE:
+    - Aim for a showing:telling ratio of {showing_ratio}:10
+    - Minimum sensory details per paragraph: 2
+    - Convert explanations into experiences, observations, or interactions
+    - Show emotions through physical reactions rather than naming them
+    
+    SHOW, DON'T TELL GUIDELINES:
+    - Convert every explanation into a sensory experience or character interaction
+    - Replace statements about emotions with physical manifestations of those emotions
+    - Demonstrate world elements through how characters interact with them
+    - Use specific, concrete details rather than general descriptions
+    - Create scenes where characters discover information rather than being told it
+    
+    BEFORE AND AFTER EXAMPLE:
+    
+    TELLING: "The Sülfmeister were resentful of the Patrizier's power over the salt trade."
+    
+    SHOWING: "Müller's knuckles whitened around his salt measure as the Patrizier's tax collector approached. The other Sülfmeister exchanged glances, their shoulders tensing beneath salt-crusted coats. No one spoke, but their silence carried the weight of generations of resentment."
+    """
     
     # Create a prompt for scene writing
     prompt = f"""
@@ -513,6 +749,8 @@ def write_scene(state: StoryState) -> Dict:
     {dialogue_guidance}
     
     {exposition_guidance}
+    
+    {showing_telling_guidance}
     
     {integrated_guidance.get("consistency_guidance", "")}
     
@@ -564,6 +802,50 @@ def write_scene(state: StoryState) -> Dict:
         print(f"Error using structured output for scene {current_chapter}_{current_scene}: {str(e)}")
         print("Falling back to regular output")
         scene_content = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Apply post-processing for showing vs. telling if enabled
+    if post_process_showing:
+        try:
+            # Import the necessary functions from exposition.py
+            from storyteller_lib.exposition import identify_telling_passages, convert_exposition_to_sensory
+            
+            # Identify telling passages
+            telling_passages = identify_telling_passages(scene_content)
+            
+            # Convert each passage to showing
+            if telling_passages:
+                print(f"Post-processing {len(telling_passages)} telling passages to showing for scene {current_chapter}_{current_scene}")
+                
+                # Track original and converted passages for analysis
+                conversion_tracking = []
+                
+                # Process each telling passage
+                for passage in telling_passages:
+                    if len(passage) > 20:  # Only process substantial passages
+                        # Convert to sensory description
+                        sensory_version = convert_exposition_to_sensory(passage)
+                        
+                        # Replace in the scene content if conversion was successful
+                        if sensory_version and sensory_version != passage:
+                            # Track the conversion
+                            conversion_tracking.append({
+                                "original": passage,
+                                "converted": sensory_version
+                            })
+                            
+                            # Replace in the scene content
+                            scene_content = scene_content.replace(passage, sensory_version)
+                
+                # Store conversion tracking in memory for analysis
+                if conversion_tracking:
+                    manage_memory_tool.invoke({
+                        "action": "create",
+                        "key": f"showing_telling_conversions_ch{current_chapter}_sc{current_scene}",
+                        "value": conversion_tracking,
+                        "namespace": MEMORY_NAMESPACE
+                    })
+        except Exception as e:
+            print(f"Error in showing vs. telling post-processing: {str(e)}")
     
     # Store scene in memory
     manage_memory_tool.invoke({
@@ -1606,20 +1888,109 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
                 AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address the identified issues and plot threads (revision #{revision_count + 1}).")
             ]
         }
-    else:
-        # No revision needed
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": f"chapter_{current_chapter}_scene_{current_scene}_revision_status",
-            "value": "No revision needed - scene approved"
-        })
+
+@track_progress
+def process_showing_telling(state: StoryState) -> Dict:
+    """
+    Process the scene to enhance showing vs. telling balance.
+    
+    This node analyzes the current scene for instances of "telling" rather than "showing"
+    and converts them to more sensory, experiential descriptions.
+    
+    Args:
+        state: The current state
         
-        return {
-            "current_chapter": current_chapter,
-            "current_scene": current_scene,
+    Returns:
+        Updates to the state
+    """
+    # Extract state variables
+    chapters = state["chapters"]
+    current_chapter = state["current_chapter"]
+    current_scene = state["current_scene"]
+    
+    # Get the current scene content
+    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    
+    # Get showing vs. telling parameters
+    showing_ratio = state.get("showing_ratio", 8)  # Default to 8/10 showing vs telling
+    
+    # Analyze showing vs. telling balance
+    showing_telling_analysis = analyze_showing_vs_telling(scene_content)
+    
+    # Store analysis in memory
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": f"showing_telling_analysis_ch{current_chapter}_sc{current_scene}",
+        "value": showing_telling_analysis,
+        "namespace": MEMORY_NAMESPACE
+    })
+    
+    # Check if improvement is needed
+    current_ratio = showing_telling_analysis.get("overall_showing_ratio", 0)
+    improvement_needed = current_ratio < showing_ratio
+    
+    # If improvement is needed, process the scene
+    if improvement_needed:
+        # Get telling instances
+        telling_instances = showing_telling_analysis.get("telling_instances", [])
+        
+        # Convert each telling instance to showing
+        conversion_tracking = []
+        improved_content = scene_content
+        
+        for instance in telling_instances:
+            text = instance.get("text", "")
+            if text and len(text) > 20:  # Only process substantial passages
+                # Convert to sensory description
+                sensory_version = convert_exposition_to_sensory(text)
+                
+                # Replace in the scene content if conversion was successful
+                if sensory_version and sensory_version != text:
+                    # Track the conversion
+                    conversion_tracking.append({
+                        "original": text,
+                        "converted": sensory_version,
+                        "issue": instance.get("issue", ""),
+                        "improvement": instance.get("improvement_suggestion", "")
+                    })
+                    
+                    # Replace in the scene content
+                    improved_content = improved_content.replace(text, sensory_version)
+        
+        # Store conversion tracking in memory for analysis
+        if conversion_tracking:
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": f"showing_telling_conversions_ch{current_chapter}_sc{current_scene}",
+                "value": conversion_tracking,
+                "namespace": MEMORY_NAMESPACE
+            })
             
-            "messages": [
-                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=f"Scene {current_scene} of chapter {current_chapter} is consistent and well-crafted, no revision needed.")
-            ]
-        }
+            # Update the scene content
+            return {
+                "chapters": {
+                    current_chapter: {
+                        "scenes": {
+                            current_scene: {
+                                "content": improved_content,
+                                "showing_telling_improved": True
+                            }
+                        }
+                    }
+                },
+                
+                "messages": [
+                    *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                    AIMessage(content=f"I've improved the showing vs. telling balance in scene {current_scene} of chapter {current_chapter}, converting {len(conversion_tracking)} instances of telling to showing.")
+                ]
+            }
+    
+    # If no improvement needed or no conversions made
+    return {
+        "showing_telling_analysis": showing_telling_analysis,
+        
+        "messages": [
+            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            AIMessage(content=f"Scene {current_scene} of chapter {current_chapter} already has a good showing vs. telling balance (ratio: {current_ratio}/10).")
+        ]
+    }

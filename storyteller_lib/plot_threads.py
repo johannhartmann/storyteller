@@ -269,7 +269,6 @@ def identify_plot_threads_in_scene(scene_content: str, chapter_num: str, scene_n
         
         # Convert Pydantic models to dictionaries
         return [update.dict() for update in container.updates]
-        return [update.dict() for update in thread_updates]
     
     except Exception as e:
         print(f"Error identifying plot threads: {str(e)}")
