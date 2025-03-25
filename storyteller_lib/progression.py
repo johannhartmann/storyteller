@@ -422,8 +422,24 @@ def review_continuity(state: StoryState) -> Dict:
         }
     else:
         # No issues that need resolution
+        
+        # Mark the chapter as complete in memory
+        manage_memory_tool.invoke({
+            "action": "create",
+            "key": f"chapter_{current_chapter}_complete",
+            "value": True,
+            "namespace": MEMORY_NAMESPACE
+        })
+        
+        # Log that the chapter is complete
+        print(f"\n==== CHAPTER {current_chapter} COMPLETED ====")
+        print(f"Continuity review completed for Chapter {current_chapter} with no critical issues.")
+        print(f"The chapter is now ready to be written to the output file.")
+        print(f"=================================\n")
+        
         return {
             "continuity_phase": "complete",
+            "chapter_complete": True,  # Add this flag to indicate the chapter is complete
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
                 AIMessage(content=f"I've completed a continuity review after Chapter {current_chapter}. No critical issues found.")

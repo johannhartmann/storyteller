@@ -337,8 +337,23 @@ def _extract_character_motivations(char_name: str, scene_content: str) -> List[D
         # Use the structured LLM to extract motivations
         motivation_list = structured_llm.invoke(prompt)
         
-        # Convert Pydantic model to list of dictionaries
-        return [m.dict() for m in motivation_list.motivations]
+        # Check if we got a valid response
+        if motivation_list is None:
+            print(f"Error extracting character motivations: LLM returned None")
+            return []
+        
+        # Ensure all motivations have valid strength and consistency values
+        valid_motivations = []
+        for m in motivation_list.motivations:
+            # Ensure strength is at least 1
+            if m.strength < 1:
+                m.strength = 1
+            # Ensure consistency is at least 1
+            if m.consistency < 1:
+                m.consistency = 1
+            valid_motivations.append(m.dict())
+        
+        return valid_motivations
     
     except Exception as e:
         print(f"Error extracting character motivations: {str(e)}")

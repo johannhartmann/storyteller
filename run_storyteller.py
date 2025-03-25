@@ -30,6 +30,64 @@ node_counts = {}
 current_chapter = None
 current_scene = None
 verbose_mode = False
+def write_chapter_to_file(chapter_num, chapter_data, output_file):
+    """
+    Write a completed chapter to the output file.
+    
+    Args:
+        chapter_num: The chapter number
+        chapter_data: The chapter data
+        output_file: The output file path
+    """
+    try:
+        # Validate input parameters
+        if not chapter_data:
+            print(f"Error: No chapter data provided for Chapter {chapter_num}")
+            return
+            
+        if not isinstance(chapter_data, dict):
+            print(f"Error: Chapter data for Chapter {chapter_num} is not a dictionary")
+            return
+            
+        if "scenes" not in chapter_data:
+            print(f"Error: No scenes found in Chapter {chapter_num}")
+            return
+            
+        # Ensure the directory exists
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        # Check if the file exists
+        file_exists = os.path.exists(output_file)
+        
+        # Open the file in append mode if it exists, otherwise in write mode
+        mode = 'a' if file_exists else 'w'
+        
+        with open(output_file, mode) as f:
+            # If this is a new file, add a title
+            if not file_exists:
+                f.write(f"# Generated Story\n\n")
+            
+            # Write the chapter title (with a fallback if title is missing)
+            chapter_title = chapter_data.get('title', f"Chapter {chapter_num}")
+            f.write(f"\n## Chapter {chapter_num}: {chapter_title}\n\n")
+            
+            # Write each scene
+            if not chapter_data.get("scenes"):
+                f.write("*No scenes available for this chapter*\n\n")
+            else:
+                for scene_num in sorted(chapter_data["scenes"].keys(), key=int):
+                    scene = chapter_data["scenes"][scene_num]
+                    if "content" in scene and scene["content"]:
+                        f.write(scene["content"])
+                        f.write("\n\n")
+                    else:
+                        f.write(f"*Scene {scene_num} content not available*\n\n")
+        
+        print(f"Chapter {chapter_num} successfully written to {output_file}")
+    except IOError as e:
+        print(f"Error writing chapter {chapter_num} to {output_file}: {str(e)}")
 
 def progress_callback(node_name, state):
     """
@@ -39,6 +97,7 @@ def progress_callback(node_name, state):
         node_name: The name of the node that just finished executing
         state: The current state of the story generation
     """
+    global start_time, node_counts, current_chapter, current_scene, verbose_mode, output_file
     global start_time, node_counts, current_chapter, current_scene, verbose_mode
     
     # Initialize start time if not set
@@ -423,6 +482,25 @@ def progress_callback(node_name, state):
     sys.stdout.write(f"{progress_message}\n")
     sys.stdout.flush()
     
+    # Check if a chapter was just completed and needs to be written to the output file
+    if node_name == "review_continuity" or node_name == "revise_scene_if_needed":
+        try:
+            if state.get("chapter_complete", False):
+                # Get the chapter that was just completed
+                completed_chapter = state.get("current_chapter", "")
+                if completed_chapter and completed_chapter in state.get("chapters", {}):
+                    # Check if this chapter has been written to the file already
+                    chapter_written_key = f"chapter_{completed_chapter}_written"
+                    if not state.get(chapter_written_key, False):
+                        # Write the completed chapter to the output file
+                        sys.stdout.write(f"\n[{elapsed_str}] Chapter {completed_chapter} completed! Writing to output file...\n")
+                        write_chapter_to_file(completed_chapter, state["chapters"][completed_chapter], output_file)
+                        # Mark the chapter as written in the state
+                        state[chapter_written_key] = True
+        except Exception as e:
+            sys.stdout.write(f"\n[{elapsed_str}] Error writing chapter to file: {str(e)}\n")
+            sys.stdout.flush()
+    
     # Check for chapter/scene updates
     new_chapter = state.get("current_chapter")
     new_scene = state.get("current_scene")
@@ -443,7 +521,7 @@ def progress_callback(node_name, state):
                 # Show chapter transition info
                 sys.stdout.write(f"\n[{elapsed_str}] Working on Chapter {current_chapter}: {chapter_title} - Scene {current_scene}/{total_scenes}\n")
                 
-                # Get current completion statistics 
+                # Get current completion statistics
                 completed_chapters = 0
                 completed_scenes = 0
                 total_chapters = len(chapters)
@@ -460,6 +538,19 @@ def progress_callback(node_name, state):
                             scenes_completed = False
                     if scenes_completed:
                         completed_chapters += 1
+                        
+                        # Check if this is a newly completed chapter
+                        # If the current chapter is different from the completed chapter, it means we've moved on
+                        # from a completed chapter, so we should write it to the output file
+                        if int(ch_num) < int(current_chapter):
+                            # Check if this chapter has been written to the file already
+                            chapter_written_key = f"chapter_{ch_num}_written"
+                            if not state.get(chapter_written_key, False):
+                                # Write the completed chapter to the output file
+                                sys.stdout.write(f"\n[{elapsed_str}] Chapter {ch_num} completed! Writing to output file...\n")
+                                write_chapter_to_file(ch_num, ch_data, output_file)
+                                # Mark the chapter as written in the state
+                                state[chapter_written_key] = True
                 
                 # Show overall progress
                 progress_pct = (completed_scenes / total_planned_scenes * 100) if total_planned_scenes > 0 else 0
@@ -496,6 +587,10 @@ def main():
         print("Error: OPENAI_API_KEY environment variable is not set.")
         print("Please create a .env file with OPENAI_API_KEY=your_api_key")
         return
+        
+    # Make output file path available to the progress callback
+    global output_file
+    output_file = args.output
     
     # Set up caching based on command line arguments
     from storyteller_lib.config import setup_cache, CACHE_LOCATION

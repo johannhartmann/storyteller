@@ -467,6 +467,109 @@ def _prepare_worldbuilding_guidance(world_elements: Dict, chapter_outline: str, 
     - Smells, tastes, and textures (what physical sensations are associated?)
     - Emotional reactions (how do characters FEEL about these elements?)
     """
+def _generate_previous_scenes_summary(state: StoryState) -> str:
+    """
+    Generate a comprehensive summary of previous chapters and scenes with focus on recent events.
+    
+    Args:
+        state: The current story state
+        
+    Returns:
+        A formatted summary of previous chapters and scenes
+    """
+    chapters = state["chapters"]
+    current_chapter = state["current_chapter"]
+    current_scene = state["current_scene"]
+    
+    # Initialize summary sections
+    chapter_summaries = []
+    recent_scene_details = []
+    
+    # Process each chapter
+    for chap_num in sorted(chapters.keys(), key=int):
+        chapter = chapters[chap_num]
+        
+        # Skip current chapter and scene
+        if int(chap_num) > int(current_chapter):
+            continue
+            
+        # For previous chapters, create a brief summary
+        if int(chap_num) < int(current_chapter):
+            scenes_count = len(chapter["scenes"])
+            chapter_summary = f"Chapter {chap_num}: {chapter.get('title', 'Untitled')}\n"
+            chapter_summary += f"Summary: {chapter.get('outline', 'No outline available')[:300]}...\n"
+            chapter_summary += f"Contains {scenes_count} scenes\n"
+            
+            # Add key events from the chapter (last scene as conclusion)
+            if scenes_count > 0:
+                last_scene_num = max(chapter["scenes"].keys(), key=int)
+                last_scene = chapter["scenes"][last_scene_num]
+                # Extract first 200 chars as a glimpse
+                last_scene_glimpse = last_scene.get("content", "")[:200]
+                chapter_summary += f"Conclusion: {last_scene_glimpse}...\n"
+                
+            chapter_summaries.append(chapter_summary)
+        
+        # For current chapter, include more detailed scene summaries
+        elif int(chap_num) == int(current_chapter):
+            # Add chapter info
+            chapter_summary = f"Current Chapter {chap_num}: {chapter.get('title', 'Untitled')}\n"
+            chapter_summary += f"Outline: {chapter.get('outline', 'No outline available')}\n"
+            chapter_summaries.append(chapter_summary)
+            
+            # Add detailed summaries of previous scenes in current chapter
+            for scene_num in sorted(chapter["scenes"].keys(), key=int):
+                if int(scene_num) >= int(current_scene):
+                    continue
+                    
+                scene = chapter["scenes"][scene_num]
+                scene_content = scene.get("content", "")
+                
+                # Create a more detailed summary for recent scenes
+                scene_summary = f"Scene {scene_num}:\n"
+                
+                # Include first and last paragraph for context
+                paragraphs = [p for p in scene_content.split("\n\n") if p.strip()]
+                if paragraphs:
+                    if len(paragraphs) == 1:
+                        # If only one paragraph, include a portion
+                        scene_summary += f"Content: {paragraphs[0][:300]}...\n"
+                    else:
+                        # Include first and last paragraph
+                        scene_summary += f"Beginning: {paragraphs[0][:200]}...\n"
+                        scene_summary += f"Ending: {paragraphs[-1][:200]}...\n"
+                
+                # Include any structured reflection data if available
+                if "structured_reflection" in scene:
+                    reflection = scene["structured_reflection"]
+                    if reflection and "formatted_issues" in reflection:
+                        scene_summary += "Key points from reflection:\n"
+                        for issue in reflection["formatted_issues"][:2]:  # Limit to 2 issues
+                            scene_summary += f"- {issue}\n"
+                
+                recent_scene_details.append(scene_summary)
+    
+    # Combine all summaries
+    full_summary = ""
+    
+    # Include chapter summaries (limit to last 3 if there are many)
+    if chapter_summaries:
+        if len(chapter_summaries) > 3:
+            full_summary += "PREVIOUS CHAPTERS SUMMARY (most recent 3):\n"
+            full_summary += "\n".join(chapter_summaries[-3:])
+        else:
+            full_summary += "PREVIOUS CHAPTERS SUMMARY:\n"
+            full_summary += "\n".join(chapter_summaries)
+    
+    # Include detailed scene summaries (limit to last 5 if there are many)
+    if recent_scene_details:
+        full_summary += "\n\nRECENT SCENES DETAILS:\n"
+        if len(recent_scene_details) > 5:
+            full_summary += "\n".join(recent_scene_details[-5:])
+        else:
+            full_summary += "\n".join(recent_scene_details)
+    
+    return full_summary
 
 def _prepare_plot_thread_guidance(active_plot_threads: List[Dict]) -> str:
     """Prepare plot thread guidance section for scene writing."""
@@ -502,16 +605,14 @@ def _prepare_plot_thread_guidance(active_plot_threads: List[Dict]) -> str:
         plot_thread_sections.append(background_section)
     
     # Combine all sections
-    return f"""
-    ACTIVE PLOT THREADS:
-    
-    {'\n'.join(plot_thread_sections)}
-    
-    Ensure that major plot threads are meaningfully advanced in this scene.
-    Minor threads should be addressed if they fit naturally with the scene's purpose.
-    Background threads can be referenced to maintain continuity.
-    """
-    return scene_characters
+    joined_sections = "\n".join(plot_thread_sections)
+    return (
+        f"ACTIVE PLOT THREADS:\n\n"
+        f"{joined_sections}\n\n"
+        f"Ensure that major plot threads are meaningfully advanced in this scene.\n"
+        f"Minor threads should be addressed if they fit naturally with the scene's purpose.\n"
+        f"Background threads can be referenced to maintain continuity."
+    )
 
 @track_progress
 def brainstorm_scene_elements(state: StoryState) -> Dict:
@@ -699,26 +800,26 @@ def write_scene(state: StoryState) -> Dict:
     plot_thread_guidance = _prepare_plot_thread_guidance(active_plot_threads)
     
     # Create showing vs. telling guidance
-    showing_telling_guidance = f"""
-    SHOWING VS TELLING BALANCE:
-    - Aim for a showing:telling ratio of {showing_ratio}:10
-    - Minimum sensory details per paragraph: 2
-    - Convert explanations into experiences, observations, or interactions
-    - Show emotions through physical reactions rather than naming them
-    
-    SHOW, DON'T TELL GUIDELINES:
-    - Convert every explanation into a sensory experience or character interaction
-    - Replace statements about emotions with physical manifestations of those emotions
-    - Demonstrate world elements through how characters interact with them
-    - Use specific, concrete details rather than general descriptions
-    - Create scenes where characters discover information rather than being told it
-    
-    BEFORE AND AFTER EXAMPLE:
-    
-    TELLING: "The Sülfmeister were resentful of the Patrizier's power over the salt trade."
-    
-    SHOWING: "Müller's knuckles whitened around his salt measure as the Patrizier's tax collector approached. The other Sülfmeister exchanged glances, their shoulders tensing beneath salt-crusted coats. No one spoke, but their silence carried the weight of generations of resentment."
-    """
+    showing_telling_guidance = (
+        f"SHOWING VS TELLING BALANCE:\n"
+        f"- Aim for a showing:telling ratio of {showing_ratio}:10\n"
+        f"- Minimum sensory details per paragraph: 2\n"
+        f"- Convert explanations into experiences, observations, or interactions\n"
+        f"- Show emotions through physical reactions rather than naming them\n\n"
+        f"SHOW, DON'T TELL GUIDELINES:\n"
+        f"- Convert every explanation into a sensory experience or character interaction\n"
+        f"- Replace statements about emotions with physical manifestations of those emotions\n"
+        f"- Demonstrate world elements through how characters interact with them\n"
+        f"- Use specific, concrete details rather than general descriptions\n"
+        f"- Create scenes where characters discover information rather than being told it\n\n"
+        f"BEFORE AND AFTER EXAMPLE:\n\n"
+        f"TELLING: \"The Sulfmeister were resentful of the Patrizier's power over the salt trade.\"\n\n"
+        f"SHOWING: \"Muller's knuckles whitened around his salt measure as the Patrizier's tax collector approached. "
+        f"The other Sulfmeister exchanged glances, their shoulders tensing beneath salt-crusted coats. "
+        f"No one spoke, but their silence carried the weight of generations of resentment.\""
+    )
+    # Generate a comprehensive summary of previous chapters and scenes
+    previous_scenes_summary = _generate_previous_scenes_summary(state)
     
     # Create a prompt for scene writing
     prompt = f"""
@@ -736,6 +837,10 @@ def write_scene(state: StoryState) -> Dict:
     Previously revealed information:
     {revelations.get('reader', [])}
     
+    PREVIOUS CONTENT SUMMARY:
+    {previous_scenes_summary}
+    
+    {worldbuilding_guidance}
     {worldbuilding_guidance}
     
     {creative_guidance}
@@ -968,98 +1073,99 @@ def reflect_on_scene(state: StoryState) -> Dict:
         {issues_text}
         """
     
+    # Get language from state
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
+    # Prepare language validation section
+    language_validation_section = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_validation_section = f"""
+        LANGUAGE VALIDATION:
+        The story is supposed to be written in {SUPPORTED_LANGUAGES[language.lower()]}.
+        You MUST check if the scene is actually written in {SUPPORTED_LANGUAGES[language.lower()]} or if it was mistakenly written in English or another language.
+        
+        If the scene is NOT written in {SUPPORTED_LANGUAGES[language.lower()]}, you MUST:
+        1. Create an issue with type "language_mismatch"
+        2. Set the severity to 10 (highest)
+        3. Provide a recommendation to rewrite the scene entirely in {SUPPORTED_LANGUAGES[language.lower()]}
+        4. Set needs_revision to true
+        """
+    
     # Prompt for structured reflection
-    prompt = f"""
-    Analyze this scene from Chapter {current_chapter}, Scene {current_scene}:
-    
-    {scene_content}
-    
-    Story context:
-    {global_story[:500]}...
-    
-    Previous scenes (summaries):
-    {previous_context}
-    
-    Current character profiles:
-    {characters}
-    
-    Previously revealed information:
-    {revelations['reader'] if 'reader' in revelations else []}
-    
-    {worldbuilding_context}
-    
-    Scene Closure Analysis:
-    Status: {closure_analysis["closure_status"]}
-    Score: {closure_analysis["closure_score"]}/10
-    Issues: {', '.join(closure_analysis["issues"]) if closure_analysis["issues"] else "None"}
-    
-    {previously_addressed_section}
-    
-    Evaluate the scene on these criteria and include in criteria_ratings:
-    - character_consistency: Consistency with established character traits and motivations
-    - plot_advancement: Advancement of the plot according to the chapter outline
-    - writing_quality: Quality of writing (descriptions, dialogue, pacing)
-    - tone_appropriateness: Tone and style appropriateness
-    - information_management: Information management (revelations and secrets)
-    - continuity: Continuity with previous scenes and the overall story arc
-    - worldbuilding_consistency: Consistency with established world elements (geography, culture, politics, etc.)
-    - emotional_depth: Depth and authenticity of emotional content and resonance
-    - character_relatability: How relatable and human the characters feel to readers
-    - inner_conflict_development: Development of characters' inner struggles and dilemmas
-    - scene_closure: How well the scene concludes with proper narrative closure
-    
-    Identify:
-    - Any new information revealed to the reader that should be tracked
-    - Any character developments or relationship changes
-    - Any emotional developments or shifts in characters
-    - Any progress in character arcs or inner conflicts
-    - Any world elements introduced or expanded upon in this scene
-    - Any changes to the established world (geography, culture, politics, etc.)
-    - Any NEW inconsistencies or continuity errors (e.g., contradictions with previous scenes, plot holes)
-    - Any NEW worldbuilding inconsistencies (e.g., contradictions with established world elements)
-    - Any NEW areas that need improvement in emotional depth or character development
-    - Any NEW areas that need improvement in worldbuilding integration
-    - Any NEW areas that need improvement
-    
-    DO NOT report issues that have already been addressed in previous revisions (listed above).
-    Focus ONLY on identifying NEW issues that still exist in the current version of the scene.
-    
-    IMPORTANT: For each NEW issue you identify, you MUST provide:
-    1. A SPECIFIC and DETAILED description of the issue (not just "plot hole" or "pacing issue")
-    2. A CONCRETE example from the scene that demonstrates the issue
-    3. A SPECIFIC recommendation for how to fix the issue
-    
-    For example, instead of "Plot hole detected", write "Plot hole: The detective claims he's never been to Lüneburg before, but in the previous scene he mentioned growing up there. This contradicts his established backstory."
-    
-    Remember to ONLY report NEW issues that haven't been addressed in previous revisions.
-    
-    For severity ratings:
-    - 8-10: Critical issues that significantly impact story coherence or reader experience
-    - 6-7: Moderate issues that should be addressed but don't break the story
-    - 3-5: Minor issues that would improve the story if fixed
-    - 1-2: Nitpicks or stylistic preferences
-    
-    DO NOT default to a middle severity - evaluate each issue carefully and assign a specific severity.
-    DO NOT use generic descriptions like "Unspecified plot hole" - be specific and detailed about each issue.
-    DO NOT report issues that have already been addressed in previous revisions - focus only on NEW issues.
-    
-    CRITICAL INSTRUCTION: You MUST set 'needs_revision' to true if ANY of these conditions are met:
-    - Any criteria score is 5 or below
-    - There are any NEW continuity errors, character inconsistencies, plot holes, or worldbuilding inconsistencies
-    - There are multiple NEW issues of any type
-    - The overall quality of the scene is significantly below the standards of the story
-    - The scene contradicts established world elements in significant ways
-    - The scene_closure score is 4 or below, indicating an abrupt or incomplete ending
-    
-    If you identify ANY NEW issues at all, you should carefully consider whether revision is needed.
-    Do not report issues that have already been addressed in previous revisions unless they still exist.
-    Do not leave NEW issues unaddressed - if you find NEW problems, set needs_revision=true.
-    """
+    prompt = (
+        f"Analyze this scene from Chapter {current_chapter}, Scene {current_scene}:\n\n"
+        f"{scene_content}\n\n"
+        f"Story context:\n"
+        f"{global_story[:500]}...\n\n"
+        f"Previous scenes (summaries):\n"
+        f"{previous_context}\n\n"
+        f"Current character profiles:\n"
+        f"{characters}\n\n"
+        f"Previously revealed information:\n"
+        f"{revelations['reader'] if 'reader' in revelations else []}\n\n"
+        f"{worldbuilding_context}\n\n"
+        f"Scene Closure Analysis:\n"
+        f"Status: {closure_analysis['closure_status']}\n"
+        f"Score: {closure_analysis['closure_score']}/10\n"
+        f"Issues: {', '.join(closure_analysis['issues']) if closure_analysis['issues'] else 'None'}\n\n"
+        f"{previously_addressed_section}\n\n"
+        f"{language_validation_section}\n\n"
+        f"Evaluate the scene on these criteria and include in criteria_ratings:\n"
+        f"- character_consistency: Consistency with established character traits and motivations\n"
+        f"- plot_advancement: Advancement of the plot according to the chapter outline\n"
+        f"- writing_quality: Quality of writing (descriptions, dialogue, pacing)\n"
+        f"- tone_appropriateness: Tone and style appropriateness\n"
+        f"- information_management: Information management (revelations and secrets)\n"
+        f"- continuity: Continuity with previous scenes and the overall story arc\n"
+        f"- worldbuilding_consistency: Consistency with established world elements (geography, culture, politics, etc.)\n"
+        f"- emotional_depth: Depth and authenticity of emotional content and resonance\n"
+        f"- character_relatability: How relatable and human the characters feel to readers\n"
+        f"- inner_conflict_development: Development of characters' inner struggles and dilemmas\n"
+        f"- scene_closure: How well the scene concludes with proper narrative closure\n\n"
+        f"Identify:\n"
+        f"- Any new information revealed to the reader that should be tracked\n"
+        f"- Any character developments or relationship changes\n"
+        f"- Any emotional developments or shifts in characters\n"
+        f"- Any progress in character arcs or inner conflicts\n"
+        f"- Any world elements introduced or expanded upon in this scene\n"
+        f"- Any changes to the established world (geography, culture, politics, etc.)\n"
+        f"- Any NEW inconsistencies or continuity errors (e.g., contradictions with previous scenes, plot holes)\n"
+        f"- Any NEW worldbuilding inconsistencies (e.g., contradictions with established world elements)\n"
+        f"- Any NEW areas that need improvement in emotional depth or character development\n"
+        f"- Any NEW areas that need improvement in worldbuilding integration\n"
+        f"- Any NEW areas that need improvement\n\n"
+        f"DO NOT report issues that have already been addressed in previous revisions (listed above).\n"
+        f"Focus ONLY on identifying NEW issues that still exist in the current version of the scene.\n\n"
+        f"IMPORTANT: For each NEW issue you identify, you MUST provide:\n"
+        f"1. A SPECIFIC and DETAILED description of the issue (not just \"plot hole\" or \"pacing issue\")\n"
+        f"2. A CONCRETE example from the scene that demonstrates the issue\n"
+        f"3. A SPECIFIC recommendation for how to fix the issue\n\n"
+        f"For example, instead of \"Plot hole detected\", write \"Plot hole: The detective claims he's never been to Lüneburg before, but in the previous scene he mentioned growing up there. This contradicts his established backstory.\"\n\n"
+        f"Remember to ONLY report NEW issues that haven't been addressed in previous revisions.\n\n"
+        f"For severity ratings:\n"
+        f"- 8-10: Critical issues that significantly impact story coherence or reader experience\n"
+        f"- 6-7: Moderate issues that should be addressed but don't break the story\n"
+        f"- 3-5: Minor issues that would improve the story if fixed\n"
+        f"- 1-2: Nitpicks or stylistic preferences\n\n"
+        f"DO NOT default to a middle severity - evaluate each issue carefully and assign a specific severity.\n"
+        f"DO NOT use generic descriptions like \"Unspecified plot hole\" - be specific and detailed about each issue.\n"
+        f"DO NOT report issues that have already been addressed in previous revisions - focus only on NEW issues.\n\n"
+        f"CRITICAL INSTRUCTION: You MUST set 'needs_revision' to true if ANY of these conditions are met:\n"
+        f"- Any criteria score is 5 or below\n"
+        f"- There are any NEW continuity errors, character inconsistencies, plot holes, or worldbuilding inconsistencies\n"
+        f"- There is a language mismatch (scene not written in the specified language)\n"
+        f"- There are multiple NEW issues of any type\n"
+        f"- The overall quality of the scene is significantly below the standards of the story\n"
+        f"- The scene contradicts established world elements in significant ways\n"
+        f"- The scene_closure score is 4 or below, indicating an abrupt or incomplete ending\n\n"
+        f"If you identify ANY NEW issues at all, you should carefully consider whether revision is needed.\n"
+        f"Do not report issues that have already been addressed in previous revisions unless they still exist.\n"
+        f"Do not leave NEW issues unaddressed - if you find NEW problems, set needs_revision=true."
+    )
     
     # Use Pydantic for structured output
     from typing import List, Dict, Optional, Literal, Any, Union
     from pydantic import BaseModel, Field, field_validator
-    
     # Define Pydantic models for the nested structure
     class CriteriaRating(BaseModel):
         """Rating for a specific criteria."""
@@ -1074,10 +1180,11 @@ def reflect_on_scene(state: StoryState) -> Dict:
         """An issue identified in the scene."""
         type: str = Field(
             default="other",
-            description="Type of issue (continuity_error, character_inconsistency, plot_hole, pacing_issue, tone_mismatch, other)"
+            description="Type of issue (continuity_error, character_inconsistency, plot_hole, pacing_issue, tone_mismatch, language_mismatch, other)"
         )
         description: str = Field(default="", description="Description of the issue")
         severity: int = Field(ge=1, le=10, default=5, description="Severity from 1-10")
+        recommendation: str = Field(default="", description="Recommendation to fix the issue")
         recommendation: str = Field(default="", description="Recommendation to fix the issue")
         
         def __init__(self, **data):
@@ -1086,7 +1193,9 @@ def reflect_on_scene(state: StoryState) -> Dict:
             if 'severity' not in data:
                 issue_type = data.get('type', 'other').lower()
                 # Assign higher default severity to critical issues
-                if issue_type in ['plot_hole', 'continuity_error', 'character_inconsistency']:
+                if issue_type == 'language_mismatch':
+                    data['severity'] = 10  # Highest severity for language mismatch
+                elif issue_type in ['plot_hole', 'continuity_error', 'character_inconsistency']:
                     data['severity'] = 8
                 elif issue_type in ['pacing_issue', 'tone_mismatch']:
                     data['severity'] = 6
@@ -1097,7 +1206,9 @@ def reflect_on_scene(state: StoryState) -> Dict:
             if 'description' not in data or not data['description'] or data['description'].strip() == "":
                 issue_type = data.get('type', 'other')
                 # Provide more specific default descriptions based on issue type
-                if issue_type == 'plot_hole':
+                if issue_type == 'language_mismatch':
+                    data['description'] = "The scene is not written in the specified language"
+                elif issue_type == 'plot_hole':
                     data['description'] = "A logical inconsistency or contradiction in the plot that needs to be resolved"
                 elif issue_type == 'continuity_error':
                     data['description'] = "An inconsistency with previously established facts or events"
@@ -1119,7 +1230,9 @@ def reflect_on_scene(state: StoryState) -> Dict:
             if 'recommendation' not in data or not data['recommendation'] or data['recommendation'].strip() == "":
                 issue_type = data.get('type', 'other')
                 # Provide more specific default recommendations based on issue type
-                if issue_type == 'plot_hole':
+                if issue_type == 'language_mismatch':
+                    data['recommendation'] = "Rewrite the entire scene in the specified language"
+                elif issue_type == 'plot_hole':
                     data['recommendation'] = "Revise the scene to ensure logical consistency with the established plot"
                 elif issue_type == 'continuity_error':
                     data['recommendation'] = "Align this scene with previously established facts and events"
@@ -1139,7 +1252,7 @@ def reflect_on_scene(state: StoryState) -> Dict:
             extra = "ignore"  # Ignore extra fields
     
     class SceneReflection(BaseModel):
-        """Reflection on a scene's quality and issues."""
+        """Reflection on a scenes quality and issues."""
         criteria_ratings: Union[Dict[str, CriteriaRating], str, Dict[str, Dict[str, Any]]] = Field(
             default_factory=dict,
             description="Ratings for different criteria (e.g., character_consistency, plot_advancement, etc.)"
@@ -1294,15 +1407,13 @@ def reflect_on_scene(state: StoryState) -> Dict:
         reflection_dict = default_reflection
     
     # Extract new revelations directly from the scene content
-    revelation_prompt = f"""
-    Based on this scene:
-    
-    {scene_content}
-    
-    Extract a list of any new information revealed to the reader that wasn't known before.
-    Each item should be a specific fact or revelation that's now known to the reader.
-    Format as a simple bulleted list.
-    """
+    revelation_prompt = (
+        f"Based on this scene:\n\n"
+        f"{scene_content}\n\n"
+        f"Extract a list of any new information revealed to the reader that wasn't known before.\n"
+        f"Each item should be a specific fact or revelation that's now known to the reader.\n"
+        f"Format as a simple bulleted list."
+    )
     
     # Get new revelations
     new_revelations_text = llm.invoke([HumanMessage(content=revelation_prompt)]).content
@@ -1544,8 +1655,8 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
     # Check revision count to prevent infinite loops
     revision_count = state.get("revision_count", {}).get(f"{current_chapter}_{current_scene}", 0)
     
-    # Default to not needing revision if we've revised twice already
-    if revision_count >= 2:
+    # Default to not needing revision if we've revised three times already
+    if revision_count >= 3:
         print(f"Scene {current_scene} of Chapter {current_chapter} has been revised {revision_count} times. No further revisions will be made.")
         needs_revision = False
         return {
@@ -1554,7 +1665,7 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=f"Scene {current_scene} of Chapter {current_chapter} has already been revised {revision_count} times. No further revisions needed.")
+                AIMessage(content=f"Scene {current_scene} of Chapter {current_chapter} has already been revised {revision_count} times (maximum of 3 revisions allowed). No further revisions will be made.")
             ]
         }
     
@@ -1702,15 +1813,16 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
                 plot_thread_sections.append(background_section)
             
             # Combine all sections
-            plot_thread_guidance = f"""
-            ACTIVE PLOT THREADS:
-            
-            {'\n'.join(plot_thread_sections)}
-            
-            Ensure that major plot threads are meaningfully advanced in this scene.
-            Minor threads should be addressed if they fit naturally with the scene's purpose.
-            Background threads can be referenced to maintain continuity.
-            """
+            joined_sections = "\n".join(plot_thread_sections)
+            plot_thread_guidance = (
+                f"ACTIVE PLOT THREADS:\n\n"
+                f"{joined_sections}\n\n"
+                f"Ensure that major plot threads are meaningfully advanced in this scene.\n"
+                f"Minor threads should be addressed if they fit naturally with the scene's purpose.\n"
+                f"Background threads can be referenced to maintain continuity."
+            )
+        # Generate a comprehensive summary of previous chapters and scenes
+        previous_scenes_summary = _generate_previous_scenes_summary(state)
         
         # Prompt for scene revision
         prompt = f"""
@@ -1737,6 +1849,10 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         PREVIOUSLY REVEALED INFORMATION:
         {revelations.get('reader', [])}
         
+        PREVIOUS CONTENT SUMMARY:
+        {previous_scenes_summary}
+        
+        {plot_thread_guidance}
         {plot_thread_guidance}
         
         YOUR REVISION TASK:
@@ -1746,6 +1862,7 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         4. Improve the quality, style, and flow as needed.
         5. Ensure no NEW continuity errors are introduced.
         6. Properly address and advance all major plot threads, and incorporate minor threads where relevant.
+        7. If a language mismatch was identified, ensure the ENTIRE scene is written in the specified language.
         
         {language_section}
         
@@ -1842,6 +1959,33 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             }
         }
         
+        # Check if this was the last scene in the chapter that needed revision
+        # If so, the chapter is now complete and can be written to the output file
+        chapter_complete = True
+        for scene_num, scene_data in chapters[current_chapter]["scenes"].items():
+            # Skip the current scene since we just revised it
+            if scene_num == current_scene:
+                continue
+            # A scene is only complete if it has both content and reflection notes
+            if not scene_data.get("content") or not scene_data.get("reflection_notes"):
+                chapter_complete = False
+                break
+        
+        # If this is the last scene in the chapter and it's now complete, mark the chapter as ready to write
+        if chapter_complete:
+            print(f"\n==== CHAPTER {current_chapter} COMPLETED ====")
+            print(f"All scenes in Chapter {current_chapter} have been written and revised.")
+            print(f"The chapter is now ready to be written to the output file.")
+            print(f"=================================\n")
+            
+            # Store in memory that this chapter is complete
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": f"chapter_{current_chapter}_complete",
+                "value": True,
+                "namespace": MEMORY_NAMESPACE
+            })
+        
         return {
             "chapters": {
                 current_chapter: {
@@ -1853,6 +1997,7 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             },
             "current_chapter": current_chapter,
             "current_scene": current_scene,
+            "chapter_complete": chapter_complete,  # Add this flag to indicate if the chapter is complete
             
             # Add memory tracking
             "memory_usage": {
