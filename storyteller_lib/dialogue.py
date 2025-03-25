@@ -177,6 +177,22 @@ def analyze_dialogue(scene_content: str, characters: Dict[str, Any]) -> Dict[str
         # Use the structured LLM to analyze dialogue
         dialogue_analysis = structured_llm.invoke(prompt)
         
+        # Check if we got a valid response
+        if dialogue_analysis is None:
+            print("Error analyzing dialogue: LLM returned None")
+            return {
+                "naturalness_score": 5,
+                "character_voice_score": 5,
+                "exposition_score": 5,
+                "subtext_score": 5,
+                "purpose_score": 5,
+                "efficiency_score": 5,
+                "overall_score": 5,
+                "issues": [],
+                "strengths": [],
+                "recommendations": ["Error analyzing dialogue: LLM returned None"]
+            }
+        
         # Convert Pydantic model to dictionary
         return dialogue_analysis.dict()
     
