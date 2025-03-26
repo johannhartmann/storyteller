@@ -163,7 +163,6 @@ def generate_story_outline(state: StoryState) -> Dict:
         !!!CRITICAL LANGUAGE INSTRUCTION!!!
         This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
         ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        DO NOT include ANY English text in your response.
         DO NOT translate the hero's journey structure - create the outline directly in {SUPPORTED_LANGUAGES[language.lower()]}.
         
         I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any outline that contains English.
@@ -434,7 +433,6 @@ def generate_story_outline(state: StoryState) -> Dict:
             !!!CRITICAL LANGUAGE INSTRUCTION!!!
             This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
             ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-            DO NOT include ANY English text in your response.
             DO NOT translate the hero's journey structure - create the outline directly in {SUPPORTED_LANGUAGES[language.lower()]}.
             
             I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any outline that contains English.
@@ -507,7 +505,6 @@ def generate_story_outline(state: StoryState) -> Dict:
                 !!!CRITICAL LANGUAGE INSTRUCTION!!!
                 This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
                 ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-                DO NOT include ANY English text in your response.
                 DO NOT translate the hero's journey structure - create the outline directly in {SUPPORTED_LANGUAGES[language.lower()]}.
                 
                 I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any outline that contains English.
@@ -758,7 +755,6 @@ def generate_characters(state: StoryState) -> Dict:
         !!!CRITICAL LANGUAGE INSTRUCTION!!!
         These character profiles MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
         ALL content - including names, descriptions, backstories, and personality traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        DO NOT include ANY English text in your response.
         DO NOT translate character archetypes - create the profiles directly in {SUPPORTED_LANGUAGES[language.lower()]}.
         
         I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any profiles that contain English.
@@ -850,7 +846,6 @@ def generate_characters(state: StoryState) -> Dict:
             
             These character profiles MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
             ALL content - including names, descriptions, backstories, and personality traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-            DO NOT include ANY English text in your response.
             DO NOT translate character archetypes - create the profiles directly in {SUPPORTED_LANGUAGES[language.lower()]}.
             
             I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any profiles that contain English.
@@ -1335,7 +1330,6 @@ def plan_chapters(state: StoryState) -> Dict:
         !!!CRITICAL LANGUAGE INSTRUCTION!!!
         This chapter plan MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
         ALL content - including chapter titles, summaries, scene descriptions, and character development - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        DO NOT include ANY English text in your response.
         DO NOT translate the hero's journey structure - create the chapter plan directly in {SUPPORTED_LANGUAGES[language.lower()]}.
         
         I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any plan that contains English.
@@ -1366,7 +1360,21 @@ def plan_chapters(state: StoryState) -> Dict:
     
     {characters}
     
-    Create a plan for 5-10 chapters that cover the entire hero's journey for this {tone} {genre} story.
+    Create a plan for 8-15 chapters that cover the entire hero's journey for this {tone} {genre} story.
+    IMPORTANT: THERE SHOULD NEVER BE LESS THAN 8 CHAPTERS.
+    
+    SPECIAL INSTRUCTION FOR THIS STORY:
+    This story should follow a specific structure with two main parts:
+    
+    PART I: "Asche im Wind" (Chapters 1-6)
+    - Set in München, Winter 1931
+    - Should contain 6 scenes/episodes that build upon each other
+    
+    PART II: "Verborgene Seiten" (Chapters 7-8)
+    - Begins the morning after Part I, with the protagonist visiting a bookstore despite a hangover
+    - Should contain 2 scenes/episodes that conclude the story
+    
+    While planning the 8 chapters, ensure they align with this two-part structure, with the first 6 chapters corresponding to Part I and the final 2 chapters corresponding to Part II.
     
     For each chapter, provide:
     1. Chapter number and title
@@ -1421,7 +1429,6 @@ def plan_chapters(state: StoryState) -> Dict:
             
             This chapter plan MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
             ALL content - including chapter titles, summaries, scene descriptions, and character development - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-            DO NOT include ANY English text in your response.
             DO NOT translate the hero's journey structure - create the chapter plan directly in {SUPPORTED_LANGUAGES[language.lower()]}.
             
             I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any plan that contains English.

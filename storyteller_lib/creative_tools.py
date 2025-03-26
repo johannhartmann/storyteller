@@ -59,7 +59,6 @@ def generate_genre_guidance(genre: str, tone: str, language: str = DEFAULT_LANGU
         CRITICAL LANGUAGE INSTRUCTION:
         Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
         ALL content - including descriptions, elements, and guidance - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        DO NOT include ANY English text in your response.
         
         This is a STRICT requirement. Your ENTIRE response must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
         """
@@ -187,7 +186,6 @@ def creative_brainstorm(
         You MUST generate ALL ideas ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
         ALL content - including idea titles, descriptions, explanations, and analyses - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
         DO NOT switch to any other language at ANY point in your response.
-        DO NOT include ANY English text in your response.
         
         Additionally:
         - Character names, places, and cultural references should be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
@@ -282,7 +280,6 @@ def creative_brainstorm(
     Your evaluation MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
     ALL content - including your analysis, ratings, and recommendations - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
     DO NOT switch to any other language at ANY point in your evaluation.
-    DO NOT include ANY English text in your response.
     
     This is a STRICT requirement. Your ENTIRE evaluation must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
     """

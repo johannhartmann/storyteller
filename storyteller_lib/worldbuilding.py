@@ -6,235 +6,71 @@ based on the story parameters (genre, tone, author style, and initial idea).
 It uses Pydantic models for structured data extraction and validation.
 """
 
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Type
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, AIMessage, RemoveMessage
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from storyteller_lib import track_progress
-from storyteller_lib.creative_tools import parse_json_with_langchain, structured_output_with_pydantic
+from storyteller_lib.creative_tools import parse_json_with_langchain
 
-# Pydantic models for structured worldbuilding data extraction
+# Simple, focused Pydantic models for worldbuilding elements
 
-class GeographyElement(BaseModel):
+class Geography(BaseModel):
     """Geography elements of the world."""
-    major_locations: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Major locations (cities, countries, planets, realms, etc.)"
-    )
-    physical_features: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Physical features (mountains, rivers, forests, etc.)"
-    )
-    climate: str = Field(
-        default="",
-        description="Climate and weather patterns"
-    )
-    landmarks: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Notable landmarks"
-    )
-    spatial_relationships: str = Field(
-        default="",
-        description="Spatial relationships between locations"
-    )
+    locations: str = Field(description="Major locations (cities, countries, planets, etc.)")
+    climate: Optional[str] = Field(default="", description="Climate and weather patterns")
+    landmarks: Optional[str] = Field(default="", description="Notable landmarks and physical features")
+    relevance: Optional[str] = Field(default="", description="How geography impacts the story")
 
-class HistoryElement(BaseModel):
+class History(BaseModel):
     """Historical elements of the world."""
-    timeline: List[Dict[str, str]] = Field(
-        default_factory=list,
-        description="Timeline of significant events"
-    )
-    historical_figures: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Historical figures and their impact"
-    )
-    past_conflicts: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Past conflicts and resolutions"
-    )
-    origin_stories: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Origin stories or myths"
-    )
-    historical_trends: List[str] = Field(
-        default_factory=list,
-        description="Historical trends that shape the present"
-    )
+    timeline: str = Field(description="Key historical events in chronological order")
+    figures: Optional[str] = Field(default="", description="Important historical figures and their impact")
+    conflicts: Optional[str] = Field(default="", description="Major historical conflicts and their resolutions")
+    relevance: Optional[str] = Field(default="", description="How history impacts the current story")
 
-class CultureElement(BaseModel):
+class Culture(BaseModel):
     """Cultural elements of the world."""
-    languages: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Languages and communication"
-    )
-    arts: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Arts and entertainment"
-    )
-    traditions: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Traditions and customs"
-    )
-    values: List[str] = Field(
-        default_factory=list,
-        description="Cultural values and taboos"
-    )
-    diversity: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Cultural diversity and subcultures"
-    )
+    languages: str = Field(description="Languages and communication methods")
+    traditions: Optional[str] = Field(default="", description="Important traditions, customs, and arts")
+    values: Optional[str] = Field(default="", description="Cultural values, taboos, and diversity")
+    relevance: Optional[str] = Field(default="", description="How culture influences characters and plot")
 
-class PoliticsElement(BaseModel):
+class Politics(BaseModel):
     """Political elements of the world."""
-    government: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Government systems and power structures"
-    )
-    factions: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Political factions and their relationships"
-    )
-    laws: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Laws and justice systems"
-    )
-    military: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Military and defense"
-    )
-    international_relations: Dict[str, str] = Field(
-        default_factory=dict,
-        description="International/inter-realm relations"
-    )
+    government: str = Field(description="Government systems and power structures")
+    factions: Optional[str] = Field(default="", description="Political factions and their relationships")
+    laws: Optional[str] = Field(default="", description="Important laws and justice systems")
+    relevance: Optional[str] = Field(default="", description="How politics affects the story")
 
-class EconomicsElement(BaseModel):
+class Economics(BaseModel):
     """Economic elements of the world."""
-    resources: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Resources and their distribution"
-    )
-    trade: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Trade systems and currencies"
-    )
-    classes: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Economic classes and inequality"
-    )
-    industries: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Industries and occupations"
-    )
-    challenges: List[str] = Field(
-        default_factory=list,
-        description="Economic challenges and opportunities"
-    )
+    resources: str = Field(description="Key resources and their distribution")
+    trade: Optional[str] = Field(default="", description="Trade systems, currencies, and markets")
+    classes: Optional[str] = Field(default="", description="Economic classes and inequality")
+    relevance: Optional[str] = Field(default="", description="How economics drives conflict or cooperation")
 
-class TechnologyMagicElement(BaseModel):
+class TechnologyMagic(BaseModel):
     """Technology or magic elements of the world."""
-    systems: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Available technologies or magic systems"
-    )
-    limitations: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Limitations and costs of technology/magic"
-    )
-    impact: str = Field(
-        default="",
-        description="Impact on society and daily life"
-    )
-    rare_elements: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Rare or forbidden technologies/magic"
-    )
-    acquisition: str = Field(
-        default="",
-        description="How technology/magic is learned or acquired"
-    )
+    systems: str = Field(description="Available technologies or magic systems")
+    limitations: Optional[str] = Field(default="", description="Limitations and costs of technology/magic")
+    impact: Optional[str] = Field(default="", description="Impact on society and daily life")
+    relevance: Optional[str] = Field(default="", description="How technology/magic creates opportunities or challenges")
 
-class ReligionElement(BaseModel):
+class Religion(BaseModel):
     """Religious elements of the world."""
-    belief_systems: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Belief systems and deities"
-    )
-    practices: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Religious practices and rituals"
-    )
-    organizations: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Religious organizations and leaders"
-    )
-    role: str = Field(
-        default="",
-        description="Role of religion in society"
-    )
-    conflicts: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Conflicts between religious groups"
-    )
+    beliefs: str = Field(description="Belief systems and deities")
+    practices: Optional[str] = Field(default="", description="Religious practices and rituals")
+    organizations: Optional[str] = Field(default="", description="Religious organizations and leaders")
+    relevance: Optional[str] = Field(default="", description="How religion influences society and characters")
 
-class DailyLifeElement(BaseModel):
+class DailyLife(BaseModel):
     """Daily life elements of the world."""
-    food: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Food and cuisine"
-    )
-    clothing: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Clothing and fashion"
-    )
-    housing: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Housing and architecture"
-    )
-    family: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Family structures and relationships"
-    )
-    education: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Education and knowledge transfer"
-    )
-
-class WorldElements(BaseModel):
-    """Complete worldbuilding elements model."""
-    GEOGRAPHY: GeographyElement = Field(
-        default_factory=GeographyElement,
-        description="Geographic elements of the world"
-    )
-    HISTORY: HistoryElement = Field(
-        default_factory=HistoryElement,
-        description="Historical elements of the world"
-    )
-    CULTURE: CultureElement = Field(
-        default_factory=CultureElement,
-        description="Cultural elements of the world"
-    )
-    POLITICS: PoliticsElement = Field(
-        default_factory=PoliticsElement,
-        description="Political elements of the world"
-    )
-    ECONOMICS: EconomicsElement = Field(
-        default_factory=EconomicsElement,
-        description="Economic elements of the world"
-    )
-    TECHNOLOGY_MAGIC: TechnologyMagicElement = Field(
-        default_factory=TechnologyMagicElement,
-        alias="TECHNOLOGY/MAGIC",
-        description="Technology or magic elements of the world"
-    )
-    RELIGION: ReligionElement = Field(
-        default_factory=ReligionElement,
-        description="Religious elements of the world"
-    )
-    DAILY_LIFE: DailyLifeElement = Field(
-        default_factory=DailyLifeElement,
-        description="Daily life elements of the world"
-    )
+    food: str = Field(description="Food and cuisine")
+    clothing: Optional[str] = Field(default="", description="Clothing and fashion")
+    housing: Optional[str] = Field(default="", description="Housing and architecture")
+    relevance: Optional[str] = Field(default="", description="How daily life reflects culture and status")
 
 class MysteryClue(BaseModel):
     """A clue that reveals part of a mystery."""
@@ -252,22 +88,390 @@ class MysteryAnalysis(BaseModel):
     """Analysis of potential mystery elements in the world."""
     key_mysteries: List[MysteryElement] = Field(description="List of key mystery elements")
 
-# Simplified models for category-by-category generation
-class SimplifiedWorldElement(BaseModel):
-    """A simplified worldbuilding element with description and relevance."""
-    description: str = Field(description="Description of this element")
-    relevance: Optional[str] = Field(default="", description="How this element is relevant to the story")
+class WorldbuildingElements(BaseModel):
+    """Complete worldbuilding elements model."""
+    geography: Optional[Geography] = Field(default=None, description="Geographic elements of the world")
+    history: Optional[History] = Field(default=None, description="Historical elements of the world")
+    culture: Optional[Culture] = Field(default=None, description="Cultural elements of the world")
+    politics: Optional[Politics] = Field(default=None, description="Political elements of the world")
+    economics: Optional[Economics] = Field(default=None, description="Economic elements of the world")
+    technology_magic: Optional[TechnologyMagic] = Field(default=None, description="Technology or magic elements of the world")
+    religion: Optional[Religion] = Field(default=None, description="Religious elements of the world")
+    daily_life: Optional[DailyLife] = Field(default=None, description="Daily life elements of the world")
 
-class SimplifiedCategory(BaseModel):
-    """A simplified category with key elements."""
-    elements: Dict[str, SimplifiedWorldElement] = Field(
-        default_factory=dict,
-        description="Key elements in this category"
-    )
-    summary: str = Field(
-        default="",
-        description="Summary of this category"
-    )
+# Helper functions for extraction and generation
+
+def extract_with_model(text: str, model: Type[BaseModel], category_name: str) -> Dict[str, Any]:
+    """
+    Extract structured data using a Pydantic model with error handling.
+    
+    Args:
+        text: Text to extract from
+        model: Pydantic model to use for extraction
+        category_name: Name of the category being extracted
+        
+    Returns:
+        Dictionary containing the extracted data or error information
+    """
+    try:
+        structured_llm = llm.with_structured_output(model)
+        prompt = f"""
+        Extract ONLY {category_name} information from this text:
+        
+        {text}
+        
+        Focus specifically on the key aspects of {category_name} and ignore other elements.
+        """
+        result = structured_llm.invoke(prompt)
+        return result.model_dump()
+    except Exception as e:
+        print(f"Error extracting {category_name}: {str(e)}")
+        return {"error": f"Failed to extract {category_name}: {str(e)}"}
+
+def create_category_prompt(category_name: str, genre: str, tone: str, author: str,
+                          initial_idea: str, global_story: str, language: str = DEFAULT_LANGUAGE,
+                          language_guidance: str = "") -> str:
+    """
+    Create a focused prompt for generating a specific worldbuilding category.
+    
+    Args:
+        category_name: Name of the category to generate
+        genre: Story genre
+        tone: Story tone
+        author: Author style to emulate
+        initial_idea: Initial story idea
+        global_story: Global story outline
+        language: Target language for generation
+        language_guidance: Optional language-specific guidance
+        
+    Returns:
+        Prompt string for generating the category
+    """
+    # Add language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        CRITICAL LANGUAGE INSTRUCTION:
+        You MUST generate ALL content ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL elements, descriptions, names, and terms must be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
+        DO NOT use English or any other language at any point.
+        """
+    
+    # Add field instructions based on category
+    field_instructions = ""
+    if category_name.lower() == "geography":
+        field_instructions = """
+        You MUST include ALL of these fields in your response:
+        - locations: Major locations (cities, countries, planets, etc.)
+        - climate: Climate and weather patterns
+        - landmarks: Notable landmarks and physical features
+        - relevance: How geography impacts the story
+        """
+    elif category_name.lower() == "history":
+        field_instructions = """
+        You MUST include ALL of these fields in your response:
+        - timeline: Key historical events in chronological order
+        - figures: Important historical figures and their impact
+        - conflicts: Major historical conflicts and their resolutions
+        - relevance: How history impacts the current story
+        """
+    elif category_name.lower() == "culture":
+        field_instructions = """
+        You MUST include ALL of these fields in your response:
+        - languages: Languages and communication methods
+        - traditions: Important traditions, customs, and arts
+        - values: Cultural values, taboos, and diversity
+        - relevance: How culture influences characters and plot
+        """
+    elif category_name.lower() == "politics":
+        field_instructions = """
+        You MUST include ALL of these fields in your response:
+        - government: Government systems and power structures
+        - factions: Political factions and their relationships
+        - laws: Important laws and justice systems
+        - relevance: How politics affects the story
+        """
+    elif category_name.lower() == "economics":
+        field_instructions = """
+        You MUST include ALL of these fields in your response:
+        - resources: Key resources and their distribution
+        - trade: Trade systems, currencies, and markets
+        - classes: Economic classes and inequality
+        - relevance: How economics drives conflict or cooperation
+        """
+    elif category_name.lower() == "technology_magic":
+        field_instructions = """
+        You MUST include ALL of these fields in your response:
+        - systems: Available technologies or magic systems
+        - limitations: Limitations and costs of technology/magic
+        - impact: Impact on society and daily life
+        - relevance: How technology/magic creates opportunities or challenges
+        """
+    elif category_name.lower() == "religion":
+        field_instructions = """
+        You MUST include ALL of these fields in your response:
+        - beliefs: Belief systems and deities
+        - practices: Religious practices and rituals
+        - organizations: Religious organizations and leaders
+        - relevance: How religion influences society and characters
+        """
+    elif category_name.lower() == "daily_life":
+        field_instructions = """
+        You MUST include ALL of these fields in your response:
+        - food: Food and cuisine
+        - clothing: Clothing and fashion
+        - housing: Housing and architecture
+        - relevance: How daily life reflects culture and status
+        """
+    
+    return f"""
+    Generate {category_name} elements for a {genre} story with a {tone} tone,
+    written in the style of {author}, based on this initial idea:
+    
+    {initial_idea}
+    
+    And this story outline:
+    
+    {global_story[:500]}...
+    
+    {language_instruction}
+    {language_guidance}
+    
+    {field_instructions}
+    
+    IMPORTANT: You MUST include ALL the fields listed above in your response. Do not omit any fields.
+    
+    Focus ONLY on {category_name} elements. Be detailed and specific.
+    
+    Ensure the elements are:
+    - Consistent with the {genre} genre conventions
+    - Appropriate for the {tone} tone
+    - Aligned with {author}'s style
+    - Directly relevant to the initial story idea
+    - Detailed enough to support rich storytelling
+    - {"Authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking cultures" if language.lower() != DEFAULT_LANGUAGE else ""}
+    """
+def generate_category(category_name: str, model: Type[BaseModel], genre: str, tone: str,
+                     author: str, initial_idea: str, global_story: str,
+                     language: str = DEFAULT_LANGUAGE, language_guidance: str = "") -> Dict[str, Any]:
+    """
+    Generate a specific worldbuilding category using a Pydantic model.
+    
+    Args:
+        category_name: Name of the category to generate
+        model: Pydantic model to use for generation
+        genre: Story genre
+        tone: Story tone
+        author: Author style to emulate
+        initial_idea: Initial story idea
+        global_story: Global story outline
+        language: Target language for generation
+        language_guidance: Optional language-specific guidance
+        
+    Returns:
+        Dictionary containing the generated category data
+    """
+    try:
+        structured_llm = llm.with_structured_output(model)
+        prompt = create_category_prompt(
+            category_name, genre, tone, author, initial_idea, global_story, language, language_guidance
+        )
+        
+        
+        result = structured_llm.invoke(prompt)
+                
+        return result.model_dump()
+
+    except Exception as e:
+        print(f"Error generating {category_name}: {str(e)}")
+        
+        # Fallback to unstructured generation and parsing
+        try:
+            response = llm.invoke([HumanMessage(content=prompt)]).content
+            
+            # Try to parse the response using the model
+            retry_prompt = f"""
+            Based on this information about {category_name}:
+            
+            {response}
+            
+            Extract the key elements in a structured format.
+            """
+            
+            retry_llm = llm.with_structured_output(model)
+            retry_result = retry_llm.invoke(retry_prompt)
+            return retry_result.model_dump()
+        except Exception as e2:
+            print(f"Fallback also failed for {category_name}: {str(e2)}")
+            
+            # Create minimal structure with default values for all fields
+            default_values = {}
+            for field_name in model.__fields__:
+                if field_name == "relevance":
+                    default_values[field_name] = f"Error generating {category_name}: {str(e)}, {str(e2)}"
+                else:
+                    default_values[field_name] = f"Default {field_name} (generation failed)"
+            return default_values
+
+def generate_mystery_elements(world_elements: Dict[str, Any], num_mysteries: int = 3, language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
+    """
+    Generate mystery elements based on the worldbuilding elements.
+    
+    Args:
+        world_elements: Dictionary of worldbuilding elements
+        num_mysteries: Number of mysteries to generate
+        language: Target language for generation
+        
+    Returns:
+        Dictionary containing mystery elements
+    """
+    # Create a simplified representation of the world elements
+    simplified_world = {}
+    for category_name, category_data in world_elements.items():
+        simplified_world[category_name] = {
+            k: v for k, v in category_data.items() if k != "relevance"
+        }
+    
+    try:
+        # Create a structured LLM that outputs a MysteryAnalysis
+        structured_llm = llm.with_structured_output(MysteryAnalysis)
+        
+        # Add language instruction
+        language_instruction = ""
+        if language.lower() != DEFAULT_LANGUAGE:
+            language_instruction = f"""
+            CRITICAL LANGUAGE INSTRUCTION:
+            You MUST generate ALL content ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+            ALL mystery elements, descriptions, names, and clues must be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
+            DO NOT use English or any other language at any point.
+            """
+        
+        # Create a prompt for identifying mystery elements
+        prompt = f"""
+        Analyze these world elements and identify {num_mysteries} elements that would work well as mysteries in a story:
+        
+        {simplified_world}
+        
+        {language_instruction}
+        
+        Identify {num_mysteries} elements that would work well as mysteries in the story. For each mystery:
+        1. Provide the name of the mystery element
+        2. Explain why it would make a compelling mystery
+        3. Suggest 3-5 clues that could gradually reveal this mystery
+        
+        Each clue should have a revelation level from 1 (subtle hint) to 5 (full revelation).
+        
+        {"Make sure all content is authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking cultures." if language.lower() != DEFAULT_LANGUAGE else ""}
+        """
+        
+        # Log the full prompt
+        print(f"\n--- FULL PROMPT FOR MYSTERY ELEMENTS GENERATION ---")
+        print(prompt)
+        print(f"--- END OF PROMPT FOR MYSTERY ELEMENTS GENERATION ---\n")
+        
+        # Extract the structured data
+        mystery_analysis = structured_llm.invoke(prompt)
+        
+        # Log the full answer
+        print(f"\n--- FULL ANSWER FOR MYSTERY ELEMENTS GENERATION ---")
+        print(mystery_analysis.model_dump())
+        print(f"--- END OF ANSWER FOR MYSTERY ELEMENTS GENERATION ---\n")
+        
+        # Convert to dictionary
+        return mystery_analysis.model_dump()
+    except Exception as e:
+        print(f"Error generating mystery elements: {str(e)}")
+        
+        # Create basic mystery elements as fallback
+        return {
+            "key_mysteries": [
+                {
+                    "name": "Hidden Past",
+                    "description": "A mysterious element from the world's history",
+                    "clues": [
+                        {"description": "A subtle reference in ancient texts", "revelation_level": 1, "revealed": False},
+                        {"description": "Physical evidence discovered", "revelation_level": 3, "revealed": False},
+                        {"description": "The full truth revealed", "revelation_level": 5, "revealed": False}
+                    ]
+                }
+            ]
+        }
+
+def generate_world_summary(world_elements: Dict[str, Any], genre: str, tone: str, language: str = DEFAULT_LANGUAGE) -> str:
+    """
+    Generate a summary of the world based on the worldbuilding elements.
+    
+    Args:
+        world_elements: Dictionary of worldbuilding elements
+        genre: Story genre
+        tone: Story tone
+        language: Target language for generation
+        
+    Returns:
+        String containing the world summary
+    """
+    # Extract category summaries
+    category_summaries = []
+    for category_name, category_data in world_elements.items():
+        relevance = category_data.get("relevance", "")
+        summary = f"**{category_name}**: "
+        
+        # Add key elements to the summary
+        for field, value in category_data.items():
+            if field != "relevance":
+                summary += f"{field}: {value[:100]}... "
+        
+        # Add relevance if available
+        if relevance:
+            summary += f"\nRelevance: {relevance}"
+            
+        category_summaries.append(summary)
+    
+    # Add language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        CRITICAL LANGUAGE INSTRUCTION:
+        You MUST write this summary ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL descriptions, names, terms, and concepts must be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
+        DO NOT use English or any other language at any point.
+        """
+    
+    # Generate the world summary
+    prompt = f"""
+    Based on these world elements:
+    
+    {'\n\n'.join(category_summaries)}
+    
+    {language_instruction}
+    
+    Create a concise summary (300-500 words) that captures the essence of this world.
+    Focus on the most distinctive and important elements that make this world unique
+    and that will most significantly impact the story.
+    
+    The summary should give a clear picture of what makes this world special and
+    how it supports the {genre} genre with a {tone} tone.
+    
+    {"Make sure the summary is culturally authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking readers." if language.lower() != DEFAULT_LANGUAGE else ""}
+    """
+    
+    try:
+        # Log the full prompt
+        print(f"\n--- FULL PROMPT FOR WORLD SUMMARY GENERATION ---")
+        print(prompt)
+        print(f"--- END OF PROMPT FOR WORLD SUMMARY GENERATION ---\n")
+        
+        response = llm.invoke([HumanMessage(content=prompt)]).content
+        
+        # Log the full answer
+        print(f"\n--- FULL ANSWER FOR WORLD SUMMARY GENERATION ---")
+        print(response)
+        print(f"--- END OF ANSWER FOR WORLD SUMMARY GENERATION ---\n")
+        
+        return response
+    except Exception as e:
+        print(f"Error generating world summary: {str(e)}")
+        return f"Error generating world summary: {str(e)}"
 
 @track_progress
 def generate_worldbuilding(state: StoryState) -> Dict:
@@ -285,7 +489,6 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     - Daily Life: Food, clothing, housing, etc.
     
     The elements are tailored to the genre, tone, and initial story idea.
-    Uses an incremental category-by-category approach with templates for reliability.
     """
     # Extract relevant parameters from state
     genre = state["genre"]
@@ -296,7 +499,6 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     
     # Get language elements if not English
     language = state.get("language", DEFAULT_LANGUAGE)
-    language_elements = None
     language_guidance = ""
     
     if language.lower() != DEFAULT_LANGUAGE:
@@ -307,333 +509,69 @@ def generate_worldbuilding(state: StoryState) -> Dict:
                 "namespace": MEMORY_NAMESPACE
             })
             
-            # Handle different return types from search_memory_tool
+            # Process language elements if found
+            language_elements = None
             if language_elements_result:
                 if isinstance(language_elements_result, dict) and "value" in language_elements_result:
-                    # Direct dictionary with value
                     language_elements = language_elements_result["value"]
                 elif isinstance(language_elements_result, list):
-                    # List of objects
                     for item in language_elements_result:
                         if hasattr(item, 'key') and item.key == f"language_elements_{language.lower()}":
                             language_elements = item.value
                             break
                 elif isinstance(language_elements_result, str):
-                    # Try to parse JSON string
                     try:
                         import json
                         language_elements = json.loads(language_elements_result)
                     except:
-                        # If not JSON, use as is
                         language_elements = language_elements_result
+            
+            # Create language guidance with place name examples if available
+            place_name_examples = ""
+            if language_elements and "PLACE NAMES" in language_elements:
+                place_names = language_elements["PLACE NAMES"]
+                place_name_examples = "Examples of authentic place naming conventions:\n"
+                for key, value in place_names.items():
+                    if value:
+                        place_name_examples += f"- {key}: {value}\n"
+            
+            language_guidance = f"""
+            LANGUAGE CONSIDERATIONS:
+            This world will be part of a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
+            
+            When creating worldbuilding elements:
+            1. Use place names that follow {SUPPORTED_LANGUAGES[language.lower()]} naming conventions
+            2. Include cultural elements authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
+            3. Incorporate historical references, myths, and legends familiar to {SUPPORTED_LANGUAGES[language.lower()]} speakers
+            4. Design social structures, governance, and customs that reflect {SUPPORTED_LANGUAGES[language.lower()]} cultural contexts
+            5. Create religious systems, beliefs, and practices that resonate with {SUPPORTED_LANGUAGES[language.lower()]} cultural traditions
+            
+            {place_name_examples}
+            
+            The world should feel authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like a translated setting.
+            """
         except Exception as e:
             print(f"Error retrieving language elements: {str(e)}")
-        
-        # Create language guidance with specific place name examples if available
-        place_name_examples = ""
-        if language_elements and "PLACE NAMES" in language_elements:
-            place_names = language_elements["PLACE NAMES"]
-            
-            place_name_examples = "Examples of authentic place naming conventions:\n"
-            
-            for key, value in place_names.items():
-                if value:
-                    place_name_examples += f"- {key}: {value}\n"
-            
-        language_guidance = f"""
-        LANGUAGE CONSIDERATIONS:
-        This world will be part of a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
-        
-        When creating worldbuilding elements:
-        1. Use place names that follow {SUPPORTED_LANGUAGES[language.lower()]} naming conventions
-        2. Include cultural elements authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
-        3. Incorporate historical references, myths, and legends familiar to {SUPPORTED_LANGUAGES[language.lower()]} speakers
-        4. Design social structures, governance, and customs that reflect {SUPPORTED_LANGUAGES[language.lower()]} cultural contexts
-        5. Create religious systems, beliefs, and practices that resonate with {SUPPORTED_LANGUAGES[language.lower()]} cultural traditions
-        
-        {place_name_examples}
-        
-        The world should feel authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like a translated setting.
-        """
     
-    # Define categories and their key elements to generate
-    categories = [
-        {
-            "name": "GEOGRAPHY",
-            "description": "Geographic elements of the world",
-            "key_elements": [
-                "major_locations", "climate", "landmarks"
-            ],
-            "template": """
-            {
-                "elements": {
-                    "major_locations": {
-                        "description": "Description of the major locations (cities, countries, planets, etc.)",
-                        "relevance": "How these locations impact the story"
-                    },
-                    "climate": {
-                        "description": "Description of the climate and weather patterns",
-                        "relevance": "How the climate affects the story and characters"
-                    },
-                    "landmarks": {
-                        "description": "Description of notable landmarks",
-                        "relevance": "Significance of these landmarks to the world and story"
-                    }
-                },
-                "summary": "A brief summary of the geographic elements"
-            }
-            """
-        },
-        {
-            "name": "HISTORY",
-            "description": "Historical elements of the world",
-            "key_elements": [
-                "timeline", "figures", "conflicts"
-            ],
-            "template": """
-            {
-                "elements": {
-                    "timeline": {
-                        "description": "Key historical events in chronological order",
-                        "relevance": "How these events shaped the current world"
-                    },
-                    "figures": {
-                        "description": "Important historical figures",
-                        "relevance": "Their impact on the world and story"
-                    },
-                    "conflicts": {
-                        "description": "Major historical conflicts",
-                        "relevance": "How these conflicts affect the current situation"
-                    }
-                },
-                "summary": "A brief summary of the historical elements"
-            }
-            """
-        },
-        {
-            "name": "CULTURE",
-            "description": "Cultural elements of the world",
-            "key_elements": [
-                "languages", "traditions", "values"
-            ],
-            "template": """
-            {
-                "elements": {
-                    "languages": {
-                        "description": "Languages and communication methods",
-                        "relevance": "How language affects interactions in the story"
-                    },
-                    "traditions": {
-                        "description": "Important traditions and customs",
-                        "relevance": "How these traditions impact characters and plot"
-                    },
-                    "values": {
-                        "description": "Cultural values and taboos",
-                        "relevance": "How these values create conflict or harmony"
-                    }
-                },
-                "summary": "A brief summary of the cultural elements"
-            }
-            """
-        },
-        {
-            "name": "POLITICS",
-            "description": "Political elements of the world",
-            "key_elements": [
-                "government", "factions", "laws"
-            ],
-            "template": """
-            {
-                "elements": {
-                    "government": {
-                        "description": "Government systems and power structures",
-                        "relevance": "How the government affects the story"
-                    },
-                    "factions": {
-                        "description": "Political factions and their relationships",
-                        "relevance": "How factions create tension or alliances"
-                    },
-                    "laws": {
-                        "description": "Important laws and justice systems",
-                        "relevance": "How laws constrain or enable characters"
-                    }
-                },
-                "summary": "A brief summary of the political elements"
-            }
-            """
-        },
-        {
-            "name": "ECONOMICS",
-            "description": "Economic elements of the world",
-            "key_elements": [
-                "resources", "trade", "classes"
-            ],
-            "template": """
-            {
-                "elements": {
-                    "resources": {
-                        "description": "Key resources and their distribution",
-                        "relevance": "How resources drive conflict or cooperation"
-                    },
-                    "trade": {
-                        "description": "Trade systems and currencies",
-                        "relevance": "How trade affects different regions and people"
-                    },
-                    "classes": {
-                        "description": "Economic classes and inequality",
-                        "relevance": "How class differences impact characters"
-                    }
-                },
-                "summary": "A brief summary of the economic elements"
-            }
-            """
-        },
-        {
-            "name": "TECHNOLOGY_MAGIC",
-            "description": "Technology or magic elements of the world",
-            "key_elements": [
-                "systems", "limitations", "impact"
-            ],
-            "template": """
-            {
-                "elements": {
-                    "systems": {
-                        "description": "Available technologies or magic systems",
-                        "relevance": "How these systems are used in the story"
-                    },
-                    "limitations": {
-                        "description": "Limitations and costs of technology/magic",
-                        "relevance": "How these limitations create challenges"
-                    },
-                    "impact": {
-                        "description": "Impact on society and daily life",
-                        "relevance": "How technology/magic shapes the world"
-                    }
-                },
-                "summary": "A brief summary of the technology/magic elements"
-            }
-            """
-        },
-        {
-            "name": "RELIGION",
-            "description": "Religious elements of the world",
-            "key_elements": [
-                "beliefs", "practices", "organizations"
-            ],
-            "template": """
-            {
-                "elements": {
-                    "beliefs": {
-                        "description": "Belief systems and deities",
-                        "relevance": "How beliefs influence characters and society"
-                    },
-                    "practices": {
-                        "description": "Religious practices and rituals",
-                        "relevance": "How practices manifest in daily life"
-                    },
-                    "organizations": {
-                        "description": "Religious organizations and leaders",
-                        "relevance": "How religious power structures affect the world"
-                    }
-                },
-                "summary": "A brief summary of the religious elements"
-            }
-            """
-        },
-        {
-            "name": "DAILY_LIFE",
-            "description": "Daily life elements of the world",
-            "key_elements": [
-                "food", "clothing", "housing"
-            ],
-            "template": """
-            {
-                "elements": {
-                    "food": {
-                        "description": "Food and cuisine",
-                        "relevance": "How food reflects culture and status"
-                    },
-                    "clothing": {
-                        "description": "Clothing and fashion",
-                        "relevance": "How clothing indicates identity and role"
-                    },
-                    "housing": {
-                        "description": "Housing and architecture",
-                        "relevance": "How living spaces reflect society"
-                    }
-                },
-                "summary": "A brief summary of the daily life elements"
-            }
-            """
-        }
-    ]
+    # Define category models mapping
+    category_models = {
+        "geography": Geography,
+        "history": History,
+        "culture": Culture,
+        "politics": Politics,
+        "economics": Economics,
+        "technology_magic": TechnologyMagic,
+        "religion": Religion,
+        "daily_life": DailyLife
+    }
     
-    # Initialize world elements dictionary
+    # Generate each category separately
     world_elements = {}
-    
-    # Generate each category incrementally
-    for category in categories:
-        category_name = category["name"]
+    for category_name, model in category_models.items():
         print(f"Generating {category_name} elements...")
-        
-        # Create a prompt for this specific category
-        category_prompt = f"""
-        Generate {category_name} elements for a {genre} story with a {tone} tone,
-        written in the style of {author}, based on this initial idea:
-        
-        {initial_idea}
-        
-        And this story outline:
-        
-        {global_story[:500]}...
-        
-        {language_guidance}
-        
-        Focus ONLY on {category_name} elements, including:
-        {', '.join(category["key_elements"])}
-        
-        Use EXACTLY this JSON template structure, replacing the placeholders with your content:
-        
-        {category["template"]}
-        
-        Ensure the elements are:
-        - Consistent with the {genre} genre conventions
-        - Appropriate for the {tone} tone
-        - Aligned with {author}'s style
-        - Directly relevant to the initial story idea
-        - Detailed enough to support rich storytelling
-        """
-        
-        try:
-            # Try to generate with structured output first
-            structured_llm = llm.with_structured_output(SimplifiedCategory)
-            category_elements = structured_llm.invoke(category_prompt)
-            category_data = category_elements.model_dump()
-        except Exception as e:
-            print(f"Error generating structured {category_name} elements: {str(e)}")
-            
-            # Fall back to template-based parsing
-            try:
-                # Generate with template
-                response = llm.invoke([HumanMessage(content=category_prompt)]).content
-                
-                # Parse the response into structured data
-                category_data = parse_json_with_langchain(response, f"{category_name} elements")
-                
-                # Ensure we have a valid dictionary with expected structure
-                if not isinstance(category_data, dict) or "elements" not in category_data:
-                    # Create minimal structure from template
-                    category_data = parse_json_with_langchain(category["template"], f"{category_name} elements")
-                    category_data["summary"] = f"Failed to generate {category_name} elements properly"
-            except Exception as e2:
-                print(f"Fallback parsing also failed for {category_name}: {str(e2)}")
-                # Create minimal structure
-                category_data = {
-                    "elements": {element: {"description": f"Default {element}", "relevance": ""} for element in category["key_elements"]},
-                    "summary": f"Failed to generate {category_name} elements: {str(e)}, {str(e2)}"
-                }
-        
-        # Add to world elements
+        category_data = generate_category(
+            category_name, model, genre, tone, author, initial_idea, global_story, language, language_guidance
+        )
         world_elements[category_name] = category_data
     
     # Store the world elements in memory
@@ -644,70 +582,22 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         "namespace": MEMORY_NAMESPACE
     })
     
+    # Generate mystery elements
+    mystery_elements = generate_mystery_elements(world_elements, 3, language)
+    
     # Create a world state tracker to monitor changes over time
     world_state_tracker = {
         "initial_state": world_elements,
         "current_state": world_elements,
         "changes": [],
         "revelations": [],
-        "mystery_elements": {  # New section for tracking mystery elements
-            "key_mysteries": [],
+        "mystery_elements": {
+            "key_mysteries": mystery_elements.get("key_mysteries", []),
             "clues_revealed": {},
             "reader_knowledge": {},
             "character_knowledge": {}
         }
     }
-    
-    # Create a simplified world elements representation for mystery generation
-    simplified_world = {}
-    for category_name, category_data in world_elements.items():
-        # Extract just the summaries and key descriptions to reduce complexity
-        simplified_world[category_name] = {
-            "summary": category_data.get("summary", ""),
-            "elements": {k: v.get("description", "") for k, v in category_data.get("elements", {}).items()}
-        }
-    
-    # Identify potential mystery elements from the simplified world elements
-    mystery_prompt = f"""
-    Analyze these world elements and identify key mystery elements that should be gradually revealed:
-    
-    {simplified_world}
-    
-    Identify 3 elements that would work well as mysteries in the story. For each mystery:
-    1. Provide the name of the mystery element
-    2. Explain why it would make a compelling mystery
-    3. Suggest 3 clues that could gradually reveal this mystery
-    
-    Format your response as a structured JSON object with "key_mysteries" as a list of objects.
-    Each mystery should have a "name", "description", and "clues" (a list of objects with "description",
-    "revelation_level" (1-5), and "revealed" (false)).
-    """
-    
-    try:
-        # Create a structured LLM that outputs a MysteryAnalysis
-        structured_llm = llm.with_structured_output(MysteryAnalysis)
-        
-        # Use the structured LLM to identify mystery elements
-        mystery_analysis = structured_llm.invoke(mystery_prompt)
-        
-        # Update the world state tracker with the identified mysteries
-        world_state_tracker["mystery_elements"]["key_mysteries"] = [
-            mystery.model_dump() for mystery in mystery_analysis.key_mysteries
-        ]
-    except Exception as e:
-        print(f"Error identifying mystery elements: {str(e)}")
-        # Create basic mystery elements as fallback
-        world_state_tracker["mystery_elements"]["key_mysteries"] = [
-            {
-                "name": "Hidden Past",
-                "description": "A mysterious element from the world's history",
-                "clues": [
-                    {"description": "A subtle reference in ancient texts", "revelation_level": 1, "revealed": False},
-                    {"description": "Physical evidence discovered", "revelation_level": 3, "revealed": False},
-                    {"description": "The full truth revealed", "revelation_level": 5, "revealed": False}
-                ]
-            }
-        ]
     
     # Store the world state tracker in memory
     manage_memory_tool.invoke({
@@ -717,29 +607,8 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         "namespace": MEMORY_NAMESPACE
     })
     
-    # Extract category summaries for the world summary
-    category_summaries = []
-    for category in categories:
-        category_name = category["name"]
-        if category_name in world_elements and "summary" in world_elements[category_name]:
-            category_summaries.append(f"**{category_name}**: {world_elements[category_name]['summary']}")
-    
-    # Generate a summary of the world for quick reference
-    world_summary_prompt = f"""
-    Based on these world elements:
-    
-    {'\n\n'.join(category_summaries)}
-    
-    Create a concise summary (300-500 words) that captures the essence of this world.
-    Focus on the most distinctive and important elements that make this world unique
-    and that will most significantly impact the story.
-    
-    The summary should give a clear picture of what makes this world special and
-    how it supports the {genre} genre with a {tone} tone.
-    """
-    
-    # Generate the world summary
-    world_summary = llm.invoke([HumanMessage(content=world_summary_prompt)]).content
+    # Generate a summary of the world
+    world_summary = generate_world_summary(world_elements, genre, tone, language)
     
     # Store the world summary in memory
     manage_memory_tool.invoke({
@@ -758,85 +627,60 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         ]
     }
 
-
-def extract_structured_worldbuilding(text: str) -> Dict[str, Any]:
+def extract_worldbuilding(text: str) -> WorldbuildingElements:
     """
-    Extract structured worldbuilding data from text using Pydantic models.
-    
-    This function takes unstructured text containing worldbuilding information
-    and extracts it into a structured format using the WorldElements Pydantic model.
-    If the structured extraction fails, it falls back to the parse_json_with_langchain method.
+    Extract worldbuilding elements from text.
     
     Args:
         text: Text containing worldbuilding information
         
     Returns:
-        Dictionary containing structured worldbuilding elements
+        WorldbuildingElements object containing the extracted data
     """
-    try:
-        # Try to extract structured data using Pydantic
-        structured_llm = llm.with_structured_output(WorldElements)
-        
-        prompt = f"""
-        Extract structured worldbuilding elements from this text:
-        
-        {text}
-        
-        Format the data according to the specified schema with these categories:
-        - GEOGRAPHY (major_locations, physical_features, climate, landmarks, spatial_relationships)
-        - HISTORY (timeline, historical_figures, past_conflicts, origin_stories, historical_trends)
-        - CULTURE (languages, arts, traditions, values, diversity)
-        - POLITICS (government, factions, laws, military, international_relations)
-        - ECONOMICS (resources, trade, classes, industries, challenges)
-        - TECHNOLOGY/MAGIC (systems, limitations, impact, rare_elements, acquisition)
-        - RELIGION (belief_systems, practices, organizations, role, conflicts)
-        - DAILY_LIFE (food, clothing, housing, family, education)
-        """
-        
-        # Extract structured data
-        world_elements_model = structured_llm.invoke(prompt)
-        
-        # Convert to dictionary
-        return world_elements_model.model_dump(by_alias=True)
-    except Exception as e:
-        print(f"Error extracting structured worldbuilding data: {str(e)}")
-        
-        # Fall back to parse_json_with_langchain
-        try:
-            return parse_json_with_langchain(text, "world elements")
-        except Exception as e2:
-            print(f"Fallback parsing also failed: {str(e2)}")
-            return {
-                "GEOGRAPHY": {"major_locations": "Failed to extract structured data"},
-                "error": f"Failed to extract structured worldbuilding data: {str(e)}, {str(e2)}"
-            }
-
-
-def extract_specific_worldbuilding_element(text: str, element_type: str) -> Dict[str, Any]:
-    """
-    Extract a specific type of worldbuilding element from text using Pydantic models.
+    # Define category models mapping
+    category_models = {
+        "geography": Geography,
+        "history": History,
+        "culture": Culture,
+        "politics": Politics,
+        "economics": Economics,
+        "technology_magic": TechnologyMagic,
+        "religion": Religion,
+        "daily_life": DailyLife
+    }
     
-    This function extracts a specific category of worldbuilding elements (e.g., geography,
-    history, culture) from text using the appropriate Pydantic model.
+    # Extract each category separately
+    extracted_data = {}
+    for category_name, model in category_models.items():
+        category_data = extract_with_model(text, model, category_name)
+        if "error" not in category_data:
+            extracted_data[category_name] = category_data
+    
+    # Create and return the WorldbuildingElements object
+    return WorldbuildingElements(**extracted_data)
+
+def extract_specific_element(text: str, element_type: str) -> Dict[str, Any]:
+    """
+    Extract a specific worldbuilding element from text.
     
     Args:
         text: Text containing worldbuilding information
-        element_type: Type of element to extract (e.g., "geography", "history", "culture")
+        element_type: Type of element to extract (e.g., "geography", "history")
         
     Returns:
-        Dictionary containing the structured element data
+        Dictionary containing the extracted element data
     """
-    # Map element types to their corresponding Pydantic models
+    # Map element types to their corresponding models
     element_models = {
-        "geography": GeographyElement,
-        "history": HistoryElement,
-        "culture": CultureElement,
-        "politics": PoliticsElement,
-        "economics": EconomicsElement,
-        "technology": TechnologyMagicElement,
-        "magic": TechnologyMagicElement,
-        "religion": ReligionElement,
-        "daily_life": DailyLifeElement
+        "geography": Geography,
+        "history": History,
+        "culture": Culture,
+        "politics": Politics,
+        "economics": Economics,
+        "technology": TechnologyMagic,
+        "magic": TechnologyMagic,
+        "religion": Religion,
+        "daily_life": DailyLife
     }
     
     # Normalize the element type
@@ -847,39 +691,16 @@ def extract_specific_worldbuilding_element(text: str, element_type: str) -> Dict
     if not model:
         raise ValueError(f"Unknown element type: {element_type}. Valid types are: {', '.join(element_models.keys())}")
     
-    try:
-        # Create a structured LLM with the appropriate model
-        structured_llm = llm.with_structured_output(model)
-        
-        # Create a prompt for extracting the specific element
-        prompt = f"""
-        Extract structured {element_type} information from this text:
-        
-        {text}
-        
-        Focus only on the {element_type} elements and ignore other aspects of worldbuilding.
-        """
-        
-        # Extract the structured data
-        element_model = structured_llm.invoke(prompt)
-        
-        # Convert to dictionary
-        return element_model.model_dump()
-    except Exception as e:
-        print(f"Error extracting {element_type} data: {str(e)}")
-        return {"error": f"Failed to extract {element_type} data: {str(e)}"}
-
+    # Extract the element
+    return extract_with_model(text, model, element_type)
 
 def extract_mystery_elements(text: str, num_mysteries: int = 3) -> Dict[str, Any]:
     """
-    Extract potential mystery elements from text using the MysteryAnalysis Pydantic model.
-    
-    This function analyzes text to identify elements that would work well as mysteries
-    in a story, along with potential clues for revealing those mysteries.
+    Extract potential mystery elements from text.
     
     Args:
         text: Text to analyze for potential mysteries
-        num_mysteries: Number of mysteries to identify (default: 3)
+        num_mysteries: Number of mysteries to identify
         
     Returns:
         Dictionary containing structured mystery elements
