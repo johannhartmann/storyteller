@@ -476,6 +476,7 @@ def extract_partial_story(
     # Otherwise just return the partial story
     return partial_story
 
+
 def generate_story(
     genre: str = "fantasy",
     tone: str = "epic",

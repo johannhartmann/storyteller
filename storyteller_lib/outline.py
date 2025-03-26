@@ -150,10 +150,10 @@ def generate_story_outline(state: StoryState) -> Dict:
         5. GENRE ELEMENTS: {', '.join(genre_elements) if genre_elements else 'To be determined based on the initial idea'}
            - These elements should be incorporated to maintain genre consistency
         
-        The hero's journey structure should be adapted to fit this initial idea, not the other way around.
-        If any conflict arises between the hero's journey structure and the initial idea, prioritize the initial idea.
+        The hero's journey structure should be use to create a long version of this initial idea, not the other way around.
+        If any conflict arises between the hero's journey structure and the initial idea, extend the initial idea as needed.
         
-        FINAL CHECK: Before finalizing the outline, verify that the key elements from the initial idea are present and well-integrated into the story.
+        FINAL CHECK: Before finalizing the outline, verify that the key elements from the initial idea and the hero's journey are present and well-integrated into the story.
         """
     
     # Prompt for story generation with emphasis on initial idea
@@ -215,9 +215,10 @@ def generate_story_outline(state: StoryState) -> Dict:
     {language_guidance}
     """
     
+    print("PROMPT: " + prompt)
     # Generate the story outline
     story_outline = llm.invoke([HumanMessage(content=prompt)]).content
-    
+    print("STORY OUTLINE " + story_outline)
     # Perform multiple validation checks on the story outline
     validation_results = {}
     

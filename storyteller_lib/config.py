@@ -44,15 +44,18 @@ DEFAULT_PROVIDER = "gemini"
 MODEL_CONFIGS = {
     "openai": {
         "default_model": "gpt-4o",
-        "env_key": "OPENAI_API_KEY"
+        "env_key": "OPENAI_API_KEY",
+        "max_tokens": 128000
     },
     "anthropic": {
         "default_model": "claude-3-7-sonnet-20250219",
-        "env_key": "ANTHROPIC_API_KEY"
+        "env_key": "ANTHROPIC_API_KEY",
+        "max_tokens": 64000
     },
     "gemini": {
         "default_model": "gemini-2.0-flash",
-        "env_key": "GEMINI_API_KEY"
+        "env_key": "GEMINI_API_KEY",
+        "max_tokens": 1000000
     }
 }
 
@@ -111,7 +114,8 @@ cache = setup_cache()
 def get_llm(
     provider: Optional[str] = None,
     model: Optional[str] = None,
-    temperature: Optional[float] = None
+    temperature: Optional[float] = None,
+    max_tokens: Optional[int] = None
 ) -> BaseChatModel:
     """
     Get an instance of the LLM with the specified parameters.
@@ -120,12 +124,14 @@ def get_llm(
         provider: The model provider to use (openai, anthropic, gemini)
         model: The model name to use (defaults to provider's default model)
         temperature: The temperature setting (defaults to 0.7)
+        max_tokens: The maximum number of tokens to generate (defaults to provider's max_tokens)
         
     Returns:
         A configured LLM instance
     """
-    # Use provided values or defaults
-    provider = provider or DEFAULT_MODEL_PROVIDER
+    # If provider is explicitly provided, use it (command line takes precedence)
+    # Otherwise, use the environment variable or default
+    provider = provider or os.environ.get("MODEL_PROVIDER") or DEFAULT_MODEL_PROVIDER
     temp = temperature or DEFAULT_TEMPERATURE
     
     # Validate provider
@@ -152,24 +158,30 @@ def get_llm(
             raise ValueError(f"No API key found for {provider}. Please set {provider_config['env_key']} in your .env file.")
     
     
+    # Use provided max_tokens or get from provider config
+    tokens = max_tokens or provider_config.get("max_tokens")
+    
     # Create the appropriate LLM instance based on provider
     if provider == "openai":
         return ChatOpenAI(
             model=model_name,
             temperature=temp,
-            openai_api_key=api_key
+            openai_api_key=api_key,
+            max_tokens=tokens
         )
     elif provider == "anthropic":
         return ChatAnthropic(
             model=model_name,
             temperature=temp,
-            anthropic_api_key=api_key
+            anthropic_api_key=api_key,
+            max_tokens=tokens
         )
     elif provider == "gemini":
         return ChatGoogleGenerativeAI(
             model=model_name,
             temperature=temp,
-            google_api_key=api_key
+            google_api_key=api_key,
+            max_tokens=tokens
         )
     else:
         raise ValueError(f"Unsupported provider: {provider}")
