@@ -1208,7 +1208,6 @@ def reflect_on_scene(state: StoryState) -> Dict:
             f"Your analysis MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.\n"
             f"ALL content - including your analysis, comments, and recommendations - must be in {SUPPORTED_LANGUAGES[language.lower()]}.\n"
             f"DO NOT switch to any other language at ANY point in your analysis.\n"
-            f"DO NOT include ANY English text in your response.\n\n"
             f"This is a STRICT requirement. The ENTIRE analysis must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.\n"
         )
     
