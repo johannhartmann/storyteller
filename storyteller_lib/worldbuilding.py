@@ -364,18 +364,8 @@ def generate_mystery_elements(world_elements: Dict[str, Any], num_mysteries: int
         {"Make sure all content is authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking cultures." if language.lower() != DEFAULT_LANGUAGE else ""}
         """
         
-        # Log the full prompt
-        print(f"\n--- FULL PROMPT FOR MYSTERY ELEMENTS GENERATION ---")
-        print(prompt)
-        print(f"--- END OF PROMPT FOR MYSTERY ELEMENTS GENERATION ---\n")
-        
         # Extract the structured data
         mystery_analysis = structured_llm.invoke(prompt)
-        
-        # Log the full answer
-        print(f"\n--- FULL ANSWER FOR MYSTERY ELEMENTS GENERATION ---")
-        print(mystery_analysis.model_dump())
-        print(f"--- END OF ANSWER FOR MYSTERY ELEMENTS GENERATION ---\n")
         
         # Convert to dictionary
         return mystery_analysis.model_dump()
@@ -456,17 +446,9 @@ def generate_world_summary(world_elements: Dict[str, Any], genre: str, tone: str
     """
     
     try:
-        # Log the full prompt
-        print(f"\n--- FULL PROMPT FOR WORLD SUMMARY GENERATION ---")
-        print(prompt)
-        print(f"--- END OF PROMPT FOR WORLD SUMMARY GENERATION ---\n")
         
         response = llm.invoke([HumanMessage(content=prompt)]).content
         
-        # Log the full answer
-        print(f"\n--- FULL ANSWER FOR WORLD SUMMARY GENERATION ---")
-        print(response)
-        print(f"--- END OF ANSWER FOR WORLD SUMMARY GENERATION ---\n")
         
         return response
     except Exception as e:
