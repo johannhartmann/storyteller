@@ -2,35 +2,44 @@
 StoryCraft Agent - Exposition clarity and key concepts tracking.
 
 This module provides functionality to track and manage key concepts that need clear exposition,
-addressing issues with unclear introduction of important story elements.
+addressing issues with unclear introduction of important story elements in multiple languages.
 """
 
 from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 
-def identify_key_concepts(global_story: str, genre: str) -> Dict[str, Any]:
+def identify_key_concepts(global_story: str, genre: str, language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Identify key concepts in the story that will need clear exposition.
     
     Args:
         global_story: The overall story outline
         genre: The genre of the story
+        language: The language of the story (default: from config)
         
     Returns:
         A dictionary with key concepts information
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
+    
     # Prepare the prompt for identifying key concepts
     prompt = f"""
-    Analyze this {genre} story outline and identify key concepts that will need clear exposition:
+    Analyze this {genre} story outline written in {language_name} and identify key concepts that will need clear exposition:
     
     {global_story}
     
     For each key concept (e.g., unique world elements, magic systems, historical events, organizations, cultural practices),
     provide:
-    1. Concept name
-    2. Brief description
+    1. Concept name (in {language_name})
+    2. Brief description (in {language_name})
     3. Importance to the story (high, medium, low)
     4. Recommended chapter for introduction
     5. Recommended exposition approach (dialogue, narration, flashback, etc.)
@@ -40,13 +49,15 @@ def identify_key_concepts(global_story: str, genre: str) -> Dict[str, Any]:
     - Critical to understanding the plot
     - Potentially confusing without proper explanation
     - Referenced multiple times throughout the story
+    - Culturally relevant in {language_name} literature
     
     Format your response as a structured JSON object.
+    Analyze and respond in {language_name}.
     """
     
     try:
         # Define Pydantic models for structured output
-        from pydantic import BaseModel, Field
+        from pydantic import BaseModel, Field, field_validator
         from typing import List, Literal
         
         class KeyConcept(BaseModel):
@@ -121,8 +132,11 @@ def track_key_concepts(state: StoryState) -> Dict:
     global_story = state["global_story"]
     genre = state["genre"]
     
+    # Get the language from the state or use default
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
     # Identify key concepts
-    key_concepts_analysis = identify_key_concepts(global_story, genre)
+    key_concepts_analysis = identify_key_concepts(global_story, genre, language)
     
     # Store key concepts in memory
     manage_memory_tool.invoke({
@@ -256,20 +270,29 @@ def update_concept_introduction_status(state: StoryState, concept_name: str) -> 
         print(f"Error updating concept introduction status: {str(e)}")
         return {}
 
-def analyze_concept_clarity(scene_content: str, concept_name: str) -> Dict[str, Any]:
+def analyze_concept_clarity(scene_content: str, concept_name: str, language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Analyze how clearly a concept is explained in a scene.
     
     Args:
         scene_content: The content of the scene
         concept_name: The name of the concept to analyze
+        language: The language of the scene (default: from config)
         
     Returns:
         A dictionary with clarity analysis results
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
+    
     # Prepare the prompt for analyzing concept clarity
     prompt = f"""
-    Analyze how clearly this concept is explained in the scene:
+    Analyze how clearly this concept is explained in the scene written in {language_name}:
     
     CONCEPT: {concept_name}
     
@@ -282,20 +305,22 @@ def analyze_concept_clarity(scene_content: str, concept_name: str) -> Dict[str, 
     3. Is the exposition natural or forced?
     4. Is the concept integrated into the story or just explained?
     5. Are there any aspects of the concept that remain unclear?
+    6. Does the exposition respect cultural and linguistic norms of {language_name}?
     
     Provide:
     - A clarity score from 1-10 (where 10 is perfectly clear)
-    - The specific text that introduces the concept
+    - The specific text that introduces the concept (in the original {language_name})
     - Strengths of the exposition
     - Weaknesses of the exposition
-    - Suggestions for improvement
+    - Suggestions for improvement that are appropriate for {language_name} literature
     
     Format your response as a structured JSON object.
+    Analyze and respond in {language_name}.
     """
     
     try:
         # Define Pydantic models for structured output
-        from pydantic import BaseModel, Field
+        from pydantic import BaseModel, Field, field_validator
         from typing import List, Optional
         
         class ConceptClarity(BaseModel):
@@ -353,7 +378,8 @@ def analyze_concept_clarity(scene_content: str, concept_name: str) -> Dict[str, 
             "improvement_suggestions": ["Error analyzing concept clarity"]
         }
 
-def generate_exposition_guidance(concepts_to_introduce: List[Dict[str, Any]], genre: str, tone: str) -> str:
+def generate_exposition_guidance(concepts_to_introduce: List[Dict[str, Any]], genre: str, tone: str,
+                               language: str = DEFAULT_LANGUAGE) -> str:
     """
     Generate exposition guidance for scene writing based on concepts to introduce.
     
@@ -361,10 +387,18 @@ def generate_exposition_guidance(concepts_to_introduce: List[Dict[str, Any]], ge
         concepts_to_introduce: List of concepts to introduce
         genre: The genre of the story
         tone: The tone of the story
+        language: The language of the story (default: from config)
         
     Returns:
         Exposition guidance text to include in scene writing prompts
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
     if not concepts_to_introduce:
         return ""
     
@@ -375,20 +409,23 @@ def generate_exposition_guidance(concepts_to_introduce: List[Dict[str, Any]], ge
     
     # Prepare the prompt for generating exposition guidance
     prompt = f"""
-    Generate specific exposition guidance for introducing these concepts in a {genre} story with a {tone} tone:
+    Generate specific exposition guidance for introducing these concepts in a {genre} story with a {tone} tone written in {language_name}:
     
     CONCEPTS TO INTRODUCE:
     {concepts_text}
     
     Provide guidance on:
-    1. How to introduce these concepts naturally and clearly
+    1. How to introduce these concepts naturally and clearly in {language_name}
     2. How to avoid info-dumping
     3. How to integrate the concepts into the narrative
     4. How to ensure the reader understands the concepts' importance
     5. Common exposition pitfalls to avoid in this genre
+    6. Language-specific exposition techniques for {language_name}
+    7. Cultural considerations for introducing concepts in {language_name} literature
     
     Format your response as concise, actionable guidelines that could be included in a scene writing prompt.
-    Focus on creating clear, engaging exposition appropriate for the genre and tone.
+    Focus on creating clear, engaging exposition appropriate for the genre, tone, and language.
+    Provide your guidance in {language_name}.
     """
     
     try:
@@ -406,16 +443,19 @@ def generate_exposition_guidance(concepts_to_introduce: List[Dict[str, Any]], ge
     except Exception as e:
         print(f"Error generating exposition guidance: {str(e)}")
         return f"""
-        EXPOSITION GUIDANCE:
+        EXPOSITION GUIDANCE FOR {language_name.upper()}:
         1. Introduce these key concepts clearly in this scene:
         {concepts_text}
         
-        2. Guidelines for clear exposition:
+        2. Guidelines for clear exposition in {language_name}:
            - Introduce concepts organically through character interaction or observation
            - Avoid info-dumping - break exposition into digestible pieces
            - Show rather than tell when possible
            - Use character questions or confusion to naturally explain concepts
            - Ensure the reader understands the concept's importance to the story
+           - Consider cultural context and linguistic norms specific to {language_name}
+           - Use idiomatic expressions and natural speech patterns in {language_name}
+           - Adapt exposition techniques to match {language_name} literary traditions
         """
 
 def check_and_generate_exposition_guidance(state: StoryState) -> Dict:
@@ -431,6 +471,9 @@ def check_and_generate_exposition_guidance(state: StoryState) -> Dict:
     genre = state["genre"]
     tone = state["tone"]
     
+    # Get the language from the state or use default
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
     # Check if any concepts should be introduced
     concepts_result = check_concept_introduction(state)
     
@@ -440,12 +483,12 @@ def check_and_generate_exposition_guidance(state: StoryState) -> Dict:
     concepts_to_introduce = concepts_result["concepts_to_introduce"]
     
     # Generate exposition guidance
-    exposition_guidance = generate_exposition_guidance(concepts_to_introduce, genre, tone)
+    exposition_guidance = generate_exposition_guidance(concepts_to_introduce, genre, tone, language)
     
     # Add sensory checklists for each concept
     sensory_checklists = {}
     for concept in concepts_to_introduce:
-        sensory_checklists[concept["name"]] = generate_concept_sensory_checklist(concept)
+        sensory_checklists[concept["name"]] = generate_concept_sensory_checklist(concept, language)
     
     # Add sensory checklists to exposition guidance
     if sensory_checklists:
@@ -656,43 +699,64 @@ def analyze_showing_vs_telling(scene_content: str) -> Dict[str, Any]:
             )
         
         class ShowingTellingAnalysis(BaseModel):
-            """Analysis of showing vs. telling in a scene."""
-            sensory_details_score: int = Field(
-                ge=1, le=10,
-                description="Effectiveness of sensory details (1=poor, 10=excellent)"
-            )
-            emotion_showing_score: int = Field(
-                ge=1, le=10,
-                description="How well emotions are shown rather than told"
-            )
-            world_element_showing_score: int = Field(
-                ge=1, le=10,
-                description="How well world elements are shown rather than explained"
-            )
-            character_development_showing_score: int = Field(
-                ge=1, le=10,
-                description="How well character development is shown rather than described"
-            )
-            overall_showing_ratio: int = Field(
-                ge=1, le=10,
-                description="Overall ratio of showing to telling (1=all telling, 10=all showing)"
-            )
-            telling_instances: List[TellingInstance] = Field(
-                default_factory=list,
-                description="Instances of telling that could be improved"
-            )
-            showing_instances: List[ShowingInstance] = Field(
-                default_factory=list,
-                description="Examples of effective showing"
-            )
-            missed_opportunities: List[str] = Field(
-                default_factory=list,
-                description="Missed opportunities for sensory details"
-            )
-            improvement_suggestions: List[str] = Field(
-                default_factory=list,
-                description="General suggestions for improving showing vs. telling"
-            )
+                    """Analysis of showing vs. telling in a scene."""
+                    sensory_details_score: int = Field(
+                        ge=1, le=10,
+                        description="Effectiveness of sensory details (1=poor, 10=excellent)"
+                    )
+                    emotion_showing_score: int = Field(
+                        ge=1, le=10,
+                        description="How well emotions are shown rather than told"
+                    )
+                    world_element_showing_score: int = Field(
+                        ge=1, le=10,
+                        description="How well world elements are shown rather than explained"
+                    )
+                    character_development_showing_score: int = Field(
+                        ge=1, le=10,
+                        description="How well character development is shown rather than described"
+                    )
+                    overall_showing_ratio: int = Field(
+                        ge=1, le=10,
+                        description="Overall ratio of showing to telling (1=all telling, 10=all showing)"
+                    )
+                    telling_instances: List[TellingInstance] = Field(
+                        default_factory=list,
+                        description="Instances of telling that could be improved"
+                    )
+                    showing_instances: List[ShowingInstance] = Field(
+                        default_factory=list,
+                        description="Examples of effective showing"
+                    )
+                    missed_opportunities: List[str] = Field(
+                        default_factory=list,
+                        description="Missed opportunities for sensory details"
+                    )
+                    improvement_suggestions: List[str] = Field(
+                        default_factory=list,
+                        description="General suggestions for improving showing vs. telling"
+                    )
+                    
+                    # Custom validator to handle string inputs for list fields
+                    @classmethod
+                    def validate_list_fields(cls, v, field):
+                        """Handle cases where the LLM returns a string instead of a list."""
+                        if isinstance(v, str):
+                            # Try to parse the string as JSON
+                            try:
+                                import json
+                                parsed = json.loads(v)
+                                if isinstance(parsed, list):
+                                    return parsed
+                            except:
+                                pass
+                            # If parsing fails, return an empty list
+                            return []
+                        return v
+                    
+                    @field_validator('showing_instances', 'telling_instances', 'missed_opportunities', 'improvement_suggestions', mode='before')
+                    def validate_lists(cls, v, info):
+                        return cls.validate_list_fields(v, info.field_name)
         
         # Create a structured LLM that outputs a ShowingTellingAnalysis
         structured_llm = llm.with_structured_output(ShowingTellingAnalysis)
@@ -720,31 +784,94 @@ def analyze_showing_vs_telling(scene_content: str) -> Dict[str, Any]:
     
     except Exception as e:
         print(f"Error analyzing showing vs. telling: {str(e)}")
-        return {
-            "sensory_details_score": 5,
-            "emotion_showing_score": 5,
-            "world_element_showing_score": 5,
-            "character_development_showing_score": 5,
-            "overall_showing_ratio": 5,
-            "telling_instances": [],
-            "showing_instances": [],
-            "missed_opportunities": [],
-            "improvement_suggestions": ["Error analyzing showing vs. telling"]
-        }
+        
+        # Try to extract partial results if possible
+        if "showing_instances" in str(e) and "list_type" in str(e):
+            # This is the specific error we're handling
+            try:
+                # Create a simpler prompt that focuses just on the overall scores
+                simple_prompt = f"""
+                Analyze this scene for the balance of showing vs. telling and provide only numeric scores:
+                
+                {scene_content}
+                
+                Provide only these scores (1-10 scale):
+                - sensory_details_score
+                - emotion_showing_score
+                - world_element_showing_score
+                - character_development_showing_score
+                - overall_showing_ratio
+                """
+                
+                # Use a simpler model without the problematic fields
+                class SimpleShowingTellingAnalysis(BaseModel):
+                    sensory_details_score: int = Field(ge=1, le=10)
+                    emotion_showing_score: int = Field(ge=1, le=10)
+                    world_element_showing_score: int = Field(ge=1, le=10)
+                    character_development_showing_score: int = Field(ge=1, le=10)
+                    overall_showing_ratio: int = Field(ge=1, le=10)
+                
+                simple_llm = llm.with_structured_output(SimpleShowingTellingAnalysis)
+                simple_analysis = simple_llm.invoke(simple_prompt)
+                
+                # Create a result with the scores but empty lists for the problematic fields
+                return {
+                    **simple_analysis.dict(),
+                    "telling_instances": [],
+                    "showing_instances": [],
+                    "missed_opportunities": [],
+                    "improvement_suggestions": ["Error processing detailed analysis, showing basic scores only"]
+                }
+            except Exception as inner_e:
+                print(f"Error in fallback analysis: {str(inner_e)}")
+                # Fall back to default values if everything fails
+                return {
+                    "sensory_details_score": 5,
+                    "emotion_showing_score": 5,
+                    "world_element_showing_score": 5,
+                    "character_development_showing_score": 5,
+                    "overall_showing_ratio": 5,
+                    "telling_instances": [],
+                    "showing_instances": [],
+                    "missed_opportunities": [],
+                    "improvement_suggestions": ["Error analyzing showing vs. telling"]
+                }
+        else:
+            # For other types of errors, return default values
+            return {
+                "sensory_details_score": 5,
+                "emotion_showing_score": 5,
+                "world_element_showing_score": 5,
+                "character_development_showing_score": 5,
+                "overall_showing_ratio": 5,
+                "telling_instances": [],
+                "showing_instances": [],
+                "missed_opportunities": [],
+                "improvement_suggestions": ["Error analyzing showing vs. telling"]
+            }
 
-def generate_concept_sensory_checklist(concept: Dict[str, Any]) -> str:
+def generate_concept_sensory_checklist(concept: Dict[str, Any], language: str = DEFAULT_LANGUAGE) -> str:
     """
     Generate a sensory checklist for a key concept.
     
     Args:
         concept: The concept data
+        language: The language of the story (default: from config)
         
     Returns:
         A sensory checklist for the concept
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
+    
     # Prepare the prompt for generating a sensory checklist
     prompt = f"""
-    Generate a sensory checklist for introducing this concept:
+    Generate a sensory checklist for introducing this concept in {language_name}:
     
     CONCEPT: {concept['name']}
     DESCRIPTION: {concept['description']}
@@ -756,8 +883,10 @@ def generate_concept_sensory_checklist(concept: Dict[str, Any]) -> str:
     - Smells/tastes
     - Textures/physical sensations
     - Character reactions
+    - Cultural sensory associations in {language_name}-speaking cultures
     
     Format your response as a concise, actionable checklist.
+    Provide your checklist in {language_name}.
     """
     
     try:

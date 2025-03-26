@@ -2,17 +2,17 @@
 StoryCraft Agent - Scene and chapter transition enhancement.
 
 This module provides functionality to create smooth transitions between scenes and chapters,
-addressing issues with abrupt transitions in the narrative.
+addressing issues with abrupt transitions in the narrative in multiple languages.
 """
 
 from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 
-def analyze_transition_needs(current_content: str, next_content_outline: str, 
-                           transition_type: str = "scene") -> Dict[str, Any]:
+def analyze_transition_needs(current_content: str, next_content_outline: str,
+                            transition_type: str = "scene", language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Analyze the transition needs between current content and next content.
     
@@ -20,25 +20,36 @@ def analyze_transition_needs(current_content: str, next_content_outline: str,
         current_content: The current scene or chapter content
         next_content_outline: The outline of the next scene or chapter
         transition_type: The type of transition ("scene" or "chapter")
+        language: The language of the content (default: from config)
         
     Returns:
         A dictionary with transition analysis results
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
+    
     # Prepare the prompt for analyzing transition needs
     prompt = f"""
-    Analyze the transition needs between this {transition_type} and the next:
+    Analyze the transition needs between this {transition_type} and the next in this {language_name} narrative:
     
     CURRENT {transition_type.upper()} ENDING:
     {current_content[-500:]}
     
     NEXT {transition_type.upper()} OUTLINE:
     {next_content_outline}
-    
     Evaluate:
     1. Is the current ending abrupt?
     2. Are there unresolved immediate tensions that should be addressed?
     3. Is there a clear connection to the next {transition_type}?
-    4. What elements would create a smoother transition?
+    4. Does the transition follow natural flow patterns in {language_name} narrative?
+    5. Are there any language-specific transition techniques that could be applied?
+    6. What elements would create a smoother transition?
+    7. What tone would be appropriate for the transition?
     5. What tone would be appropriate for the transition?
     
     Format your response as a structured JSON object.
@@ -95,7 +106,8 @@ def analyze_transition_needs(current_content: str, next_content_outline: str,
             "transition_length": "medium"
         }
 
-def create_scene_transition(current_scene_content: str, next_scene_outline: str, state: StoryState = None) -> str:
+def create_scene_transition(current_scene_content: str, next_scene_outline: str, state: StoryState = None,
+                          language: str = DEFAULT_LANGUAGE) -> str:
     """
     Create a smooth transition between scenes.
     
@@ -103,12 +115,17 @@ def create_scene_transition(current_scene_content: str, next_scene_outline: str,
         current_scene_content: The content of the current scene
         next_scene_outline: The outline of the next scene
         state: The current state (optional, for plot thread integration)
+        language: The language of the content (default: from config)
         
     Returns:
         The transition text
     """
+    # Get language from state if provided and not explicitly specified
+    if state and not language:
+        language = state.get("language", DEFAULT_LANGUAGE)
+        
     # Analyze transition needs
-    transition_analysis = analyze_transition_needs(current_scene_content, next_scene_outline, "scene")
+    transition_analysis = analyze_transition_needs(current_scene_content, next_scene_outline, "scene", language)
     
     # Get active plot threads if state is provided
     plot_thread_guidance = ""
@@ -143,10 +160,17 @@ def create_scene_transition(current_scene_content: str, next_scene_outline: str,
             Ensure your transition maintains continuity of major plot threads.
             Reference relevant plot threads to create a cohesive narrative flow between scenes.
             """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
     
     # Prepare the prompt for creating a scene transition
     prompt = f"""
-    Create a smooth transition between these two scenes:
+    Create a smooth transition between these two scenes written in {language_name}:
     
     CURRENT SCENE ENDING:
     {current_scene_content[-500:]}
@@ -161,17 +185,23 @@ def create_scene_transition(current_scene_content: str, next_scene_outline: str,
     Recommended Elements: {', '.join(transition_analysis["recommended_elements"])}
     Recommended Tone: {transition_analysis["recommended_tone"]}
     
+    LANGUAGE CONSIDERATIONS:
+    - Use natural transition phrases and techniques common in {language_name} literature
+    - Consider cultural context and linguistic norms specific to {language_name}
+    - Ensure the transition flows naturally in {language_name}
+    
     {plot_thread_guidance}
     
-    Write a {transition_analysis["transition_length"]} transition (1-3 paragraphs) that:
+    Write a {transition_analysis["transition_length"]} transition (1-3 paragraphs) in {language_name} that:
     1. Provides closure to the current scene
     2. Creates a bridge to the next scene
     3. Maintains narrative flow and reader engagement
     4. Addresses any unresolved immediate tensions
     5. Sets up the next scene naturally
     6. Maintains continuity of relevant plot threads
+    7. Uses appropriate transitional phrases and techniques for {language_name} literature
     
-    The transition should feel organic and maintain the story's rhythm.
+    The transition should feel organic, maintain the story's rhythm, and sound natural to native {language_name} speakers.
     """
     
     try:
@@ -187,7 +217,8 @@ def create_scene_transition(current_scene_content: str, next_scene_outline: str,
         print(f"Error creating scene transition: {str(e)}")
         return ""
 
-def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dict, state: StoryState = None) -> str:
+def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dict, state: StoryState = None,
+                            language: str = DEFAULT_LANGUAGE) -> str:
     """
     Create a smooth transition between chapters.
     
@@ -195,10 +226,14 @@ def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dic
         current_chapter_data: The data for the current chapter
         next_chapter_data: The data for the next chapter
         state: The current state (optional, for plot thread integration)
+        language: The language of the content (default: from config)
         
     Returns:
         The transition text
     """
+    # Get language from state if provided and not explicitly specified
+    if state and not language:
+        language = state.get("language", DEFAULT_LANGUAGE)
     # Extract relevant data
     current_chapter_title = current_chapter_data.get("title", "")
     current_chapter_outline = current_chapter_data.get("outline", "")
@@ -211,7 +246,7 @@ def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dic
     last_scene_content = current_chapter_scenes[last_scene_num].get("content", "")
     
     # Analyze transition needs
-    transition_analysis = analyze_transition_needs(last_scene_content, next_chapter_outline, "chapter")
+    transition_analysis = analyze_transition_needs(last_scene_content, next_chapter_outline, "chapter", language)
     
     # Get active plot threads if state is provided
     plot_thread_guidance = ""
@@ -248,10 +283,17 @@ def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dic
             Reference key plot elements that will carry forward into the next chapter.
             Consider how plot threads will evolve or develop in the upcoming chapter.
             """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
     
     # Prepare the prompt for creating a chapter transition
     prompt = f"""
-    Create a smooth chapter transition:
+    Create a smooth chapter transition in {language_name}:
     
     CURRENT CHAPTER: {current_chapter_title}
     {current_chapter_outline}
@@ -260,6 +302,12 @@ def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dic
     {last_scene_content[-500:]}
     
     NEXT CHAPTER: {next_chapter_title}
+    {next_chapter_outline}
+    
+    LANGUAGE CONSIDERATIONS:
+    - Use natural transition phrases and techniques common in {language_name} literature
+    - Consider cultural context and linguistic norms specific to {language_name}
+    - Ensure the transition flows naturally in {language_name}
     {next_chapter_outline}
     
     TRANSITION ANALYSIS:
@@ -271,16 +319,17 @@ def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dic
     
     {plot_thread_guidance}
     
-    Write a {transition_analysis["transition_length"]} chapter transition (2-4 paragraphs) that:
+    Write a {transition_analysis["transition_length"]} chapter transition (2-4 paragraphs) in {language_name} that:
     1. Provides satisfying closure to the current chapter
     2. Creates anticipation for the next chapter
     3. Maintains narrative momentum
     4. Connects thematically to both chapters
     5. Addresses any unresolved immediate tensions
     6. Maintains continuity of major plot threads between chapters
+    7. Uses appropriate transitional phrases and techniques for {language_name} literature
     
     The transition should be 2-4 paragraphs that could either end the current chapter
-    or begin the next chapter.
+    or begin the next chapter, and should sound natural to native {language_name} speakers.
     """
     
     try:
@@ -323,8 +372,11 @@ def add_scene_transition(state: StoryState) -> Dict:
     if next_scene in chapter["scenes"]:
         # Get the next scene outline
         next_scene_outline = chapter["scenes"][next_scene].get("outline", "")
+        # Get the language from the state
+        language = state.get("language", DEFAULT_LANGUAGE)
         
         # Create a transition to the next scene
+        transition = create_scene_transition(scene_content, next_scene_outline, state, language)
         transition = create_scene_transition(scene_content, next_scene_outline, state)
         
         # Add the transition to the current scene
@@ -368,8 +420,11 @@ def add_chapter_transition(state: StoryState) -> Dict:
         # Get the current and next chapter data
         current_chapter_data = chapters[current_chapter]
         next_chapter_data = chapters[next_chapter]
+        # Get the language from the state
+        language = state.get("language", DEFAULT_LANGUAGE)
         
         # Create a transition between chapters
+        transition = create_chapter_transition(current_chapter_data, next_chapter_data, state, language)
         transition = create_chapter_transition(current_chapter_data, next_chapter_data, state)
         
         # Get the last scene of the current chapter
