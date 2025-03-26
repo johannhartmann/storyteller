@@ -10,12 +10,13 @@ import gc
 import logging
 import sqlite3
 import psutil
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Union, Dict, Any, Literal
 from pathlib import Path
 from dotenv import load_dotenv
 
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langchain_core.caches import BaseCache
 from langchain_core.globals import set_llm_cache
@@ -35,7 +36,28 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # LLM Configuration
-DEFAULT_MODEL = "gemini-2.0-flash"
+# Model provider options
+MODEL_PROVIDER_OPTIONS = ["openai", "anthropic", "gemini"]
+DEFAULT_PROVIDER = "gemini"
+
+# Model configurations for each provider
+MODEL_CONFIGS = {
+    "openai": {
+        "default_model": "gpt-4o",
+        "env_key": "OPENAI_API_KEY"
+    },
+    "anthropic": {
+        "default_model": "claude-3-7-sonnet-20250219",
+        "env_key": "ANTHROPIC_API_KEY"
+    },
+    "gemini": {
+        "default_model": "gemini-2.0-flash",
+        "env_key": "GEMINI_API_KEY"
+    }
+}
+
+# Default settings
+DEFAULT_MODEL_PROVIDER = os.environ.get("DEFAULT_MODEL_PROVIDER", DEFAULT_PROVIDER)
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_CACHE_TYPE = "sqlite"  # Only sqlite cache is supported
 CACHE_LOCATION = os.environ.get("CACHE_LOCATION", str(Path.home() / ".storyteller" / "llm_cache.db"))
@@ -87,23 +109,72 @@ def setup_cache(cache_type: str = DEFAULT_CACHE_TYPE) -> Optional[BaseCache]:
 # Initialize the cache
 cache = setup_cache()
 
-def get_llm(model: Optional[str] = None, temperature: Optional[float] = None) -> BaseChatModel:
+def get_llm(
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    temperature: Optional[float] = None
+) -> BaseChatModel:
     """
     Get an instance of the LLM with the specified parameters.
     
     Args:
-        model: The model name to use (defaults to gemini-2.0-flash)
+        provider: The model provider to use (openai, anthropic, gemini)
+        model: The model name to use (defaults to provider's default model)
         temperature: The temperature setting (defaults to 0.7)
         
     Returns:
         A configured LLM instance
     """
-    logger.debug(f"Creating LLM instance with model={model or DEFAULT_MODEL}, temp={temperature or DEFAULT_TEMPERATURE}")
-    return ChatGoogleGenerativeAI(
-        model=model or DEFAULT_MODEL,
-        temperature=temperature or DEFAULT_TEMPERATURE,
-        google_api_key=os.environ.get("GEMINI_API_KEY")
-    )
+    # Use provided values or defaults
+    provider = provider or DEFAULT_MODEL_PROVIDER
+    temp = temperature or DEFAULT_TEMPERATURE
+    
+    # Validate provider
+    if provider not in MODEL_PROVIDER_OPTIONS:
+        logger.warning(f"Invalid provider '{provider}'. Falling back to {DEFAULT_PROVIDER}.")
+        provider = DEFAULT_PROVIDER
+    
+    # Get provider config
+    provider_config = MODEL_CONFIGS[provider]
+    model_name = model or provider_config["default_model"]
+    api_key_env = provider_config["env_key"]
+    api_key = os.environ.get(api_key_env)
+    
+    # Check if API key is available
+    if not api_key:
+        logger.warning(f"No API key found for {provider} (env: {api_key_env}). Falling back to {DEFAULT_PROVIDER}.")
+        provider = DEFAULT_PROVIDER
+        provider_config = MODEL_CONFIGS[provider]
+        model_name = provider_config["default_model"]
+        api_key = os.environ.get(provider_config["env_key"])
+        
+        # If still no API key, raise error
+        if not api_key:
+            raise ValueError(f"No API key found for {provider}. Please set {provider_config['env_key']} in your .env file.")
+    
+    logger.info(f"Creating LLM instance with provider={provider}, model={model_name}, temp={temp}")
+    
+    # Create the appropriate LLM instance based on provider
+    if provider == "openai":
+        return ChatOpenAI(
+            model=model_name,
+            temperature=temp,
+            openai_api_key=api_key
+        )
+    elif provider == "anthropic":
+        return ChatAnthropic(
+            model=model_name,
+            temperature=temp,
+            anthropic_api_key=api_key
+        )
+    elif provider == "gemini":
+        return ChatGoogleGenerativeAI(
+            model=model_name,
+            temperature=temp,
+            google_api_key=api_key
+        )
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
 
 # Initialize the default LLM instance
 llm = get_llm()

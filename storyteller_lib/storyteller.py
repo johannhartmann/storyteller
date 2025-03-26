@@ -224,7 +224,15 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
         
         return fallback_elements
 
-def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = "", language: str = ""):
+def extract_partial_story(
+    genre: str = "fantasy",
+    tone: str = "epic",
+    author: str = "",
+    initial_idea: str = "",
+    language: str = "",
+    model_provider: str = None,
+    model: str = None
+):
     """
     Attempt to extract a partial story from memory when normal generation fails.
     This function tries to recover whatever content has been generated so far,
@@ -236,6 +244,8 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
         author: Optional author whose style to emulate (e.g., Tolkien, Rowling, Martin)
         initial_idea: Optional initial story idea to use as a starting point
         language: Optional target language for the story
+        model_provider: Optional model provider to use (openai, anthropic, gemini)
+        model: Optional specific model to use
         
     Returns:
         The partial story as a string, or None if nothing could be recovered
@@ -374,7 +384,15 @@ def extract_partial_story(genre: str = "fantasy", tone: str = "epic", author: st
     return None
 
 
-def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "", initial_idea: str = "", language: str = ""):
+def generate_story(
+    genre: str = "fantasy",
+    tone: str = "epic",
+    author: str = "",
+    initial_idea: str = "",
+    language: str = "",
+    model_provider: str = None,
+    model: str = None
+):
     """
     Generate a complete story using the StoryCraft agent with the refactored graph.
     
@@ -384,7 +402,13 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "",
         author: Optional author whose style to emulate (e.g., Tolkien, Rowling, Martin)
         initial_idea: Optional initial story idea to use as a starting point
         language: Optional target language for the story
+        model_provider: Optional model provider to use (openai, anthropic, gemini)
+        model: Optional specific model to use
     """
+    # Configure the LLM with the specified provider and model
+    from storyteller_lib.config import get_llm
+    global llm
+    llm = get_llm(provider=model_provider, model=model)
     # Parse the initial idea once to extract key elements
     idea_elements = {}
     if initial_idea:
