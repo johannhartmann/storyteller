@@ -14,7 +14,8 @@ from operator import add  # Default reducer for lists
 from storyteller_lib.models import StoryState
 # No checkpointer needed for single-session generation
 from storyteller_lib.initialization import initialize_state, brainstorm_story_concepts
-from storyteller_lib.outline import generate_story_outline, generate_characters, plan_chapters
+from storyteller_lib.outline import generate_story_outline, plan_chapters
+from storyteller_lib.character_creation import generate_characters
 from storyteller_lib.worldbuilding import generate_worldbuilding
 from storyteller_lib.scenes import (
     brainstorm_scene_elements,
