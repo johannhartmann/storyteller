@@ -597,12 +597,23 @@ def main():
                         help="Path to the cache file (for sqlite cache)")
     parser.add_argument("--recursion-limit", type=int, default=200,
                         help="LangGraph recursion limit (default: 200)")
+    # Add model provider options
+    from storyteller_lib.config import MODEL_PROVIDER_OPTIONS, DEFAULT_MODEL_PROVIDER, MODEL_CONFIGS
+    parser.add_argument("--model-provider", type=str, choices=MODEL_PROVIDER_OPTIONS, default=DEFAULT_MODEL_PROVIDER,
+                        help=f"LLM provider to use (default: {DEFAULT_MODEL_PROVIDER})")
+    parser.add_argument("--model", type=str,
+                        help="Specific model to use (defaults to provider's default model)")
     args = parser.parse_args()
     
-    # Check if API key is set
-    if not os.environ.get("OPENAI_API_KEY"):
-        print("Error: OPENAI_API_KEY environment variable is not set.")
-        print("Please create a .env file with OPENAI_API_KEY=your_api_key")
+    # Import config to check API keys
+    from storyteller_lib.config import MODEL_CONFIGS
+    
+    # Check if API key is set for the selected provider
+    provider = args.model_provider
+    api_key_env = MODEL_CONFIGS[provider]["env_key"]
+    if not os.environ.get(api_key_env):
+        print(f"Error: {api_key_env} environment variable is not set for the {provider} provider.")
+        print(f"Please create a .env file with {api_key_env}=your_api_key")
         return
         
     # Make output file path available to the progress callback
@@ -630,7 +641,14 @@ def main():
         # Generate the story with visual progress display
         author_str = f" in the style of {args.author}" if args.author else ""
         language_str = f" in {SUPPORTED_LANGUAGES.get(args.language.lower(), args.language)}" if args.language.lower() != DEFAULT_LANGUAGE else ""
+        
+        # Get model information
+        from storyteller_lib.config import MODEL_CONFIGS
+        provider_config = MODEL_CONFIGS[args.model_provider]
+        model_name = args.model or provider_config["default_model"]
+        
         print(f"Generating a {args.tone} {args.genre} story{author_str}{language_str}...")
+        print(f"Using {args.model_provider.upper()} model: {model_name}")
         print(f"This will take some time. Progress updates will be displayed below:")
         
         # Reset progress tracking variables
@@ -654,7 +672,9 @@ def main():
                 tone=args.tone,
                 author=args.author,
                 initial_idea=args.idea,
-                language=args.language
+                language=args.language,
+                model_provider=args.model_provider,
+                model=args.model
             )
             
             # Show completion message
@@ -673,7 +693,15 @@ def main():
             from storyteller_lib.storyteller import extract_partial_story
             try:
                 print("Attempting to recover partial story...")
-                partial_story = extract_partial_story(args.genre, args.tone, args.author, args.idea, args.language)
+                partial_story = extract_partial_story(
+                    args.genre,
+                    args.tone,
+                    args.author,
+                    args.idea,
+                    args.language,
+                    args.model_provider,
+                    args.model
+                )
                 if partial_story:
                     print("Partial story recovered successfully!")
                     story = partial_story

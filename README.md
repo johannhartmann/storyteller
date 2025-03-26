@@ -19,7 +19,10 @@ An autonomous AI agent designed to write engaging, multi-chapter stories based o
 ## Requirements
 
 - Python 3.8+
-- Google Gemini API key
+- At least one of the following API keys:
+  - Google Gemini API key
+  - OpenAI API key
+  - Anthropic API key
 
 ## Installation
 
@@ -32,9 +35,14 @@ An autonomous AI agent designed to write engaging, multi-chapter stories based o
    ```
    cp .env.example .env
    ```
-4. Edit the `.env` file and add your Gemini API key
+4. Edit the `.env` file and add your API key(s)
    ```
-   GEMINI_API_KEY=your_api_key_here
+   GEMINI_API_KEY=your_gemini_api_key_here
+   OPENAI_API_KEY=your_openai_api_key_here
+   ANTHROPIC_API_KEY=your_anthropic_api_key_here
+   
+   # Optional: Set your default model provider
+   DEFAULT_MODEL_PROVIDER=gemini
    ```
 
 ## Usage
@@ -57,6 +65,8 @@ python run_storyteller.py --genre fantasy --tone epic --output my_story.md
 - `--cache`: LLM cache type to use (choices: memory, sqlite, none; default: sqlite)
 - `--cache-path`: Path to the cache file (for sqlite cache)
 - `--recursion-limit`: LangGraph recursion limit for complex stories (default: 200)
+- `--model-provider`: LLM provider to use (choices: openai, anthropic, gemini; default: gemini)
+- `--model`: Specific model to use (defaults to provider's default model)
 
 ### Supported Languages
 
@@ -103,6 +113,15 @@ python run_storyteller.py --genre fantasy --tone epic --language spanish
 
 # Generate a story based on a specific idea
 python run_storyteller.py --idea "A detective story set in a zoo" --tone mysterious
+
+# Generate a story using OpenAI's GPT-4o model
+python run_storyteller.py --genre fantasy --tone epic --model-provider openai
+
+# Generate a story using Anthropic's Claude 3.5 Sonnet model
+python run_storyteller.py --genre mystery --tone dark --model-provider anthropic
+
+# Generate a story using a specific model from Google
+python run_storyteller.py --genre sci-fi --tone futuristic --model-provider gemini --model gemini-2.0-pro
 ```
 
 ## How It Works
@@ -216,10 +235,20 @@ The agent is built using:
 
 - **LangGraph**: For orchestration and state management
 - **LangMem**: For memory and reflection capabilities
-- **Google Gemini 2.0 Flash**: For high-quality text generation
+- **Multiple LLM Providers**: Support for OpenAI, Anthropic, and Google Gemini models
 - **LangChain Caching**: For improved performance and cost efficiency
 
 The architecture follows a graph structure with nodes for each step of the story generation process, connected by conditional edges that determine the flow based on the current state.
+
+### Model Interchangeability
+
+The system supports multiple LLM providers that can be selected at runtime:
+
+- **OpenAI**: GPT-4o and other OpenAI models
+- **Anthropic**: Claude 3.5 Sonnet and other Claude models
+- **Google Gemini**: Gemini 2.0 Flash (default) and other Gemini models
+
+Each provider has its own default model, but specific models can be specified using the `--model` parameter. The system will automatically use the appropriate API key from the .env file based on the selected provider.
 
 ### Core Modules
 
@@ -321,83 +350,6 @@ State updates follow LangGraph's immutable state update pattern:
 3. Nested structures are copied before modification
 4. LangGraph handles merging the changes into the state
 
-## Progress Tracking
-
-The system includes detailed progress tracking through every step of the story generation process:
-
-- **Decorator-based Tracking**: Node functions are wrapped with decorators that report execution progress
-- **Real-time Status Updates**: Shows which node is currently executing and its completion status
-- **Detailed Progress Reporting**: Provides context-specific information for each step (brainstorming, writing, reflection)
-- **Percentage Completion**: Calculates and displays overall progress through chapters and scenes
-- **Error Handling**: Gracefully handles errors and provides meaningful error messages
-
-## Technical Implementation Details
-
-### Plot Thread Tracking Implementation
-
-The plot tracking system is implemented with several key components:
-
-1. **Data Structures**:
-   ```python
-   class PlotThread:
-       """Class representing a plot thread with tracking information."""
-       def __init__(self, name, description, importance="minor", status="introduced", ...):
-           self.name = name
-           self.description = description
-           self.importance = importance
-           self.status = status
-           self.development_history = []
-           # Additional tracking properties...
-   
-   class PlotThreadRegistry:
-       """Registry for tracking all plot threads in a story."""
-       def __init__(self):
-           self.threads = {}
-       
-       def list_active_threads(self):
-           """List all active (non-resolved, non-abandoned) plot threads."""
-           return [thread for thread in self.threads.values()
-                  if thread.status not in ["resolved", "abandoned"]]
-   ```
-
-2. **Thread Identification Process**:
-   ```python
-   def identify_plot_threads_in_scene(scene_content, chapter_num, scene_num, characters):
-       """Identify plot threads introduced or developed in a scene."""
-       # Use LLM with structured output to analyze the scene
-       structured_llm = llm.with_structured_output(PlotThreadUpdateContainer)
-       container = structured_llm.invoke(prompt_analyzing_scene)
-       return [update.dict() for update in container.updates]
-   ```
-
-3. **Thread Integration with Scene Generation**:
-   ```python
-   def _prepare_plot_thread_guidance(active_plot_threads):
-       """Prepare plot thread guidance section for scene writing."""
-       # Group threads by importance
-       major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
-       minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
-       # Format guidance for the scene writer...
-   ```
-
-4. **State Management Integration**:
-   ```python
-   def update_plot_threads(state):
-       """Update plot threads based on the current scene."""
-       # Get the scene content
-       scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
-       # Identify plot threads in the scene
-       thread_updates = identify_plot_threads_in_scene(scene_content, ...)
-       # Update the registry with new information
-       registry = PlotThreadRegistry.from_state(state)
-       # Process each thread update...
-       return {
-           "plot_threads": registry.to_dict(),  # Store in state
-           "plot_thread_updates": thread_updates
-       }
-   ```
-
-This implementation ensures that plot threads are dynamically identified, tracked, and integrated into the story generation process, maintaining narrative coherence throughout.
 
 ## Component Interactions
 
@@ -426,16 +378,3 @@ The plot tracking system interacts with other components throughout the story ge
 
 This integrated approach ensures that plot threads are not just tracked passively but actively influence the story generation process at multiple points, creating a coherent narrative with properly developed and resolved plot elements.
 
-## Recent Improvements
-
-- **Multi-language Support**: Added support for generating stories in 12 different languages
-- **Initial Idea Input**: Added ability to provide a specific story idea as a starting point
-- **Google Gemini Integration**: Switched to Gemini 2.0 Flash as the default LLM
-- **Native LangGraph Edge System**: Replaced custom router with LangGraph's native conditional edges
-- **Improved State Management**: Eliminated custom state flags and tracking variables
-- **Enhanced Continuity Review**: Refactored continuity review and resolution to prevent infinite loops
-- **Configurable Recursion Limit**: Added support for adjustable recursion limits for complex stories
-- **Reduced Memory Usage**: Optimized state updates to include only essential changes
-- **Robust Output File Generation**: Added multi-layered error handling to ensure story output is always saved
-- **Partial Story Recovery**: Implemented recovery system that extracts and saves partial stories even when errors occur
-- **Improved Directory Handling**: Added auto-creation of output directories if they don't exist
