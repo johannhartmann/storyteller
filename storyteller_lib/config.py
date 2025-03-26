@@ -100,7 +100,6 @@ def setup_cache(cache_type: str = DEFAULT_CACHE_TYPE) -> Optional[BaseCache]:
     cache_path = Path(CACHE_LOCATION)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     
-    logger.info(f"Using SQLite LLM cache at {CACHE_LOCATION}")
     cache = SQLiteCache(database_path=CACHE_LOCATION)
     set_llm_cache(cache)
     
@@ -152,7 +151,6 @@ def get_llm(
         if not api_key:
             raise ValueError(f"No API key found for {provider}. Please set {provider_config['env_key']} in your .env file.")
     
-    logger.info(f"Creating LLM instance with provider={provider}, model={model_name}, temp={temp}")
     
     # Create the appropriate LLM instance based on provider
     if provider == "openai":

@@ -841,7 +841,6 @@ def write_scene(state: StoryState) -> Dict:
     {previous_scenes_summary}
     
     {worldbuilding_guidance}
-    {worldbuilding_guidance}
     
     {creative_guidance}
     
@@ -860,7 +859,7 @@ def write_scene(state: StoryState) -> Dict:
     {integrated_guidance.get("consistency_guidance", "")}
     
     {integrated_guidance.get("variation_guidance", "")}
-    Your task is to write an engaging, vivid scene of 2100-3360 words that advances the story according to the chapter outline.
+    Your task is to write an engaging, vivid scene of 2000-4000 words that advances the story according to the chapter outline.
     Use rich descriptions, meaningful dialogue, and show character development.
     Ensure consistency with established character traits and previous events.
     
@@ -873,43 +872,79 @@ def write_scene(state: StoryState) -> Dict:
     
     CRITICAL LANGUAGE INSTRUCTION:
     This scene MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-    ALL content - including narrative, dialogue, descriptions, and character thoughts - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+    ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
     DO NOT switch to any other language at ANY point in the scene.
-    DO NOT include ANY English text in your response.
     
     This is a STRICT requirement. The ENTIRE scene must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
     
-    CRITICAL INSTRUCTION: Return ONLY the actual scene content. Do NOT include any explanations, comments, notes, or meta-information about your writing process or choices. Do NOT include any text like "Here's the scene" or "Key improvements" or any other commentary. The output should be ONLY the narrative text that will appear in the final story.
+    CRITICAL INSTRUCTION: Return ONLY the actual scene content using the provided format. Do NOT add explanations, comments, notes, or meta-information about your writing process or choices. 
     IMPORTANT: If the language is set to {SUPPORTED_LANGUAGES[language.lower()]}, you MUST write the ENTIRE scene in {SUPPORTED_LANGUAGES[language.lower()]}. Do not include any text in English or any other language. The complete scene must be written only in {SUPPORTED_LANGUAGES[language.lower()]}.
     """
     
-    # Add a template to guide the LLM's output format
-    prompt += """
+    # Define a Pydantic model for structured scene output
+    from pydantic import BaseModel, Field
     
-    FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+    class SceneContent(BaseModel):
+        """Scene content model."""
+        
+        content: str = Field(
+            description="The complete scene content, ready to be used in the story"
+        )
     
-    ```scene
-    [Your scene content goes here - ONLY the narrative text with no explanations or meta-information]
-    ```
+    # Create a structured LLM that outputs a SceneContent object
+    structured_llm = llm.with_structured_output(SceneContent)
     
-    DO NOT include any text outside the ```scene``` tags. The content between the tags will be used directly in the story.
-    """
-    
-    # Generate the scene content
-    response = llm.invoke([HumanMessage(content=prompt)]).content
-    
-    # Extract the scene content from between the ```scene``` tags
-    import re
-    scene_match = re.search(r'```scene\s*([\s\S]*?)\s*```', response)
-    
-    if scene_match:
-        scene_content = scene_match.group(1).strip()
-        print(f"Successfully extracted scene content for scene {current_chapter}_{current_scene}")
-    else:
-        # If no tags found, use the whole response but log a warning
-        print(f"Warning: Could not find ```scene``` tags in the response for scene {current_chapter}_{current_scene}")
-        print("Using the entire response as the scene content")
-        scene_content = response.strip()
+    # Use the structured LLM to generate the scene
+    try:
+        # Use the prompt without explicit format instructions (structured_output handles this)
+        scene_content_obj = structured_llm.invoke(prompt)
+        scene_content = scene_content_obj.content
+        print(f"Successfully generated structured scene content for scene {current_chapter}_{current_scene}")
+    except Exception as e:
+        # If structured output fails, fall back to unstructured output with a more explicit error message
+        print(f"Warning: Structured output failed for scene {current_chapter}_{current_scene}: {str(e)}")
+        print("Falling back to unstructured output")
+        
+        # Try to extract JSON from the response if possible
+        try:
+            import json
+            import re
+            
+            # Generate response without structured output
+            response = llm.invoke([HumanMessage(content=prompt)]).content
+            
+            # Try to find JSON in the response
+            json_match = re.search(r'({.*})', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+                json_data = json.loads(json_str)
+                if "content" in json_data:
+                    scene_content = json_data["content"]
+                    print("Successfully extracted JSON content from unstructured response")
+                else:
+                    scene_content = response.strip()
+            else:
+                # If no JSON found, try to clean up the response
+                # Look for patterns that might indicate explanatory text
+                explanatory_patterns = [
+                    r'^.*?(?:Here\'s|Here is|I\'ve written|The scene|Scene content).*?\n\n(.*)',
+                    r'^.*?(?:SCENE CONTENT|SCENE).*?\n\n(.*)',
+                ]
+                
+                cleaned_response = response.strip()
+                for pattern in explanatory_patterns:
+                    match = re.search(pattern, cleaned_response, re.IGNORECASE | re.DOTALL)
+                    if match:
+                        cleaned_response = match.group(1).strip()
+                        print(f"Cleaned explanatory text from scene {current_chapter}_{current_scene}")
+                        break
+                
+                scene_content = cleaned_response
+        except Exception as json_error:
+            print(f"JSON extraction fallback also failed: {str(json_error)}")
+            # Use the original response as a last resort
+            response = llm.invoke([HumanMessage(content=prompt)]).content
+            scene_content = response.strip()
     
     # Apply post-processing for showing vs. telling if enabled
     if post_process_showing:
@@ -1838,7 +1873,7 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         # Generate a comprehensive summary of previous chapters and scenes
         previous_scenes_summary = _generate_previous_scenes_summary(state)
         
-        # Prompt for scene revision
+        # Prompt for scene revision - updated for structured output
         prompt = f"""
         Revise this scene based on the following structured feedback:
         
@@ -1867,7 +1902,6 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         {previous_scenes_summary}
         
         {plot_thread_guidance}
-        {plot_thread_guidance}
         
         YOUR REVISION TASK:
         1. Rewrite the scene to address ALL identified issues, especially those marked with higher severity.
@@ -1881,38 +1915,57 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         {language_section}
         
         Provide a complete, polished scene that can replace the original.
-        Provide a complete, polished scene that can replace the original.
         
-        CRITICAL INSTRUCTION: Return ONLY the actual revised scene content. Do NOT include any explanations, comments, notes, or meta-information about your revision process or choices. Do NOT include any text like "Here's the revised scene" or "Key improvements" or any other commentary. The output should be ONLY the narrative text that will appear in the final story.
+        CRITICAL INSTRUCTION: Return ONLY the actual revised scene content. Do NOT include any explanations, comments, notes, or meta-information about your revision process or choices. The output should be ONLY the narrative text that will appear in the final story.
         """
         
-        # Add a template to guide the LLM's output format
-        prompt += """
+        # Define a Pydantic model for structured scene output
+        from pydantic import BaseModel, Field
         
-        FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+        class RevisedScene(BaseModel):
+            """Revised scene content."""
+            
+            content: str = Field(
+                description="The complete revised scene content, ready to be used in the story"
+            )
         
-        ```scene
-        [Your scene content goes here - ONLY the narrative text with no explanations or meta-information]
-        ```
+        # Create a structured LLM that outputs a RevisedScene object
+        structured_llm = llm.with_structured_output(RevisedScene)
         
-        DO NOT include any text outside the ```scene``` tags. The content between the tags will be used directly in the story.
-        """
-        
-        # Generate the revised scene content
-        response = llm.invoke([HumanMessage(content=prompt)]).content
-        
-        # Extract the scene content from between the ```scene``` tags
-        import re
-        scene_match = re.search(r'```scene\s*([\s\S]*?)\s*```', response)
-        
-        if scene_match:
-            revised_scene = scene_match.group(1).strip()
-            print(f"Successfully extracted scene content for revised scene {current_chapter}_{current_scene}")
-        else:
-            # If no tags found, use the whole response but log a warning
-            print(f"Warning: Could not find ```scene``` tags in the response for revised scene {current_chapter}_{current_scene}")
-            print("Using the entire response as the scene content")
-            revised_scene = response.strip()
+        # Use the structured LLM to generate the revised scene
+        try:
+            # Use the prompt without explicit format instructions (structured_output handles this)
+            revised_scene_obj = structured_llm.invoke(prompt)
+            revised_scene = revised_scene_obj.content
+            print(f"Successfully generated structured scene content for revised scene {current_chapter}_{current_scene}")
+        except Exception as e:
+            # If structured output fails, fall back to unstructured output with a more explicit error message
+            print(f"Warning: Structured output failed for revised scene {current_chapter}_{current_scene}: {str(e)}")
+            print("Falling back to unstructured output")
+            
+            # Try to extract JSON from the response if possible
+            try:
+                import json
+                import re
+                
+                # Generate response without structured output
+                response = llm.invoke([HumanMessage(content=prompt)]).content
+                
+                # Try to find JSON in the response
+                json_match = re.search(r'({.*})', response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(1)
+                    json_data = json.loads(json_str)
+                    if "content" in json_data:
+                        revised_scene = json_data["content"]
+                        print("Successfully extracted JSON content from unstructured response")
+                    else:
+                        revised_scene = response.strip()
+                else:
+                    revised_scene = response.strip()
+            except Exception as json_error:
+                print(f"JSON extraction fallback also failed: {str(json_error)}")
+                revised_scene = response.strip()
         # Increment revision count
         revised_counts[f"{current_chapter}_{current_scene}"] = revision_count + 1
         # Log that an improved scene was generated based on the reflection
