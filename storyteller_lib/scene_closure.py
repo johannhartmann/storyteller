@@ -2,12 +2,12 @@
 StoryCraft Agent - Scene closure verification and management.
 
 This module provides functionality to detect and fix abrupt scene endings,
-ensuring proper narrative closure for each scene.
+ensuring proper narrative closure for each scene in multiple languages.
 """
 
 from typing import Dict, List, Any, Tuple
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 
@@ -18,8 +18,8 @@ CLOSURE_STATUS = {
     "TRANSITIONAL": "transitional",
     "CLIFFHANGER": "cliffhanger"
 }
-
-def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str) -> Dict[str, Any]:
+def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
+                        language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Analyze a scene for proper narrative closure.
     
@@ -27,13 +27,22 @@ def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str) 
         scene_content: The content of the scene
         chapter_num: The chapter number
         scene_num: The scene number
+        language: The language of the scene (default: from config)
         
     Returns:
         A dictionary with closure analysis results
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
+    
     # Prepare the prompt for analyzing scene closure
     prompt = f"""
-    Analyze the closure of this scene from Chapter {chapter_num}, Scene {scene_num}:
+    Analyze the closure of this scene written in {language_name} from Chapter {chapter_num}, Scene {scene_num}:
     
     {scene_content}
     
@@ -44,8 +53,12 @@ def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str) 
     2. Complete the action or interaction that was central to the scene
     3. Provide a sense of completion or transition to the next scene
     4. Not end mid-paragraph, mid-dialogue, or mid-action without purpose
+    5. Follow narrative closure conventions appropriate for {language_name} literature
     
     A scene can end with a cliffhanger, but even cliffhangers should feel intentional
+    rather than abrupt or incomplete, and should respect cultural storytelling norms in {language_name}.
+    
+    Analyze and respond in {language_name}.
     rather than abrupt or incomplete.
     
     Provide the following in your analysis:
@@ -99,7 +112,8 @@ def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str) 
         }
 
 def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
-                          closure_analysis: Dict[str, Any], state: StoryState = None) -> str:
+                          closure_analysis: Dict[str, Any], state: StoryState = None,
+                          language: str = DEFAULT_LANGUAGE) -> str:
     """
     Generate improved scene closure for a scene that ends abruptly.
     
@@ -109,10 +123,22 @@ def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
         scene_num: The scene number
         closure_analysis: The closure analysis results
         state: The current state (optional, for plot thread integration)
+        language: The language of the scene (default: from config)
         
     Returns:
         The improved scene content with proper closure
     """
+    # Get language from state if provided and not explicitly specified
+    if state and not language:
+        language = state.get("language", DEFAULT_LANGUAGE)
+        
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
     # Extract the last few paragraphs of the scene
     paragraphs = scene_content.split('\n\n')
     last_paragraphs = '\n\n'.join(paragraphs[-min(5, len(paragraphs)):])
@@ -153,7 +179,7 @@ def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
     
     # Prepare the prompt for generating improved scene closure
     prompt = f"""
-    This scene from Chapter {chapter_num}, Scene {scene_num} ends abruptly and needs improved closure:
+    This scene from Chapter {chapter_num}, Scene {scene_num} written in {language_name} ends abruptly and needs improved closure:
     
     --- LAST PART OF SCENE ---
     {last_paragraphs}
@@ -169,19 +195,26 @@ def generate_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
     
     {plot_thread_guidance}
     
+    LANGUAGE CONSIDERATIONS:
+    - Use natural closure phrases and techniques common in {language_name} literature
+    - Consider cultural context and linguistic norms specific to {language_name}
+    - Ensure the closure flows naturally in {language_name}
+    
     YOUR TASK:
-    Write an improved ending for this scene that provides proper narrative closure.
+    Write an improved ending for this scene in {language_name} that provides proper narrative closure.
     Your ending should:
     1. Resolve the immediate tension or question raised in the scene
     2. Complete any unfinished action or dialogue
     3. Provide a sense of completion or transition to the next scene
     4. Feel natural and consistent with the scene's tone and content
     5. Address relevant plot threads, especially major ones
+    6. Use appropriate closure techniques for {language_name} literature
+    7. Sound natural to native {language_name} speakers
     
     Write 1-3 paragraphs that would replace or extend the current ending.
     The improved ending should flow seamlessly from the existing content.
     
-    IMPORTANT: Return ONLY the new ending paragraphs, not the entire scene.
+    IMPORTANT: Return ONLY the new ending paragraphs in {language_name}, not the entire scene.
     Do NOT include any explanations, comments, or meta-information.
     """
     
@@ -236,11 +269,14 @@ def check_and_improve_scene_closure(state: StoryState) -> Tuple[bool, Dict[str, 
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     
+    # Get the language from the state or use default
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
     # Get the scene content
     scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
     
     # Analyze scene closure
-    closure_analysis = analyze_scene_closure(scene_content, current_chapter, current_scene)
+    closure_analysis = analyze_scene_closure(scene_content, current_chapter, current_scene, language)
     
     # Check if the scene needs improved closure
     needs_improved_closure = (
@@ -252,7 +288,7 @@ def check_and_improve_scene_closure(state: StoryState) -> Tuple[bool, Dict[str, 
     improved_scene = scene_content
     if needs_improved_closure:
         improved_scene = generate_scene_closure(
-            scene_content, current_chapter, current_scene, closure_analysis, state
+            scene_content, current_chapter, current_scene, closure_analysis, state, language
         )
     
     return needs_improved_closure, closure_analysis, improved_scene

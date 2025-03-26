@@ -2,17 +2,18 @@
 StoryCraft Agent - Character consistency tracking and verification.
 
 This module provides functionality to track and ensure character consistency throughout the story,
-addressing issues with character motivation inconsistencies.
+addressing issues with character motivation inconsistencies in multiple languages.
 """
 
 from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 
-def check_character_consistency(character_data: Dict, scene_content: str, 
-                              previous_scenes: List[str] = None) -> Dict[str, Any]:
+def check_character_consistency(character_data: Dict, scene_content: str,
+                              previous_scenes: List[str] = None,
+                              language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Check if character actions and motivations are consistent with established traits.
     
@@ -20,10 +21,18 @@ def check_character_consistency(character_data: Dict, scene_content: str,
         character_data: The character data
         scene_content: The content of the current scene
         previous_scenes: Optional list of previous scene contents for context
+        language: The language of the content (default: from config)
         
     Returns:
         A dictionary with consistency analysis results
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
     character_name = character_data.get("name", "")
     
     # Extract relevant character information
@@ -48,7 +57,7 @@ def check_character_consistency(character_data: Dict, scene_content: str,
     
     # Prepare the prompt for checking character consistency
     prompt = f"""
-    Analyze {character_name}'s consistency in this scene:
+    Analyze {character_name}'s consistency in this scene written in {language_name}:
     
     CHARACTER PROFILE:
     Name: {character_name}
@@ -70,13 +79,16 @@ def check_character_consistency(character_data: Dict, scene_content: str,
     3. Does their dialogue match their established voice?
     4. Are emotional reactions appropriate to their personality and situation?
     5. Is character development gradual and believable?
+    6. Are cultural and linguistic aspects of the character appropriate for {language_name}?
+    7. Does the character's speech pattern match expectations for their background in {language_name}?
     
     For any inconsistencies, provide:
     - Description of the inconsistency
     - Why it's inconsistent with the character profile
-    - A suggested revision
+    - A suggested revision in {language_name}
     
     Format your response as a structured JSON object.
+    Analyze and respond in {language_name}.
     """
     
     try:
@@ -202,7 +214,8 @@ def check_character_consistency(character_data: Dict, scene_content: str,
         }
 
 def fix_character_inconsistencies(scene_content: str, character_data: Dict,
-                                consistency_analysis: Dict[str, Any], state: StoryState = None) -> str:
+                                consistency_analysis: Dict[str, Any], state: StoryState = None,
+                                language: str = DEFAULT_LANGUAGE) -> str:
     """
     Fix character inconsistencies in a scene.
     
@@ -211,10 +224,22 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
         character_data: The character data
         consistency_analysis: The consistency analysis results
         state: The current state (optional, for plot thread integration)
+        language: The language of the content (default: from config)
         
     Returns:
         The scene content with fixed inconsistencies
     """
+    # Get language from state if provided and not explicitly specified
+    if state and not language:
+        language = state.get("language", DEFAULT_LANGUAGE)
+        
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
     # If consistency is already good, no need to fix
     if consistency_analysis["consistency_score"] >= 8:
         return scene_content
@@ -251,7 +276,7 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
     
     # Prepare the prompt for fixing inconsistencies
     prompt = f"""
-    Revise this scene to fix character inconsistencies for {character_name}:
+    Revise this scene written in {language_name} to fix character inconsistencies for {character_name}:
     
     {scene_content}
     
@@ -266,6 +291,11 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
     Emotional Consistency: {consistency_analysis["emotional_consistency"]}/10
     Development Believability: {consistency_analysis["development_believability"]}/10
     
+    LANGUAGE CONSIDERATIONS:
+    - Ensure character dialogue and expressions are natural in {language_name}
+    - Consider cultural context and linguistic norms specific to {language_name}
+    - Maintain appropriate speech patterns for the character's background in {language_name}
+    
     Issues to fix:
     {consistency_analysis["issues"]}
     
@@ -278,6 +308,8 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
     4. Make emotional reactions appropriate to their personality
     5. Ensure character development is gradual and believable
     6. Maintain consistency with the character's involvement in plot threads
+    7. Ensure dialogue and expressions are culturally and linguistically appropriate in {language_name}
+    8. Adapt speech patterns to match the character's background in {language_name} culture
     
     IMPORTANT:
     - Maintain the overall plot and scene structure
@@ -297,13 +329,33 @@ def fix_character_inconsistencies(scene_content: str, character_data: Dict,
     except Exception as e:
         print(f"Error fixing character inconsistencies: {str(e)}")
         return scene_content
-
-def _extract_character_motivations(char_name: str, scene_content: str) -> List[Dict[str, Any]]:
-    """Extract character motivations from a scene."""
+def _extract_character_motivations(char_name: str, scene_content: str, language: str = DEFAULT_LANGUAGE) -> List[Dict[str, Any]]:
+    """
+    Extract character motivations from a scene.
+    
+    Args:
+        char_name: The character name
+        scene_content: The content of the scene
+        language: The language of the content (default: from config)
+        
+    Returns:
+        A list of character motivations
+    """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
+    
     # Prepare the prompt for extracting motivations
     prompt = f"""
-    Extract the motivations driving {char_name}'s actions in this scene:
+    Extract the motivations driving {char_name}'s actions in this scene written in {language_name}:
     
+    {scene_content}
+    
+    Consider cultural and linguistic context in {language_name} when analyzing motivations.
     {scene_content}
     
     For each motivation:
@@ -374,6 +426,9 @@ def track_character_consistency(state: StoryState) -> Dict:
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     
+    # Get the language from the state or use default
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
     # Get the current scene content
     scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
     
@@ -405,13 +460,13 @@ def track_character_consistency(state: StoryState) -> Dict:
         if char_name.lower() in scene_content.lower() or (char_data.get("name", "").lower() in scene_content.lower()):
             try:
                 # Check character consistency
-                consistency_analysis = check_character_consistency(char_data, scene_content, previous_scenes)
+                consistency_analysis = check_character_consistency(char_data, scene_content, previous_scenes, language)
                 
                 # Store the analysis
                 character_consistency_analyses[char_name] = consistency_analysis
                 
                 # Extract and store character motivations
-                motivations = _extract_character_motivations(char_data.get("name", char_name), scene_content)
+                motivations = _extract_character_motivations(char_data.get("name", char_name), scene_content, language)
                 if motivations:
                     character_motivations[char_name] = motivations
                     
@@ -430,7 +485,7 @@ def track_character_consistency(state: StoryState) -> Dict:
                 
                 # If there are significant inconsistencies, fix them
                 if consistency_analysis["consistency_score"] < 7 and consistency_analysis["issues"]:
-                    improved_scene = fix_character_inconsistencies(scene_content, char_data, consistency_analysis, state)
+                    improved_scene = fix_character_inconsistencies(scene_content, char_data, consistency_analysis, state, language)
                     
                     # Update the scene content with the improved version
                     consistency_updates = {

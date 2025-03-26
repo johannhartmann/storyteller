@@ -3,21 +3,22 @@
 
 This module provides functionality to analyze and improve dialogue quality,
 addressing issues with expository dialogue, character voice consistency,
-and dialogue naturalness.
+and dialogue naturalness in multiple languages.
 """
 
 from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 
-def analyze_dialogue(scene_content: str, characters: Dict[str, Any]) -> Dict[str, Any]:
+def analyze_dialogue(scene_content: str, characters: Dict[str, Any], language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Analyze dialogue in a scene for quality and naturalness.
     
     Args:
         scene_content: The content of the scene
         characters: Character data for context
+        language: The language of the dialogue (default: from config)
         
     Returns:
         A dictionary with dialogue analysis results
@@ -28,17 +29,25 @@ def analyze_dialogue(scene_content: str, characters: Dict[str, Any]) -> Dict[str
         if "name" in char_data:
             character_names.append(char_data["name"])
     
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
+    
     # Prepare the prompt for analyzing dialogue
     prompt = f"""
-    Analyze the dialogue in this scene:
+    Analyze the dialogue in this scene written in {language_name}:
     
     {scene_content}
     
     Characters in the story: {', '.join(character_names)}
     
-    Evaluate the following aspects of dialogue:
+    Evaluate the following aspects of dialogue, considering the norms and conventions of {language_name} dialogue:
     
-    1. Naturalness - Does it sound like real speech?
+    1. Naturalness - Does it sound like real speech in {language_name}?
     2. Character voice - Is each character's dialogue distinctive?
     3. Exposition - Is information revealed naturally or forced?
     4. Subtext - Does dialogue contain subtext and implied meaning?
@@ -46,10 +55,10 @@ def analyze_dialogue(scene_content: str, characters: Dict[str, Any]) -> Dict[str
     6. Efficiency - Is the dialogue concise or verbose?
     
     For each issue, provide:
-    - The problematic dialogue
+    - The problematic dialogue (in the original {language_name})
     - The character(s) speaking
     - Why it's problematic
-    - A suggested improvement
+    - A suggested improvement (in {language_name})
     
     Also identify:
     - Dialogue that explains things characters would already know
@@ -57,6 +66,7 @@ def analyze_dialogue(scene_content: str, characters: Dict[str, Any]) -> Dict[str
     - Dialogue that lacks distinctive character voice
     
     Format your response as a structured JSON object.
+    Analyze and respond in {language_name}.
     """
     
     try:
@@ -210,8 +220,17 @@ def analyze_dialogue(scene_content: str, characters: Dict[str, Any]) -> Dict[str
             "strengths": [],
             "recommendations": ["Error analyzing dialogue"]
         }
-
-def _generate_character_dialogue_patterns(characters: Dict[str, Any]) -> str:
+def _generate_character_dialogue_patterns(characters: Dict[str, Any], language: str = DEFAULT_LANGUAGE) -> str:
+    """
+    Generate dialogue patterns guidance for each character.
+    
+    Args:
+        characters: Character data for context
+        language: The language of the dialogue (default: from config)
+        
+    Returns:
+        A string with dialogue patterns for each character
+    """
     """Generate dialogue patterns guidance for each character."""
     patterns = []
     
@@ -246,7 +265,8 @@ def _generate_character_dialogue_patterns(characters: Dict[str, Any]) -> str:
     return "\n".join(patterns)
 
 def improve_dialogue(scene_content: str, dialogue_analysis: Dict[str, Any],
-                    characters: Dict[str, Any], focus_on_exposition: bool = False) -> str:
+                    characters: Dict[str, Any], focus_on_exposition: bool = False,
+                    language: str = DEFAULT_LANGUAGE) -> str:
     """
     Improve dialogue based on analysis.
     
@@ -255,10 +275,18 @@ def improve_dialogue(scene_content: str, dialogue_analysis: Dict[str, Any],
         dialogue_analysis: The dialogue analysis results
         characters: Character data for context
         focus_on_exposition: Whether to focus specifically on reducing exposition
+        language: The language of the dialogue (default: from config)
         
     Returns:
         The scene content with improved dialogue
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
     # If dialogue is already good and we're not focusing on exposition, no need to improve
     if dialogue_analysis["overall_score"] >= 8 and not focus_on_exposition:
         return scene_content
@@ -295,11 +323,11 @@ def improve_dialogue(scene_content: str, dialogue_analysis: Dict[str, Any],
             purpose_map_text += f"- \"{exchange}\": {purpose}\n"
     
     # Generate character dialogue patterns
-    dialogue_patterns = _generate_character_dialogue_patterns(characters)
+    dialogue_patterns = _generate_character_dialogue_patterns(characters, language)
     
     # Prepare the prompt for improving dialogue
     prompt = f"""
-    Revise the dialogue in this scene to address the identified issues:
+    Revise the dialogue in this scene written in {language_name} to address the identified issues:
     
     {scene_content}
     
@@ -328,12 +356,13 @@ def improve_dialogue(scene_content: str, dialogue_analysis: Dict[str, Any],
     {"These instances explain things characters would already know:" if focus_on_exposition else ""}
     {exposition_instances_text if focus_on_exposition else ""}
     
-    DIALOGUE REVISION GUIDELINES:
+    DIALOGUE REVISION GUIDELINES FOR {language_name.upper()}:
     - Cut any dialogue where a character explains something the listener already knows
     - Replace direct statements with reactions, questions, or partial information
     - Add physical actions, gestures, or facial expressions between dialogue lines
     - Create tension through what characters DON'T say or deliberately avoid
     - Use dialect, word choice, and sentence structure to differentiate characters
+    - Consider cultural and linguistic norms specific to {language_name}
     
     BEFORE AND AFTER EXAMPLE:
     
@@ -342,7 +371,7 @@ def improve_dialogue(scene_content: str, dialogue_analysis: Dict[str, Any],
     AFTER: [Character spits on ground] "Another tax collector. The Patrizier grow fat while we break our backs hauling salt." [Glances at the Salzmal symbol with disgust]
     
     Your task:
-    1. Make dialogue more natural and conversational
+    1. Make dialogue more natural and conversational in {language_name}
     2. Ensure each character has a distinctive voice based on their patterns
     3. Remove exposition that characters would already know
     4. Add appropriate subtext and implied meaning
@@ -350,11 +379,13 @@ def improve_dialogue(scene_content: str, dialogue_analysis: Dict[str, Any],
     6. Convert direct statements to implied meanings with subtext
     7. Replace information-heavy dialogue with character actions or observations
     8. Maintain all plot points and character development
+    9. Respect cultural and linguistic norms of {language_name}
     
     IMPORTANT:
     - Only modify the dialogue, keeping all narration and description intact
     - Preserve the essential information conveyed in the dialogue
-    - Return the complete revised scene, not just the modified dialogue
+    - Return the complete revised scene in {language_name}, not just the modified dialogue
+    - Ensure the dialogue sounds natural to native {language_name} speakers
     """
     
     try:
@@ -370,7 +401,8 @@ def improve_dialogue(scene_content: str, dialogue_analysis: Dict[str, Any],
         print(f"Error improving dialogue: {str(e)}")
         return scene_content
 
-def generate_dialogue_guidance(characters: Dict[str, Any], genre: str, tone: str) -> str:
+def generate_dialogue_guidance(characters: Dict[str, Any], genre: str, tone: str,
+                              language: str = DEFAULT_LANGUAGE) -> str:
     """
     Generate dialogue guidance for scene writing based on characters, genre, and tone.
     
@@ -378,10 +410,18 @@ def generate_dialogue_guidance(characters: Dict[str, Any], genre: str, tone: str
         characters: Character data
         genre: The genre of the story
         tone: The tone of the story
+        language: The language of the dialogue (default: from config)
         
     Returns:
         Dialogue guidance text to include in scene writing prompts
     """
+    # Validate language
+    if language not in SUPPORTED_LANGUAGES:
+        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        language = DEFAULT_LANGUAGE
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[language]
     # Extract character names for reference
     character_names = []
     for char_id, char_data in characters.items():
@@ -390,20 +430,23 @@ def generate_dialogue_guidance(characters: Dict[str, Any], genre: str, tone: str
     
     # Prepare the prompt for generating dialogue guidance
     prompt = f"""
-    Generate specific dialogue guidance for a {genre} story with a {tone} tone.
+    Generate specific dialogue guidance for a {genre} story with a {tone} tone written in {language_name}.
     
     Characters: {', '.join(character_names)}
     
     Provide guidance on:
-    1. How to make dialogue natural and conversational
+    1. How to make dialogue natural and conversational in {language_name}
     2. How to create distinctive voices for each character
     3. How to reveal information naturally through dialogue
     4. How to use subtext and implied meaning
     5. How to make dialogue concise and purposeful
     6. Common dialogue pitfalls to avoid in this genre
+    7. Language-specific considerations for writing dialogue in {language_name}
+    8. Cultural nuances that should be reflected in {language_name} dialogue
     
     Format your response as concise, actionable guidelines that could be included in a scene writing prompt.
-    Focus on creating engaging, natural dialogue appropriate for the genre and tone.
+    Focus on creating engaging, natural dialogue appropriate for the genre, tone, and language.
+    Provide your guidance in {language_name}.
     """
     
     try:
@@ -420,16 +463,18 @@ def generate_dialogue_guidance(characters: Dict[str, Any], genre: str, tone: str
     
     except Exception as e:
         print(f"Error generating dialogue guidance: {str(e)}")
-        return """
-        DIALOGUE GUIDANCE:
+        return f"""
+        DIALOGUE GUIDANCE FOR {language_name.upper()}:
         1. Each character should have a distinctive voice reflecting their background and personality
-        2. Dialogue should sound natural, not formal or expository
+        2. Dialogue should sound natural to native {language_name} speakers, not formal or expository
         3. Characters should not explain things they both already know
         4. Use subtext - characters often don't directly say what they mean
         5. Dialogue should reveal character and/or advance plot
         6. Break up dialogue with action beats and character observations
         7. Vary dialogue length based on character and emotional state
         8. Use dialect, slang, or speech patterns sparingly and consistently
+        9. Consider cultural context and linguistic norms specific to {language_name}
+        10. Respect idiomatic expressions and natural speech patterns in {language_name}
         """
 
 def analyze_and_improve_dialogue(state: StoryState) -> Dict:
@@ -447,11 +492,14 @@ def analyze_and_improve_dialogue(state: StoryState) -> Dict:
     current_scene = state["current_scene"]
     characters = state["characters"]
     
+    # Get the language from the state or use default
+    language = state.get("language", DEFAULT_LANGUAGE)
+    
     # Get the scene content
     scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
     
     # Analyze dialogue
-    dialogue_analysis = analyze_dialogue(scene_content, characters)
+    dialogue_analysis = analyze_dialogue(scene_content, characters, language)
     
     # Store the dialogue analysis in the state
     dialogue_updates = {
@@ -468,7 +516,8 @@ def analyze_and_improve_dialogue(state: StoryState) -> Dict:
     
     # If dialogue needs improvement, improve the scene
     if dialogue_analysis["overall_score"] < 8:
-        improved_scene = improve_dialogue(scene_content, dialogue_analysis, characters)
+        improved_scene = improve_dialogue(scene_content, dialogue_analysis, characters,
+                                         language=language)
         
         # Update the scene content with the improved version
         dialogue_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = improved_scene
