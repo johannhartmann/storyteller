@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from storyteller_lib.storyteller import generate_story
 from storyteller_lib import set_progress_callback, reset_progress_tracking
 from storyteller_lib.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.story_info import save_story_info
 
 # Load environment variables from .env file
 load_dotenv()
@@ -589,6 +590,8 @@ def main():
                         help="Initial story idea to use as a starting point (e.g., 'A detective story set in a zoo')")
     parser.add_argument("--output", type=str, default="story.md",
                         help="Output file to save the generated story")
+    parser.add_argument("--info-file", action="store_true",
+                        help="Generate a YAML info file with story metadata and worldbuilding elements")
     parser.add_argument("--verbose", action="store_true",
                         help="Display detailed information about the story elements as they're generated")
     parser.add_argument("--cache", type=str, choices=["memory", "sqlite", "none"], default="sqlite",
@@ -667,14 +670,15 @@ def main():
         try:
             # Start the story generation
             # We don't need to pass progress_callback since we registered it globally
-            story = generate_story(
+            story, state = generate_story(
                 genre=args.genre,
                 tone=args.tone,
                 author=args.author,
                 initial_idea=args.idea,
                 language=args.language,
                 model_provider=args.model_provider,
-                model=args.model
+                model=args.model,
+                return_state=True  # Return both story text and state
             )
             
             # Show completion message
@@ -693,18 +697,40 @@ def main():
             from storyteller_lib.storyteller import extract_partial_story
             try:
                 print("Attempting to recover partial story...")
-                partial_story = extract_partial_story(
-                    args.genre,
-                    args.tone,
-                    args.author,
-                    args.idea,
-                    args.language,
-                    args.model_provider,
-                    args.model
-                )
+                if args.info_file:
+                    # If info file is requested, we need the state too
+                    partial_story, state = extract_partial_story(
+                        args.genre,
+                        args.tone,
+                        args.author,
+                        args.idea,
+                        args.language,
+                        args.model_provider,
+                        args.model,
+                        return_state=True
+                    )
+                else:
+                    # Otherwise just get the story
+                    partial_story = extract_partial_story(
+                        args.genre,
+                        args.tone,
+                        args.author,
+                        args.idea,
+                        args.language,
+                        args.model_provider,
+                        args.model
+                    )
                 if partial_story:
                     print("Partial story recovered successfully!")
                     story = partial_story
+                    
+                    # Generate info file if requested and state is available
+                    if args.info_file and 'state' in locals():
+                        try:
+                            info_file = save_story_info(state, args.output)
+                            print(f"Partial story information saved to {info_file}")
+                        except Exception as info_err:
+                            print(f"Error saving partial story information: {str(info_err)}")
             except Exception as recovery_err:
                 print(f"Could not recover partial story: {str(recovery_err)}")
         
@@ -743,6 +769,14 @@ def main():
             with open(args.output, "w") as f:
                 f.write(story)
             print(f"Story successfully saved to {args.output}")
+            
+            # Generate info file if requested
+            if args.info_file and 'state' in locals():
+                try:
+                    info_file = save_story_info(state, args.output)
+                    print(f"Story information saved to {info_file}")
+                except Exception as info_err:
+                    print(f"Error saving story information: {str(info_err)}")
         except IOError as e:
             print(f"Error saving story to {args.output}: {str(e)}")
             # Try to save to a fallback location
