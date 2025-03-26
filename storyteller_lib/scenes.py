@@ -883,36 +883,33 @@ def write_scene(state: StoryState) -> Dict:
     IMPORTANT: If the language is set to {SUPPORTED_LANGUAGES[language.lower()]}, you MUST write the ENTIRE scene in {SUPPORTED_LANGUAGES[language.lower()]}. Do not include any text in English or any other language. The complete scene must be written only in {SUPPORTED_LANGUAGES[language.lower()]}.
     """
     
-    # Try to use structured output first, but fall back to regular output if it fails
-    try:
-        # Define a Pydantic model for structured scene content
-        from pydantic import BaseModel, Field
-        
-        class SceneContent(BaseModel):
-            """Model for structured scene content."""
-            content: str = Field(
-                description="The actual scene content that will be included in the story. This should be the narrative text only, without any explanations, comments, or meta-information."
-            )
-        
-        # Use LangChain's structured output capabilities
-        structured_llm = llm.with_structured_output(SceneContent)
-        
-        # Generate the scene content with structured output
-        structured_response = structured_llm.invoke(prompt)
-        
-        # Check if we got a valid response
-        if structured_response and hasattr(structured_response, 'content'):
-            scene_content = structured_response.content
-            print(f"Successfully used structured output for scene {current_chapter}_{current_scene}")
-        else:
-            # Fall back to regular output
-            print(f"Structured output failed for scene {current_chapter}_{current_scene}, falling back to regular output")
-            scene_content = llm.invoke([HumanMessage(content=prompt)]).content
-    except Exception as e:
-        # Log the error and fall back to regular output
-        print(f"Error using structured output for scene {current_chapter}_{current_scene}: {str(e)}")
-        print("Falling back to regular output")
-        scene_content = llm.invoke([HumanMessage(content=prompt)]).content
+    # Add a template to guide the LLM's output format
+    prompt += """
+    
+    FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+    
+    ```scene
+    [Your scene content goes here - ONLY the narrative text with no explanations or meta-information]
+    ```
+    
+    DO NOT include any text outside the ```scene``` tags. The content between the tags will be used directly in the story.
+    """
+    
+    # Generate the scene content
+    response = llm.invoke([HumanMessage(content=prompt)]).content
+    
+    # Extract the scene content from between the ```scene``` tags
+    import re
+    scene_match = re.search(r'```scene\s*([\s\S]*?)\s*```', response)
+    
+    if scene_match:
+        scene_content = scene_match.group(1).strip()
+        print(f"Successfully extracted scene content for scene {current_chapter}_{current_scene}")
+    else:
+        # If no tags found, use the whole response but log a warning
+        print(f"Warning: Could not find ```scene``` tags in the response for scene {current_chapter}_{current_scene}")
+        print("Using the entire response as the scene content")
+        scene_content = response.strip()
     
     # Apply post-processing for showing vs. telling if enabled
     if post_process_showing:
@@ -1889,38 +1886,33 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         CRITICAL INSTRUCTION: Return ONLY the actual revised scene content. Do NOT include any explanations, comments, notes, or meta-information about your revision process or choices. Do NOT include any text like "Here's the revised scene" or "Key improvements" or any other commentary. The output should be ONLY the narrative text that will appear in the final story.
         """
         
-        # Try to use structured output first, but fall back to regular output if it fails
-        try:
-            # Use the same Pydantic model for structured scene content
-            # (SceneContent should already be defined in the write_scene function)
-            from pydantic import BaseModel, Field
-            
-            # Define the model again here to avoid potential scope issues
-            class SceneContent(BaseModel):
-                """Model for structured scene content."""
-                content: str = Field(
-                    description="The actual scene content that will be included in the story. This should be the narrative text only, without any explanations, comments, or meta-information."
-                )
-            
-            # Use LangChain's structured output capabilities
-            structured_llm = llm.with_structured_output(SceneContent)
-            
-            # Generate the revised scene content with structured output
-            structured_response = structured_llm.invoke(prompt)
-            
-            # Check if we got a valid response
-            if structured_response and hasattr(structured_response, 'content'):
-                revised_scene = structured_response.content
-                print(f"Successfully used structured output for revised scene {current_chapter}_{current_scene}")
-            else:
-                # Fall back to regular output
-                print(f"Structured output failed for revised scene {current_chapter}_{current_scene}, falling back to regular output")
-                revised_scene = llm.invoke([HumanMessage(content=prompt)]).content
-        except Exception as e:
-            # Log the error and fall back to regular output
-            print(f"Error using structured output for revised scene {current_chapter}_{current_scene}: {str(e)}")
-            print("Falling back to regular output")
-            revised_scene = llm.invoke([HumanMessage(content=prompt)]).content
+        # Add a template to guide the LLM's output format
+        prompt += """
+        
+        FORMAT YOUR RESPONSE EXACTLY LIKE THIS:
+        
+        ```scene
+        [Your scene content goes here - ONLY the narrative text with no explanations or meta-information]
+        ```
+        
+        DO NOT include any text outside the ```scene``` tags. The content between the tags will be used directly in the story.
+        """
+        
+        # Generate the revised scene content
+        response = llm.invoke([HumanMessage(content=prompt)]).content
+        
+        # Extract the scene content from between the ```scene``` tags
+        import re
+        scene_match = re.search(r'```scene\s*([\s\S]*?)\s*```', response)
+        
+        if scene_match:
+            revised_scene = scene_match.group(1).strip()
+            print(f"Successfully extracted scene content for revised scene {current_chapter}_{current_scene}")
+        else:
+            # If no tags found, use the whole response but log a warning
+            print(f"Warning: Could not find ```scene``` tags in the response for revised scene {current_chapter}_{current_scene}")
+            print("Using the entire response as the scene content")
+            revised_scene = response.strip()
         # Increment revision count
         revised_counts[f"{current_chapter}_{current_scene}"] = revision_count + 1
         # Log that an improved scene was generated based on the reflection

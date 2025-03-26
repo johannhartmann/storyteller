@@ -231,7 +231,8 @@ def extract_partial_story(
     initial_idea: str = "",
     language: str = "",
     model_provider: str = None,
-    model: str = None
+    model: str = None,
+    return_state: bool = False
 ):
     """
     Attempt to extract a partial story from memory when normal generation fails.
@@ -246,9 +247,11 @@ def extract_partial_story(
         language: Optional target language for the story
         model_provider: Optional model provider to use (openai, anthropic, gemini)
         model: Optional specific model to use
+        return_state: Whether to return the state along with the story
         
     Returns:
-        The partial story as a string, or None if nothing could be recovered
+        If return_state is False, returns the partial story as a string, or None if nothing could be recovered.
+        If return_state is True, returns a tuple of (partial_story, state), where state may be incomplete.
     """
     story_parts = []
     
@@ -377,12 +380,101 @@ def extract_partial_story(
     except Exception as e:
         story_parts.append(f"\n*Error recovering chapter content: {str(e)}*\n\n")
     
-    # If we have any content, return it
-    if len(story_parts) > 1:  # More than just the title
-        return "".join(story_parts)
+    # Assemble the partial story
+    partial_story = "".join(story_parts) if len(story_parts) > 1 else None
     
-    return None
-
+    # If return_state is requested, create a basic state structure
+    if return_state:
+        # Create a minimal state with available information
+        state = {
+            "genre": genre,
+            "tone": tone,
+            "author": author,
+            "language": language,
+            "initial_idea": initial_idea,
+            "chapters": {},
+            "characters": {},
+            "world_elements": {},
+            "plot_threads": {},
+            "revelations": {},
+            "creative_elements": {}
+        }
+        
+        # Try to populate the state with recovered data
+        try:
+            # Recover chapters and scenes
+            chapter_data = search_memory_tool.invoke({
+                "query": "chapter_"
+            })
+            
+            if chapter_data and "keys" in chapter_data:
+                for key in chapter_data["keys"]:
+                    if "_" in key:
+                        ch_num = key.split("_")[1]
+                        ch_data = search_memory_tool.invoke({
+                            "query": f"chapter_{ch_num}"
+                        })
+                        
+                        # Extract the chapter data
+                        ch_data_result = None
+                        if ch_data and len(ch_data) > 0:
+                            for item in ch_data:
+                                if hasattr(item, 'key') and item.key == key:
+                                    ch_data_result = {"key": item.key, "value": item.value}
+                                    break
+                        
+                        if ch_data_result and "value" in ch_data_result:
+                            state["chapters"][ch_num] = ch_data_result["value"]
+            
+            # Recover characters
+            character_data = search_memory_tool.invoke({
+                "query": "character_"
+            })
+            
+            if character_data and "keys" in character_data:
+                for key in character_data["keys"]:
+                    if key.startswith("character_") and not key.startswith("character_arc_"):
+                        char_name = key[10:]  # Remove "character_" prefix
+                        char_data = search_memory_tool.invoke({
+                            "query": key
+                        })
+                        
+                        # Extract the character data
+                        char_data_result = None
+                        if char_data and len(char_data) > 0:
+                            for item in char_data:
+                                if hasattr(item, 'key') and item.key == key:
+                                    char_data_result = {"key": item.key, "value": item.value}
+                                    break
+                        
+                        if char_data_result and "value" in char_data_result:
+                            state["characters"][char_name] = char_data_result["value"]
+            
+            # Recover world elements
+            world_data = search_memory_tool.invoke({
+                "query": "world_elements"
+            })
+            
+            if world_data:
+                # Extract the world elements data
+                world_data_result = None
+                if isinstance(world_data, list):
+                    for item in world_data:
+                        if hasattr(item, 'key') and item.key == "world_elements":
+                            world_data_result = {"key": item.key, "value": item.value}
+                            break
+                
+                if world_data_result and "value" in world_data_result:
+                    state["world_elements"] = world_data_result["value"]
+        
+        except Exception:
+            # If recovery fails, we'll just return the basic state
+            pass
+        
+        return partial_story, state
+    
+    # Otherwise just return the partial story
+    return partial_story
 
 def generate_story(
     genre: str = "fantasy",
@@ -391,7 +483,8 @@ def generate_story(
     initial_idea: str = "",
     language: str = "",
     model_provider: str = None,
-    model: str = None
+    model: str = None,
+    return_state: bool = False
 ):
     """
     Generate a complete story using the StoryCraft agent with the refactored graph.
@@ -404,6 +497,11 @@ def generate_story(
         language: Optional target language for the story
         model_provider: Optional model provider to use (openai, anthropic, gemini)
         model: Optional specific model to use
+        return_state: Whether to return the state along with the story
+        
+    Returns:
+        If return_state is False, returns the story as a string.
+        If return_state is True, returns a tuple of (story, state).
     """
     # Configure the LLM with the specified provider and model
     from storyteller_lib.config import get_llm
@@ -646,8 +744,15 @@ def generate_story(
                     story.append(scene["content"])
                     story.append("\n\n")
     
-    # Return the assembled story
-    return "\n".join(story)
+    # Assemble the final story
+    final_story = "\n".join(story)
+    
+    # Return the story and state if requested
+    if return_state:
+        return final_story, result
+    
+    # Otherwise just return the story
+    return final_story
 
 if __name__ == "__main__":
     # Check if API key is set
