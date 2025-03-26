@@ -2,247 +2,137 @@
 StoryCraft Agent - Character creation and management.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional, Union, Set
+from pydantic import BaseModel, Field, validator
 
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
-from storyteller_lib.models import StoryState, CharacterProfile
+from storyteller_lib.models import StoryState, CharacterProfile as CharacterProfileDict
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
-from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain
 from storyteller_lib import track_progress
 
-# Default character data
+# Default character data - simplified for fallback only
 DEFAULT_CHARACTERS = {
     "hero": {
         "name": "Hero",
         "role": "Protagonist",
         "backstory": "Ordinary person with hidden potential",
-        "personality": {
-            "traits": ["Brave", "Curious", "Determined"],
-            "strengths": ["Quick learner", "Compassionate"],
-            "flaws": ["Impulsive", "Naive"],
-            "fears": ["Failure", "Losing loved ones"],
-            "desires": ["Adventure", "Recognition"],
-            "values": ["Friendship", "Justice"]
-        },
-        "emotional_state": {
-            "initial": "Restless and unfulfilled",
-            "current": "Restless and unfulfilled",
-            "journey": []
-        },
-        "inner_conflicts": [
-            {
-                "description": "Desire for adventure vs. fear of the unknown",
-                "resolution_status": "unresolved",
-                "impact": "Causes hesitation at critical moments"
-            }
-        ],
-        "character_arc": {
-            "type": "growth",
-            "stages": ["Ordinary world", "Adventure begins", "Tests and trials"],
-            "current_stage": "Ordinary world"
-        },
         "evolution": ["Begins journey", "Faces first challenge"],
         "known_facts": ["Lived in small village", "Dreams of adventure"],
         "secret_facts": ["Has a special lineage", "Possesses latent power"],
         "revealed_facts": [],
-        "relationships": {
-            "mentor": {
-                "type": "student",
-                "dynamics": "Respectful but questioning",
-                "evolution": ["Initial meeting", "Growing trust"],
-                "conflicts": ["Resists mentor's advice"]
-            },
-            "villain": {
-                "type": "adversary",
-                "dynamics": "Fearful but defiant",
-                "evolution": ["Unaware of villain", "Direct confrontation"],
-                "conflicts": ["Opposing goals", "Personal vendetta"]
-            }
-        }
+        "relationships": {}
     },
     "mentor": {
         "name": "Mentor",
         "role": "Guide",
         "backstory": "Wise figure with past experience",
-        "personality": {
-            "traits": ["Wise", "Patient", "Mysterious"],
-            "strengths": ["Experienced", "Knowledgeable"],
-            "flaws": ["Secretive", "Overprotective"],
-            "fears": ["History repeating itself", "Failing student"],
-            "desires": ["Redemption", "Peace"],
-            "values": ["Wisdom", "Balance"]
-        },
-        "emotional_state": {
-            "initial": "Cautiously hopeful",
-            "current": "Cautiously hopeful",
-            "journey": []
-        },
-        "inner_conflicts": [
-            {
-                "description": "Duty to guide vs. fear of leading hero to danger",
-                "resolution_status": "in_progress",
-                "impact": "Causes withholding of important information"
-            }
-        ],
-        "character_arc": {
-            "type": "redemption",
-            "stages": ["Reluctant guide", "Opening up", "Sacrifice"],
-            "current_stage": "Reluctant guide"
-        },
         "evolution": ["Introduces hero to new world"],
         "known_facts": ["Has many skills", "Traveled widely"],
         "secret_facts": ["Former student of villain", "Hiding a prophecy"],
         "revealed_facts": [],
-        "relationships": {
-            "hero": {
-                "type": "teacher",
-                "dynamics": "Protective and guiding",
-                "evolution": ["Reluctant teacher", "Invested mentor"],
-                "conflicts": ["Withholding information"]
-            },
-            "villain": {
-                "type": "former student",
-                "dynamics": "Regretful and wary",
-                "evolution": ["Teacher-student", "Adversaries"],
-                "conflicts": ["Betrayal", "Opposing ideologies"]
-            }
-        }
+        "relationships": {}
     },
     "villain": {
         "name": "Villain",
         "role": "Antagonist",
         "backstory": "Once good, corrupted by power",
-        "personality": {
-            "traits": ["Intelligent", "Ruthless", "Charismatic"],
-            "strengths": ["Strategic mind", "Powerful abilities"],
-            "flaws": ["Arrogance", "Inability to trust"],
-            "fears": ["Losing power", "Being forgotten"],
-            "desires": ["Domination", "Validation"],
-            "values": ["Order", "Control"]
-        },
-        "emotional_state": {
-            "initial": "Coldly calculating",
-            "current": "Coldly calculating",
-            "journey": []
-        },
-        "inner_conflicts": [
-            {
-                "description": "Lingering humanity vs. embraced darkness",
-                "resolution_status": "unresolved",
-                "impact": "Occasional moments of mercy or doubt"
-            }
-        ],
-        "character_arc": {
-            "type": "fall",
-            "stages": ["Corruption complete", "Obsession grows", "Potential redemption"],
-            "current_stage": "Corruption complete"
-        },
         "evolution": ["Sends minions after hero"],
         "known_facts": ["Rules with fear", "Seeks ancient artifact"],
         "secret_facts": ["Was once good", "Has personal connection to hero"],
         "revealed_facts": [],
-        "relationships": {
-            "hero": {
-                "type": "enemy",
-                "dynamics": "Sees as threat and potential successor",
-                "evolution": ["Unaware of hero", "Growing obsession"],
-                "conflicts": ["Opposing goals", "Ideological differences"]
-            },
-            "mentor": {
-                "type": "former mentor",
-                "dynamics": "Betrayal and resentment",
-                "evolution": ["Student-teacher", "Betrayal"],
-                "conflicts": ["Ideological split", "Personal betrayal"]
-            }
-        }
+        "relationships": {}
     },
     "ally": {
         "name": "Loyal Ally",
         "role": "Supporting Character",
         "backstory": "Childhood friend or chance encounter with shared goals",
-        "personality": {
-            "traits": ["Loyal", "Practical", "Resourceful"],
-            "strengths": ["Street-smart", "Adaptable"],
-            "flaws": ["Stubborn", "Overprotective"],
-            "fears": ["Abandonment", "Inadequacy"],
-            "desires": ["Belonging", "Proving worth"],
-            "values": ["Loyalty", "Honesty"]
-        },
-        "emotional_state": {
-            "initial": "Enthusiastic and supportive",
-            "current": "Enthusiastic and supportive",
-            "journey": []
-        },
-        "inner_conflicts": [
-            {
-                "description": "Desire to help vs. feeling overshadowed",
-                "resolution_status": "unresolved",
-                "impact": "Occasional resentment that is quickly overcome"
-            }
-        ],
-        "character_arc": {
-            "type": "growth",
-            "stages": ["Loyal follower", "Finding own path", "True partnership"],
-            "current_stage": "Loyal follower"
-        },
         "evolution": ["Joins hero's quest", "Provides crucial support"],
         "known_facts": ["Skilled in practical matters", "Has local connections"],
         "secret_facts": ["Harbors insecurities", "Has hidden talent"],
         "revealed_facts": [],
-        "relationships": {
-            "hero": {
-                "type": "friend",
-                "dynamics": "Supportive but occasionally challenging",
-                "evolution": ["Initial bond", "Tested friendship"],
-                "conflicts": ["Different approaches to problems"]
-            }
-        }
-    },
-    "trickster": {
-        "name": "Trickster",
-        "role": "Wild Card",
-        "backstory": "Mysterious figure with unclear motives",
-        "personality": {
-            "traits": ["Unpredictable", "Clever", "Amoral"],
-            "strengths": ["Quick-witted", "Adaptable"],
-            "flaws": ["Selfish", "Unreliable"],
-            "fears": ["Commitment", "Being controlled"],
-            "desires": ["Freedom", "Entertainment"],
-            "values": ["Self-preservation", "Chaos"]
-        },
-        "emotional_state": {
-            "initial": "Amused and detached",
-            "current": "Amused and detached",
-            "journey": []
-        },
-        "inner_conflicts": [
-            {
-                "description": "Self-interest vs. growing attachment to heroes",
-                "resolution_status": "unresolved",
-                "impact": "Unpredictable shifts between helping and hindering"
-            }
-        ],
-        "character_arc": {
-            "type": "transformation",
-            "stages": ["Self-serving", "Conflicted loyalty", "Unexpected sacrifice"],
-            "current_stage": "Self-serving"
-        },
-        "evolution": ["Appears at crucial moment", "Provides unexpected aid"],
-        "known_facts": ["Has valuable skills", "Appears when least expected"],
-        "secret_facts": ["Hidden connection to story", "True motivations unclear"],
-        "revealed_facts": [],
-        "relationships": {
-            "hero": {
-                "type": "complicated",
-                "dynamics": "Alternates between helping and hindering",
-                "evolution": ["Initial distrust", "Uneasy alliance"],
-                "conflicts": ["Unpredictability", "Questionable methods"]
-            }
-        }
+        "relationships": {}
     }
 }
 
-def create_character(name: str, role: str, backstory: str = "", **kwargs) -> CharacterProfile:
+# Pydantic models for structured data extraction
+class PersonalityTraits(BaseModel):
+    """Character personality traits model."""
+    traits: List[str] = Field(default_factory=list)
+    strengths: List[str] = Field(default_factory=list)
+    flaws: List[str] = Field(default_factory=list)
+    fears: List[str] = Field(default_factory=list)
+    desires: List[str] = Field(default_factory=list)
+    values: List[str] = Field(default_factory=list)
+
+class EmotionalState(BaseModel):
+    """Character emotional state model."""
+    initial: str
+    current: str
+    journey: List[str] = Field(default_factory=list)
+
+class InnerConflict(BaseModel):
+    """Character inner conflict model."""
+    description: str
+    resolution_status: str = "unresolved"
+    impact: str
+
+class CharacterArc(BaseModel):
+    """Character arc model."""
+    type: str
+    stages: List[str] = Field(default_factory=list)
+    current_stage: str
+
+class RelationshipDynamics(BaseModel):
+    """Relationship dynamics between characters."""
+    type: str
+    dynamics: str
+    evolution: List[str] = Field(default_factory=list)
+    conflicts: List[str] = Field(default_factory=list)
+
+class CharacterProfile(BaseModel):
+    """Complete character profile model."""
+    name: str
+    role: str
+    backstory: str
+    personality: Optional[PersonalityTraits] = None
+    emotional_state: Optional[EmotionalState] = None
+    inner_conflicts: List[InnerConflict] = Field(default_factory=list)
+    character_arc: Optional[CharacterArc] = None
+    evolution: List[str] = Field(default_factory=list)
+    known_facts: List[str] = Field(default_factory=list)
+    secret_facts: List[str] = Field(default_factory=list)
+    revealed_facts: List[str] = Field(default_factory=list)
+    relationships: Dict[str, RelationshipDynamics] = Field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary format compatible with the existing system."""
+        return self.dict(exclude_none=True)
+
+class CharacterRole(BaseModel):
+    """Basic character role information for initial planning."""
+    role: str
+    importance: str
+    brief_description: str
+
+class CharacterRoles(BaseModel):
+    """Collection of character roles for the story."""
+    roles: List[CharacterRole]
+
+class BasicCharacterInfo(BaseModel):
+    """Basic character information for initial generation."""
+    name: str
+    role: str
+    backstory: str
+    key_traits: List[str] = Field(default_factory=list)
+
+class CharacterRelationship(BaseModel):
+    """Relationship between two characters."""
+    target_character: str
+    relationship_type: str
+    dynamics: str
+    conflicts: List[str] = Field(default_factory=list)
+
+def create_character(name: str, role: str, backstory: str = "", **kwargs) -> Dict:
     """
     Create a new character with the given attributes.
     
@@ -260,25 +150,6 @@ def create_character(name: str, role: str, backstory: str = "", **kwargs) -> Cha
         "name": name,
         "role": role,
         "backstory": backstory,
-        "personality": {
-            "traits": kwargs.get("traits", []),
-            "strengths": kwargs.get("strengths", []),
-            "flaws": kwargs.get("flaws", []),
-            "fears": kwargs.get("fears", []),
-            "desires": kwargs.get("desires", []),
-            "values": kwargs.get("values", [])
-        },
-        "emotional_state": {
-            "initial": kwargs.get("initial_emotional_state", "Neutral"),
-            "current": kwargs.get("current_emotional_state", "Neutral"),
-            "journey": kwargs.get("emotional_journey", [])
-        },
-        "inner_conflicts": kwargs.get("inner_conflicts", []),
-        "character_arc": {
-            "type": kwargs.get("arc_type", "growth"),
-            "stages": kwargs.get("arc_stages", []),
-            "current_stage": kwargs.get("current_arc_stage", "Beginning")
-        },
         "evolution": kwargs.get("evolution", []),
         "known_facts": kwargs.get("known_facts", []),
         "secret_facts": kwargs.get("secret_facts", []),
@@ -286,11 +157,728 @@ def create_character(name: str, role: str, backstory: str = "", **kwargs) -> Cha
         "relationships": kwargs.get("relationships", {})
     }
     
+    # Add optional complex fields if provided
+    if any(key in kwargs for key in ["traits", "strengths", "flaws", "fears", "desires", "values"]):
+        character["personality"] = {
+            "traits": kwargs.get("traits", []),
+            "strengths": kwargs.get("strengths", []),
+            "flaws": kwargs.get("flaws", []),
+            "fears": kwargs.get("fears", []),
+            "desires": kwargs.get("desires", []),
+            "values": kwargs.get("values", [])
+        }
+    
+    if any(key in kwargs for key in ["initial_emotional_state", "current_emotional_state", "emotional_journey"]):
+        character["emotional_state"] = {
+            "initial": kwargs.get("initial_emotional_state", "Neutral"),
+            "current": kwargs.get("current_emotional_state", "Neutral"),
+            "journey": kwargs.get("emotional_journey", [])
+        }
+    
+    if "inner_conflicts" in kwargs:
+        character["inner_conflicts"] = kwargs.get("inner_conflicts", [])
+    
+    if any(key in kwargs for key in ["arc_type", "arc_stages", "current_arc_stage"]):
+        character["character_arc"] = {
+            "type": kwargs.get("arc_type", "growth"),
+            "stages": kwargs.get("arc_stages", []),
+            "current_stage": kwargs.get("current_arc_stage", "Beginning")
+        }
+    
     return character
+
+def generate_character_roles(
+    story_outline: str, 
+    genre: str, 
+    tone: str, 
+    required_characters: List[str] = None,
+    language: str = DEFAULT_LANGUAGE
+) -> List[CharacterRole]:
+    """
+    Generate a list of character roles needed for the story.
+    
+    Args:
+        story_outline: The story outline
+        genre: The story genre
+        tone: The story tone
+        required_characters: List of characters that must be included
+        language: Target language for generation
+        
+    Returns:
+        List of CharacterRole objects
+    """
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
+    # Prepare required characters instruction
+    required_chars_instruction = ""
+    if required_characters and len(required_characters) > 0:
+        required_chars_instruction = f"""
+        REQUIRED CHARACTERS (HIGHEST PRIORITY):
+        The following characters MUST be included as they are central to the story:
+        {', '.join(required_characters)}
+        
+        These characters are non-negotiable and must be included in your list of roles.
+        """
+    
+    # Create the prompt
+    prompt = f"""
+    {language_instruction}
+    
+    Based on this story outline:
+    
+    {story_outline}
+    
+    Identify 4-6 key character roles needed for this {tone} {genre} story.
+    {required_chars_instruction}
+    
+    For each character role, provide:
+    1. The role in the story (protagonist, antagonist, mentor, etc.)
+    2. The importance level (primary, secondary, tertiary)
+    3. A brief description of what this character contributes to the story
+    
+    Focus on creating a balanced cast of characters that will drive the plot forward and create interesting dynamics.
+    
+    {language_instruction}
+    """
+    
+    try:
+        # Use structured output with Pydantic
+        structured_output_llm = llm.with_structured_output(CharacterRoles)
+        result = structured_output_llm.invoke(prompt)
+        return result.roles
+    except Exception as e:
+        print(f"Error generating character roles: {str(e)}")
+        
+        # Fallback: Generate basic roles
+        fallback_roles = [
+            CharacterRole(role="Protagonist", importance="primary", brief_description="Main character who drives the story"),
+            CharacterRole(role="Antagonist", importance="primary", brief_description="Character who opposes the protagonist"),
+            CharacterRole(role="Mentor", importance="secondary", brief_description="Character who guides the protagonist"),
+            CharacterRole(role="Ally", importance="secondary", brief_description="Character who helps the protagonist")
+        ]
+        
+        # Add required characters if they're not already covered
+        if required_characters:
+            existing_roles = {role.role.lower() for role in fallback_roles}
+            for char in required_characters:
+                if not any(char.lower() in role.lower() for role in existing_roles):
+                    fallback_roles.append(
+                        CharacterRole(
+                            role=char, 
+                            importance="primary", 
+                            brief_description=f"Required character from initial story concept"
+                        )
+                    )
+        
+        return fallback_roles
+
+def generate_basic_character(
+    role: CharacterRole, 
+    story_outline: str, 
+    genre: str, 
+    tone: str,
+    author_style_guidance: str = "",
+    language: str = DEFAULT_LANGUAGE
+) -> BasicCharacterInfo:
+    """
+    Generate basic information for a character based on their role.
+    
+    Args:
+        role: The character's role information
+        story_outline: The story outline
+        genre: The story genre
+        tone: The story tone
+        author_style_guidance: Guidance on author's style
+        language: Target language for generation
+        
+    Returns:
+        BasicCharacterInfo object with name, role, backstory, and key traits
+    """
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content - including the character name, backstory, and traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        The character name should be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
+        """
+    
+    # Prepare author style guidance
+    style_guidance = ""
+    if author_style_guidance:
+        style_guidance = f"""
+        AUTHOR STYLE GUIDANCE:
+        Consider these guidelines when creating the character:
+        
+        {author_style_guidance}
+        """
+    
+    # Create the prompt
+    prompt = f"""
+    {language_instruction}
+    
+    Based on this story outline:
+    
+    {story_outline}
+    
+    Create a character with the following role:
+    
+    Role: {role.role}
+    Importance: {role.importance}
+    Description: {role.brief_description}
+    
+    For this {tone} {genre} story, provide:
+    
+    1. A suitable name for the character
+    2. The character's role in the story (be specific about their function)
+    3. A concise backstory (3-5 sentences) that explains their motivations
+    4. 3-5 key personality traits that define this character
+    
+    {style_guidance}
+    
+    Create a character that feels authentic and three-dimensional, with clear motivations that drive their actions in the story.
+    
+    {language_instruction}
+    """
+    
+    try:
+        # Use structured output with Pydantic
+        structured_output_llm = llm.with_structured_output(BasicCharacterInfo)
+        return structured_output_llm.invoke(prompt)
+    except Exception as e:
+        print(f"Error generating basic character info: {str(e)}")
+        
+        # Fallback: Create a basic character
+        return BasicCharacterInfo(
+            name=role.role,
+            role=role.role,
+            backstory=role.brief_description,
+            key_traits=["Determined", "Resourceful", "Complex"]
+        )
+
+def generate_personality_traits(
+    character: BasicCharacterInfo, 
+    story_outline: str,
+    language: str = DEFAULT_LANGUAGE
+) -> PersonalityTraits:
+    """
+    Generate detailed personality traits for a character.
+    
+    Args:
+        character: Basic character information
+        story_outline: The story outline
+        language: Target language for generation
+        
+    Returns:
+        PersonalityTraits object
+    """
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
+    # Create the prompt
+    prompt = f"""
+    {language_instruction}
+    
+    For this character:
+    
+    Name: {character.name}
+    Role: {character.role}
+    Backstory: {character.backstory}
+    Key Traits: {', '.join(character.key_traits)}
+    
+    Generate detailed personality traits including:
+    
+    1. 3-5 defining character traits
+    2. 2-3 notable strengths that help them in the story
+    3. 2-3 significant flaws or weaknesses that create obstacles
+    4. 1-2 core fears that drive their behavior
+    5. 1-2 deep desires or goals that motivate them
+    6. 1-2 values or principles they hold dear
+    
+    Consider how these traits will influence their actions in this story:
+    
+    {story_outline}
+    
+    {language_instruction}
+    """
+    
+    try:
+        # Use structured output with Pydantic
+        structured_output_llm = llm.with_structured_output(PersonalityTraits)
+        return structured_output_llm.invoke(prompt)
+    except Exception as e:
+        print(f"Error generating personality traits: {str(e)}")
+        
+        # Fallback: Create basic personality traits based on key_traits
+        return PersonalityTraits(
+            traits=character.key_traits,
+            strengths=["Adaptable", "Resourceful"],
+            flaws=["Stubborn", "Impulsive"],
+            fears=["Failure"],
+            desires=["Success"],
+            values=["Loyalty"]
+        )
+
+def generate_emotional_state(
+    character: BasicCharacterInfo, 
+    personality: PersonalityTraits,
+    language: str = DEFAULT_LANGUAGE
+) -> EmotionalState:
+    """
+    Generate the emotional state for a character.
+    
+    Args:
+        character: Basic character information
+        personality: Character's personality traits
+        language: Target language for generation
+        
+    Returns:
+        EmotionalState object
+    """
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
+    # Create the prompt
+    prompt = f"""
+    {language_instruction}
+    
+    For this character:
+    
+    Name: {character.name}
+    Role: {character.role}
+    Backstory: {character.backstory}
+    
+    Personality:
+    - Traits: {', '.join(personality.traits)}
+    - Strengths: {', '.join(personality.strengths)}
+    - Flaws: {', '.join(personality.flaws)}
+    - Fears: {', '.join(personality.fears)}
+    - Desires: {', '.join(personality.desires)}
+    - Values: {', '.join(personality.values)}
+    
+    Determine:
+    
+    1. The character's initial emotional state at the beginning of the story
+    2. Their current emotional state (same as initial for now)
+    
+    Describe each emotional state in 1-2 sentences that capture their feelings, outlook, and attitude.
+    
+    {language_instruction}
+    """
+    
+    try:
+        # Use structured output with Pydantic
+        structured_output_llm = llm.with_structured_output(EmotionalState)
+        return structured_output_llm.invoke(prompt)
+    except Exception as e:
+        print(f"Error generating emotional state: {str(e)}")
+        
+        # Fallback: Create a basic emotional state
+        return EmotionalState(
+            initial="Neutral with hints of anticipation",
+            current="Neutral with hints of anticipation",
+            journey=[]
+        )
+
+def generate_inner_conflicts(
+    character: BasicCharacterInfo, 
+    personality: PersonalityTraits,
+    language: str = DEFAULT_LANGUAGE
+) -> List[InnerConflict]:
+    """
+    Generate inner conflicts for a character.
+    
+    Args:
+        character: Basic character information
+        personality: Character's personality traits
+        language: Target language for generation
+        
+    Returns:
+        List of InnerConflict objects
+    """
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
+    # Create the prompt
+    prompt = f"""
+    {language_instruction}
+    
+    For this character:
+    
+    Name: {character.name}
+    Role: {character.role}
+    Backstory: {character.backstory}
+    
+    Personality:
+    - Traits: {', '.join(personality.traits)}
+    - Strengths: {', '.join(personality.strengths)}
+    - Flaws: {', '.join(personality.flaws)}
+    - Fears: {', '.join(personality.fears)}
+    - Desires: {', '.join(personality.desires)}
+    - Values: {', '.join(personality.values)}
+    
+    Generate 1-2 inner conflicts this character struggles with. For each conflict:
+    
+    1. Provide a description of the conflict (e.g., "Desire for revenge vs. moral code")
+    2. Set the resolution status as "unresolved" (since the story hasn't started)
+    3. Explain how this conflict impacts the character's behavior
+    
+    Focus on conflicts that create interesting tension and drive character development.
+    
+    {language_instruction}
+    """
+    
+    try:
+        # Create a model for the response
+        class InnerConflicts(BaseModel):
+            conflicts: List[InnerConflict]
+        
+        # Use structured output with Pydantic
+        structured_output_llm = llm.with_structured_output(InnerConflicts)
+        result = structured_output_llm.invoke(prompt)
+        return result.conflicts
+    except Exception as e:
+        print(f"Error generating inner conflicts: {str(e)}")
+        
+        # Fallback: Create a basic inner conflict
+        return [
+            InnerConflict(
+                description=f"Desire for {personality.desires[0] if personality.desires else 'success'} vs. fear of {personality.fears[0] if personality.fears else 'failure'}",
+                resolution_status="unresolved",
+                impact="Causes hesitation at critical moments"
+            )
+        ]
+
+def generate_character_arc(
+    character: BasicCharacterInfo, 
+    inner_conflicts: List[InnerConflict],
+    language: str = DEFAULT_LANGUAGE
+) -> CharacterArc:
+    """
+    Generate a character arc for a character.
+    
+    Args:
+        character: Basic character information
+        inner_conflicts: Character's inner conflicts
+        language: Target language for generation
+        
+    Returns:
+        CharacterArc object
+    """
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
+    # Create the prompt
+    prompt = f"""
+    {language_instruction}
+    
+    For this character:
+    
+    Name: {character.name}
+    Role: {character.role}
+    Backstory: {character.backstory}
+    
+    Inner Conflicts:
+    {' '.join([f"- {conflict.description}" for conflict in inner_conflicts])}
+    
+    Determine:
+    
+    1. The type of character arc they will undergo (e.g., growth, fall, redemption, flat, etc.)
+    2. 3-5 potential stages in their character development journey
+    3. Their current stage at the beginning of the story
+    
+    {language_instruction}
+    """
+    
+    try:
+        # Use structured output with Pydantic
+        structured_output_llm = llm.with_structured_output(CharacterArc)
+        return structured_output_llm.invoke(prompt)
+    except Exception as e:
+        print(f"Error generating character arc: {str(e)}")
+        
+        # Fallback: Create a basic character arc
+        return CharacterArc(
+            type="growth",
+            stages=["Beginning", "Challenge", "Change", "Resolution"],
+            current_stage="Beginning"
+        )
+
+def generate_character_facts(
+    character: BasicCharacterInfo, 
+    story_outline: str,
+    language: str = DEFAULT_LANGUAGE
+) -> Dict[str, List[str]]:
+    """
+    Generate known and secret facts about a character.
+    
+    Args:
+        character: Basic character information
+        story_outline: The story outline
+        language: Target language for generation
+        
+    Returns:
+        Dictionary with known_facts, secret_facts, and evolution
+    """
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
+    # Create the prompt
+    prompt = f"""
+    {language_instruction}
+    
+    For this character:
+    
+    Name: {character.name}
+    Role: {character.role}
+    Backstory: {character.backstory}
+    
+    Based on this story outline:
+    
+    {story_outline}
+    
+    Generate:
+    
+    1. 2-4 known facts about the character (information that is known at the start)
+    2. 1-3 secret facts about the character (information hidden initially)
+    3. 1-2 evolution points (how the character might develop during the story)
+    
+    {language_instruction}
+    """
+    
+    try:
+        # Create a model for the response
+        class CharacterFacts(BaseModel):
+            known_facts: List[str]
+            secret_facts: List[str]
+            evolution: List[str]
+        
+        # Use structured output with Pydantic
+        structured_output_llm = llm.with_structured_output(CharacterFacts)
+        result = structured_output_llm.invoke(prompt)
+        return {
+            "known_facts": result.known_facts,
+            "secret_facts": result.secret_facts,
+            "evolution": result.evolution
+        }
+    except Exception as e:
+        print(f"Error generating character facts: {str(e)}")
+        
+        # Fallback: Create basic facts
+        return {
+            "known_facts": [f"{character.name} is a {character.role}", f"Has a background as {character.backstory.split()[0]}"],
+            "secret_facts": ["Has a hidden motivation", "Harbors a secret from the past"],
+            "evolution": ["Will face a significant challenge", "May undergo a transformation"]
+        }
+
+# Simplified model for a single character relationship
+class SingleRelationship(BaseModel):
+    """Model for a single relationship between two characters."""
+    relationship_type: str
+    dynamics: str
+    evolution: List[str] = Field(default_factory=list)
+    conflicts: List[str] = Field(default_factory=list)
+
+def generate_single_relationship(
+    character: Dict[str, Any],
+    other_character: Dict[str, Any],
+    story_outline: str,
+    language: str = DEFAULT_LANGUAGE
+) -> SingleRelationship:
+    """
+    Generate a relationship between two specific characters.
+    
+    Args:
+        character: The first character
+        other_character: The second character
+        story_outline: The story outline
+        language: Target language for generation
+        
+    Returns:
+        SingleRelationship object describing their relationship
+    """
+    # Prepare language instruction
+    language_instruction = ""
+    if language.lower() != DEFAULT_LANGUAGE:
+        language_instruction = f"""
+        !!!CRITICAL LANGUAGE INSTRUCTION!!!
+        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+    
+    # Create the prompt for a single relationship
+    prompt = f"""
+    {language_instruction}
+    
+    Define the relationship between these two characters:
+    
+    Character 1:
+    Name: {character['name']}
+    Role: {character['role']}
+    Backstory: {character['backstory']}
+    
+    Character 2:
+    Name: {other_character['name']}
+    Role: {other_character['role']}
+    Backstory: {other_character['backstory']}
+    
+    Based on this story outline:
+    {story_outline}
+    
+    Define their relationship with:
+    
+    1. The type of relationship (friend, enemy, mentor, etc.)
+    2. The dynamics between them (power balance, emotional connection)
+    3. 1-2 potential conflicts or tensions between them
+    4. 1-2 evolution points for how their relationship might develop
+    
+    {language_instruction}
+    """
+    
+    try:
+        # Use structured output with Pydantic
+        structured_output_llm = llm.with_structured_output(SingleRelationship)
+        return structured_output_llm.invoke(prompt)
+    except Exception as e:
+        print(f"Error generating relationship between {character['name']} and {other_character['name']}: {str(e)}")
+        
+        # Create a basic relationship based on roles
+        if character['role'] == 'Protagonist' and other_character['role'] == 'Antagonist':
+            return SingleRelationship(
+                relationship_type="enemy",
+                dynamics="Conflict and opposition",
+                evolution=["Initial confrontation", "Escalating conflict"],
+                conflicts=["Opposing goals", "Ideological differences"]
+            )
+        elif character['role'] == 'Protagonist' and other_character['role'] == 'Mentor':
+            return SingleRelationship(
+                relationship_type="student",
+                dynamics="Learning and guidance",
+                evolution=["Initial meeting", "Growing trust"],
+                conflicts=["Resistance to advice", "Different approaches"]
+            )
+        elif character['role'] == 'Protagonist' and other_character['role'] == 'Ally':
+            return SingleRelationship(
+                relationship_type="friend",
+                dynamics="Mutual support and trust",
+                evolution=["Initial meeting", "Developing friendship"],
+                conflicts=["Occasional disagreements", "Different priorities"]
+            )
+        else:
+            return SingleRelationship(
+                relationship_type="acquaintance",
+                dynamics="Neutral interaction",
+                evolution=["Initial meeting", "Developing relationship"],
+                conflicts=["Potential misunderstandings", "Different backgrounds"]
+            )
+
+def establish_character_relationships(
+    characters: Dict[str, Dict[str, Any]],
+    story_outline: str,
+    language: str = DEFAULT_LANGUAGE
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Establish relationships between characters one pair at a time.
+    
+    Args:
+        characters: Dictionary of characters
+        story_outline: The story outline
+        language: Target language for generation
+        
+    Returns:
+        Dictionary of updated characters with relationships
+    """
+    # If there's only one character, no relationships to establish
+    if len(characters) <= 1:
+        return characters
+    
+    # Process each character
+    updated_characters = {}
+    
+    for char_id, char_data in characters.items():
+        # Get other characters
+        other_characters = {k: v for k, v in characters.items() if k != char_id}
+        
+        # Create a dictionary for this character's relationships
+        relationships = {}
+        
+        # Generate a relationship with each other character individually
+        for other_id, other_data in other_characters.items():
+            print(f"Generating relationship between {char_data['name']} and {other_data['name']}...")
+            
+            # Generate the relationship
+            relationship = generate_single_relationship(
+                character=char_data,
+                other_character=other_data,
+                story_outline=story_outline,
+                language=language
+            )
+            
+            # Add the relationship to the dictionary
+            relationships[other_id] = relationship.dict()
+        
+        # Update the character with the relationships
+        char_data_copy = char_data.copy()
+        char_data_copy['relationships'] = relationships
+        updated_characters[char_id] = char_data_copy
+    
+    return updated_characters
 
 @track_progress
 def generate_characters(state: StoryState) -> Dict:
-    """Generate detailed character profiles based on the story outline."""
+    """
+    Generate detailed character profiles based on the story outline using a step-by-step approach.
+    
+    This function implements a multi-step process to create characters:
+    1. Identify key character roles needed for the story
+    2. Generate basic information for each character
+    3. Enrich each character with personality traits, emotional states, etc.
+    4. Establish relationships between characters
+    
+    Args:
+        state: The current story state
+        
+    Returns:
+        Dictionary with updated characters and messages
+    """
     global_story = state["global_story"]
     genre = state["genre"]
     tone = state["tone"]
@@ -300,567 +888,121 @@ def generate_characters(state: StoryState) -> Dict:
     author_style_guidance = state["author_style_guidance"]
     language = state.get("language", DEFAULT_LANGUAGE)
     
-    # Prepare character style guidance
-    char_style_section = ""
-    if author:
-        # Extract character-specific guidance
-        character_prompt = f"""
-        Based on the writing style of {author}, extract specific guidance for character development.
-        Focus on:
-        
-        1. How the author typically develops characters
-        2. Types of characters frequently used
-        3. Character archetypes common in their work
-        4. How the author handles character flaws and growth
-        5. Character dialogue and voice patterns
-        6. Character relationships and dynamics
-        
-        Provide concise, actionable guidance for creating characters in the style of {author}.
-        """
-        
-        if not "character development" in author_style_guidance.lower():
-            # Only generate if we don't already have character info in our guidance
-            character_guidance = llm.invoke([HumanMessage(content=character_prompt)]).content
-            
-            # Store this specialized guidance
-            manage_memory_tool.invoke({
-                "action": "create",
-                "key": f"author_character_style_{author.lower().replace(' ', '_')}",
-                "value": character_guidance,
-                "namespace": MEMORY_NAMESPACE
-            })
-            
-            char_style_section = f"""
-            CHARACTER STYLE GUIDANCE:
-            When creating characters in the style of {author}, follow these guidelines:
-            
-            {character_guidance}
-            """
-        else:
-            # Use the general guidance if it already contains character info
-            char_style_section = f"""
-            CHARACTER STYLE GUIDANCE:
-            When creating characters in the style of {author}, follow these guidelines from the author's general style:
-            
-            {author_style_guidance}
-            """
-    
-    # Prepare language guidance for characters
-    language_guidance = ""
-    language_elements = None
-    if language.lower() != DEFAULT_LANGUAGE:
-        # Try to retrieve language elements from memory
-        try:
-            language_elements_result = search_memory_tool.invoke({
-                "query": f"language_elements_{language.lower()}",
-                "namespace": MEMORY_NAMESPACE
-            })
-            
-            # Handle different return types from search_memory_tool
-            if language_elements_result:
-                if isinstance(language_elements_result, dict) and "value" in language_elements_result:
-                    # Direct dictionary with value
-                    language_elements = language_elements_result["value"]
-                elif isinstance(language_elements_result, list):
-                    # List of objects
-                    for item in language_elements_result:
-                        if hasattr(item, 'key') and item.key == f"language_elements_{language.lower()}":
-                            language_elements = item.value
-                            break
-                elif isinstance(language_elements_result, str):
-                    # Try to parse JSON string
-                    try:
-                        import json
-                        language_elements = json.loads(language_elements_result)
-                    except:
-                        # If not JSON, use as is
-                        language_elements = language_elements_result
-        except Exception as e:
-            print(f"Error retrieving language elements: {str(e)}")
-        
-        # Create language guidance with specific naming examples if available
-        naming_examples = ""
-        if language_elements and "NAMING CONVENTIONS" in language_elements:
-            naming_conventions = language_elements["NAMING CONVENTIONS"]
-            
-            male_names = naming_conventions.get("Common first names for male characters", [])
-            if isinstance(male_names, str):
-                male_names = male_names.split(", ")
-            
-            female_names = naming_conventions.get("Common first names for female characters", [])
-            if isinstance(female_names, str):
-                female_names = female_names.split(", ")
-            
-            family_names = naming_conventions.get("Common family/last names", [])
-            if isinstance(family_names, str):
-                family_names = family_names.split(", ")
-            
-            # Create examples using the retrieved names
-            if male_names and female_names and family_names:
-                naming_examples = f"""
-                Examples of authentic {SUPPORTED_LANGUAGES[language.lower()]} names:
-                - Male names: {', '.join(male_names[:5] if len(male_names) > 5 else male_names)}
-                - Female names: {', '.join(female_names[:5] if len(female_names) > 5 else female_names)}
-                - Family/last names: {', '.join(family_names[:5] if len(family_names) > 5 else family_names)}
-                """
-        
-        language_guidance = f"""
-        CHARACTER LANGUAGE CONSIDERATIONS:
-        Create characters appropriate for a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
-        
-        1. Use character names that are authentic and common in {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
-        2. Ensure character backgrounds, professions, and social roles reflect {SUPPORTED_LANGUAGES[language.lower()]}-speaking societies
-        3. Incorporate cultural values, beliefs, and traditions that resonate with {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
-        4. Consider family structures, social hierarchies, and interpersonal dynamics typical in {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
-        5. Include character traits, expressions, and mannerisms that feel natural in {SUPPORTED_LANGUAGES[language.lower()]} culture
-        6. Develop character speech patterns and dialogue styles that reflect {SUPPORTED_LANGUAGES[language.lower()]} communication norms
-        
-        {naming_examples}
-        
-        Characters should feel authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like translated or foreign characters.
-        
-        IMPORTANT: Maintain consistency with any character names already established in the story outline.
-        """
-    
-    # Prepare initial idea character guidance
-    initial_idea_guidance = ""
+    # Extract required characters from initial idea if available
     required_characters = []
     if initial_idea and initial_idea_elements:
         characters_from_idea = initial_idea_elements.get("characters", [])
         if characters_from_idea:
             required_characters = characters_from_idea
-            initial_idea_guidance = f"""
-            REQUIRED CHARACTERS (HIGHEST PRIORITY):
-            
-            The following characters MUST be included in your character profiles as they are central to the initial story idea:
-            {', '.join(characters_from_idea)}
-            
-            These characters are non-negotiable and must be developed in detail according to the initial idea: "{initial_idea}"
-            
-            For each required character, ensure their role, traits, and backstory align with the initial idea and the story outline.
-            """
     
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        These character profiles MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content - including names, descriptions, backstories, and personality traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        DO NOT translate character archetypes - create the profiles directly in {SUPPORTED_LANGUAGES[language.lower()]}.
-        
-        I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any profiles that contain English.
-        """
+    # Step 1: Identify key character roles needed for the story
+    print("Step 1: Identifying key character roles...")
+    character_roles = generate_character_roles(
+        story_outline=global_story,
+        genre=genre,
+        tone=tone,
+        required_characters=required_characters,
+        language=language
+    )
     
-    # Prompt for character generation
-    prompt = f"""
-    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
+    # Step 2: Generate basic information for each character
+    print("Step 2: Generating basic character information...")
+    characters_dict = {}
     
-    Based on this story outline:
-    
-    {global_story}
-    
-    Create detailed profiles for 4-6 characters in this {tone} {genre} story that readers will find compelling and relatable.
-    IMPORTANT: You must create at least 4 distinct characters with unique roles in the story.
-    {f"You MUST include the following characters from the initial idea: {', '.join(required_characters)}" if required_characters else ""}
-    
-    For each character, include:
-    
-    1. Name and role in the story (protagonist, antagonist, mentor, etc.)
-    2. Detailed backstory that explains their motivations and worldview
-    3. Personality traits, including:
-       - 3-5 defining character traits
-       - 2-3 notable strengths that help them
-       - 2-3 significant flaws or weaknesses that create obstacles
-       - 1-2 core fears that drive their behavior
-       - 1-2 deep desires or goals that motivate them
-       - 1-2 values or principles they hold dear
-    
-    4. Emotional state at the beginning of the story
-    5. Inner conflicts they struggle with (moral dilemmas, competing desires, etc.)
-    6. Character arc type (redemption, fall, growth, etc.) and potential stages
-    7. Key relationships with other characters, including:
-       - Relationship dynamics (power balance, emotional connection)
-       - Potential for conflict or growth within the relationship
-    
-    8. Initial known facts (what the character and reader know at the start)
-    9. Secret facts (information hidden from the reader initially)
-    
-    {initial_idea_guidance}
-    
-    Make these characters:
-    - RELATABLE: Give them universal hopes, fears, and struggles readers can empathize with
-    - COMPLEX: Include contradictions and inner turmoil that make them feel authentic
-    - DISTINCTIVE: Ensure each character has a unique voice, perspective, and emotional journey
-    
-    Format each character profile clearly and ensure they have interconnected relationships and histories.
-    
-    {char_style_section}
-    
-    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
-    
-    {language_guidance}
-    """
-    # Generate character profiles
-    character_profiles_text = llm.invoke([HumanMessage(content=prompt)]).content
-    
-    # Validate language if not English
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_validation_prompt = f"""
-        LANGUAGE VALIDATION: Check if this text is written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
-        
-        Text to validate:
-        {character_profiles_text}
-        
-        Provide:
-        1. A YES/NO determination if the text is completely in {SUPPORTED_LANGUAGES[language.lower()]}
-        2. If NO, identify which parts are not in {SUPPORTED_LANGUAGES[language.lower()]}
-        3. A score from 1-10 on language authenticity (does it feel like it was written by a native speaker?)
-        
-        Your response should be in English for this validation only.
-        """
-        
-        language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
-        
-        # Store the validation result in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "character_profiles_language_validation",
-            "value": language_validation_result,
-            "namespace": MEMORY_NAMESPACE
-        })
-        
-        # If language validation fails, regenerate with stronger language instruction
-        if "NO" in language_validation_result:
-            stronger_language_instruction = f"""
-            !!!CRITICAL LANGUAGE INSTRUCTION - PREVIOUS ATTEMPT FAILED!!!
-            
-            Your previous response contained English text. This is NOT acceptable.
-            
-            These character profiles MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-            ALL content - including names, descriptions, backstories, and personality traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-            DO NOT translate character archetypes - create the profiles directly in {SUPPORTED_LANGUAGES[language.lower()]}.
-            
-            I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any profiles that contain English.
-            
-            The following parts were not in {SUPPORTED_LANGUAGES[language.lower()]}:
-            {language_validation_result.split("which parts are not in")[1].strip() if "which parts are not in" in language_validation_result else "Some parts of the text"}
-            """
-            
-            # Regenerate with stronger language instruction
-            revised_prompt = f"""
-            {stronger_language_instruction}
-            
-            {prompt}
-            
-            {stronger_language_instruction}
-            """
-            
-            character_profiles_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
-    
-    # Validate that the characters are appropriate for the genre and setting
-    if genre and initial_idea_elements and initial_idea_elements.get('setting'):
-        setting = initial_idea_elements.get('setting')
-        validation_prompt = f"""
-        Evaluate whether these character profiles are appropriate for:
-        1. A {genre} story with a {tone} tone
-        2. A story set in "{setting}"
-        
-        Character Profiles:
-        {character_profiles_text}
-        
-        For a {genre} story set in "{setting}", characters should:
-        - Have roles, backgrounds, and motivations that make sense in a {genre} narrative
-        - Have traits and abilities appropriate for the {setting} setting
-        - Fulfill genre expectations for character types in {genre} stories
-        - Have conflicts and relationships that drive a {genre} plot
-        - Be consistent with the tone and atmosphere of a {tone} story
-        
-        Provide:
-        1. A score from 1-10 on how well the characters fit the {genre} genre
-        2. A score from 1-10 on how well the characters fit the "{setting}" setting
-        3. Specific feedback on what character elements are missing or need adjustment
-        4. A YES/NO determination if the characters are acceptable
-        
-        If either score is below 8 or the determination is NO, provide specific guidance on how to improve the characters.
-        """
-        
-        validation_result = llm.invoke([HumanMessage(content=validation_prompt)]).content
-        
-        # Store the validation result in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "character_genre_setting_validation",
-            "value": validation_result,
-            "namespace": MEMORY_NAMESPACE
-        })
-        
-        # Check if we need to regenerate the characters
-        if "NO" in validation_result or any(f"score: {i}" in validation_result.lower() for i in range(1, 8)):
-            # Extract the improvement guidance
-            improvement_guidance = validation_result.split("guidance on how to improve")[-1].strip() if "guidance on how to improve" in validation_result else validation_result
-            
-            # Create a revised prompt with the improvement guidance
-            revised_prompt = f"""
-            IMPORTANT: Your previous character profiles were not appropriate for a {genre} story set in "{setting}".
-            Please revise them based on this feedback:
-            
-            {improvement_guidance}
-            
-            {prompt}
-            """
-            
-            # Regenerate the character profiles
-            character_profiles_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
-            
-            # Store the revised character profiles
-            manage_memory_tool.invoke({
-                "action": "create",
-                "key": "character_profiles_revised",
-                "value": character_profiles_text,
-                "namespace": MEMORY_NAMESPACE
-            })
-    
-    # Define the schema for character data
-    character_schema = """
-    {
-      "character1_slug": {
-        "name": "Character 1 Name",
-        "role": "Role in story (protagonist, antagonist, etc)",
-        "backstory": "Detailed character backstory",
-        "personality": {
-          "traits": ["Trait 1", "Trait 2", "Trait 3"],
-          "strengths": ["Strength 1", "Strength 2"],
-          "flaws": ["Flaw 1", "Flaw 2"],
-          "fears": ["Fear 1", "Fear 2"],
-          "desires": ["Desire 1", "Desire 2"],
-          "values": ["Value 1", "Value 2"]
-        },
-        "emotional_state": {
-          "initial": "Character's emotional state at the beginning",
-          "current": "Character's current emotional state",
-          "journey": []
-        },
-        "inner_conflicts": [
-          {
-            "description": "Description of inner conflict",
-            "resolution_status": "unresolved|in_progress|resolved",
-            "impact": "How this conflict affects the character"
-          }
-        ],
-        "character_arc": {
-          "type": "redemption|fall|growth|flat|etc",
-          "stages": [],
-          "current_stage": "Current stage in the character arc"
-        },
-        "evolution": ["Initial state", "Future development point"],
-        "known_facts": ["Known fact 1", "Known fact 2"],
-        "secret_facts": ["Secret fact 1", "Secret fact 2"],
-        "revealed_facts": [],
-        "relationships": {
-          "other_character_slug": {
-            "type": "friend|enemy|mentor|etc",
-            "dynamics": "Power dynamics, emotional connection",
-            "evolution": ["Initial state", "Current state"],
-            "conflicts": ["Conflict 1", "Conflict 2"]
-          }
-        }
-      }
-    }
-    """
-    
-    # Default fallback data in case JSON generation fails
-    default_characters = DEFAULT_CHARACTERS
-    
-    # Use the new function to generate structured JSON
-    try:
-        from storyteller_lib.creative_tools import generate_structured_json
-        characters = generate_structured_json(
-            character_profiles_text,
-            character_schema,
-            "character profiles"
+    for role in character_roles:
+        # Generate basic character info
+        basic_info = generate_basic_character(
+            role=role,
+            story_outline=global_story,
+            genre=genre,
+            tone=tone,
+            author_style_guidance=author_style_guidance,
+            language=language
         )
         
-        # If generation failed, use the default fallback data
-        if not characters:
-            print("Using default character data as JSON generation failed.")
-            characters = default_characters
+        # Create a character ID from the name
+        char_id = basic_info.name.lower().replace(" ", "_")
         
-        # Ensure we have at least 4 characters
-        if len(characters) < 4:
-            print(f"Only {len(characters)} characters were generated. Adding default characters to reach at least 4.")
-            # Add missing default characters
-            default_keys = list(default_characters.keys())
-            for i in range(4 - len(characters)):
-                if i < len(default_keys):
-                    default_key = default_keys[i]
-                    if default_key not in characters:
-                        characters[default_key] = default_characters[default_key]
-    except Exception as e:
-        print(f"Error parsing character data: {str(e)}")
-        # Fallback structure defined above in parse_structured_data call
-        characters = default_characters
+        # Initialize the character with basic info
+        characters_dict[char_id] = {
+            "name": basic_info.name,
+            "role": basic_info.role,
+            "backstory": basic_info.backstory,
+            "evolution": [],
+            "known_facts": [],
+            "secret_facts": [],
+            "revealed_facts": [],
+            "relationships": {}
+        }
         
-        # Ensure we have at least 4 characters
-        if len(characters) < 4:
-            print(f"Only {len(characters)} characters were generated. Adding default characters to reach at least 4.")
-            # Add missing default characters
-            default_keys = list(default_characters.keys())
-            for i in range(4 - len(characters)):
-                if i < len(default_keys):
-                    default_key = default_keys[i]
-                    if default_key not in characters:
-                        characters[default_key] = default_characters[default_key]
+        # Step 3a: Generate personality traits
+        print(f"Step 3a: Generating personality traits for {basic_info.name}...")
+        personality = generate_personality_traits(
+            character=basic_info,
+            story_outline=global_story,
+            language=language
+        )
+        characters_dict[char_id]["personality"] = personality.dict()
+        
+        # Step 3b: Generate emotional state
+        print(f"Step 3b: Generating emotional state for {basic_info.name}...")
+        emotional_state = generate_emotional_state(
+            character=basic_info,
+            personality=personality,
+            language=language
+        )
+        characters_dict[char_id]["emotional_state"] = emotional_state.dict()
+        
+        # Step 3c: Generate inner conflicts
+        print(f"Step 3c: Generating inner conflicts for {basic_info.name}...")
+        inner_conflicts = generate_inner_conflicts(
+            character=basic_info,
+            personality=personality,
+            language=language
+        )
+        characters_dict[char_id]["inner_conflicts"] = [conflict.dict() for conflict in inner_conflicts]
+        
+        # Step 3d: Generate character arc
+        print(f"Step 3d: Generating character arc for {basic_info.name}...")
+        character_arc = generate_character_arc(
+            character=basic_info,
+            inner_conflicts=inner_conflicts,
+            language=language
+        )
+        characters_dict[char_id]["character_arc"] = character_arc.dict()
+        
+        # Step 3e: Generate character facts
+        print(f"Step 3e: Generating character facts for {basic_info.name}...")
+        facts = generate_character_facts(
+            character=basic_info,
+            story_outline=global_story,
+            language=language
+        )
+        characters_dict[char_id]["known_facts"] = facts["known_facts"]
+        characters_dict[char_id]["secret_facts"] = facts["secret_facts"]
+        characters_dict[char_id]["evolution"] = facts["evolution"]
     
-    # Validate the structure
-    for char_name, profile in characters.items():
-        required_fields = ["name", "role", "backstory", "evolution", "known_facts",
-                          "secret_facts", "revealed_facts", "relationships"]
-        for field in required_fields:
-            if field not in profile:
-                profile[field] = [] if field in ["evolution", "known_facts", "secret_facts", "revealed_facts"] else {}
-                if field == "name":
-                    profile[field] = char_name.capitalize()
-                elif field == "role":
-                    profile[field] = "Supporting Character"
-                elif field == "backstory":
-                    profile[field] = "Unknown background"
+    # Step 4: Establish relationships between characters
+    print("Step 4: Establishing relationships between characters...")
+    characters_dict = establish_character_relationships(
+        characters=characters_dict,
+        story_outline=global_story,
+        language=language
+    )
     
-    # Validate that required characters from the initial idea are included
-    if initial_idea and initial_idea_elements and "characters" in initial_idea_elements:
-        required_characters = initial_idea_elements.get("characters", [])
-        if required_characters:
-            # Check if all required characters are included
-            character_names = [profile.get("name", "").lower() for profile in characters.values()]
-            missing_characters = []
-            
-            for required_char in required_characters:
-                # Check if any character name contains the required character name
-                found = False
-                for name in character_names:
-                    # Check if the required character appears in any character name
-                    if required_char.lower() in name or name in required_char.lower():
-                        found = True
-                        break
-                
-                if not found:
-                    missing_characters.append(required_char)
-            
-            # If any required characters are missing, regenerate with stronger emphasis
-            if missing_characters:
-                # Log the issue
-                print(f"Missing required characters: {', '.join(missing_characters)}")
-                
-                # Create a revised prompt with stronger emphasis on required characters
-                revised_prompt = f"""
-                IMPORTANT: Your previous character profiles did not include all the required characters from the initial idea.
-                
-                You MUST include these specific characters that are central to the story:
-                {', '.join(missing_characters)}
-                
-                These characters are non-negotiable and must be developed in detail according to the initial idea: "{initial_idea}"
-                
-                {prompt}
-                """
-                
-                # Regenerate character profiles
-                character_profiles_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
-                
-                # Try parsing again
-                try:
-                    characters = generate_structured_json(
-                        character_profiles_text,
-                        character_schema,
-                        "character profiles"
-                    )
-                    
-                    # If generation failed, use the default fallback data
-                    if not characters:
-                        print("Using default character data as JSON generation failed.")
-                        characters = default_characters
-                        
-                        # Add the missing required characters to the default set
-                        for missing_char in missing_characters:
-                            slug = missing_char.lower().replace(" ", "_")
-                            characters[slug] = {
-                                "name": missing_char,
-                                "role": "Required Character from Initial Idea",
-                                "backstory": f"Important character from the initial idea: {initial_idea}",
-                                "personality": {
-                                    "traits": ["To be developed"],
-                                    "strengths": ["To be developed"],
-                                    "flaws": ["To be developed"],
-                                    "fears": ["To be developed"],
-                                    "desires": ["To be developed"],
-                                    "values": ["To be developed"]
-                                },
-                                "emotional_state": {
-                                    "initial": "To be developed",
-                                    "current": "To be developed",
-                                    "journey": []
-                                },
-                                "inner_conflicts": [
-                                    {
-                                        "description": "To be developed",
-                                        "resolution_status": "unresolved",
-                                        "impact": "To be developed"
-                                    }
-                                ],
-                                "character_arc": {
-                                    "type": "To be determined",
-                                    "stages": [],
-                                    "current_stage": "Beginning"
-                                },
-                                "evolution": ["Initial state"],
-                                "known_facts": ["Required character from initial idea"],
-                                "secret_facts": [],
-                                "revealed_facts": [],
-                                "relationships": {}
-                            }
-                except Exception as e:
-                    print(f"Error parsing regenerated character data: {str(e)}")
-                    # Add the missing required characters to the default set
-                    characters = default_characters
-                    for missing_char in missing_characters:
-                        slug = missing_char.lower().replace(" ", "_")
-                        characters[slug] = {
-                            "name": missing_char,
-                            "role": "Required Character from Initial Idea",
-                            "backstory": f"Important character from the initial idea: {initial_idea}",
-                            "personality": {
-                                "traits": ["To be developed"],
-                                "strengths": ["To be developed"],
-                                "flaws": ["To be developed"],
-                                "fears": ["To be developed"],
-                                "desires": ["To be developed"],
-                                "values": ["To be developed"]
-                            },
-                            "emotional_state": {
-                                "initial": "To be developed",
-                                "current": "To be developed",
-                                "journey": []
-                            },
-                            "inner_conflicts": [
-                                {
-                                    "description": "To be developed",
-                                    "resolution_status": "unresolved",
-                                    "impact": "To be developed"
-                                }
-                            ],
-                            "character_arc": {
-                                "type": "To be determined",
-                                "stages": [],
-                                "current_stage": "Beginning"
-                            },
-                            "evolution": ["Initial state"],
-                            "known_facts": ["Required character from initial idea"],
-                            "secret_facts": [],
-                            "revealed_facts": [],
-                            "relationships": {}
-                        }
+    # Validate that we have at least 4 characters
+    if len(characters_dict) < 4:
+        print(f"Only {len(characters_dict)} characters were generated. Adding default characters to reach at least 4.")
+        # Add missing default characters
+        default_keys = list(DEFAULT_CHARACTERS.keys())
+        for i in range(4 - len(characters_dict)):
+            if i < len(default_keys):
+                default_key = default_keys[i]
+                if default_key not in characters_dict:
+                    characters_dict[default_key] = DEFAULT_CHARACTERS[default_key]
     
     # Store character profiles in memory
-    for char_name, profile in characters.items():
+    for char_name, profile in characters_dict.items():
         manage_memory_tool.invoke({
             "action": "create",
             "key": f"character_{char_name}",
@@ -868,7 +1010,6 @@ def generate_characters(state: StoryState) -> Dict:
         })
     
     # Update state
-    
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
     
@@ -876,7 +1017,7 @@ def generate_characters(state: StoryState) -> Dict:
     new_msg = AIMessage(content="I've developed detailed character profiles with interconnected backgrounds and motivations. Now I'll plan the chapters.")
     
     return {
-        "characters": characters,
+        "characters": characters_dict,
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],
             new_msg
