@@ -51,7 +51,6 @@ def identify_key_concepts(global_story: str, genre: str, language: str = DEFAULT
     - Referenced multiple times throughout the story
     - Culturally relevant in {language_name} literature
     
-    Format your response as a structured JSON object.
     Analyze and respond in {language_name}.
     """
     
@@ -314,7 +313,6 @@ def analyze_concept_clarity(scene_content: str, concept_name: str, language: str
     - Weaknesses of the exposition
     - Suggestions for improvement that are appropriate for {language_name} literature
     
-    Format your response as a structured JSON object.
     Analyze and respond in {language_name}.
     """
     
@@ -609,7 +607,6 @@ def identify_telling_passages(scene_content: str) -> List[str]:
     5. Exposition that could be converted to action, dialogue, or sensory experience
     
     For each passage, extract ONLY the exact text that should be converted to showing.
-    Format your response as a JSON array of strings, with each string being a passage to convert.
     """
     
     try:
@@ -668,13 +665,11 @@ def analyze_showing_vs_telling(scene_content: str) -> Dict[str, Any]:
     - Effective showing (with excerpts)
     - Instances of telling that could be improved (with excerpts)
     - Missed opportunities for sensory details
-    
-    Format your response as a structured JSON object.
     """
     
     try:
         # Define Pydantic models for structured output
-        from pydantic import BaseModel, Field
+        from pydantic import BaseModel, Field, field_validator
         from typing import List
         
         class TellingInstance(BaseModel):
@@ -791,16 +786,16 @@ def analyze_showing_vs_telling(scene_content: str) -> Dict[str, Any]:
             try:
                 # Create a simpler prompt that focuses just on the overall scores
                 simple_prompt = f"""
-                Analyze this scene for the balance of showing vs. telling and provide only numeric scores:
+                Analyze this scene for the balance of showing vs. telling and provide numeric scores:
                 
                 {scene_content}
                 
-                Provide only these scores (1-10 scale):
-                - sensory_details_score
-                - emotion_showing_score
-                - world_element_showing_score
-                - character_development_showing_score
-                - overall_showing_ratio
+                Evaluate on a 1-10 scale:
+                - How effectively does the scene use sensory details?
+                - Are emotions shown through physical manifestations or just stated?
+                - Are world elements experienced through character interaction or just explained?
+                - Is character development demonstrated through actions or just described?
+                - What is the overall ratio of showing to telling?
                 """
                 
                 # Use a simpler model without the problematic fields
