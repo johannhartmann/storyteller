@@ -2,12 +2,13 @@
 StoryCraft Agent - Story outline and planning nodes.
 """
 
-from typing import Dict
+from typing import Dict, List, Optional
+from pydantic import BaseModel, Field
 
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
-from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain
+from storyteller_lib.creative_tools import parse_json_with_langchain
 from storyteller_lib import track_progress
 
 @track_progress
@@ -215,10 +216,8 @@ def generate_story_outline(state: StoryState) -> Dict:
     {language_guidance}
     """
     
-    print("PROMPT: " + prompt)
     # Generate the story outline
     story_outline = llm.invoke([HumanMessage(content=prompt)]).content
-    print("STORY OUTLINE " + story_outline)
     # Perform multiple validation checks on the story outline
     validation_results = {}
     
@@ -598,6 +597,24 @@ def generate_story_outline(state: StoryState) -> Dict:
 
 
     
+from typing import Dict, List, Optional
+from pydantic import BaseModel, Field
+
+class Scene(BaseModel):
+    """Simple model for a scene in a chapter."""
+    description: str = Field(..., description="Brief description of what happens in this scene")
+
+class Chapter(BaseModel):
+    """Simple model for a chapter in the story."""
+    number: str = Field(..., description="The chapter number (as a string)")
+    title: str = Field(..., description="The title of the chapter")
+    outline: str = Field(..., description="Detailed summary of the chapter (200-300 words)")
+    key_scenes: List[Scene] = Field(..., description="List of key scenes in this chapter")
+
+class ChapterPlan(BaseModel):
+    """Simple model for the entire chapter plan."""
+    chapters: List[Chapter] = Field(..., description="List of chapters in the story")
+
 @track_progress
 def plan_chapters(state: StoryState) -> Dict:
     """Divide the story into chapters with detailed outlines."""
@@ -647,14 +664,6 @@ def plan_chapters(state: StoryState) -> Dict:
     Create a plan for 8-15 chapters that cover the entire hero's journey for this {tone} {genre} story.
     IMPORTANT: THERE SHOULD NEVER BE LESS THAN 8 CHAPTERS. A COMPLETE STORY REQUIRES AT LEAST 8 CHAPTERS TO PROPERLY DEVELOP.
     
-    Your response should be structured as a JSON object with chapter numbers as keys, like this:
-    {{
-      "1": {{ "title": "Chapter 1 Title", "outline": "Chapter 1 summary...", "scenes": {{...}} }},
-      "2": {{ "title": "Chapter 2 Title", "outline": "Chapter 2 summary...", "scenes": {{...}} }},
-      ...
-      "8": {{ "title": "Chapter 8 Title", "outline": "Chapter 8 summary...", "scenes": {{...}} }}
-    }}
-    
     For each chapter, provide:
     1. Chapter number and title
     2. A summary of major events (200-300 words)
@@ -669,7 +678,6 @@ def plan_chapters(state: StoryState) -> Dict:
     {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
     {language_guidance}
     """
-    
     # Generate chapter plan
     chapter_plan_text = llm.invoke([HumanMessage(content=prompt)]).content
     
@@ -727,249 +735,192 @@ def plan_chapters(state: StoryState) -> Dict:
             
             chapter_plan_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
     
-    # Define the schema for chapter data
-    chapter_schema = """
-    {
-      "1": {
-        "title": "Chapter 1 Title",
-        "outline": "Detailed summary of chapter 1",
-        "scenes": {
-          "1": {
-            "content": "",
-            "reflection_notes": []
-          },
-          "2": {
-            "content": "",
-            "reflection_notes": []
-          },
-          "3": {
-            "content": "",
-            "reflection_notes": []
-          }
-        },
-        "reflection_notes": []
-      },
-      "2": {
-        "title": "Chapter 2 Title",
-        "outline": "Detailed summary of chapter 2",
-        "scenes": {
-          "1": {
-            "content": "",
-            "reflection_notes": []
-          },
-          "2": {
-            "content": "",
-            "reflection_notes": []
-          },
-          "3": {
-            "content": "",
-            "reflection_notes": []
-          }
-        },
-        "reflection_notes": []
-      },
-      "3": {
-        "title": "Chapter 3 Title",
-        "outline": "Detailed summary of chapter 3",
-        "scenes": {
-          "1": {
-            "content": "",
-            "reflection_notes": []
-          },
-          "2": {
-            "content": "",
-            "reflection_notes": []
-          },
-          "3": {
-            "content": "",
-            "reflection_notes": []
-          }
-        },
-        "reflection_notes": []
-      },
-      "4": {
-        "title": "Chapter 4 Title",
-        "outline": "Detailed summary of chapter 4",
-        "scenes": {
-          "1": {
-            "content": "",
-            "reflection_notes": []
-          },
-          "2": {
-            "content": "",
-            "reflection_notes": []
-          },
-          "3": {
-            "content": "",
-            "reflection_notes": []
-          }
-        },
-        "reflection_notes": []
-      }
-    }
-    """
-    
-    # Default fallback chapters in case JSON generation fails - using all stages of the hero's journey
-    default_chapters = {
-        "1": {
-            "title": "The Ordinary World",
-            "outline": "Introduction to the hero and their mundane life. Hints of adventure to come.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "2": {
-            "title": "The Call to Adventure",
-            "outline": "Hero receives a call to adventure and initially hesitates.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "3": {
-            "title": "Refusal of the Call",
-            "outline": "Hero initially refuses or is reluctant to answer the call to adventure.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "4": {
-            "title": "Meeting the Mentor",
-            "outline": "Hero meets a wise mentor who provides guidance and tools.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "5": {
-            "title": "Crossing the Threshold",
-            "outline": "Hero commits to the adventure and crosses into the special world.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "6": {
-            "title": "Tests, Allies, and Enemies",
-            "outline": "Hero faces tests, finds allies, and confronts enemies in the new world.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "7": {
-            "title": "Approach to the Inmost Cave",
-            "outline": "Hero prepares for the major challenge ahead.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "8": {
-            "title": "The Ordeal",
-            "outline": "Hero faces their greatest fear and confronts death or a major crisis.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "9": {
-            "title": "Reward (Seizing the Sword)",
-            "outline": "Hero takes possession of the treasure or reward they sought.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "10": {
-            "title": "The Road Back",
-            "outline": "Hero begins the journey back to the ordinary world.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "11": {
-            "title": "Resurrection",
-            "outline": "Hero faces a final test where they must use everything they have learned.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        },
-        "12": {
-            "title": "Return with the Elixir",
-            "outline": "Hero returns with something to benefit the ordinary world.",
-            "scenes": {
-                "1": {"content": "", "reflection_notes": []},
-                "2": {"content": "", "reflection_notes": []},
-                "3": {"content": "", "reflection_notes": []}
-            },
-            "reflection_notes": []
-        }
-    }
-    
-    # Use the new function to generate structured JSON
+    # Use direct LLM structured output with simplified Pydantic model
     try:
-        from storyteller_lib.creative_tools import generate_structured_json
-        chapters = generate_structured_json(
-            chapter_plan_text,
-            chapter_schema,
-            "chapter plan"
-        )
+        # Create a structured output prompt that explicitly asks for chapter data with scenes
+        structured_prompt = f"""
+        Based on the chapter plan you've created, I need you to extract a list of chapters with their key scenes.
         
-        # If generation failed, use the default fallback data
-        if not chapters:
-            print("Using default chapter data as JSON generation failed.")
-            chapters = default_chapters
+        For each chapter, provide:
+        1. The chapter number (as a string)
+        2. A title
+        3. A detailed outline (200-300 words)
+        4. 3-5 key scenes that should be included in this chapter (with a brief description for each)
         
-        # Ensure we have at least 8 chapters
+        For the key scenes, focus on the most important moments that advance the plot or develop characters.
+        
+        Format your response as a list of chapters, each with these properties.
+        
+        Chapter plan:
+        {chapter_plan_text}
+        """
+        
+        # Use LLM with structured output directly
+        structured_output_llm = llm.with_structured_output(ChapterPlan)
+        
+        # Get structured output
+        result = structured_output_llm.invoke(structured_prompt)
+        
+        # Convert the list of chapters to a dictionary with chapter numbers as keys
+        chapters_dict = {}
+        for chapter in result.chapters:
+            chapter_num = chapter.number
+            # Ensure chapter number is a string
+            if not isinstance(chapter_num, str):
+                chapter_num = str(chapter_num)
+                
+            # Create a complete chapter entry with scenes from the key_scenes list
+            chapter_entry = {
+                "title": chapter.title,
+                "outline": chapter.outline,
+                "scenes": {},
+                "reflection_notes": []
+            }
+            
+            # Add scenes from the key_scenes list
+            for i, scene in enumerate(chapter.key_scenes, 1):
+                scene_num = str(i)
+                chapter_entry["scenes"][scene_num] = {
+                    "content": "",  # Content will be filled in later
+                    "description": scene.description,  # Store the scene description
+                    "reflection_notes": []
+                }
+            
+            # Ensure at least 3 scenes
+            for i in range(len(chapter.key_scenes) + 1, 4):
+                scene_num = str(i)
+                chapter_entry["scenes"][scene_num] = {
+                    "content": "",
+                    "description": f"Additional scene for chapter {chapter_num}",
+                    "reflection_notes": []
+                }
+            
+            chapters_dict[chapter_num] = chapter_entry
+        
+        # Use the dictionary as our chapters
+        chapters = chapters_dict
+        
+        # If we don't have enough chapters, create empty ones
         if len(chapters) < 8:
-            print(f"Only {len(chapters)} chapters were generated. Adding default chapters to reach at least 8.")
-            # Add missing default chapters
-            default_keys = list(default_chapters.keys())
-            for i in range(8 - len(chapters)):
-                default_key = default_keys[i]
-                if default_key not in chapters:
-                    chapters[default_key] = default_chapters[default_key]
+            print(f"Only {len(chapters)} chapters were generated. Adding empty chapters to reach at least 8.")
+            for i in range(1, 9):
+                chapter_num = str(i)
+                if chapter_num not in chapters:
+                    chapters[chapter_num] = {
+                        "title": f"Chapter {i}",
+                        "outline": f"Events of chapter {i}",
+                        "scenes": {
+                            "1": {"content": "", "description": f"First scene of chapter {i}", "reflection_notes": []},
+                            "2": {"content": "", "description": f"Second scene of chapter {i}", "reflection_notes": []},
+                            "3": {"content": "", "description": f"Third scene of chapter {i}", "reflection_notes": []}
+                        },
+                        "reflection_notes": []
+                    }
     except Exception as e:
-        print(f"Error generating chapter data: {str(e)}")
-        # Fall back to default chapters
-        chapters = default_chapters
+        print(f"Error generating chapter data with Pydantic: {str(e)}")
         
-        # Ensure we have at least 8 chapters
-        if len(chapters) < 8:
-            print(f"Only {len(chapters)} chapters were generated. Adding default chapters to reach at least 8.")
-            # Add missing default chapters
-            default_keys = list(default_chapters.keys())
-            for i in range(8 - len(chapters)):
-                default_key = default_keys[i]
-                if default_key not in chapters:
-                    chapters[default_key] = default_chapters[default_key]
+        # If structured output fails, try to parse the text directly
+        try:
+            # Create empty chapters dictionary
+            chapters = {}
+            
+            # Parse the chapter plan text to extract chapters
+            import re
+            
+            # Look for chapter patterns like "Chapter 1:", "Chapter One:", etc.
+            chapter_matches = re.finditer(r'(?:Chapter|Kapitel|Chapitre)\s+(\d+|[A-Za-z]+)[:\s-]+([^\n]+)', chapter_plan_text)
+            
+            current_chapter = None
+            current_outline = []
+            
+            lines = chapter_plan_text.split('\n')
+            for i, line in enumerate(lines):
+                # Check if this line starts a new chapter
+                match = re.match(r'(?:Chapter|Kapitel|Chapitre)\s+(\d+|[A-Za-z]+)[:\s-]+([^\n]+)', line)
+                if match:
+                    # If we were processing a previous chapter, save it
+                    if current_chapter:
+                        chapter_num = current_chapter['number']
+                        chapters[chapter_num] = {
+                            "title": current_chapter['title'],
+                            "outline": '\n'.join(current_outline),
+                            "scenes": {
+                                "1": {"content": "", "description": f"First scene of chapter {chapter_num}", "reflection_notes": []},
+                                "2": {"content": "", "description": f"Second scene of chapter {chapter_num}", "reflection_notes": []},
+                                "3": {"content": "", "description": f"Third scene of chapter {chapter_num}", "reflection_notes": []}
+                            },
+                            "reflection_notes": []
+                        }
+                    
+                    # Start a new chapter
+                    chapter_num = match.group(1)
+                    # Convert word numbers to digits if needed
+                    if chapter_num.lower() == 'one': chapter_num = '1'
+                    elif chapter_num.lower() == 'two': chapter_num = '2'
+                    elif chapter_num.lower() == 'three': chapter_num = '3'
+                    elif chapter_num.lower() == 'four': chapter_num = '4'
+                    elif chapter_num.lower() == 'five': chapter_num = '5'
+                    elif chapter_num.lower() == 'six': chapter_num = '6'
+                    elif chapter_num.lower() == 'seven': chapter_num = '7'
+                    elif chapter_num.lower() == 'eight': chapter_num = '8'
+                    elif chapter_num.lower() == 'nine': chapter_num = '9'
+                    elif chapter_num.lower() == 'ten': chapter_num = '10'
+                    
+                    current_chapter = {
+                        'number': chapter_num,
+                        'title': match.group(2).strip()
+                    }
+                    current_outline = []
+                else:
+                    # Add this line to the current chapter's outline
+                    if current_chapter and line.strip():
+                        current_outline.append(line.strip())
+            
+            # Don't forget to save the last chapter
+            if current_chapter:
+                chapter_num = current_chapter['number']
+                chapters[chapter_num] = {
+                    "title": current_chapter['title'],
+                    "outline": '\n'.join(current_outline),
+                    "scenes": {
+                        "1": {"content": "", "description": f"First scene of chapter {chapter_num}", "reflection_notes": []},
+                        "2": {"content": "", "description": f"Second scene of chapter {chapter_num}", "reflection_notes": []},
+                        "3": {"content": "", "description": f"Third scene of chapter {chapter_num}", "reflection_notes": []}
+                    },
+                    "reflection_notes": []
+                }
+            
+            # If we still don't have enough chapters, create empty ones
+            if len(chapters) < 8:
+                print(f"Only {len(chapters)} chapters were extracted. Adding empty chapters to reach at least 8.")
+                for i in range(1, 9):
+                    chapter_num = str(i)
+                    if chapter_num not in chapters:
+                        chapters[chapter_num] = {
+                            "title": f"Chapter {i}",
+                            "outline": f"Events of chapter {i}",
+                            "scenes": {
+                                "1": {"content": "", "description": f"First scene of chapter {i}", "reflection_notes": []},
+                                "2": {"content": "", "description": f"Second scene of chapter {i}", "reflection_notes": []},
+                                "3": {"content": "", "description": f"Third scene of chapter {i}", "reflection_notes": []}
+                            },
+                            "reflection_notes": []
+                        }
+        except Exception as e2:
+            print(f"Error parsing chapter data directly: {str(e2)}")
+            # Create empty chapters as a last resort
+            chapters = {}
+            for i in range(1, 9):
+                chapters[str(i)] = {
+                    "title": f"Chapter {i}",
+                    "outline": f"Events of chapter {i}",
+                    "scenes": {
+                        "1": {"content": "", "description": f"First scene of chapter {i}", "reflection_notes": []},
+                        "2": {"content": "", "description": f"Second scene of chapter {i}", "reflection_notes": []},
+                        "3": {"content": "", "description": f"Third scene of chapter {i}", "reflection_notes": []}
+                    },
+                    "reflection_notes": []
+                }
     
     # Validate the structure and ensure each chapter has the required fields
     for chapter_num, chapter in chapters.items():
@@ -978,8 +929,10 @@ def plan_chapters(state: StoryState) -> Dict:
         if "outline" not in chapter:
             chapter["outline"] = f"Events of chapter {chapter_num}"
         if "scenes" not in chapter:
-            chapter["scenes"] = {"1": {"content": "", "reflection_notes": []}, 
-                                "2": {"content": "", "reflection_notes": []}}
+            chapter["scenes"] = {
+                "1": {"content": "", "description": f"First scene of chapter {chapter_num}", "reflection_notes": []},
+                "2": {"content": "", "description": f"Second scene of chapter {chapter_num}", "reflection_notes": []}
+            }
         if "reflection_notes" not in chapter:
             chapter["reflection_notes"] = []
             
@@ -987,6 +940,8 @@ def plan_chapters(state: StoryState) -> Dict:
         for scene_num, scene in chapter["scenes"].items():
             if "content" not in scene:
                 scene["content"] = ""
+            if "description" not in scene:
+                scene["description"] = f"Scene {scene_num} of chapter {chapter_num}"
             if "reflection_notes" not in scene:
                 scene["reflection_notes"] = []
     

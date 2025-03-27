@@ -201,7 +201,9 @@ def progress_callback(node_name, state):
                     preview = section[:200] + "..." if len(section) > 200 else section
                     sys.stdout.write(f"{preview}\n\n")
             
-            sys.stdout.write(f"[Story outline continues with {len(outline.split(r'\n\n')) - 3} more sections...]\n")
+            # Count the number of sections by splitting on double newlines
+            section_count = len(outline.split('\n\n')) - 3
+            sys.stdout.write(f"[Story outline continues with {section_count} more sections...]\n")
             sys.stdout.write("----------------------------------\n\n")
             
     elif node_name == "generate_characters":

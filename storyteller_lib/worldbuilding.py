@@ -413,7 +413,7 @@ def generate_world_summary(world_elements: Dict[str, Any], genre: str, tone: str
         
         # Add relevance if available
         if relevance:
-            summary += f"\nRelevance: {relevance}"
+            summary += f"{chr(10)}Relevance: {relevance}"
             
         category_summaries.append(summary)
     
@@ -431,7 +431,7 @@ def generate_world_summary(world_elements: Dict[str, Any], genre: str, tone: str
     prompt = f"""
     Based on these world elements:
     
-    {'\n\n'.join(category_summaries)}
+    {chr(10) + chr(10).join(category_summaries)}
     
     {language_instruction}
     
@@ -515,7 +515,7 @@ def generate_worldbuilding(state: StoryState) -> Dict:
                 place_name_examples = "Examples of authentic place naming conventions:\n"
                 for key, value in place_names.items():
                     if value:
-                        place_name_examples += f"- {key}: {value}\n"
+                        place_name_examples += f"- {key}: {value}{chr(10)}"
             
             language_guidance = f"""
             LANGUAGE CONSIDERATIONS:
@@ -605,7 +605,7 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         "world_elements": world_elements,
         "messages": [
             *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=f"I've created detailed worldbuilding elements for your {genre} story with a {tone} tone. The world includes geography, history, culture, politics, economics, technology/magic, religion, and daily life elements that will support your story.\n\nWorld Summary:\n{world_summary}")
+            AIMessage(content=f"I've created detailed worldbuilding elements for your {genre} story with a {tone} tone. The world includes geography, history, culture, politics, economics, technology/magic, religion, and daily life elements that will support your story.{chr(10)}{chr(10)}World Summary:{chr(10)}{world_summary}")
         ]
     }
 

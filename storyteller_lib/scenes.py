@@ -2,6 +2,7 @@
 StoryCraft Agent - Scene generation and management nodes.
 """
 
+import re
 from typing import Dict, List, Any
 
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
@@ -113,7 +114,6 @@ def _retrieve_language_elements(language: str) -> tuple:
         print(f"Error retrieving language consistency instruction: {str(e)}")
         
     return language_elements, consistency_instruction, language_examples
-
 def _prepare_language_guidance(language: str) -> str:
     """Prepare language guidance section for scene writing."""
     if language.lower() == DEFAULT_LANGUAGE:
@@ -121,7 +121,8 @@ def _prepare_language_guidance(language: str) -> str:
         
     _, consistency_instruction, language_examples = _retrieve_language_elements(language)
     
-    return f"""
+    # Create the guidance in English first
+    english_guidance = f"""
     LANGUAGE CONSIDERATIONS:
     You are writing this scene in {SUPPORTED_LANGUAGES[language.lower()]}. Consider the following:
     
@@ -137,6 +138,11 @@ def _prepare_language_guidance(language: str) -> str:
     
     The scene should read as if it was originally written in {SUPPORTED_LANGUAGES[language.lower()]}, not translated.
     """
+    
+    # Translate the guidance to the target language
+    from storyteller_lib.config import translate_guidance
+    translated_guidance = translate_guidance(english_guidance, language)
+    return translated_guidance
 
 def _prepare_creative_guidance(creative_elements: Dict, current_chapter: str, current_scene: str) -> str:
     """Prepare creative guidance section for scene writing."""
@@ -821,8 +827,8 @@ def write_scene(state: StoryState) -> Dict:
     # Generate a comprehensive summary of previous chapters and scenes
     previous_scenes_summary = _generate_previous_scenes_summary(state)
     
-    # Create a prompt for scene writing
-    prompt = f"""
+    # Create a prompt for scene writing with explicit instructions about format
+    english_prompt = f"""
     Write a detailed scene for Chapter {current_chapter}: "{chapter['title']}" (Scene {current_scene}).
     
     Story context:
@@ -869,82 +875,97 @@ def write_scene(state: StoryState) -> Dict:
     Write the scene in third-person perspective with a {tone} style appropriate for {genre} fiction.
     {style_section}
     {language_section}
-    
-    CRITICAL LANGUAGE INSTRUCTION:
-    This scene MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-    ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-    DO NOT switch to any other language at ANY point in the scene.
-    
-    This is a STRICT requirement. The ENTIRE scene must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
-    
-    CRITICAL INSTRUCTION: Return ONLY the actual scene content using the provided format. Do NOT add explanations, comments, notes, or meta-information about your writing process or choices. 
-    IMPORTANT: If the language is set to {SUPPORTED_LANGUAGES[language.lower()]}, you MUST write the ENTIRE scene in {SUPPORTED_LANGUAGES[language.lower()]}. Do not include any text in English or any other language. The complete scene must be written only in {SUPPORTED_LANGUAGES[language.lower()]}.
     """
     
-    # Define a Pydantic model for structured scene output
-    from pydantic import BaseModel, Field
+    # Translate the entire prompt if needed
+    from storyteller_lib.config import translate_guidance
     
-    class SceneContent(BaseModel):
-        """Scene content model."""
+    if language.lower() != DEFAULT_LANGUAGE:
+        # First, add the language instruction to the English prompt
+        english_language_instruction = f"""
+        CRITICAL LANGUAGE INSTRUCTION:
+        This scene MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
+        DO NOT switch to any other language at ANY point in the scene.
         
-        content: str = Field(
-            description="The complete scene content, ready to be used in the story"
-        )
+        This is a STRICT requirement. The ENTIRE scene must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
+        """
+        
+        # Add the language instruction to the English prompt
+        english_prompt += f"\n{english_language_instruction}\n"
+        
+        # Now translate the entire prompt to the target language
+        prompt = translate_guidance(english_prompt, language)
+        
+        print(f"Translated scene prompt to {SUPPORTED_LANGUAGES[language.lower()]}")
+    else:
+        # For English, use the English prompt as is
+        prompt = english_prompt
     
-    # Create a structured LLM that outputs a SceneContent object
-    structured_llm = llm.with_structured_output(SceneContent)
+    # Enhance the prompt to be extremely explicit about returning only the scene content
+    if language.lower() != DEFAULT_LANGUAGE:
+        # For non-English languages, translate the format requirements too
+        english_format_requirements = """
+        OUTPUT FORMAT REQUIREMENTS:
+        1. Return ONLY the raw scene content itself - NOTHING ELSE.
+        2. DO NOT include any explanations, comments, notes, or meta-information.
+        3. DO NOT include phrases like "Here's the scene" or "Scene content:" or "I've written".
+        4. DO NOT include any JSON formatting or structured output.
+        5. DO NOT include any markdown formatting like ```json or ```.
+        6. DO NOT include any headers, footers, or section titles.
+        
+        RETURN ONLY THE RAW SCENE CONTENT ITSELF - NOTHING ELSE.
+        
+        The first line of your response should be the first line of the scene.
+        The last line of your response should be the last line of the scene.
+        """
+        
+        format_requirements = translate_guidance(english_format_requirements, language)
+        enhanced_prompt = prompt + format_requirements
+    else:
+        # For English, use the English format requirements
+        enhanced_prompt = prompt + """
+        OUTPUT FORMAT REQUIREMENTS:
+        1. Return ONLY the raw scene content itself - NOTHING ELSE.
+        2. DO NOT include any explanations, comments, notes, or meta-information.
+        3. DO NOT include phrases like "Here's the scene" or "Scene content:" or "I've written".
+        4. DO NOT include any JSON formatting or structured output.
+        5. DO NOT include any markdown formatting like ```json or ```.
+        6. DO NOT include any headers, footers, or section titles.
+        
+        RETURN ONLY THE RAW SCENE CONTENT ITSELF - NOTHING ELSE.
+        
+        The first line of your response should be the first line of the scene.
+        The last line of your response should be the last line of the scene.
+        """
     
-    # Use the structured LLM to generate the scene
+    print("SCENENPROMPT: " + prompt)
+    # Use direct LLM invocation instead of structured output
     try:
-        # Use the prompt without explicit format instructions (structured_output handles this)
-        scene_content_obj = structured_llm.invoke(prompt)
-        scene_content = scene_content_obj.content
-        print(f"Successfully generated structured scene content for scene {current_chapter}_{current_scene}")
-    except Exception as e:
-        # If structured output fails, fall back to unstructured output with a more explicit error message
-        print(f"Warning: Structured output failed for scene {current_chapter}_{current_scene}: {str(e)}")
-        print("Falling back to unstructured output")
+        # Generate the scene content directly
+        response = llm.invoke([HumanMessage(content=enhanced_prompt)]).content
         
-        # Try to extract JSON from the response if possible
-        try:
-            import json
-            import re
-            
-            # Generate response without structured output
-            response = llm.invoke([HumanMessage(content=prompt)]).content
-            
-            # Try to find JSON in the response
-            json_match = re.search(r'({.*})', response, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(1)
-                json_data = json.loads(json_str)
-                if "content" in json_data:
-                    scene_content = json_data["content"]
-                    print("Successfully extracted JSON content from unstructured response")
-                else:
-                    scene_content = response.strip()
-            else:
-                # If no JSON found, try to clean up the response
-                # Look for patterns that might indicate explanatory text
-                explanatory_patterns = [
-                    r'^.*?(?:Here\'s|Here is|I\'ve written|The scene|Scene content).*?\n\n(.*)',
-                    r'^.*?(?:SCENE CONTENT|SCENE).*?\n\n(.*)',
-                ]
-                
-                cleaned_response = response.strip()
-                for pattern in explanatory_patterns:
-                    match = re.search(pattern, cleaned_response, re.IGNORECASE | re.DOTALL)
-                    if match:
-                        cleaned_response = match.group(1).strip()
-                        print(f"Cleaned explanatory text from scene {current_chapter}_{current_scene}")
-                        break
-                
-                scene_content = cleaned_response
-        except Exception as json_error:
-            print(f"JSON extraction fallback also failed: {str(json_error)}")
-            # Use the original response as a last resort
-            response = llm.invoke([HumanMessage(content=prompt)]).content
-            scene_content = response.strip()
+        # Clean up the response
+        scene_content = response.strip()
+        
+        # Look for patterns that might indicate explanatory text and remove them
+        explanatory_patterns = [
+            r'^.*?(?:Here\'s|Here is|I\'ve written|The scene|Scene content).*?\n\n(.*)',
+            r'^.*?(?:SCENE CONTENT|SCENE).*?\n\n(.*)',
+        ]
+        
+        for pattern in explanatory_patterns:
+            match = re.search(pattern, scene_content, re.IGNORECASE | re.DOTALL)
+            if match:
+                scene_content = match.group(1).strip()
+                print(f"Cleaned explanatory text from scene {current_chapter}_{current_scene}")
+                break
+        
+        print(f"Successfully generated scene content for scene {current_chapter}_{current_scene}")
+    except Exception as e:
+        print(f"Error generating scene {current_chapter}_{current_scene}: {str(e)}")
+        # Provide a placeholder scene content in case of error
+        scene_content = f"[Error generating scene content: {str(e)}]"
     
     # Apply post-processing for showing vs. telling if enabled
     if post_process_showing:
@@ -1476,7 +1497,6 @@ def reflect_on_scene(state: StoryState) -> Dict:
     reflection_summary = reflection_dict.get("overall_assessment", "No summary available")
     
     # Print debug information about the issues
-    print(f"\nDEBUG BEFORE STORAGE: Found {len(reflection_dict.get('issues', []))} issues in reflection_dict")
     for i, issue in enumerate(reflection_dict.get('issues', [])):
         print(f"DEBUG BEFORE STORAGE: Issue {i+1} - Type: {issue.get('type', 'unknown')}, Severity: {issue.get('severity', 'N/A')}")
         print(f"DEBUG BEFORE STORAGE: Description: '{issue.get('description', '')}'")
@@ -1820,12 +1840,18 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         # Prepare language guidance
         language_section = ""
         if language.lower() != DEFAULT_LANGUAGE:
-            language_section = f"""
+            # Create the guidance in English first
+            from storyteller_lib.config import translate_guidance
+            
+            english_language_section = f"""
             LANGUAGE REQUIREMENTS:
             This scene MUST be written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
             Do not include any text in English or any other language.
             The complete scene must be written only in {SUPPORTED_LANGUAGES[language.lower()]}.
             """
+            
+            # Translate the guidance to the target language
+            language_section = translate_guidance(english_language_section, language)
         # Get active plot threads for this scene
         active_plot_threads = get_active_plot_threads_for_scene(state)
         
@@ -1872,8 +1898,23 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         # Generate a comprehensive summary of previous chapters and scenes
         previous_scenes_summary = _generate_previous_scenes_summary(state)
         
-        # Prompt for scene revision - updated for structured output
+        # Calculate original scene metrics
+        original_paragraphs = [p for p in scene_content.split("\n\n") if p.strip()]
+        original_paragraph_count = len(original_paragraphs)
+        original_length = len(scene_content)
+        original_word_count = len(scene_content.split())
+        
+        # Prompt for scene revision - updated for structured output with improved formatting instructions
         prompt = f"""
+        {language_section if language.lower() != DEFAULT_LANGUAGE else ""}
+        
+        CRITICAL FORMATTING INSTRUCTIONS:
+        - MAINTAIN the original paragraph structure and formatting
+        - Your revised scene MUST have a similar number of paragraphs (original has {original_paragraph_count} paragraphs)
+        - Your revised scene MUST be similar in length to the original (original is {original_word_count} words, {original_length} characters)
+        - Preserve paragraph breaks, dialogue formatting, and overall text structure
+        - The revised scene should NOT be significantly shorter than the original
+        
         Revise this scene based on the following structured feedback:
         
         ORIGINAL SCENE:
@@ -1910,6 +1951,8 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         5. Ensure no NEW continuity errors are introduced.
         6. Properly address and advance all major plot threads, and incorporate minor threads where relevant.
         7. If a language mismatch was identified, ensure the ENTIRE scene is written in the specified language.
+        8. MAINTAIN the original paragraph structure and formatting (approximately {original_paragraph_count} paragraphs)
+        9. Keep the scene length similar to the original ({original_word_count} words)
         
         {language_section}
         
@@ -1918,53 +1961,170 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         CRITICAL INSTRUCTION: Return ONLY the actual revised scene content. Do NOT include any explanations, comments, notes, or meta-information about your revision process or choices. The output should be ONLY the narrative text that will appear in the final story.
         """
         
-        # Define a Pydantic model for structured scene output
-        from pydantic import BaseModel, Field
+        # Enhance the prompt to be extremely explicit about returning only the scene content
+        enhanced_prompt = prompt + """
         
-        class RevisedScene(BaseModel):
-            """Revised scene content."""
-            
-            content: str = Field(
-                description="The complete revised scene content, ready to be used in the story"
-            )
+        OUTPUT FORMAT REQUIREMENTS:
+        1. Return ONLY the raw revised scene content itself - NOTHING ELSE.
+        2. DO NOT include any explanations, comments, notes, or meta-information.
+        3. DO NOT include phrases like "Here's the scene" or "Scene content:" or "I've revised".
+        4. DO NOT include any JSON formatting or structured output.
+        5. DO NOT include any markdown formatting like ```json or ```.
+        6. DO NOT include any headers, footers, or section titles.
         
-        # Create a structured LLM that outputs a RevisedScene object
-        structured_llm = llm.with_structured_output(RevisedScene)
+        The first line of your response should be the first line of the scene.
+        The last line of your response should be the last line of the scene.
+        """
         
-        # Use the structured LLM to generate the revised scene
+        # Use direct LLM invocation instead of structured output
         try:
-            # Use the prompt without explicit format instructions (structured_output handles this)
-            revised_scene_obj = structured_llm.invoke(prompt)
-            revised_scene = revised_scene_obj.content
-            print(f"Successfully generated structured scene content for revised scene {current_chapter}_{current_scene}")
-        except Exception as e:
-            # If structured output fails, fall back to unstructured output with a more explicit error message
-            print(f"Warning: Structured output failed for revised scene {current_chapter}_{current_scene}: {str(e)}")
-            print("Falling back to unstructured output")
+            # Generate the revised scene content directly
+            import re
+            response = llm.invoke([HumanMessage(content=enhanced_prompt)]).content
             
-            # Try to extract JSON from the response if possible
-            try:
-                import json
-                import re
-                
-                # Generate response without structured output
-                response = llm.invoke([HumanMessage(content=prompt)]).content
-                
-                # Try to find JSON in the response
-                json_match = re.search(r'({.*})', response, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(1)
-                    json_data = json.loads(json_str)
-                    if "content" in json_data:
-                        revised_scene = json_data["content"]
-                        print("Successfully extracted JSON content from unstructured response")
-                    else:
-                        revised_scene = response.strip()
-                else:
-                    revised_scene = response.strip()
-            except Exception as json_error:
-                print(f"JSON extraction fallback also failed: {str(json_error)}")
+            # Check if response is None
+            if response is None:
+                print("Warning: LLM returned None response")
+                revised_scene = "Error: Failed to generate revised scene content."
+            else:
+                # Clean up the response
                 revised_scene = response.strip()
+                
+                # Look for patterns that might indicate explanatory text and remove them
+                explanatory_patterns = [
+                    r'^.*?(?:Here\'s|Here is|I\'ve revised|The scene|Scene content|Revised scene).*?\n\n(.*)',
+                    r'^.*?(?:SCENE CONTENT|SCENE|REVISED SCENE).*?\n\n(.*)',
+                ]
+                
+                for pattern in explanatory_patterns:
+                    match = re.search(pattern, revised_scene, re.IGNORECASE | re.DOTALL)
+                    if match:
+                        revised_scene = match.group(1).strip()
+                        print(f"Cleaned explanatory text from revised scene {current_chapter}_{current_scene}")
+                        break
+                
+                print(f"Successfully generated revised scene content for scene {current_chapter}_{current_scene}")
+        except Exception as e:
+            print(f"Error generating revised scene {current_chapter}_{current_scene}: {str(e)}")
+            revised_scene = f"Error: Failed to generate revised scene content: {str(e)}"
+        
+        # Post-revision validation
+        validation_issues = []
+        
+        # Check if revised_scene is the error message
+        if revised_scene.startswith("Error:"):
+            validation_issues.append(revised_scene)
+            print(f"Validation skipped due to error: {revised_scene}")
+            # Set default values for validation metrics
+            revised_length = 0
+            revised_word_count = 0
+            original_length = len(scene_content)
+            original_word_count = len(scene_content.split())
+            length_ratio = 0
+            word_ratio = 0
+            paragraph_ratio = 0
+            original_paragraph_count = len([p for p in scene_content.split("\n\n") if p.strip()])
+            revised_paragraph_count = 0
+        else:
+            # 1. Check scene length
+            revised_length = len(revised_scene)
+            revised_word_count = len(revised_scene.split())
+            original_length = len(scene_content)
+            original_word_count = len(scene_content.split())
+            
+            length_ratio = revised_length / original_length if original_length > 0 else 0
+            word_ratio = revised_word_count / original_word_count if original_word_count > 0 else 0
+            
+            print(f"Length validation: Original {original_length} chars, {original_word_count} words | Revised {revised_length} chars, {revised_word_count} words")
+            print(f"Ratio: {length_ratio:.2f} (chars), {word_ratio:.2f} (words)")
+        
+        if length_ratio < 0.7:  # If revised scene is less than 70% of original length
+            validation_issues.append(f"Revised scene is significantly shorter than original (ratio: {length_ratio:.2f})")
+        
+        # 2. Check paragraph structure
+        if not revised_scene.startswith("Error:"):
+            original_paragraphs = [p for p in scene_content.split("\n\n") if p.strip()]
+            revised_paragraphs = [p for p in revised_scene.split("\n\n") if p.strip()]
+            
+            original_paragraph_count = len(original_paragraphs)
+            revised_paragraph_count = len(revised_paragraphs)
+            
+            paragraph_ratio = revised_paragraph_count / original_paragraph_count if original_paragraph_count > 0 else 0
+            
+            print(f"Paragraph validation: Original {original_paragraph_count} paragraphs | Revised {revised_paragraph_count} paragraphs")
+            print(f"Paragraph ratio: {paragraph_ratio:.2f}")
+            
+            if paragraph_ratio < 0.7:  # If revised scene has less than 70% of original paragraphs
+                validation_issues.append(f"Revised scene has significantly fewer paragraphs than original (ratio: {paragraph_ratio:.2f})")
+        
+        # 3. Check language consistency if not English
+        if language.lower() != DEFAULT_LANGUAGE and not revised_scene.startswith("Error:"):
+            # Use LLM to check language
+            language_check_prompt = f"""
+            Check if this text is written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
+            
+            Text to check:
+            {revised_scene[:500]}... [text continues]
+            
+            Respond with ONLY "YES" if the text is completely in {SUPPORTED_LANGUAGES[language.lower()]},
+            or "NO" if it contains English or other languages.
+            """
+            
+            try:
+                language_check_response = llm.invoke([HumanMessage(content=language_check_prompt)]).content.strip().upper()
+                
+                print(f"Language validation: Is text in {SUPPORTED_LANGUAGES[language.lower()]}? {language_check_response}")
+                
+                if "NO" in language_check_response:
+                    validation_issues.append(f"Revised scene is not written in {SUPPORTED_LANGUAGES[language.lower()]}")
+            except Exception as lang_check_error:
+                print(f"Language validation failed: {str(lang_check_error)}")
+                validation_issues.append(f"Language validation failed: {str(lang_check_error)}")
+        
+        # If validation issues are found, try to regenerate the scene once
+        if validation_issues and revision_count < 2 and not revised_scene.startswith("Error:"):  # Only retry once to avoid infinite loops and skip if error
+            print(f"Validation failed with issues: {validation_issues}")
+            print("Attempting to regenerate the scene with stronger constraints...")
+            
+            # Enhance the prompt with even stronger constraints
+            enhanced_prompt = prompt + f"""
+            
+            CRITICAL VALIDATION ERRORS DETECTED IN PREVIOUS ATTEMPT:
+            {', '.join(validation_issues)}
+            
+            STRICT REQUIREMENTS:
+            1. The scene MUST be at least {original_length} characters long (previous attempt: {revised_length})
+            2. The scene MUST have at least {original_paragraph_count} paragraphs (previous attempt: {revised_paragraph_count})
+            3. The scene MUST be written entirely in {SUPPORTED_LANGUAGES[language.lower()] if language.lower() != DEFAULT_LANGUAGE else 'the same language as the original'}
+            
+            FAILURE TO MEET THESE REQUIREMENTS WILL RESULT IN REJECTION.
+            """
+            
+            try:
+                # Try again with enhanced prompt
+                revised_scene_obj = structured_llm.invoke(enhanced_prompt)
+                revised_scene = revised_scene_obj.content
+                print("Successfully regenerated scene with stronger constraints")
+            except Exception as retry_error:
+                print(f"Regeneration attempt also failed: {str(retry_error)}")
+                # Keep the original revised scene if regeneration fails
+        
+        # Log validation results
+        if validation_issues:
+            print(f"WARNING: Validation issues with revised scene: {validation_issues}")
+            # Store validation issues in memory for reference
+            manage_memory_tool.invoke({
+                "action": "create",
+                "key": f"chapter_{current_chapter}_scene_{current_scene}_validation_issues",
+                "value": {
+                    "issues": validation_issues,
+                    "original_length": original_length,
+                    "revised_length": revised_length,
+                    "original_paragraphs": original_paragraph_count,
+                    "revised_paragraphs": revised_paragraph_count,
+                    "timestamp": "now"
+                }
+            })
         # Increment revision count
         revised_counts[f"{current_chapter}_{current_scene}"] = revision_count + 1
         # Log that an improved scene was generated based on the reflection
@@ -2016,7 +2176,18 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
                         "revision_number": revision_count + 1
                     }
                     for issue in issues
-                ]
+                ],
+                "validation_metrics": {
+                    "original_length": original_length,
+                    "revised_length": revised_length,
+                    "original_word_count": original_word_count,
+                    "revised_word_count": revised_word_count,
+                    "original_paragraph_count": original_paragraph_count,
+                    "revised_paragraph_count": revised_paragraph_count,
+                    "length_ratio": length_ratio,
+                    "paragraph_ratio": paragraph_ratio,
+                    "validation_issues": validation_issues
+                }
             }
         }
         
@@ -2066,6 +2237,13 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
                     "timestamp": "now",
                     "original_size": len(scene_content) if scene_content else 0,
                     "revised_size": len(revised_scene) if revised_scene else 0,
+                    "original_word_count": original_word_count,
+                    "revised_word_count": revised_word_count,
+                    "original_paragraph_count": original_paragraph_count,
+                    "revised_paragraph_count": revised_paragraph_count,
+                    "length_ratio": length_ratio,
+                    "paragraph_ratio": paragraph_ratio,
+                    "validation_issues": validation_issues,
                     "revision_number": revision_count + 1,
                     "plot_threads_count": len(active_plot_threads) if active_plot_threads else 0,
                     "major_threads_count": len([t for t in active_plot_threads if t["importance"] == "major"]) if active_plot_threads else 0
@@ -2074,7 +2252,8 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
             
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address the identified issues and plot threads (revision #{revision_count + 1}).")
+                AIMessage(content=f"I've revised scene {current_scene} of chapter {current_chapter} to address the identified issues and plot threads (revision #{revision_count + 1})." +
+                         (f" Note: Some validation issues were detected: {', '.join(validation_issues)}" if validation_issues else ""))
             ]
         }
 
