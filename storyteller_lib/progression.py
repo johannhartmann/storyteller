@@ -332,7 +332,7 @@ def review_continuity(state: StoryState) -> Dict:
         for scene_num, scene in sorted(chapter["scenes"].items(), key=lambda x: int(x[0])):
             scenes_summary.append(f"Scene {scene_num}: {scene['content'][:150]}...")
         
-        chapter_summaries.append(f"Chapter {chapter_num}: {chapter['title']}\n{chapter['outline']}\nKey scenes: {'; '.join(scenes_summary)}")
+        chapter_summaries.append(f"Chapter {chapter_num}: {chapter['title']}{chr(10)}{chapter['outline']}{chr(10)}Key scenes: {'; '.join(scenes_summary)}")
     
     # Prepare world elements section
     world_elements_section = ""
@@ -352,7 +352,7 @@ def review_continuity(state: StoryState) -> Dict:
     {global_story[:1000]}...
     
     COMPLETED CHAPTERS:
-    {'\n\n'.join(chapter_summaries)}
+    {chr(10) + chr(10).join(chapter_summaries)}
     
     CHARACTER PROFILES:
     {characters}
@@ -393,7 +393,7 @@ def review_continuity(state: StoryState) -> Dict:
     if needs_resolution:
         # Extract issues to resolve
         issues_to_resolve = []
-        for line in review_result.split("\n"):
+        for line in review_result.split(chr(10)):
             if "issue:" in line.lower() or "problem:" in line.lower() or "inconsistency:" in line.lower():
                 issues_to_resolve.append(line.strip())
         
@@ -432,10 +432,10 @@ def review_continuity(state: StoryState) -> Dict:
         })
         
         # Log that the chapter is complete
-        print(f"\n==== CHAPTER {current_chapter} COMPLETED ====")
+        print(f"{chr(10)}==== CHAPTER {current_chapter} COMPLETED ====")
         print(f"Continuity review completed for Chapter {current_chapter} with no critical issues.")
         print(f"The chapter is now ready to be written to the output file.")
-        print(f"=================================\n")
+        print(f"================================={chr(10)}")
         
         return {
             "continuity_phase": "complete",
@@ -578,7 +578,7 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
             "continuity_phase": "complete",
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=f"I've resolved the continuity issue: {current_issue}\n\nResolution Plan:\n{resolution_plan}\n\nAll continuity issues have been resolved.")
+                AIMessage(content=f"I've resolved the continuity issue: {current_issue}{chr(10)}{chr(10)}Resolution Plan:{chr(10)}{resolution_plan}{chr(10)}{chr(10)}All continuity issues have been resolved.")
             ]
         }
     else:
@@ -587,7 +587,7 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
             "resolution_index": next_resolution_index,
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-                AIMessage(content=f"I've resolved the continuity issue: {current_issue}\n\nResolution Plan:\n{resolution_plan}\n\nMoving on to the next issue.")
+                AIMessage(content=f"I've resolved the continuity issue: {current_issue}{chr(10)}{chr(10)}Resolution Plan:{chr(10)}{resolution_plan}{chr(10)}{chr(10)}Moving on to the next issue.")
             ]
         }
 
@@ -671,13 +671,13 @@ def compile_final_story(state: StoryState) -> Dict:
     unresolved_threads_warning = ""
     if not plot_thread_resolution.get("all_major_threads_resolved", True):
         unresolved_threads = plot_thread_resolution.get("unresolved_major_threads", [])
-        unresolved_threads_warning = "\n\n## WARNING: Unresolved Plot Threads\n\n"
-        unresolved_threads_warning += "The following major plot threads were not resolved in the story:\n\n"
+        unresolved_threads_warning = f"{chr(10)}{chr(10)}## WARNING: Unresolved Plot Threads{chr(10)}{chr(10)}"
+        unresolved_threads_warning += f"The following major plot threads were not resolved in the story:{chr(10)}{chr(10)}"
         
         for thread in unresolved_threads:
-            unresolved_threads_warning += f"- **{thread['name']}**: {thread['description']}\n"
-            unresolved_threads_warning += f"  - First appeared: {thread['first_appearance']}\n"
-            unresolved_threads_warning += f"  - Last mentioned: {thread['last_appearance']}\n\n"
+            unresolved_threads_warning += f"- **{thread['name']}**: {thread['description']}{chr(10)}"
+            unresolved_threads_warning += f"  - First appeared: {thread['first_appearance']}{chr(10)}"
+            unresolved_threads_warning += f"  - Last mentioned: {thread['last_appearance']}{chr(10)}{chr(10)}"
     
     # Compile the story content
     story_content = []
@@ -686,7 +686,7 @@ def compile_final_story(state: StoryState) -> Dict:
     story_title = "Untitled Story"  # Default title
     
     # Try to extract a title from the global story
-    title_lines = [line for line in global_story.split("\n") if "title" in line.lower()]
+    title_lines = [line for line in global_story.split(chr(10)) if "title" in line.lower()]
     if title_lines:
         # Extract the title from the first line that mentions "title"
         title_line = title_lines[0]
@@ -725,7 +725,7 @@ def compile_final_story(state: StoryState) -> Dict:
             story_content.append("")
     
     # Join all content
-    final_story = "\n".join(story_content)
+    final_story = chr(10).join(story_content)
     
     # Store the final story in memory
     manage_memory_tool.invoke({
@@ -766,8 +766,8 @@ def compile_final_story(state: StoryState) -> Dict:
         "plot_thread_resolution": plot_thread_resolution,
         "messages": [
             *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=f"I've compiled the final story: {story_title}\n\nSummary:\n{story_summary}\n\nThe complete story has been generated successfully." +
-                      (f"\n\nNote: {len(plot_thread_resolution.get('unresolved_major_threads', []))} major plot threads remain unresolved."
+            AIMessage(content=f"I've compiled the final story: {story_title}{chr(10)}{chr(10)}Summary:{chr(10)}{story_summary}{chr(10)}{chr(10)}The complete story has been generated successfully." +
+                      (f"{chr(10)}{chr(10)}Note: {len(plot_thread_resolution.get('unresolved_major_threads', []))} major plot threads remain unresolved."
                        if not plot_thread_resolution.get("all_major_threads_resolved", True) else ""))
         ]
     }

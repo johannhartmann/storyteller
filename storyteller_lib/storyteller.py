@@ -672,7 +672,7 @@ def generate_story(
     result = graph.invoke(
         initial_state,
         config={
-            "recursion_limit": 400,
+            "recursion_limit": 1000,
             "configurable": {
                 "thread_id": f"{genre}_{tone}_{language}_{author}".replace(" ", "_")
             }

@@ -347,6 +347,49 @@ def cleanup_old_state(state: Dict[str, Any], current_chapter: str) -> Dict[str, 
     
     return cleanup_updates
 
+# Translation utility for guidance text
+from langchain_core.messages import HumanMessage
+
+def translate_guidance(guidance_text: str, target_language: str) -> str:
+    """
+    Translate guidance text to the target language using LLM.
+    
+    Args:
+        guidance_text: The text to translate (in English)
+        target_language: The target language code
+        
+    Returns:
+        Translated guidance text
+    """
+    if target_language.lower() == DEFAULT_LANGUAGE:
+        return guidance_text
+    
+    # Check if language is supported
+    if target_language.lower() not in SUPPORTED_LANGUAGES:
+        logger.warning(f"Unsupported language '{target_language}'. Falling back to {DEFAULT_LANGUAGE}.")
+        return guidance_text
+    
+    # Get the full language name
+    language_name = SUPPORTED_LANGUAGES[target_language.lower()]
+    
+    prompt = f"""
+    Translate the following writing guidance to {language_name}.
+    Maintain all formatting, bullet points, and structure.
+    Ensure the translation sounds natural to native {language_name} speakers.
+    
+    TEXT TO TRANSLATE:
+    {guidance_text}
+    
+    IMPORTANT: Return ONLY the translated text, without any explanations or notes.
+    """
+    
+    try:
+        translated_guidance = llm.invoke([HumanMessage(content=prompt)]).content
+        return translated_guidance
+    except Exception as e:
+        logger.error(f"Translation failed: {str(e)}")
+        return guidance_text  # Fallback to original text if translation fails
+
 # Final garbage collection
 gc.collect()
 gc.collect()
