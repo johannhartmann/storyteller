@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs     = { url = "github:NixOS/nixpkgs/nixos-25.05"; };
     flake-utils = { url = "github:numtide/flake-utils"; };
-    mach-nix    = { url = "github:DavHau/mach-nix"; };
+    mach-nix    = { url = "github:DavHau/mach-nix"; flake = false; };
   };
 
   outputs = { self, nixpkgs, flake-utils, mach-nix, ... }:
