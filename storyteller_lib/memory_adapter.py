@@ -4,13 +4,15 @@ StoryCraft Agent - Memory Adapter.
 This module provides an adapter between LangMem's memory tools and LangGraph's SqliteSaver.
 """
 
+# Standard library imports
 import gc
 import json
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from langgraph.checkpoint.sqlite import SqliteSaver
+# Third party imports
 from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 
 class MemoryStoreAdapter:
@@ -22,7 +24,7 @@ class MemoryStoreAdapter:
     This adapter bridges the gap between these two interfaces.
     """
     
-    def __init__(self, store: SqliteSaver, namespace: Tuple[str, ...] = ("default",)):
+    def __init__(self, store: SqliteSaver, namespace: Tuple[str, ...] = ("default",)) -> None:
         """
         Initialize the adapter with a SqliteSaver instance.
         

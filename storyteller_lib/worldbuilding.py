@@ -408,8 +408,15 @@ def generate_world_summary(world_elements: Dict[str, Any], genre: str, tone: str
         
         # Add key elements to the summary
         for field, value in category_data.items():
-            if field != "relevance":
-                summary += f"{field}: {value[:100]}... "
+            if field != "relevance" and value is not None:
+                # Handle different value types
+                if isinstance(value, str):
+                    value_str = value[:100] + "..." if len(value) > 100 else value
+                elif isinstance(value, list):
+                    value_str = ", ".join(str(v) for v in value[:3]) + ("..." if len(value) > 3 else "")
+                else:
+                    value_str = str(value)
+                summary += f"{field}: {value_str} "
         
         # Add relevance if available
         if relevance:
@@ -556,11 +563,16 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         )
         world_elements[category_name] = category_data
     
-    # Store the world elements in memory
+    # World elements are now stored in database via database_integration
+    # Only store worldbuilding metadata in memory
     manage_memory_tool.invoke({
         "action": "create",
-        "key": "world_elements_initial",
-        "value": world_elements,
+        "key": "worldbuilding_metadata",
+        "value": {
+            "categories": list(world_elements.keys()),
+            "element_count": sum(len(elements) for elements in world_elements.values()),
+            "creation_notes": "World elements created and stored in database"
+        },
         "namespace": MEMORY_NAMESPACE
     })
     
@@ -599,6 +611,10 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         "value": world_summary,
         "namespace": MEMORY_NAMESPACE
     })
+    
+    # Log world elements
+    from storyteller_lib.story_progress_logger import log_progress
+    log_progress("world_elements", world_elements=world_elements)
     
     # Return the world elements and summary
     return {

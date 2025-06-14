@@ -206,6 +206,7 @@ def initialize_state(state: StoryState) -> Dict:
 def brainstorm_story_concepts(state: StoryState) -> Dict:
     """Brainstorm creative story concepts before generating the outline."""
     from storyteller_lib.creative_tools import creative_brainstorm
+    from storyteller_lib.story_progress_logger import log_progress
     
     # Try to recover from memory if initial_idea is not in state
     if "initial_idea" not in state:
@@ -489,6 +490,13 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
+    
+    # Log creative concepts
+    log_progress("creative_concepts", concepts={
+        "story_concept": brainstorm_results.get("recommended_ideas", ""),
+        "worldbuilding_ideas": world_building_results.get("recommended_ideas", ""),
+        "central_conflict": conflict_results.get("recommended_ideas", "")
+    })
     
     # Update state with brainstormed ideas
     return {

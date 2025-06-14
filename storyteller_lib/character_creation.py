@@ -1001,17 +1001,27 @@ def generate_characters(state: StoryState) -> Dict:
                 if default_key not in characters_dict:
                     characters_dict[default_key] = DEFAULT_CHARACTERS[default_key]
     
-    # Store character profiles in memory
-    for char_name, profile in characters_dict.items():
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": f"character_{char_name}",
-            "value": profile
-        })
+    # Character profiles are now stored in database via database_integration
+    # Only store character creation metadata in memory
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": "character_creation_metadata",
+        "value": {
+            "character_count": len(characters_dict),
+            "character_roles": {name: char.get("role", "") for name, char in characters_dict.items()},
+            "creation_notes": "Characters created and stored in database"
+        },
+        "namespace": MEMORY_NAMESPACE
+    })
     
     # Update state
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
+    
+    # Log each character
+    from storyteller_lib.story_progress_logger import log_progress
+    for char_data in characters_dict.values():
+        log_progress("character", character=char_data)
     
     # Create message for the user
     new_msg = AIMessage(content="I've developed detailed character profiles with interconnected backgrounds and motivations. Now I'll plan the chapters.")

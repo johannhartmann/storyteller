@@ -4,16 +4,24 @@ Run the StoryCraft agent to generate a complete story with progress updates.
 Uses LangGraph's native edge system for improved reliability with complex stories.
 """
 
+# Standard library imports
+import argparse
+import logging.config
 import os
 import sys
 import time
-import argparse
-import logging.config
+from typing import Any, Dict, Optional
+
+# Third party imports
 from dotenv import load_dotenv
-from storyteller_lib.storyteller import generate_story
-from storyteller_lib import set_progress_callback, reset_progress_tracking
+
+# Local imports
+from storyteller_lib import reset_progress_tracking, set_progress_callback
 from storyteller_lib.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.constants import NodeNames
+from storyteller_lib.progress_manager import ProgressManager, create_progress_manager
 from storyteller_lib.story_info import save_story_info
+from storyteller_lib.storyteller import generate_story
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,13 +33,9 @@ else:
     # Fallback if config file not found - at least silence httpx
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
-# Progress tracking variables
-start_time = None
-node_counts = {}
-current_chapter = None
-current_scene = None
-verbose_mode = False
-def write_chapter_to_file(chapter_num, chapter_data, output_file):
+# Global progress manager instance
+progress_manager: Optional[ProgressManager] = None
+def write_chapter_to_file(chapter_num: int, chapter_data: Dict[str, Any], output_file: str) -> None:
     """
     Write a completed chapter to the output file.
     
@@ -90,7 +94,7 @@ def write_chapter_to_file(chapter_num, chapter_data, output_file):
     except IOError as e:
         print(f"Error writing chapter {chapter_num} to {output_file}: {str(e)}")
 
-def progress_callback(node_name, state):
+def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
     """
     Report progress during story generation.
     
@@ -98,25 +102,25 @@ def progress_callback(node_name, state):
         node_name: The name of the node that just finished executing
         state: The current state of the story generation
     """
-    global start_time, node_counts, current_chapter, current_scene, verbose_mode, output_file
-    global start_time, node_counts, current_chapter, current_scene, verbose_mode
+    if not progress_manager:
+        return
+        
+    # Initialize tracking variables
+    current_chapter = progress_manager.state.current_chapter
+    current_scene = progress_manager.state.current_scene
+        
+    # Update node counts and state directly to avoid recursion
+    progress_manager.state.node_counts[node_name] = progress_manager.state.node_counts.get(node_name, 0) + 1
     
-    # Initialize start time if not set
-    if start_time is None:
-        start_time = time.time()
+    # Update chapter/scene tracking
+    if "current_chapter" in state:
+        progress_manager.state.current_chapter = state["current_chapter"]
+    if "current_scene" in state:
+        progress_manager.state.current_scene = state["current_scene"]
     
-    # Initialize the node count for this node if not already tracked
-    if node_name not in node_counts:
-        node_counts[node_name] = 0
-    
-    # Increment the count for this node
-    node_counts[node_name] += 1
-    
-    # Get elapsed time
-    elapsed = time.time() - start_time
-    elapsed_str = f"{elapsed:.1f}s"
-    # Create a detailed progress report based on the node that just finished
-    progress_message = f"[{elapsed_str}] Completed: {node_name}"
+    # Get formatted progress message
+    progress_message = progress_manager.get_progress_message(node_name)
+    elapsed_str = progress_manager.state.get_elapsed_time()
     
     # Add detailed node-specific progress information
     if node_name == "initialize_state":
@@ -527,19 +531,20 @@ def progress_callback(node_name, state):
     
     # If we're transitioning to a new chapter/scene, show more detailed information
     if new_chapter and new_scene and (current_chapter != new_chapter or current_scene != new_scene):
-        current_chapter = new_chapter
-        current_scene = new_scene
+        # Update the progress manager's state
+        progress_manager.state.current_chapter = new_chapter
+        progress_manager.state.current_scene = new_scene
         
         # Report chapter and scene progress with more details
-        if current_chapter and current_scene:
+        if new_chapter and new_scene:
             chapters = state.get("chapters", {})
-            if current_chapter in chapters:
-                chapter = chapters[current_chapter]
-                chapter_title = chapter.get("title", f"Chapter {current_chapter}")
+            if new_chapter in chapters:
+                chapter = chapters[new_chapter]
+                chapter_title = chapter.get("title", f"Chapter {new_chapter}")
                 total_scenes = len(chapter.get("scenes", {}))
                 
                 # Show chapter transition info
-                sys.stdout.write(f"\n[{elapsed_str}] Working on Chapter {current_chapter}: {chapter_title} - Scene {current_scene}/{total_scenes}\n")
+                sys.stdout.write(f"\n[{elapsed_str}] Working on Chapter {new_chapter}: {chapter_title} - Scene {new_scene}/{total_scenes}\n")
                 
                 # Get current completion statistics
                 completed_chapters = 0
@@ -577,7 +582,7 @@ def progress_callback(node_name, state):
                 sys.stdout.write(f"[{elapsed_str}] Overall progress: {progress_pct:.1f}% - {completed_chapters}/{total_chapters} chapters, {completed_scenes}/{total_planned_scenes} scenes\n")
                 sys.stdout.flush()
 
-def main():
+def main() -> None:
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Generate a story using the refactored StoryCraft agent")
     parser.add_argument("--genre", type=str, default="fantasy",
@@ -608,6 +613,13 @@ def main():
                         help=f"LLM provider to use (default: {DEFAULT_MODEL_PROVIDER})")
     parser.add_argument("--model", type=str,
                         help="Specific model to use (defaults to provider's default model)")
+    # Add database options
+    parser.add_argument("--database-path", type=str,
+                        help="Path to the story database file (default: ~/.storyteller/story_database.db)")
+    parser.add_argument("--load-story", type=int,
+                        help="Load and continue an existing story by its ID")
+    parser.add_argument("--progress-log", type=str,
+                        help="Path to save progress log file (default: automatically generated in ~/.storyteller/logs/)")
     args = parser.parse_args()
     
     # Import config to check API keys
@@ -621,9 +633,10 @@ def main():
         print(f"Please create a .env file with {api_key_env}=your_api_key")
         return
         
-    # Make output file path available to the progress callback
-    global output_file
-    output_file = args.output
+    # Create progress manager
+    global progress_manager
+    progress_manager = create_progress_manager(verbose=args.verbose, output_file=args.output)
+    progress_manager.set_write_chapter_callback(write_chapter_to_file)
     
     # Set up caching based on command line arguments
     from storyteller_lib.config import setup_cache, CACHE_LOCATION
@@ -637,12 +650,27 @@ def main():
     # Setup the cache with the specified type
     cache = setup_cache(args.cache)
     print(f"LLM caching: {args.cache}")
-        
-    # Set global verbose mode from command line argument
-    global verbose_mode
-    verbose_mode = args.verbose
+    
+    # Setup database
+    if args.database_path:
+        os.environ["STORY_DATABASE_PATH"] = args.database_path
+    from storyteller_lib.config import DATABASE_PATH
+    print(f"Database persistence: {DATABASE_PATH}")
     
     try:
+        # Check if we're loading an existing story
+        if args.load_story:
+            print(f"Loading story with ID {args.load_story} from database...")
+            from storyteller_lib.graph_with_db import load_story_from_database
+            loaded_state = load_story_from_database(args.load_story)
+            if not loaded_state:
+                print(f"Error: Story with ID {args.load_story} not found in database")
+                return
+            print(f"Story loaded successfully. Continuing generation...")
+            # TODO: Implement story continuation logic
+            print("Story continuation is not yet implemented.")
+            return
+        
         # Generate the story with visual progress display
         author_str = f" in the style of {args.author}" if args.author else ""
         language_str = f" in {SUPPORTED_LANGUAGES.get(args.language.lower(), args.language)}" if args.language.lower() != DEFAULT_LANGUAGE else ""
@@ -656,12 +684,9 @@ def main():
         print(f"Using {args.model_provider.upper()} model: {model_name}")
         print(f"This will take some time. Progress updates will be displayed below:")
         
-        # Reset progress tracking variables
-        global start_time, node_counts, current_chapter, current_scene
-        start_time = time.time()
-        node_counts = {}
-        current_chapter = None
-        current_scene = None
+        # Reset progress tracking
+        progress_manager.reset()
+        progress_manager.set_progress_callback(progress_callback)
         
         # Set up the progress callback in our library
         reset_progress_tracking()
@@ -680,17 +705,16 @@ def main():
                 language=args.language,
                 model_provider=args.model_provider,
                 model=args.model,
-                return_state=True  # Return both story text and state
+                return_state=True,  # Return both story text and state
+                progress_log_path=args.progress_log
             )
             
             # Show completion message
-            elapsed = time.time() - start_time
-            elapsed_str = f"{elapsed:.1f}s"
+            elapsed_str = progress_manager.state.get_elapsed_time()
             print(f"[{elapsed_str}] Story generation complete!")
         except Exception as e:
             # Show error message with elapsed time
-            elapsed = time.time() - start_time
-            elapsed_str = f"{elapsed:.1f}s"
+            elapsed_str = progress_manager.state.get_elapsed_time()
             print(f"[{elapsed_str}] Error during story generation: {str(e)}")
             import traceback
             traceback.print_exc()
@@ -772,6 +796,13 @@ def main():
                 f.write(story)
             print(f"Story successfully saved to {args.output}")
             
+            # Get story ID from database manager
+            from storyteller_lib.database_integration import get_db_manager
+            db_manager = get_db_manager()
+            if db_manager and db_manager._story_id:
+                print(f"Story ID in database: {db_manager._story_id}")
+                print(f"To continue this story later, use: --load-story {db_manager._story_id}")
+            
             # Generate info file if requested
             if args.info_file and 'state' in locals():
                 try:
@@ -790,14 +821,12 @@ def main():
             except IOError as fallback_err:
                 print(f"Critical error: Could not save story to fallback location: {str(fallback_err)}")
         
-        # Calculate total elapsed time
-        total_time = time.time() - start_time
-        minutes, seconds = divmod(total_time, 60)
-        hours, minutes = divmod(minutes, 60)
+        # Calculate total elapsed time using progress manager
+        elapsed_str = progress_manager.state.get_elapsed_time()
         
         # Print summary statistics
         print(f"\nStory Generation Summary:")
-        print(f"- Total time: {int(hours)}h {int(minutes)}m {int(seconds)}s")
+        print(f"- Total time: {elapsed_str}")
         
         # Count chapters and scenes
         try:

@@ -2,12 +2,14 @@
 StoryCraft Agent - Data models and state definitions.
 """
 
-from typing import Annotated, Dict, List, Union, Any
-from typing_extensions import TypedDict
+# Standard library imports
 from operator import add
+from typing import Annotated, Any, Dict, List, Union
 
+# Third party imports
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langgraph.graph.message import add_messages
+from typing_extensions import TypedDict
 
 # Custom state reducers for merging complex story elements
 # Define type aliases to avoid circular imports
