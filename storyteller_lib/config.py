@@ -5,35 +5,36 @@ This module provides a centralized configuration for the storyteller application
 including LLM initialization, memory store setup, and other shared resources.
 """
 
-import os
+# Standard library imports
 import gc
-import logging
+import os
 import sqlite3
-import psutil
-from typing import Optional, Union, Dict, Any, Literal
 from pathlib import Path
-from dotenv import load_dotenv
+from typing import Any, Dict, Literal, Optional, Union
 
-from langchain_openai import ChatOpenAI
-from langchain_google_genai import ChatGoogleGenerativeAI
+# Third party imports
+import psutil
+from dotenv import load_dotenv
+from langchain.embeddings import init_embeddings
 from langchain_anthropic import ChatAnthropic
-from langchain_core.language_models import BaseChatModel
+from langchain_community.cache import SQLiteCache
 from langchain_core.caches import BaseCache
 from langchain_core.globals import set_llm_cache
-from langchain_community.cache import SQLiteCache
-from langchain.embeddings import init_embeddings
+from langchain_core.language_models import BaseChatModel
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.sqlite import SqliteSaver
-# Import LangMem tools
-from langmem import create_manage_memory_tool, create_search_memory_tool, create_memory_manager, create_prompt_optimizer
-# Import our memory adapter
+from langmem import (
+    create_manage_memory_tool, create_memory_manager,
+    create_prompt_optimizer, create_search_memory_tool
+)
+
+# Local imports
+from storyteller_lib.logger import config_logger as logger
 from storyteller_lib.memory_adapter import MemoryStoreAdapter
 
 # Load environment variables
 load_dotenv()
-
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 # LLM Configuration
 # Model provider options
@@ -66,6 +67,9 @@ DEFAULT_CACHE_TYPE = "sqlite"  # Only sqlite cache is supported
 CACHE_LOCATION = os.environ.get("CACHE_LOCATION", str(Path.home() / ".storyteller" / "llm_cache.db"))
 # Define the path for the SQLite memory database
 MEMORY_DB_PATH = os.environ.get("MEMORY_DB_PATH", str(Path.home() / ".storyteller" / "memory.sqlite"))
+
+# Database Configuration
+DATABASE_PATH = os.environ.get("STORY_DATABASE_PATH", str(Path.home() / ".storyteller" / "story_database.db"))
 
 # Language Configuration
 DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "english")  # Default language from .env or fallback to english

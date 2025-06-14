@@ -6,34 +6,34 @@ instead of a custom router function, which should prevent recursion limit errors
 It also uses SQLite for persistent storage instead of in-memory storage.
 """
 
-from typing import Dict, List, Any
-
-from langgraph.graph import StateGraph, START, END
+# Standard library imports
 from operator import add  # Default reducer for lists
+from typing import Any, Dict, List
 
-from storyteller_lib.models import StoryState
-# No checkpointer needed for single-session generation
-from storyteller_lib.initialization import initialize_state, brainstorm_story_concepts
-from storyteller_lib.outline import generate_story_outline, plan_chapters
+# Third party imports
+from langgraph.graph import END, START, StateGraph
+
+# Local imports
+from storyteller_lib import track_progress
 from storyteller_lib.character_creation import generate_characters
-from storyteller_lib.worldbuilding import generate_worldbuilding
+from storyteller_lib.initialization import brainstorm_story_concepts, initialize_state
+from storyteller_lib.models import StoryState
+from storyteller_lib.outline import generate_story_outline, plan_chapters
+from storyteller_lib.progression import (
+    advance_to_next_scene_or_chapter,
+    compile_final_story,
+    resolve_continuity_issues,
+    review_continuity,
+    update_character_profiles,
+    update_world_elements
+)
 from storyteller_lib.scenes import (
     brainstorm_scene_elements,
-    write_scene,
-    process_showing_telling,
     reflect_on_scene,
-    revise_scene_if_needed
+    revise_scene_if_needed,
+    write_scene
 )
-# Import the optimized progression functions
-from storyteller_lib.progression import (
-    update_world_elements,
-    update_character_profiles,
-    review_continuity,
-    resolve_continuity_issues,
-    advance_to_next_scene_or_chapter,
-    compile_final_story
-)
-from storyteller_lib import track_progress
+from storyteller_lib.worldbuilding import generate_worldbuilding
 
 # Replace the monolithic router with specific condition functions
 
@@ -196,7 +196,7 @@ def decide_after_advancing(state: StoryState) -> str:
         return "brainstorm_scene_elements"
 
 # Build the graph with native LangGraph edges
-def build_story_graph():
+def build_story_graph() -> StateGraph:
     """
     Build and compile the story generation graph using LangGraph's native edge system.
     """
@@ -214,7 +214,6 @@ def build_story_graph():
     graph_builder.add_node("plan_chapters", plan_chapters)
     graph_builder.add_node("brainstorm_scene_elements", brainstorm_scene_elements)
     graph_builder.add_node("write_scene", write_scene)
-    graph_builder.add_node("process_showing_telling", process_showing_telling)
     graph_builder.add_node("reflect_on_scene", reflect_on_scene)
     graph_builder.add_node("revise_scene_if_needed", revise_scene_if_needed)
     graph_builder.add_node("update_world_elements", update_world_elements)
@@ -279,11 +278,8 @@ def build_story_graph():
     # Simplified: Always go from brainstorming to writing
     graph_builder.add_edge("brainstorm_scene_elements", "write_scene")
     
-    # Add edge from writing to showing/telling processing
-    graph_builder.add_edge("write_scene", "process_showing_telling")
-    
-    # Add edge from showing/telling processing to reflection
-    graph_builder.add_edge("process_showing_telling", "reflect_on_scene")
+    # Add edge from writing directly to reflection
+    graph_builder.add_edge("write_scene", "reflect_on_scene")
     
     # Fixed edge for reflection to revision
     graph_builder.add_edge("reflect_on_scene", "revise_scene_if_needed")

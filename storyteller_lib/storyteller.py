@@ -11,8 +11,8 @@ from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm
 
 # Import the graph builder
-from storyteller_lib.graph import build_story_graph
 from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.graph_with_db import build_story_graph_with_db
 
 def get_genre_key_elements(genre: str) -> List[str]:
     """
@@ -485,7 +485,8 @@ def generate_story(
     language: str = "",
     model_provider: str = None,
     model: str = None,
-    return_state: bool = False
+    return_state: bool = False,
+    progress_log_path: str = None
 ):
     """
     Generate a complete story using the StoryCraft agent with the refactored graph.
@@ -508,6 +509,14 @@ def generate_story(
     from storyteller_lib.config import get_llm
     global llm
     llm = get_llm(provider=model_provider, model=model)
+    
+    # Initialize progress logger
+    from storyteller_lib.story_progress_logger import initialize_progress_logger, log_progress
+    progress_logger = initialize_progress_logger(progress_log_path)
+    
+    # Log initial story parameters
+    log_progress("story_params", genre=genre, tone=tone, author=author, 
+                language=language if language else "english", idea=initial_idea)
     # Parse the initial idea once to extract key elements
     idea_elements = {}
     if initial_idea:
@@ -525,8 +534,8 @@ def generate_story(
             "namespace": MEMORY_NAMESPACE
         })
     
-    # Get the graph with our decorated node functions
-    graph = build_story_graph()
+    # Get the graph with database integration
+    graph = build_story_graph_with_db()
     
     # Get author style guidance if an author is specified
     author_style_guidance = ""
@@ -683,7 +692,18 @@ def generate_story(
     if "compiled_story" in result:
         return result["compiled_story"]
     
-    # Try to retrieve the complete story using search
+    # Try to get the story from database if available
+    try:
+        from storyteller_lib.database_integration import get_db_manager
+        db_manager = get_db_manager()
+        if db_manager and db_manager._db and db_manager._story_id:
+            compiled_story = db_manager._db.get_full_story(db_manager._story_id)
+            if compiled_story:
+                return compiled_story
+    except Exception:
+        pass
+    
+    # Fall back to memory search if database not available
     try:
         complete_story = search_memory_tool.invoke({
             "query": "complete final story with all chapters and scenes"
@@ -747,6 +767,16 @@ def generate_story(
     
     # Assemble the final story
     final_story = "\n".join(story)
+    
+    # Log story completion
+    word_count = len(final_story.split()) if final_story else 0
+    duration = progress_logger.state.get_elapsed_time() if hasattr(progress_logger, 'state') else "Unknown"
+    total_chapters = len(result.get("chapters", {})) if result else 0
+    log_progress("story_complete", total_chapters=total_chapters, 
+                total_words=word_count, duration=duration)
+    
+    # Print log file location
+    print(f"\nStory progress log saved to: {progress_logger.get_log_path()}")
     
     # Return the story and state if requested
     if return_state:

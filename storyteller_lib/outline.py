@@ -566,6 +566,10 @@ def generate_story_outline(state: StoryState) -> Dict:
         "value": story_outline
     })
     
+    # Log the story outline
+    from storyteller_lib.story_progress_logger import log_progress
+    log_progress("story_outline", outline=story_outline)
+    
     # Store in procedural memory that this was a result of initial generation
     manage_memory_tool.invoke({
         "action": "create",
@@ -945,13 +949,18 @@ def plan_chapters(state: StoryState) -> Dict:
             if "reflection_notes" not in scene:
                 scene["reflection_notes"] = []
     
-    # Store chapter plans in memory
-    for chapter_num, chapter_data in chapters.items():
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": f"chapter_{chapter_num}",
-            "value": chapter_data
-        })
+    # Chapter plans are now stored in database via database_integration
+    # Only store outline metadata in memory
+    manage_memory_tool.invoke({
+        "action": "create",
+        "key": "outline_metadata",
+        "value": {
+            "chapter_count": len(chapters),
+            "total_scenes": sum(len(ch.get("scenes", [])) for ch in chapters.values()),
+            "creation_notes": "Chapter outlines created and stored in database"
+        },
+        "namespace": MEMORY_NAMESPACE
+    })
     
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]

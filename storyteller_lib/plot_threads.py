@@ -126,7 +126,7 @@ class PlotThread:
 class PlotThreadRegistry:
     """Registry for tracking all plot threads in a story."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.threads = {}
     
     def add_thread(self, thread: PlotThread) -> None:

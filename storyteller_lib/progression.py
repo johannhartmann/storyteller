@@ -11,6 +11,8 @@ from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, 
 from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib import track_progress
+from storyteller_lib.constants import NodeNames
+from storyteller_lib.story_context import get_context_provider
 
 @track_progress
 def update_world_elements(state: StoryState) -> Dict:
@@ -334,6 +336,42 @@ def review_continuity(state: StoryState) -> Dict:
         
         chapter_summaries.append(f"Chapter {chapter_num}: {chapter['title']}{chr(10)}{chapter['outline']}{chr(10)}Key scenes: {'; '.join(scenes_summary)}")
     
+    # Get database context if available
+    database_continuity_data = ""
+    context_provider = get_context_provider()
+    if context_provider:
+        try:
+            # Get continuity data for the current chapter
+            continuity_data = context_provider.get_continuity_check_data(int(current_chapter))
+            
+            if continuity_data and continuity_data.get('potential_issues'):
+                issues = []
+                for issue in continuity_data['potential_issues']:
+                    issues.append(f"- {issue['type']}: {issue['description']}")
+                
+                if issues:
+                    database_continuity_data = f"""
+        DATABASE DETECTED ISSUES:
+        {chr(10).join(issues)}
+        """
+            
+            # Add character tracking info
+            if continuity_data and continuity_data.get('character_tracking'):
+                char_tracking = []
+                for char_id, data in continuity_data['character_tracking'].items():
+                    if data['appearances']:
+                        char_tracking.append(f"- {char_id}: appears in scenes {[a['scene'] for a in data['appearances']]}")
+                
+                if char_tracking:
+                    database_continuity_data += f"""
+        
+        CHARACTER APPEARANCES THIS CHAPTER:
+        {chr(10).join(char_tracking)}
+        """
+        except Exception as e:
+            # Log but don't fail if database context is unavailable
+            pass
+    
     # Prepare world elements section
     world_elements_section = ""
     if world_elements:
@@ -358,6 +396,8 @@ def review_continuity(state: StoryState) -> Dict:
     {characters}
     
     {world_elements_section}
+    
+    {database_continuity_data}
     
     Analyze the story for:
     1. Continuity issues (contradictions, timeline problems, etc.)
@@ -758,6 +798,14 @@ def compile_final_story(state: StoryState) -> Dict:
         "value": story_summary,
         "namespace": MEMORY_NAMESPACE
     })
+    
+    # Log story completion
+    from storyteller_lib.story_progress_logger import log_progress
+    total_chapters = len(chapters)
+    total_scenes = sum(len(ch["scenes"]) for ch in chapters.values())
+    total_words = len(final_story.split())
+    log_progress("story_complete", total_chapters=total_chapters, 
+                total_scenes=total_scenes, total_words=total_words)
     
     # Return the final state with plot thread resolution information
     return {
