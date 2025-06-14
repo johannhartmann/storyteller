@@ -1,39 +1,37 @@
 {
-  description = "Storyteller – reproducible Python-3.12 dev environment (poetry2nix)";
+  description = "Storyteller – Python-3.12 dev env with poetry2nix";
+
   inputs = {
-    # pin nixpkgs to the 25.05 channel (includes Python 3.12)
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-
-    # poetry2nix after the April-2025 fix that switched to fetchCargoVendor
-    # → commit 3d8e5f0 is encoded with ?rev=… in the URL
-    poetry2nix = {
-      url = "github:nix-community/poetry2nix";
-    };
-
-    # flake-utils helper macros
+    nixpkgs.url     = "github:NixOS/nixpkgs/nixos-25.05";                # 3.12 lives here :contentReference[oaicite:0]{index=0}
+    poetry2nix.url  = "github:nix-community/poetry2nix";                 # any commit; overlay fixes helper
     flake-utils.url = "github:numtide/flake-utils";
   };
-  outputs = { self, nixpkgs, flake-utils, poetry2nix, ... }:
+
+  outputs = { self, nixpkgs, poetry2nix, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        # ---- 1️⃣  overlay that restores removed helper -----------------
+        overlay = final: prev: {
+          rustPlatform = prev.rustPlatform // {
+            fetchCargoTarball = prev.rustPlatform.fetchCargoVendor;      # alias :contentReference[oaicite:1]{index=1}
+          };
+        };
 
-        /* Bind the helpers (`mkPoetryEnv`, `mkPoetryApplication`, …) to the
-           exact pkgs set we pinned above – the pattern recommended in the
-           poetry2nix README. */
+        pkgs = import nixpkgs { inherit system; overlays = [ overlay ]; };
+
+        # ---- 2️⃣  bind poetry2nix helpers to that patched pkgs set -----
         inherit (poetry2nix.lib.mkPoetry2Nix { inherit pkgs; }) mkPoetryEnv;
 
-        # Build a Poetry virtual-env for Python-3.12
+        # ---- 3️⃣  build the Python-3.12 env from your Poetry metadata --
         pythonEnv = mkPoetryEnv {
-          projectDir = self;           # expects pyproject.toml + poetry.lock here
-          python     = pkgs.python312; # override default interpreter
+          projectDir = self;           # expects pyproject.toml + poetry.lock
+          python     = pkgs.python312;
+          # optional speed-up if you prefer wheels:
+          preferWheels = true;
         };
       in {
-        # `nix develop` will drop you into this shell
-        devShells.default = pythonEnv.env;
-
-        # Optional: export the environment as a buildable package
-        packages.storyteller = pythonEnv;
+        devShells.default = pythonEnv.env;          # `nix develop`
+        packages.storyteller = pythonEnv;           # `nix build .#storyteller`
       });
 }
 
