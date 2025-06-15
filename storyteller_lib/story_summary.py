@@ -10,7 +10,7 @@ import logging
 from typing import Dict, List, Optional, Any
 
 from langchain_core.messages import HumanMessage
-from langchain_core.pydantic_v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 from storyteller_lib.config import get_llm, get_llm_with_structured_output, MEMORY_NAMESPACE, manage_memory_tool
 from storyteller_lib.database_integration import get_db_manager
@@ -18,13 +18,18 @@ from storyteller_lib.database_integration import get_db_manager
 logger = logging.getLogger(__name__)
 
 
+class CharacterAction(BaseModel):
+    """A character's actions in the scene."""
+    character_name: str = Field(description="Name of the character")
+    actions: List[str] = Field(description="List of actions performed by the character")
+
 class SceneInformation(BaseModel):
     """Schema for extracted scene information."""
     events: List[str] = Field(description="List of 2-3 key events that happen (brief phrases)")
-    character_actions: Dict[str, List[str]] = Field(description="Object mapping character names to list of their key actions")
-    descriptions: List[str] = Field(description="List of unique descriptive phrases used")
-    revelations: List[str] = Field(description="List of any important revelations or discoveries")
-    scene_type: str = Field(description="Category of the scene (action, dialogue, discovery, conflict, exposition, character_development, transition, climax, resolution, other)")
+    character_actions: List[CharacterAction] = Field(default_factory=list, description="List of character actions in the scene")
+    descriptions: List[str] = Field(default_factory=list, description="List of unique descriptive phrases used")
+    revelations: List[str] = Field(default_factory=list, description="List of any important revelations or discoveries")
+    scene_type: str = Field(default="unknown", description="Category of the scene (action, dialogue, discovery, conflict, exposition, character_development, transition, climax, resolution, other)")
 
 
 def generate_story_summary() -> Dict[str, Any]:
@@ -91,11 +96,14 @@ def generate_story_summary() -> Dict[str, Any]:
                 summary["chapters"][chapter_num]["scenes"][scene_num] = scene_info
                 summary["chapters"][chapter_num]["key_events"].extend(scene_info["events"])
                 
-                # Track character actions
-                for char, actions in scene_info["character_actions"].items():
-                    if char not in summary["character_actions"]:
-                        summary["character_actions"][char] = []
-                    summary["character_actions"][char].extend(actions)
+                # Track character actions (now a list of CharacterAction dicts)
+                for char_action in scene_info.get("character_actions", []):
+                    if isinstance(char_action, dict):
+                        char_name = char_action.get("character_name", "Unknown")
+                        actions = char_action.get("actions", [])
+                        if char_name not in summary["character_actions"]:
+                            summary["character_actions"][char_name] = []
+                        summary["character_actions"][char_name].extend(actions)
                 
                 # Track other elements
                 summary["used_descriptions"].extend(scene_info["descriptions"])
@@ -146,15 +154,21 @@ Scene (Chapter {chapter_num}, Scene {scene_num}):
 
 Extract the following information:
 1. Key events that happen (2-3 brief phrases)
-2. Character actions (map each character to their actions)
+2. Character actions - for each character in the scene, list their name and actions
 3. Unique descriptive phrases used
 4. Important revelations or discoveries
 5. The type of scene (action, dialogue, discovery, etc.)
+
+For character actions, provide each character's name and their list of actions separately.
 """
     
     try:
         messages = [HumanMessage(content=prompt)]
         response = llm.invoke(messages)
+        
+        # Debug logging
+        logger.debug(f"Response type: {type(response)}")
+        logger.debug(f"Response content: {response}")
         
         # Response is a SceneInformation instance when using structured output
         if isinstance(response, SceneInformation):
@@ -195,16 +209,13 @@ Extract the following information:
                 for event in result.get("events", []):
                     db_manager._db.register_content("event", event, None, scene_id)
                 
-                # Register character actions
-                for char, actions in result.get("character_actions", {}).items():
-                    # Handle both string and list formats
-                    if isinstance(actions, str):
-                        actions = [actions]
-                    elif not isinstance(actions, list):
-                        actions = [str(actions)]
-                    
-                    for action in actions:
-                        db_manager._db.register_content("action", f"{char}: {action}", None, scene_id)
+                # Register character actions (now a list of CharacterAction objects)
+                for char_action in result.get("character_actions", []):
+                    if isinstance(char_action, dict):
+                        char_name = char_action.get("character_name", "Unknown")
+                        actions = char_action.get("actions", [])
+                        for action in actions:
+                            db_manager._db.register_content("action", f"{char_name}: {action}", None, scene_id)
                 
                 # Register descriptions
                 for desc in result.get("descriptions", []):
