@@ -620,13 +620,14 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
     sys.stdout.write(f"{progress_message}\n")
     sys.stdout.flush()
     
-    # Write scene to file immediately after it's written or revised
-    if node_name == "write_scene" or (node_name == "revise_scene_if_needed" and state.get("scene_was_revised", False)):
+    # Write scene to file only after revision check is complete
+    # This ensures we write the final version of the scene, not the initial draft
+    if node_name == "revise_scene_if_needed":
         try:
             current_chapter = state.get("current_chapter", "")
             current_scene = state.get("current_scene", "")
             if current_chapter and current_scene and progress_manager and progress_manager.state.output_file:
-                # Write the scene to the output file
+                # Write the scene to the output file (either original or revised version)
                 sys.stdout.write(f"\n[{elapsed_str}] Writing scene {current_scene} of chapter {current_chapter} to output file...\n")
                 write_scene_to_file(int(current_chapter), int(current_scene), progress_manager.state.output_file)
                 sys.stdout.flush()
