@@ -6,16 +6,17 @@ quality, consistency, and identifying areas for improvement.
 
 # Standard library imports
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 # Third party imports
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel, Field
 
 # Local imports
 from storyteller_lib import track_progress
 from storyteller_lib.config import (
     DEFAULT_LANGUAGE, MEMORY_NAMESPACE, SUPPORTED_LANGUAGES,
-    llm, manage_memory_tool, search_memory_tool
+    llm, manage_memory_tool, search_memory_tool, get_llm_with_structured_output
 )
 from storyteller_lib.constants import NodeNames, QualityThresholds, RevisionTypes
 from storyteller_lib.logger import scene_logger as logger
@@ -141,6 +142,81 @@ def _format_previously_addressed_issues(previously_addressed_issues: List[Dict])
     
     {issues_text}
     """
+
+
+# Pydantic models for structured output
+class QualityScores(BaseModel):
+    """Quality scores for various aspects of the scene."""
+    overall: int = Field(ge=1, le=10, description="Overall quality score (1-10)")
+    pacing: int = Field(ge=1, le=10, description="Pacing quality score (1-10)")
+    character_development: int = Field(ge=1, le=10, description="Character development score (1-10)")
+    dialogue: int = Field(ge=1, le=10, description="Dialogue quality score (1-10)")
+    description: int = Field(ge=1, le=10, description="Description quality score (1-10)")
+    emotional_impact: int = Field(ge=1, le=10, description="Emotional impact score (1-10)")
+    plot_advancement: int = Field(ge=1, le=10, description="Plot advancement score (1-10)")
+    worldbuilding_integration: int = Field(ge=1, le=10, description="Worldbuilding integration score (1-10)")
+    closure_quality: int = Field(ge=1, le=10, description="Scene closure quality score (1-10)")
+
+class Issue(BaseModel):
+    """An issue identified in the scene."""
+    type: str = Field(description="Type of issue: consistency, pacing, character, dialogue, description, worldbuilding, closure, language_mismatch, or other")
+    severity: int = Field(ge=1, le=10, description="Severity of the issue (1-10)")
+    description: str = Field(description="Detailed description of the issue")
+    recommendation: str = Field(description="Specific recommendation to fix the issue")
+
+class ContinuityCheck(BaseModel):
+    """Continuity check results."""
+    maintains_consistency: bool = Field(description="Whether the scene maintains overall consistency")
+    character_consistency: bool = Field(description="Whether characters behave consistently")
+    world_consistency: bool = Field(description="Whether world rules are consistent")
+    timeline_consistency: bool = Field(description="Whether timeline is consistent")
+    specific_issues: List[str] = Field(default_factory=list, description="List of specific continuity issues")
+
+class RevisionRecommendation(BaseModel):
+    """Revision recommendations."""
+    needs_revision: bool = Field(description="Whether the scene needs revision")
+    revision_type: str = Field(description="Type of revision needed: minor, moderate, major, or complete_rewrite")
+    priority_fixes: List[str] = Field(default_factory=list, description="List of priority fixes")
+
+class PlotThreadEffectiveness(BaseModel):
+    """Plot thread effectiveness analysis."""
+    threads_advanced: bool = Field(description="Whether plot threads were advanced")
+    effectiveness_score: int = Field(ge=1, le=10, description="Effectiveness score (1-10)")
+    missed_opportunities: List[str] = Field(default_factory=list, description="Missed opportunities for plot advancement")
+
+class ClosureAnalysis(BaseModel):
+    """Scene closure analysis."""
+    has_satisfying_conclusion: bool = Field(description="Whether the scene has a satisfying conclusion")
+    emotional_resolution: bool = Field(description="Whether emotions are resolved appropriately")
+    leaves_appropriate_questions: bool = Field(description="Whether appropriate questions are left for future")
+    transition_ready: bool = Field(description="Whether the scene is ready for transition")
+    sets_up_future: bool = Field(description="Whether the scene sets up future events")
+
+class TechnicalAnalysis(BaseModel):
+    """Technical writing analysis."""
+    word_count_estimate: int = Field(description="Estimated word count")
+    pov_consistency: bool = Field(description="Whether POV is consistent")
+    tense_consistency: bool = Field(description="Whether tense is consistent")
+    showing_vs_telling_ratio: str = Field(description="Ratio assessment: good, needs_improvement, or too_much_telling")
+
+class SceneImpact(BaseModel):
+    """Scene impact analysis."""
+    advances_story: bool = Field(description="Whether the scene advances the story")
+    reveals_character: bool = Field(description="Whether the scene reveals character")
+    builds_tension: bool = Field(description="Whether the scene builds tension")
+    provides_resolution: bool = Field(description="Whether the scene provides resolution")
+    sets_up_future: bool = Field(description="Whether the scene sets up future events")
+
+class SceneReflection(BaseModel):
+    """Complete scene reflection analysis."""
+    quality_scores: QualityScores = Field(description="Quality scores for various aspects")
+    strengths: List[str] = Field(default_factory=list, description="Key strengths of the scene")
+    issues: List[Issue] = Field(default_factory=list, description="Issues found in the scene")
+    continuity_check: ContinuityCheck = Field(description="Continuity check results")
+    revision_recommendation: RevisionRecommendation = Field(description="Revision recommendations")
+    plot_thread_effectiveness: PlotThreadEffectiveness = Field(description="Plot thread effectiveness")
+    scene_impact: SceneImpact = Field(description="Scene impact analysis")
+    technical_analysis: TechnicalAnalysis = Field(description="Technical writing analysis")
 
 
 @track_progress
@@ -273,97 +349,64 @@ PLOT THREAD UPDATES (from this scene):
 CLOSURE ANALYSIS:
 {json.dumps(closure_analysis, indent=2)}
 
-Analyze the scene and provide a detailed evaluation as a JSON object with the following structure:
+Analyze the scene and provide a detailed evaluation. Consider:
 
-{{
-    "quality_scores": {{
-        "overall": <1-10>,
-        "pacing": <1-10>,
-        "character_development": <1-10>,
-        "dialogue": <1-10>,
-        "description": <1-10>,
-        "emotional_impact": <1-10>,
-        "plot_advancement": <1-10>,
-        "worldbuilding_integration": <1-10>,
-        "closure_quality": <1-10>
-    }},
-    "strengths": [
-        // List key strengths of the scene
-    ],
-    "issues": [
-        {{
-            "type": "<consistency|pacing|character|dialogue|description|worldbuilding|closure|language_mismatch|other>",
-            "severity": <1-10>,
-            "description": "<detailed description>",
-            "recommendation": "<specific fix>"
-        }}
-        // Include multiple issues if found
-    ],
-    "continuity_check": {{
-        "maintains_consistency": <true/false>,
-        "character_consistency": <true/false>,
-        "world_consistency": <true/false>,
-        "timeline_consistency": <true/false>,
-        "specific_issues": [
-            // List any continuity problems
-        ]
-    }},
-    "revision_recommendation": {{
-        "needs_revision": <true/false>,
-        "revision_type": "<minor|moderate|major|complete_rewrite>",
-        "priority_fixes": [
-            // List the most important things to fix
-        ]
-    }},
-    "plot_thread_effectiveness": {{
-        "threads_advanced": <true/false>,
-        "effectiveness_score": <1-10>,
-        "missed_opportunities": [
-            // Any plot threads that could have been better utilized
-        ]
-    }},
-    "scene_impact": {{
-        "advances_story": <true/false>,
-        "reveals_character": <true/false>,
-        "builds_tension": <true/false>,
-        "provides_resolution": <true/false>,
-        "sets_up_future": <true/false>
-    }},
-    "technical_analysis": {{
-        "word_count_estimate": <number>,
-        "pov_consistency": <true/false>,
-        "tense_consistency": <true/false>,
-        "showing_vs_telling_ratio": "<good|needs_improvement|too_much_telling>"
-    }}
-}}
+1. Quality scores (1-10) for overall quality, pacing, character development, dialogue, description, emotional impact, plot advancement, worldbuilding integration, and closure quality
+2. Key strengths of the scene
+3. Any issues found (consistency, pacing, character, dialogue, description, worldbuilding, closure, language_mismatch, or other)
+4. Continuity with previous scenes
+5. Whether revision is needed and what priority fixes would be
+6. How effectively plot threads were advanced
+7. The scene's impact on story progression
+8. Technical aspects like word count, POV consistency, tense consistency, and showing vs telling
 
 Be thorough but constructive in your analysis. Focus on actionable improvements."""
 
-    # Get reflection from LLM
+    # Get reflection from LLM using structured output
+    structured_llm = get_llm_with_structured_output(SceneReflection)
     messages = [HumanMessage(content=prompt)]
-    response = llm.invoke(messages)
     
-    # Parse the JSON response
     try:
-        # Extract JSON from the response - handle cases where LLM returns markdown code blocks
-        content = response.content.strip()
-        if content.startswith("```json"):
-            content = content[7:]  # Remove ```json
-        if content.startswith("```"):
-            content = content[3:]  # Remove ```
-        if content.endswith("```"):
-            content = content[:-3]  # Remove trailing ```
-        content = content.strip()
+        response = structured_llm.invoke(messages)
         
-        reflection = json.loads(content)
-    except (json.JSONDecodeError, AttributeError) as e:
-        # If JSON parsing fails, create a basic reflection
-        logger.warning(f"Failed to parse reflection JSON: {e}")
-        logger.debug(f"Response content: {response.content if hasattr(response, 'content') else 'No content'}")
+        # Response should be a SceneReflection instance
+        if isinstance(response, SceneReflection):
+            reflection = response.dict()
+        else:
+            # Fallback if response is not the expected type
+            logger.warning(f"Unexpected response type: {type(response)}")
+            reflection = {
+                "quality_scores": {"overall": 7, "pacing": 7, "character_development": 7, 
+                                 "dialogue": 7, "description": 7, "emotional_impact": 7,
+                                 "plot_advancement": 7, "worldbuilding_integration": 7, "closure_quality": 7},
+                "strengths": [],
+                "issues": [],
+                "continuity_check": {"maintains_consistency": True, "character_consistency": True,
+                                   "world_consistency": True, "timeline_consistency": True, "specific_issues": []},
+                "revision_recommendation": {"needs_revision": False, "revision_type": "minor", "priority_fixes": []},
+                "plot_thread_effectiveness": {"threads_advanced": True, "effectiveness_score": 7, "missed_opportunities": []},
+                "scene_impact": {"advances_story": True, "reveals_character": True, "builds_tension": False,
+                               "provides_resolution": False, "sets_up_future": True},
+                "technical_analysis": {"word_count_estimate": 1000, "pov_consistency": True, 
+                                     "tense_consistency": True, "showing_vs_telling_ratio": "good"}
+            }
+    except Exception as e:
+        # If structured output fails, create a basic reflection
+        logger.warning(f"Failed to get structured reflection: {e}")
         reflection = {
-            "quality_scores": {"overall": 7},
+            "quality_scores": {"overall": 7, "pacing": 7, "character_development": 7, 
+                             "dialogue": 7, "description": 7, "emotional_impact": 7,
+                             "plot_advancement": 7, "worldbuilding_integration": 7, "closure_quality": 7},
+            "strengths": [],
             "issues": [],
-            "revision_recommendation": {"needs_revision": False}
+            "continuity_check": {"maintains_consistency": True, "character_consistency": True,
+                               "world_consistency": True, "timeline_consistency": True, "specific_issues": []},
+            "revision_recommendation": {"needs_revision": False, "revision_type": "minor", "priority_fixes": []},
+            "plot_thread_effectiveness": {"threads_advanced": True, "effectiveness_score": 7, "missed_opportunities": []},
+            "scene_impact": {"advances_story": True, "reveals_character": True, "builds_tension": False,
+                           "provides_resolution": False, "sets_up_future": True},
+            "technical_analysis": {"word_count_estimate": 1000, "pov_consistency": True, 
+                                 "tense_consistency": True, "showing_vs_telling_ratio": "good"}
         }
     
     # Store the reflection in the scene data

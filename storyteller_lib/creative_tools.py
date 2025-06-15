@@ -419,184 +419,131 @@ def structured_output_with_pydantic(
         print(f"Structured output parsing failed: {str(e)}")
         return {}
 
+# Pydantic models for world elements
+class GeographyElements(BaseModel):
+    """Geography category elements."""
+    major_locations: Optional[str] = Field(None, description="Major locations in the world")
+    physical_features: Optional[str] = Field(None, description="Physical features and terrain")
+    climate_weather: Optional[str] = Field(None, description="Climate and weather patterns")
+    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other geography elements")
+
+class HistoryElements(BaseModel):
+    """History category elements."""
+    timeline: Optional[str] = Field(None, description="Historical timeline")
+    past_conflicts: Optional[str] = Field(None, description="Past conflicts and wars")
+    important_events: Optional[str] = Field(None, description="Important historical events")
+    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other history elements")
+
+class CultureElements(BaseModel):
+    """Culture category elements."""
+    customs: Optional[str] = Field(None, description="Cultural customs and traditions")
+    values: Optional[str] = Field(None, description="Cultural values and beliefs")
+    arts: Optional[str] = Field(None, description="Arts and entertainment")
+    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other culture elements")
+
+class PoliticsElements(BaseModel):
+    """Politics category elements."""
+    government: Optional[str] = Field(None, description="Government structure")
+    laws: Optional[str] = Field(None, description="Legal system and laws")
+    factions: Optional[str] = Field(None, description="Political factions and parties")
+    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other politics elements")
+
+class EconomicsElements(BaseModel):
+    """Economics category elements."""
+    currency: Optional[str] = Field(None, description="Currency and monetary system")
+    trade: Optional[str] = Field(None, description="Trade and commerce")
+    resources: Optional[str] = Field(None, description="Natural resources")
+    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other economics elements")
+
+class TechnologyMagicElements(BaseModel):
+    """Technology/Magic category elements."""
+    level: Optional[str] = Field(None, description="Technology or magic level")
+    systems: Optional[str] = Field(None, description="Technology or magic systems")
+    limitations: Optional[str] = Field(None, description="Limitations and constraints")
+    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other technology/magic elements")
+
+class ReligionElements(BaseModel):
+    """Religion category elements."""
+    deities: Optional[str] = Field(None, description="Deities and divine beings")
+    practices: Optional[str] = Field(None, description="Religious practices and rituals")
+    beliefs: Optional[str] = Field(None, description="Core religious beliefs")
+    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other religion elements")
+
+class DailyLifeElements(BaseModel):
+    """Daily life category elements."""
+    food: Optional[str] = Field(None, description="Food and cuisine")
+    clothing: Optional[str] = Field(None, description="Clothing and fashion")
+    housing: Optional[str] = Field(None, description="Housing and architecture")
+    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other daily life elements")
+
+class WorldElements(BaseModel):
+    """Complete world elements structure."""
+    GEOGRAPHY: Optional[GeographyElements] = Field(None, description="Geography elements")
+    HISTORY: Optional[HistoryElements] = Field(None, description="History elements")
+    CULTURE: Optional[CultureElements] = Field(None, description="Culture elements")
+    POLITICS: Optional[PoliticsElements] = Field(None, description="Politics elements")
+    ECONOMICS: Optional[EconomicsElements] = Field(None, description="Economics elements")
+    TECHNOLOGY_MAGIC: Optional[TechnologyMagicElements] = Field(None, alias="TECHNOLOGY/MAGIC", description="Technology or magic elements")
+    RELIGION: Optional[ReligionElements] = Field(None, description="Religion elements")
+    DAILY_LIFE: Optional[DailyLifeElements] = Field(None, description="Daily life elements")
+
 def parse_json_with_langchain(text: str, description: str = "world elements") -> Dict[str, Any]:
     """
-    Parse JSON from text using LangChain's JSON parser with multiple fallback methods.
+    Parse world elements from text using structured output.
     
     Args:
-        text: Text containing JSON to parse
+        text: Text containing world elements to parse
         description: Description of what we're parsing (for error messages)
         
     Returns:
-        Parsed JSON data as a dictionary
+        Parsed world elements as a dictionary
     """
-    # First try direct parsing without LLM
-    try:
-        # Try to extract JSON if it's within a code block
-        if "```json" in text and "```" in text.split("```json", 1)[1]:
-            json_content = text.split("```json", 1)[1].split("```", 1)[0].strip()
-            return json.loads(json_content)
-        # Try direct JSON parsing
-        elif text.strip().startswith("{") and text.strip().endswith("}"):
-            return json.loads(text)
-    except Exception:
-        pass
+    from storyteller_lib.config import get_llm_with_structured_output
     
-    # Try to manually parse the structure if it looks like the example in the error
+    # Use structured output to parse the world elements
     try:
-        # Check if this is the format from the error message
-        if "GEOGRAPHY" in text and "HISTORY" in text and "CULTURE" in text:
-            result = {}
-            
-            # Define the main categories we expect
-            categories = [
-                "GEOGRAPHY", "HISTORY", "CULTURE", "POLITICS",
-                "ECONOMICS", "TECHNOLOGY/MAGIC", "RELIGION", "DAILY_LIFE"
-            ]
-            
-            # Extract each category's content
-            for i, category in enumerate(categories):
-                if category in text:
-                    # Find the start of this category
-                    start_idx = text.find(category)
-                    
-                    # Find the end (either the next category or the end of text)
-                    end_idx = len(text)
-                    for next_cat in categories[i+1:]:
-                        next_idx = text.find(next_cat)
-                        if next_idx > start_idx:
-                            end_idx = next_idx
-                            break
-                    
-                    # Extract the category content
-                    category_content = text[start_idx:end_idx].strip()
-                    
-                    # Process the content into a dictionary
-                    category_dict = {}
-                    lines = category_content.split('\n')
-                    
-                    # Skip the category name line
-                    current_key = None
-                    for line in lines[1:]:
-                        line = line.strip()
-                        if not line:
-                            continue
-                            
-                        # Check if this is a new key
-                        if ":" in line and not line.startswith(" ") and not line.startswith("\t"):
-                            parts = line.split(":", 1)
-                            current_key = parts[0].strip()
-                            value = parts[1].strip() if len(parts) > 1 else ""
-                            category_dict[current_key] = value
-                        elif current_key and (line.startswith(" ") or line.startswith("\t")):
-                            # This is a continuation of the previous value
-                            category_dict[current_key] += " " + line
-                    
-                    result[category] = category_dict
-            
-            # If we successfully extracted at least some categories, return the result
-            if result:
-                return result
-    except Exception as e:
-        print(f"Manual parsing failed: {str(e)}")
-    
-    # Try with direct LLM JSON generation
-    try:
-        prompt = f"""
-        I need to convert this world building information into a valid JSON object:
-        
-        {text}
-        
-        Format it as a JSON object with these top-level keys:
-        - GEOGRAPHY
-        - HISTORY
-        - CULTURE
-        - POLITICS
-        - ECONOMICS
-        - TECHNOLOGY/MAGIC
-        - RELIGION
-        - DAILY_LIFE
-        
-        Each top-level key should contain a nested object with the elements for that category.
-        For example:
-        
-        {{
-          "GEOGRAPHY": {{
-            "Major Locations": "Description of locations",
-            "Physical Features": "Description of features"
-          }},
-          "HISTORY": {{
-            "Timeline": "Historical events",
-            "Past Conflicts": "Description of conflicts"
-          }}
-        }}
-        
-        Return ONLY the valid JSON object without any additional text, explanation, or code block markers.
-        """
-        
-        json_response = llm.invoke(prompt).content
-        
-        # Try to extract JSON if it's within a code block
-        if "```json" in json_response and "```" in json_response.split("```json", 1)[1]:
-            json_content = json_response.split("```json", 1)[1].split("```", 1)[0].strip()
-            return json.loads(json_content)
-        # Try to extract JSON if it's within any code block
-        elif "```" in json_response and "```" in json_response.split("```", 1)[1]:
-            json_content = json_response.split("```", 1)[1].split("```", 1)[0].strip()
-            return json.loads(json_content)
-        # Try direct JSON parsing
-        elif json_response.strip().startswith("{") and json_response.strip().endswith("}"):
-            return json.loads(json_response)
-    except Exception as e:
-        print(f"Direct LLM JSON generation failed: {str(e)}")
-    
-    # If all else fails, try with JsonOutputParser
-    try:
-        json_parser = JsonOutputParser()
-        
-        fix_prompt = PromptTemplate(
-            template="""The following text contains world building information that needs to be converted to JSON:
+        prompt = f"""Extract the world building information from this text into a structured format:
 
 {text}
 
-Convert this to a valid JSON object with these top-level keys:
-- GEOGRAPHY
-- HISTORY
-- CULTURE
-- POLITICS
-- ECONOMICS
-- TECHNOLOGY/MAGIC
-- RELIGION
-- DAILY_LIFE
+Organize the information into these categories:
+- GEOGRAPHY: locations, physical features, climate
+- HISTORY: timeline, past conflicts, important events  
+- CULTURE: customs, values, arts
+- POLITICS: government, laws, factions
+- ECONOMICS: currency, trade, resources
+- TECHNOLOGY/MAGIC: level, systems, limitations
+- RELIGION: deities, practices, beliefs
+- DAILY_LIFE: food, clothing, housing
 
-Each top-level key should contain a nested object with the elements for that category.
-
-{format_instructions}""",
-            input_variables=["text"],
-            partial_variables={"format_instructions": json_parser.get_format_instructions()}
-        )
+For each category, extract the relevant information. If a category is not mentioned in the text, leave it empty."""
         
-        # Create and run the chain
-        fix_chain = fix_prompt | llm | json_parser
+        structured_llm = get_llm_with_structured_output(WorldElements)
+        response = structured_llm.invoke(prompt)
         
-        try:
-            return fix_chain.invoke({"text": text})
-        except Exception as e:
-            print(f"LangChain JSON parser failed: {str(e)}")
+        if isinstance(response, WorldElements):
+            # Convert to dict and handle the TECHNOLOGY/MAGIC key
+            result = response.dict(by_alias=True, exclude_none=True)
+            # Ensure we have the expected structure
+            return result
+        else:
+            print(f"Unexpected response type: {type(response)}")
+            return _get_default_world_structure()
     except Exception as e:
-        print(f"All JSON parsing methods failed: {str(e)}")
-    
-    # Last resort: return a minimal structure with the original text preserved
-    # This ensures we don't lose the content even if parsing fails
+        print(f"Structured output parsing failed: {str(e)}")
+        return _get_default_world_structure()
+
+def _get_default_world_structure() -> Dict[str, Any]:
+    """Return a default world structure."""
     return {
-        "GEOGRAPHY": {"content": text.split("HISTORY")[0] if "HISTORY" in text else "Geographic elements"},
-        "HISTORY": {"content": text.split("HISTORY")[1].split("CULTURE")[0] if "HISTORY" in text and "CULTURE" in text else "Historical elements"},
-        "CULTURE": {"content": text.split("CULTURE")[1].split("POLITICS")[0] if "CULTURE" in text and "POLITICS" in text else "Cultural elements"},
-        "POLITICS": {"content": text.split("POLITICS")[1].split("ECONOMICS")[0] if "POLITICS" in text and "ECONOMICS" in text else "Political elements"},
-        "ECONOMICS": {"content": text.split("ECONOMICS")[1].split("TECHNOLOGY/MAGIC")[0] if "ECONOMICS" in text and "TECHNOLOGY/MAGIC" in text else "Economic elements"},
-        "TECHNOLOGY/MAGIC": {"content": text.split("TECHNOLOGY/MAGIC")[1].split("RELIGION")[0] if "TECHNOLOGY/MAGIC" in text and "RELIGION" in text else "Technology or magic"},
-        "RELIGION": {"content": text.split("RELIGION")[1].split("DAILY_LIFE")[0] if "RELIGION" in text and "DAILY_LIFE" in text else "Religious elements"},
-        "DAILY_LIFE": {"content": text.split("DAILY_LIFE")[1] if "DAILY_LIFE" in text else "Daily life elements"}
+        "GEOGRAPHY": {},
+        "HISTORY": {},
+        "CULTURE": {},
+        "POLITICS": {},
+        "ECONOMICS": {},
+        "TECHNOLOGY/MAGIC": {},
+        "RELIGION": {},
+        "DAILY_LIFE": {}
     }
 
 def generate_structured_json(text_content: str, schema: str, description: str) -> Dict[str, Any]:
