@@ -180,12 +180,17 @@ class StoryDatabaseManager:
         char_id_map = {}
         for char_id, char_data in characters.items():
             try:
+                # Serialize personality if it's a dict
+                personality = char_data.get('personality', '')
+                if isinstance(personality, dict):
+                    personality = json.dumps(personality)
+                
                 db_char_id = self._db.create_character(
                     identifier=char_id,
                     name=char_data.get('name', char_id),
                     role=char_data.get('role', ''),
                     backstory=char_data.get('backstory', ''),
-                    personality=char_data.get('personality', '')
+                    personality=personality
                 )
                 char_id_map[char_id] = db_char_id
             except Exception as e:
@@ -222,31 +227,35 @@ class StoryDatabaseManager:
             if isinstance(thread_data, dict) and thread_data.get('stored_in_db'):
                 continue
                 
-            try:
-                # Handle the PlotThread data structure
-                if isinstance(thread_data, dict):
-                    self._db.create_plot_thread(
-                        name=thread_name,
-                        description=thread_data.get('description', ''),
-                        thread_type=thread_data.get('importance', 'minor'),  # PlotThread uses 'importance' not 'thread_type'
-                        importance=thread_data.get('importance', 'minor'),
-                        status=thread_data.get('status', 'introduced')
-                    )
-            except Exception as e:
-                # Thread might already exist, update status
-                logger.debug(f"Plot thread {thread_name} may already exist: {e}")
-                with self._db._get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT id FROM plot_threads WHERE name = ?",
-                        (thread_name,)
-                    )
-                    result = cursor.fetchone()
-                    if result and isinstance(thread_data, dict):
-                        self._db.update_plot_thread_status(
-                            result['id'],
-                            thread_data.get('status', 'introduced')
+            # Handle the PlotThread data structure
+            if isinstance(thread_data, dict):
+                try:
+                    # First check if thread already exists
+                    with self._db._get_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "SELECT id FROM plot_threads WHERE name = ?",
+                            (thread_name,)
                         )
+                        result = cursor.fetchone()
+                        
+                        if result:
+                            # Update existing thread
+                            self._db.update_plot_thread_status(
+                                result['id'],
+                                thread_data.get('status', 'introduced')
+                            )
+                        else:
+                            # Create new thread
+                            self._db.create_plot_thread(
+                                name=thread_name,
+                                description=thread_data.get('description', ''),
+                                thread_type=thread_data.get('importance', 'minor'),  # PlotThread uses 'importance' not 'thread_type'
+                                importance=thread_data.get('importance', 'minor'),
+                                status=thread_data.get('status', 'introduced')
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to save plot thread {thread_name}: {e}")
     
     def _save_chapter(self, state: StoryState) -> None:
         """Save current chapter."""
@@ -264,24 +273,28 @@ class StoryDatabaseManager:
             except (ValueError, IndexError):
                 chapter_num = len(chapters)
             
-            try:
-                self._current_chapter_id = self._db.create_chapter(
-                    chapter_num=chapter_num,
-                    title=chapter_data.get('title', ''),
-                    outline=chapter_data.get('outline', '')
+            # First check if chapter exists
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT id FROM chapters WHERE chapter_number = ?",
+                    (chapter_num,)
                 )
-            except Exception as e:
-                # Chapter might already exist
-                logger.debug(f"Chapter {current_chapter} may already exist: {e}")
-                with self._db._get_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT id FROM chapters WHERE chapter_number = ?",
-                        (chapter_num,)
-                    )
-                    result = cursor.fetchone()
-                    if result:
-                        self._current_chapter_id = result['id']
+                result = cursor.fetchone()
+                
+                if result:
+                    # Chapter already exists, just update the ID
+                    self._current_chapter_id = result['id']
+                else:
+                    # Create new chapter
+                    try:
+                        self._current_chapter_id = self._db.create_chapter(
+                            chapter_num=chapter_num,
+                            title=chapter_data.get('title', ''),
+                            outline=chapter_data.get('outline', '')
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to create chapter {current_chapter}: {e}")
     
     def _save_scene(self, state: StoryState) -> None:
         """Save current scene and its entities."""
