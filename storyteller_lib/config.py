@@ -193,6 +193,57 @@ def get_llm(
 # Initialize the default LLM instance
 llm = get_llm()
 
+
+def get_llm_with_structured_output(
+    response_schema: Dict[str, Any],
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    temperature: Optional[float] = None,
+    max_tokens: Optional[int] = None
+) -> BaseChatModel:
+    """
+    Get an LLM instance configured for structured output (JSON schema).
+    Currently only supports Gemini models.
+    
+    Args:
+        response_schema: JSON schema defining the expected output structure
+        provider: The model provider (defaults to current provider)
+        model: The model name to use
+        temperature: The temperature setting
+        max_tokens: Maximum tokens to generate
+        
+    Returns:
+        A configured LLM instance with structured output
+    """
+    # Get provider or use default
+    provider = provider or os.environ.get("MODEL_PROVIDER") or DEFAULT_MODEL_PROVIDER
+    
+    if provider == "gemini":
+        # For Gemini, we can use response_schema directly
+        provider_config = MODEL_CONFIGS[provider]
+        model_name = model or provider_config["default_model"]
+        api_key = os.environ.get(provider_config["env_key"])
+        temp = temperature or DEFAULT_TEMPERATURE
+        tokens = max_tokens or provider_config.get("max_tokens")
+        
+        if not api_key:
+            raise ValueError(f"No API key found for {provider}. Please set {provider_config['env_key']} in your .env file.")
+        
+        # Create Gemini model with structured output
+        return ChatGoogleGenerativeAI(
+            model=model_name,
+            temperature=temp,
+            google_api_key=api_key,
+            max_tokens=tokens,
+            response_mime_type="application/json",
+            response_schema=response_schema
+        )
+    else:
+        # For other providers, fall back to regular LLM with prompt engineering
+        logger.warning(f"Structured output not natively supported for {provider}, using prompt engineering")
+        return get_llm(provider, model, temperature, max_tokens)
+
+
 # Define the memory namespace consistently
 MEMORY_NAMESPACE = ("storyteller",)
 
