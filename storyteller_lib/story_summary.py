@@ -10,11 +10,21 @@ import logging
 from typing import Dict, List, Optional, Any
 
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel, Field
 
-from storyteller_lib.config import get_llm, MEMORY_NAMESPACE, manage_memory_tool
+from storyteller_lib.config import get_llm, get_llm_with_structured_output, MEMORY_NAMESPACE, manage_memory_tool
 from storyteller_lib.database_integration import get_db_manager
 
 logger = logging.getLogger(__name__)
+
+
+class SceneInformation(BaseModel):
+    """Schema for extracted scene information."""
+    events: List[str] = Field(description="List of 2-3 key events that happen (brief phrases)")
+    character_actions: Dict[str, List[str]] = Field(description="Object mapping character names to list of their key actions")
+    descriptions: List[str] = Field(description="List of unique descriptive phrases used")
+    revelations: List[str] = Field(description="List of any important revelations or discoveries")
+    scene_type: str = Field(description="Category of the scene (action, dialogue, discovery, conflict, exposition, character_development, transition, climax, resolution, other)")
 
 
 def generate_story_summary() -> Dict[str, Any]:
@@ -126,10 +136,29 @@ def extract_scene_information(content: str, chapter_num: int, scene_num: int) ->
     from storyteller_lib.database_integration import get_db_manager
     db_manager = get_db_manager()
     
-    # Use regular LLM with JSON parsing for all providers
-    # (Structured output with Gemini has known issues with complex schemas)
-    llm = get_llm()
-    prompt = f"""Analyze this scene and extract key information. Return a JSON object with:
+    # Check if we're using Gemini
+    import os
+    provider = os.environ.get("MODEL_PROVIDER", "gemini")
+    
+    if provider == "gemini":
+        # Use structured output with Pydantic model
+        llm = get_llm_with_structured_output(SceneInformation)
+        prompt = f"""Analyze this scene and extract key information.
+
+Scene (Chapter {chapter_num}, Scene {scene_num}):
+{content[:2000]}  # Limit to avoid token issues
+
+Extract the following information:
+1. Key events that happen (2-3 brief phrases)
+2. Character actions (map each character to their actions)
+3. Unique descriptive phrases used
+4. Important revelations or discoveries
+5. The type of scene (action, dialogue, discovery, etc.)
+"""
+    else:
+        # For non-Gemini providers, use regular LLM with JSON output
+        llm = get_llm()
+        prompt = f"""Analyze this scene and extract key information. Return a JSON object with:
 
 1. "events": List of 2-3 key events that happen (brief phrases)
 2. "character_actions": Object mapping character names to list of their key actions
@@ -156,18 +185,29 @@ Return ONLY the JSON object, no other text.
         messages = [HumanMessage(content=prompt)]
         response = llm.invoke(messages)
         
-        # Parse the JSON response
-        content = response.content.strip()
-        
-        # Handle markdown code blocks
-        if content.startswith("```json"):
-            content = content[7:]
-        if content.startswith("```"):
-            content = content[3:]
-        if content.endswith("```"):
-            content = content[:-3]
-        
-        result = json.loads(content.strip())
+        # Handle structured output response from Gemini
+        if provider == "gemini" and hasattr(response, 'dict'):
+            # Pydantic model response
+            result = response.dict()
+        elif provider == "gemini" and isinstance(response, dict):
+            # Direct dictionary response
+            result = response
+        elif provider == "gemini" and isinstance(response, SceneInformation):
+            # SceneInformation model instance
+            result = response.dict()
+        else:
+            # Parse JSON response for non-Gemini providers
+            content = response.content.strip()
+            
+            # Handle markdown code blocks
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            
+            result = json.loads(content.strip())
         
         # Register extracted content in the database to prevent repetition
         if db_manager and db_manager._db:
@@ -212,8 +252,8 @@ Return ONLY the JSON object, no other text.
         logger.warning(f"Failed to parse JSON response: {e}")
         logger.debug(f"Response content that failed to parse: {response.content if hasattr(response, 'content') else 'No content'}")
         
-        # Try one more time with regex cleanup for non-Gemini providers
-        if provider != "gemini" and hasattr(response, 'content'):
+        # Try one more time with regex cleanup
+        if hasattr(response, 'content'):
             try:
                 import re
                 content = response.content.strip()
@@ -222,11 +262,21 @@ Return ONLY the JSON object, no other text.
                     content = content.split("```json")[1].split("```")[0]
                 elif "```" in content:
                     content = content.split("```")[1].split("```")[0]
+                    
+                # More aggressive JSON fixing
                 # Fix trailing commas
                 content = re.sub(r',(\s*[}\]])', r'\1', content)
+                # Fix missing commas between array items
+                content = re.sub(r'"\s*\n\s*"', '",\n"', content)
+                # Fix missing commas between object properties
+                content = re.sub(r'"\s*\n\s*"([^:])', '",\n"\1', content)
+                # Remove any control characters
+                content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', content)
+                
                 result = json.loads(content.strip())
                 return result
-            except:
+            except Exception as e2:
+                logger.debug(f"Second JSON parse attempt failed: {e2}")
                 pass
         
         return {
