@@ -39,11 +39,12 @@ class StoryDatabaseManager:
         self.enabled = enabled
         self._db: Optional[StoryDatabase] = None
         self._adapter: Optional[DatabaseStateAdapter] = None
-        self._story_id: Optional[int] = None
         self._db_path = db_path or os.environ.get('STORY_DATABASE_PATH', 'story_database.db')
         self._modified_entities: Set[str] = set()
         self._current_chapter_id: Optional[int] = None
         self._current_scene_id: Optional[int] = None
+        self._character_id_map: Dict[str, int] = {}
+        self._chapter_id_map: Dict[str, int] = {}
         if self.enabled:
             self._initialize_database()
     
@@ -53,40 +54,42 @@ class StoryDatabaseManager:
         self._adapter = DatabaseStateAdapter(self._db)
         logger.info(f"Database initialized at {self._db_path}")
     
-    def create_story(self, state: StoryState) -> Optional[int]:
+    def initialize_story_config(self, state: StoryState) -> None:
         """
-        Create a new story in the database.
+        Initialize or update the story configuration.
         
         Args:
             state: Initial story state
-            
-        Returns:
-            Story ID if successful, None otherwise
         """
         if not self.enabled or not self._db:
-            return None
+            return
         
         try:
-            # Create the story
-            self._story_id = self._db.create_story(
-                title=state.get('initial_idea', 'Untitled Story')[:100],
-                genre=state.get('genre', 'unknown'),
-                tone=state.get('tone', 'unknown'),
-                author=state.get('author', ''),
-                language=state.get('language', 'english'),
-                initial_idea=state.get('initial_idea', ''),
-                global_story=state.get('global_story', '')
-            )
-            logger.info(f"Created story with ID {self._story_id}")
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                # Insert or replace the single story config row
+                cursor.execute("""
+                    INSERT OR REPLACE INTO story_config 
+                    (id, title, genre, tone, author, language, initial_idea, global_story)
+                    VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    state.get('initial_idea', 'Untitled Story')[:100],
+                    state.get('genre', 'unknown'),
+                    state.get('tone', 'unknown'),
+                    state.get('author', ''),
+                    state.get('language', 'english'),
+                    state.get('initial_idea', ''),
+                    state.get('global_story', '')
+                ))
+                conn.commit()
+            logger.info("Initialized story configuration")
             
-            # Initialize context provider with story ID
+            # Initialize context provider
             from storyteller_lib.story_context import initialize_context_provider
-            initialize_context_provider(self._story_id)
+            initialize_context_provider()
             
-            return self._story_id
         except Exception as e:
-            logger.error(f"Failed to create story: {e}")
-            return None
+            logger.error(f"Failed to initialize story config: {e}")
     
     def save_node_state(self, node_name: str, state: StoryState) -> None:
         """
@@ -99,7 +102,11 @@ class StoryDatabaseManager:
             node_name: Name of the node that just executed
             state: Current story state
         """
-        if not self.enabled or not self._db or not self._story_id:
+        logger.debug(f"save_node_state called for node: {node_name}")
+        logger.debug(f"Database enabled: {self.enabled}, DB exists: {self._db is not None}")
+        
+        if not self.enabled or not self._db:
+            logger.warning(f"Skipping save for {node_name}: enabled={self.enabled}, db={self._db is not None}")
             return
         
         try:
@@ -108,11 +115,12 @@ class StoryDatabaseManager:
                 self._save_initial_state(state)
             elif node_name == NodeNames.WORLDBUILDING:
                 self._save_world_elements(state)
-            elif node_name == NodeNames.CHARACTER_CREATION:
+            elif node_name == NodeNames.CREATE_CHARACTERS:
                 self._save_characters(state)
-            elif node_name == NodeNames.PLOT_THREAD_DESIGN:
+            # Plot threads are saved after scene reflection
+            elif node_name == NodeNames.SCENE_REFLECTION:
                 self._save_plot_threads(state)
-            elif node_name == NodeNames.CHAPTER_GENERATION:
+            elif node_name == NodeNames.PLAN_CHAPTER:
                 self._save_chapter(state)
             elif node_name in [NodeNames.SCENE_WRITING, NodeNames.SCENE_REVISION]:
                 self._save_scene(state)
@@ -125,39 +133,44 @@ class StoryDatabaseManager:
     
     def _save_initial_state(self, state: StoryState) -> None:
         """Save initial story setup."""
-        if not self._story_id:
-            self.create_story(state)
-        elif self._story_id:
-            # Ensure context provider is initialized
-            from storyteller_lib.story_context import get_context_provider, initialize_context_provider
-            if not get_context_provider():
-                initialize_context_provider(self._story_id)
+        self.initialize_story_config(state)
+        # Ensure context provider is initialized
+        from storyteller_lib.story_context import get_context_provider, initialize_context_provider
+        if not get_context_provider():
+            initialize_context_provider()
     
     def _save_world_elements(self, state: StoryState) -> None:
         """Save world building elements."""
         world_elements = state.get('world_elements', {})
         
-        for category, elements in world_elements.items():
-            for key, value in elements.items():
-                self._db.create_world_element(
-                    story_id=self._story_id,
-                    category=category,
-                    element_key=key,
-                    element_value=value
-                )
+        # Check if world_elements is just a marker (stored_in_db: True)
+        if isinstance(world_elements, dict) and world_elements.get('stored_in_db'):
+            # Already saved directly by worldbuilding.py
+            logger.debug("World elements already saved to database")
+            return
         
-        # Also save locations if they exist in world elements
-        if 'locations' in world_elements:
-            for loc_id, loc_data in world_elements['locations'].items():
-                if isinstance(loc_data, dict):
-                    self._db.create_location(
-                        story_id=self._story_id,
-                        identifier=loc_id,
-                        name=loc_data.get('name', loc_id),
-                        description=loc_data.get('description', ''),
-                        location_type=loc_data.get('type', 'unknown'),
-                        properties=loc_data.get('properties', {})
-                    )
+        # Otherwise save them if they exist
+        if isinstance(world_elements, dict):
+            for category, elements in world_elements.items():
+                if isinstance(elements, dict):
+                    for key, value in elements.items():
+                        self._db.create_world_element(
+                            category=category,
+                            element_key=key,
+                            element_value=value
+                        )
+            
+            # Also save locations if they exist in world elements
+            if 'locations' in world_elements and isinstance(world_elements['locations'], dict):
+                for loc_id, loc_data in world_elements['locations'].items():
+                    if isinstance(loc_data, dict):
+                        self._db.create_location(
+                            identifier=loc_id,
+                            name=loc_data.get('name', loc_id),
+                            description=loc_data.get('description', ''),
+                            location_type=loc_data.get('type', 'unknown'),
+                            properties=loc_data.get('properties', {})
+                        )
     
     def _save_characters(self, state: StoryState) -> None:
         """Save character profiles and relationships."""
@@ -168,7 +181,6 @@ class StoryDatabaseManager:
         for char_id, char_data in characters.items():
             try:
                 db_char_id = self._db.create_character(
-                    story_id=self._story_id,
                     identifier=char_id,
                     name=char_data.get('name', char_id),
                     role=char_data.get('role', ''),
@@ -183,8 +195,8 @@ class StoryDatabaseManager:
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT id FROM characters WHERE story_id = ? AND identifier = ?",
-                        (self._story_id, char_id)
+                        "SELECT id FROM characters WHERE identifier = ?",
+                        (char_id,)
                     )
                     result = cursor.fetchone()
                     if result:
@@ -198,8 +210,7 @@ class StoryDatabaseManager:
                         self._db.create_relationship(
                             char1_id=char_id_map[char_id],
                             char2_id=char_id_map[other_char],
-                            rel_type=rel_type,
-                            story_id=self._story_id
+                            rel_type=rel_type
                         )
     
     def _save_plot_threads(self, state: StoryState) -> None:
@@ -207,26 +218,31 @@ class StoryDatabaseManager:
         plot_threads = state.get('plot_threads', {})
         
         for thread_name, thread_data in plot_threads.items():
+            # Skip if it's just a marker
+            if isinstance(thread_data, dict) and thread_data.get('stored_in_db'):
+                continue
+                
             try:
-                self._db.create_plot_thread(
-                    story_id=self._story_id,
-                    name=thread_name,
-                    description=thread_data.get('description', ''),
-                    thread_type=thread_data.get('thread_type', 'subplot'),
-                    importance=thread_data.get('importance', 'minor'),
-                    status=thread_data.get('status', 'introduced')
-                )
+                # Handle the PlotThread data structure
+                if isinstance(thread_data, dict):
+                    self._db.create_plot_thread(
+                        name=thread_name,
+                        description=thread_data.get('description', ''),
+                        thread_type=thread_data.get('importance', 'minor'),  # PlotThread uses 'importance' not 'thread_type'
+                        importance=thread_data.get('importance', 'minor'),
+                        status=thread_data.get('status', 'introduced')
+                    )
             except Exception as e:
                 # Thread might already exist, update status
                 logger.debug(f"Plot thread {thread_name} may already exist: {e}")
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT id FROM plot_threads WHERE story_id = ? AND name = ?",
-                        (self._story_id, thread_name)
+                        "SELECT id FROM plot_threads WHERE name = ?",
+                        (thread_name,)
                     )
                     result = cursor.fetchone()
-                    if result:
+                    if result and isinstance(thread_data, dict):
                         self._db.update_plot_thread_status(
                             result['id'],
                             thread_data.get('status', 'introduced')
@@ -250,7 +266,6 @@ class StoryDatabaseManager:
             
             try:
                 self._current_chapter_id = self._db.create_chapter(
-                    story_id=self._story_id,
                     chapter_num=chapter_num,
                     title=chapter_data.get('title', ''),
                     outline=chapter_data.get('outline', '')
@@ -261,8 +276,8 @@ class StoryDatabaseManager:
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT id FROM chapters WHERE story_id = ? AND chapter_number = ?",
-                        (self._story_id, chapter_num)
+                        "SELECT id FROM chapters WHERE chapter_number = ?",
+                        (chapter_num,)
                     )
                     result = cursor.fetchone()
                     if result:
@@ -329,8 +344,8 @@ class StoryDatabaseManager:
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT id FROM characters WHERE story_id = ? AND identifier = ?",
-                        (self._story_id, char_id)
+                        "SELECT id FROM characters WHERE identifier = ?",
+                        (char_id,)
                     )
                     result = cursor.fetchone()
                     if result:
@@ -352,8 +367,8 @@ class StoryDatabaseManager:
                         with self._db._get_connection() as conn:
                             cursor = conn.cursor()
                             cursor.execute(
-                                "SELECT id FROM locations WHERE story_id = ? AND identifier = ?",
-                                (self._story_id, loc_id)
+                                "SELECT id FROM locations WHERE identifier = ?",
+                                (loc_id,)
                             )
                             result = cursor.fetchone()
                             if result:
@@ -375,8 +390,8 @@ class StoryDatabaseManager:
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT id FROM characters WHERE story_id = ? AND identifier = ?",
-                    (self._story_id, char_id)
+                    "SELECT id FROM characters WHERE identifier = ?",
+                    (char_id,)
                 )
                 result = cursor.fetchone()
                 if result:
@@ -419,7 +434,7 @@ class StoryDatabaseManager:
         Returns:
             Context dictionary with relevant information
         """
-        if not self._db or not self._story_id:
+        if not self._db:
             return {}
         
         try:
@@ -427,8 +442,8 @@ class StoryDatabaseManager:
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT id FROM chapters WHERE story_id = ? AND chapter_number = ?",
-                    (self._story_id, chapter_num)
+                    "SELECT id FROM chapters WHERE chapter_number = ?",
+                    (chapter_num,)
                 )
                 result = cursor.fetchone()
                 if result:
@@ -449,7 +464,7 @@ class StoryDatabaseManager:
         Returns:
             Context dictionary with relevant information
         """
-        if not self._db or not self._story_id:
+        if not self._db:
             return {}
         
         try:
@@ -461,9 +476,9 @@ class StoryDatabaseManager:
                     SELECT s.id 
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
-                    WHERE c.story_id = ? AND c.chapter_number = ? AND s.scene_number = ?
+                    WHERE c.chapter_number = ? AND s.scene_number = ?
                     """,
-                    (self._story_id, chapter_num, scene_num)
+                    (chapter_num, scene_num)
                 )
                 result = cursor.fetchone()
                 if result:
@@ -473,13 +488,10 @@ class StoryDatabaseManager:
         
         return {}
     
-    def load_story(self, story_id: int) -> Optional[StoryState]:
+    def load_story(self) -> Optional[StoryState]:
         """
-        Load a story from the database.
+        Load the story from the database.
         
-        Args:
-            story_id: The story ID to load
-            
         Returns:
             Story state if successful, None otherwise
         """
@@ -487,10 +499,9 @@ class StoryDatabaseManager:
             return None
         
         try:
-            self._story_id = story_id
-            return self._adapter.load_from_database(story_id)
+            return self._adapter.load_from_database()
         except Exception as e:
-            logger.error(f"Failed to load story {story_id}: {e}")
+            logger.error(f"Failed to load story: {e}")
             return None
     
     def update_character(self, character_id: str, changes: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -504,7 +515,7 @@ class StoryDatabaseManager:
         Returns:
             List of affected scenes that may need revision
         """
-        if not self.enabled or not self._db or not self._story_id:
+        if not self.enabled or not self._db:
             return []
         
         try:
@@ -512,8 +523,8 @@ class StoryDatabaseManager:
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT id FROM characters WHERE story_id = ? AND identifier = ?",
-                    (self._story_id, character_id)
+                    "SELECT id FROM characters WHERE identifier = ?",
+                    (character_id,)
                 )
                 result = cursor.fetchone()
                 if not result:
@@ -553,7 +564,7 @@ class StoryDatabaseManager:
             change_type = 'name' if 'name' in changes else 'backstory' if 'backstory' in changes else 'minor'
             
             return analyzer.find_revision_candidates(
-                self._story_id, change_type, 'character', char_db_id
+                change_type, 'character', char_db_id
             )
             
         except Exception as e:
@@ -571,7 +582,7 @@ class StoryDatabaseManager:
         Returns:
             List of affected scenes that may need revision
         """
-        if not self.enabled or not self._db or not self._story_id:
+        if not self.enabled or not self._db:
             return []
         
         try:
@@ -579,8 +590,8 @@ class StoryDatabaseManager:
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT id FROM plot_threads WHERE story_id = ? AND name = ?",
-                    (self._story_id, thread_name)
+                    "SELECT id FROM plot_threads WHERE name = ?",
+                    (thread_name,)
                 )
                 result = cursor.fetchone()
                 if not result:
@@ -648,13 +659,13 @@ class StoryDatabaseManager:
         Returns:
             List of affected scenes that may need revision
         """
-        if not self.enabled or not self._db or not self._story_id:
+        if not self.enabled or not self._db:
             return []
         
         try:
             # Update world element
             self._db.create_world_element(
-                self._story_id, category, element_key, element_value
+                category, element_key, element_value
             )
             logger.info(f"Updated world element {category}.{element_key}")
             
@@ -674,11 +685,9 @@ class StoryDatabaseManager:
                     SELECT s.id, s.scene_number, c.chapter_number, c.id as chapter_id
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
-                    WHERE c.story_id = ?
                     ORDER BY c.chapter_number, s.scene_number
                     LIMIT 10
-                    """,
-                    (self._story_id,)
+                    """
                 )
                 
                 for row in cursor.fetchall():
@@ -711,7 +720,7 @@ class StoryDatabaseManager:
         Returns:
             List of scenes that may need revision
         """
-        if not self.enabled or not self._db or not self._story_id:
+        if not self.enabled or not self._db:
             return []
         
         try:
@@ -721,8 +730,8 @@ class StoryDatabaseManager:
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT id FROM characters WHERE story_id = ? AND identifier = ?",
-                        (self._story_id, entity_id)
+                        "SELECT id FROM characters WHERE identifier = ?",
+                        (entity_id,)
                     )
                     result = cursor.fetchone()
                     if result:
@@ -742,12 +751,199 @@ class StoryDatabaseManager:
             from storyteller_lib.story_analysis import StoryAnalyzer
             analyzer = StoryAnalyzer(self._db)
             return analyzer.find_revision_candidates(
-                self._story_id, change_type, entity_type, db_entity_id
+                change_type, entity_type, db_entity_id
             )
             
         except Exception as e:
             logger.error(f"Failed to get revision candidates: {e}")
             return []
+    
+    def update_global_story(self, global_story: str) -> None:
+        """Update the global story outline in the database."""
+        if not self.enabled or not self._db:
+            logger.warning("Database manager is disabled or not initialized")
+            return
+        
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE story_config SET global_story = ? WHERE id = 1",
+                    (global_story,)
+                )
+                conn.commit()
+                
+            logger.info(f"Updated global story (length: {len(global_story)} chars)")
+        except Exception as e:
+            logger.error(f"Failed to update global story: {e}")
+            raise
+    
+    # Public methods for saving specific data types
+    def save_worldbuilding(self, world_elements: Dict[str, Any]) -> None:
+        """Save worldbuilding elements to database."""
+        if not self.enabled or not self._db:
+            return
+        
+        try:
+            for category, elements in world_elements.items():
+                if category == "stored_in_db":  # Skip our marker
+                    continue
+                if isinstance(elements, dict):
+                    for key, value in elements.items():
+                        self._db.create_world_element(
+                            category=category,
+                            element_key=key,
+                            element_value=value
+                        )
+            logger.info("Saved worldbuilding elements")
+        except Exception as e:
+            logger.error(f"Failed to save worldbuilding: {e}")
+            raise
+    
+    def save_character(self, char_id: str, char_data: Dict[str, Any]) -> None:
+        """Save a character to database."""
+        if not self.enabled or not self._db:
+            return
+        
+        try:
+            # Create character
+            db_char_id = self._db.create_character(
+                identifier=char_id,
+                name=char_data.get('name', char_id),
+                role=char_data.get('role', ''),
+                backstory=char_data.get('backstory', ''),
+                personality=char_data.get('personality', '')
+            )
+            
+            # Store character ID mapping
+            self._character_id_map[char_id] = db_char_id
+            
+            # Save relationships if they exist
+            if 'relationships' in char_data:
+                for other_char, rel_data in char_data['relationships'].items():
+                    if other_char in self._character_id_map:
+                        rel_type = rel_data if isinstance(rel_data, str) else rel_data.get('type', 'unknown')
+                        self._db.create_relationship(
+                            char1_id=db_char_id,
+                            char2_id=self._character_id_map[other_char],
+                            rel_type=rel_type
+                        )
+            
+            logger.info(f"Saved character {char_id}")
+        except Exception as e:
+            logger.error(f"Failed to save character {char_id}: {e}")
+            raise
+    
+    def save_chapter_outline(self, chapter_num: int, chapter_data: Dict[str, Any]) -> None:
+        """Save chapter outline to database."""
+        if not self.enabled or not self._db:
+            return
+        
+        try:
+            chapter_id = self._db.create_chapter(
+                chapter_num=chapter_num,
+                title=chapter_data.get('title', f'Chapter {chapter_num}'),
+                outline=chapter_data.get('outline', '')
+            )
+            
+            # Store chapter ID mapping
+            self._chapter_id_map[str(chapter_num)] = chapter_id
+            
+            logger.info(f"Saved chapter {chapter_num} outline")
+        except Exception as e:
+            logger.error(f"Failed to save chapter {chapter_num}: {e}")
+            raise
+    
+    def save_scene_content(self, chapter_num: int, scene_num: int, content: str) -> None:
+        """Save scene content to database."""
+        if not self.enabled or not self._db:
+            return
+        
+        try:
+            # Get chapter ID
+            chapter_id = self._chapter_id_map.get(str(chapter_num))
+            if not chapter_id:
+                # Try to get from database
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT id FROM chapters WHERE chapter_number = ?",
+                        (chapter_num,)
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        chapter_id = result['id']
+                        self._chapter_id_map[str(chapter_num)] = chapter_id
+            
+            if chapter_id:
+                # Check if scene already exists
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT id FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                        (chapter_id, scene_num)
+                    )
+                    existing_scene = cursor.fetchone()
+                    
+                    if existing_scene:
+                        # Update existing scene
+                        cursor.execute(
+                            "UPDATE scenes SET content = ? WHERE id = ?",
+                            (content, existing_scene['id'])
+                        )
+                        conn.commit()
+                        logger.info(f"Updated scene {scene_num} of chapter {chapter_num}")
+                    else:
+                        # Create new scene
+                        scene_id = self._db.create_scene(
+                            chapter_id=chapter_id,
+                            scene_num=scene_num,
+                            outline='',  # Can be added later
+                            content=content
+                        )
+                        logger.info(f"Created scene {scene_num} of chapter {chapter_num}")
+            else:
+                logger.warning(f"Could not find chapter {chapter_num} to save scene {scene_num}")
+        
+        except Exception as e:
+            logger.error(f"Failed to save scene {scene_num} of chapter {chapter_num}: {e}")
+            raise
+    
+    def get_scene_content(self, chapter_num: int, scene_num: int) -> Optional[str]:
+        """Retrieve scene content from database."""
+        if not self.enabled or not self._db:
+            return None
+        
+        try:
+            # Get chapter ID
+            chapter_id = self._chapter_id_map.get(str(chapter_num))
+            if not chapter_id:
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT id FROM chapters WHERE chapter_number = ?",
+                        (chapter_num,)
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        chapter_id = result['id']
+            
+            if chapter_id:
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT content FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                        (chapter_id, scene_num)
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        return result['content']
+            
+            return None
+        
+        except Exception as e:
+            logger.error(f"Failed to get scene {scene_num} of chapter {chapter_num}: {e}")
+            return None
     
     def close(self) -> None:
         """Close database connections."""

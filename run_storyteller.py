@@ -35,6 +35,90 @@ else:
 
 # Global progress manager instance
 progress_manager: Optional[ProgressManager] = None
+
+def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> None:
+    """
+    Write a single scene to the output file.
+    
+    Args:
+        chapter_num: The chapter number
+        scene_num: The scene number
+        output_file: The output file path
+    """
+    try:
+        # Get content from database
+        from storyteller_lib.database_integration import get_db_manager
+        db_manager = get_db_manager()
+        
+        if not db_manager or not db_manager._db:
+            print(f"Error: Database manager not available for Scene {scene_num} of Chapter {chapter_num}")
+            return
+        
+        # Get scene content from database
+        content = db_manager.get_scene_content(chapter_num, scene_num)
+        if not content:
+            print(f"Error: No content found for Scene {scene_num} of Chapter {chapter_num}")
+            return
+            
+        # Ensure the directory exists
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
+        # Check if the file exists and if we need to add headers
+        file_exists = os.path.exists(output_file)
+        needs_story_title = not file_exists or os.path.getsize(output_file) < 300  # Less than error message size
+        
+        # Check if this chapter header has been written
+        chapter_header_written = False
+        if file_exists and os.path.getsize(output_file) > 300:
+            with open(output_file, 'r') as f:
+                existing_content = f.read()
+                chapter_header_written = f"## Chapter {chapter_num}:" in existing_content
+        
+        # Open the file in append mode
+        with open(output_file, 'a' if file_exists else 'w') as f:
+            # If this is a new file or very small (error message), add a title
+            if needs_story_title:
+                # Get story info from database
+                with db_manager._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT title, genre, tone FROM story_config WHERE id = 1")
+                    story_info = cursor.fetchone()
+                    if story_info:
+                        story_title = story_info['title'] if story_info['title'] else f"{story_info['tone'].title()} {story_info['genre'].title()} Story"
+                    else:
+                        story_title = "Generated Story"
+                
+                # Clear any error message and write title
+                f.seek(0)
+                f.truncate()
+                f.write(f"# {story_title}\n\n")
+            
+            # Write chapter header if this is the first scene of the chapter
+            if not chapter_header_written and scene_num == 1:
+                # Get chapter title from database
+                with db_manager._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT title FROM chapters WHERE chapter_number = ?", (chapter_num,))
+                    result = cursor.fetchone()
+                    chapter_title = result['title'] if result else f"Chapter {chapter_num}"
+                f.write(f"\n## Chapter {chapter_num}: {chapter_title}\n\n")
+            
+            # Write scene title
+            f.write(f"### Scene {scene_num}\n\n")
+            
+            # Write the scene content
+            f.write(content)
+            f.write("\n\n")
+        
+        print(f"Scene {scene_num} of Chapter {chapter_num} successfully written to {output_file}")
+        
+    except Exception as e:
+        print(f"Error writing scene {scene_num} of chapter {chapter_num} to {output_file}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
 def write_chapter_to_file(chapter_num: int, chapter_data: Dict[str, Any], output_file: str) -> None:
     """
     Write a completed chapter to the output file.
@@ -45,18 +129,24 @@ def write_chapter_to_file(chapter_num: int, chapter_data: Dict[str, Any], output
         output_file: The output file path
     """
     try:
-        # Validate input parameters
-        if not chapter_data:
-            print(f"Error: No chapter data provided for Chapter {chapter_num}")
+        # Convert chapter_num to int if it's a string
+        if isinstance(chapter_num, str):
+            chapter_num = int(chapter_num)
+        
+        # Get content from database since we're using thin state pattern
+        from storyteller_lib.database_integration import get_db_manager
+        db_manager = get_db_manager()
+        
+        if not db_manager or not db_manager._db:
+            print(f"Error: Database manager not available for Chapter {chapter_num}")
             return
-            
-        if not isinstance(chapter_data, dict):
-            print(f"Error: Chapter data for Chapter {chapter_num} is not a dictionary")
-            return
-            
-        if "scenes" not in chapter_data:
-            print(f"Error: No scenes found in Chapter {chapter_num}")
-            return
+        
+        # Get chapter title from database
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT title FROM chapters WHERE chapter_number = ?", (chapter_num,))
+            result = cursor.fetchone()
+            chapter_title = result['title'] if result else f"Chapter {chapter_num}"
             
         # Ensure the directory exists
         output_dir = os.path.dirname(output_file)
@@ -74,18 +164,30 @@ def write_chapter_to_file(chapter_num: int, chapter_data: Dict[str, Any], output
             if not file_exists:
                 f.write(f"# Generated Story\n\n")
             
-            # Write the chapter title (with a fallback if title is missing)
-            chapter_title = chapter_data.get('title', f"Chapter {chapter_num}")
+            # Write the chapter title
             f.write(f"\n## Chapter {chapter_num}: {chapter_title}\n\n")
             
-            # Write each scene
-            if not chapter_data.get("scenes"):
+            # Get all scenes for this chapter from database
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT s.scene_number, s.content 
+                    FROM scenes s
+                    JOIN chapters c ON s.chapter_id = c.id
+                    WHERE c.chapter_number = ?
+                    ORDER BY s.scene_number
+                """, (chapter_num,))
+                
+                scenes = cursor.fetchall()
+                
+            if not scenes:
                 f.write("*No scenes available for this chapter*\n\n")
             else:
-                for scene_num in sorted(chapter_data["scenes"].keys(), key=int):
-                    scene = chapter_data["scenes"][scene_num]
-                    if "content" in scene and scene["content"]:
-                        f.write(scene["content"])
+                for scene in scenes:
+                    scene_num = scene['scene_number']
+                    content = scene['content']
+                    if content:
+                        f.write(content)
                         f.write("\n\n")
                     else:
                         f.write(f"*Scene {scene_num} content not available*\n\n")
@@ -452,7 +554,7 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
         scene_info = f"Ch:{current_chapter}/Sc:{current_scene}"
         progress_message = f"[{elapsed_str}] Reviewed Scene {current_scene} of Chapter {current_chapter} for potential revisions [{scene_info}]"
         
-        if verbose_mode:
+        if progress_manager and progress_manager.state.verbose_mode:
             # Determine if revisions were made by checking presence of reflection notes
             chapters = state.get("chapters", {})
             scene_revised = False
@@ -481,7 +583,7 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
         current_chapter = state.get("current_chapter", "")
         progress_message = f"[{elapsed_str}] Performed continuity review after Chapter {current_chapter}"
         
-        if verbose_mode and "revelations" in state and "continuity_issues" in state["revelations"]:
+        if progress_manager and progress_manager.state.verbose_mode and "revelations" in state and "continuity_issues" in state["revelations"]:
             continuity_issues = state["revelations"]["continuity_issues"]
             sys.stdout.write(f"\n------ CONTINUITY REVIEW [Chapter {current_chapter}] ------\n")
             for issue in continuity_issues:
@@ -506,23 +608,18 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
     sys.stdout.write(f"{progress_message}\n")
     sys.stdout.flush()
     
-    # Check if a chapter was just completed and needs to be written to the output file
-    if node_name == "review_continuity" or node_name == "revise_scene_if_needed":
+    # Write scene to file immediately after it's written or revised
+    if node_name == "write_scene" or (node_name == "revise_scene_if_needed" and state.get("scene_was_revised", False)):
         try:
-            if state.get("chapter_complete", False):
-                # Get the chapter that was just completed
-                completed_chapter = state.get("current_chapter", "")
-                if completed_chapter and completed_chapter in state.get("chapters", {}):
-                    # Check if this chapter has been written to the file already
-                    chapter_written_key = f"chapter_{completed_chapter}_written"
-                    if not state.get(chapter_written_key, False):
-                        # Write the completed chapter to the output file
-                        sys.stdout.write(f"\n[{elapsed_str}] Chapter {completed_chapter} completed! Writing to output file...\n")
-                        write_chapter_to_file(completed_chapter, state["chapters"][completed_chapter], output_file)
-                        # Mark the chapter as written in the state
-                        state[chapter_written_key] = True
+            current_chapter = state.get("current_chapter", "")
+            current_scene = state.get("current_scene", "")
+            if current_chapter and current_scene and progress_manager and progress_manager.state.output_file:
+                # Write the scene to the output file
+                sys.stdout.write(f"\n[{elapsed_str}] Writing scene {current_scene} of chapter {current_chapter} to output file...\n")
+                write_scene_to_file(int(current_chapter), int(current_scene), progress_manager.state.output_file)
+                sys.stdout.flush()
         except Exception as e:
-            sys.stdout.write(f"\n[{elapsed_str}] Error writing chapter to file: {str(e)}\n")
+            sys.stdout.write(f"\n[{elapsed_str}] Error writing scene to file: {str(e)}\n")
             sys.stdout.flush()
     
     # Check for chapter/scene updates
@@ -616,8 +713,7 @@ def main() -> None:
     # Add database options
     parser.add_argument("--database-path", type=str,
                         help="Path to the story database file (default: ~/.storyteller/story_database.db)")
-    parser.add_argument("--load-story", type=int,
-                        help="Load and continue an existing story by its ID")
+    # Story continuation is not supported in single-story mode
     parser.add_argument("--progress-log", type=str,
                         help="Path to save progress log file (default: automatically generated in ~/.storyteller/logs/)")
     args = parser.parse_args()
@@ -658,18 +754,7 @@ def main() -> None:
     print(f"Database persistence: {DATABASE_PATH}")
     
     try:
-        # Check if we're loading an existing story
-        if args.load_story:
-            print(f"Loading story with ID {args.load_story} from database...")
-            from storyteller_lib.graph_with_db import load_story_from_database
-            loaded_state = load_story_from_database(args.load_story)
-            if not loaded_state:
-                print(f"Error: Story with ID {args.load_story} not found in database")
-                return
-            print(f"Story loaded successfully. Continuing generation...")
-            # TODO: Implement story continuation logic
-            print("Story continuation is not yet implemented.")
-            return
+        # Single story mode - always starts fresh
         
         # Generate the story with visual progress display
         author_str = f" in the style of {args.author}" if args.author else ""
@@ -796,12 +881,7 @@ def main() -> None:
                 f.write(story)
             print(f"Story successfully saved to {args.output}")
             
-            # Get story ID from database manager
-            from storyteller_lib.database_integration import get_db_manager
-            db_manager = get_db_manager()
-            if db_manager and db_manager._story_id:
-                print(f"Story ID in database: {db_manager._story_id}")
-                print(f"To continue this story later, use: --load-story {db_manager._story_id}")
+            # Database persistence is automatic for the single story
             
             # Generate info file if requested
             if args.info_file and 'state' in locals():

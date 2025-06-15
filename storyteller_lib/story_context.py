@@ -193,13 +193,12 @@ class StoryContextProvider:
                     SELECT s.id, s.content, s.scene_number, c.chapter_number
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
-                    WHERE c.story_id = ? 
-                    AND (c.chapter_number < ? OR 
+                    WHERE (c.chapter_number < ? OR 
                          (c.chapter_number = ? AND s.scene_number < ?))
                     ORDER BY c.chapter_number DESC, s.scene_number DESC
                     LIMIT 1
                     """,
-                    (self.story_id, chapter_num, chapter_num, scene_num)
+                    (chapter_num, chapter_num, scene_num)
                 )
                 prev_scene = cursor.fetchone()
                 
@@ -285,11 +284,9 @@ class StoryContextProvider:
                     FROM locations l
                     LEFT JOIN scene_entities se ON se.entity_id = l.id 
                         AND se.entity_type = 'location'
-                    WHERE l.story_id = ?
                     GROUP BY l.id
                     ORDER BY usage_count DESC
-                    """,
-                    (self.story_id,)
+                    """
                 )
                 
                 dependencies['locations'] = [dict(row) for row in cursor.fetchall()]
@@ -422,10 +419,10 @@ class StoryContextProvider:
                     JOIN plot_threads pt ON ptd.plot_thread_id = pt.id
                     JOIN scenes s ON ptd.scene_id = s.id
                     JOIN chapters c ON s.chapter_id = c.id
-                    WHERE pt.story_id = ? AND c.chapter_number = ?
+                    WHERE c.chapter_number = ?
                     ORDER BY s.scene_number
                     """,
-                    (self.story_id, chapter_num)
+                    (chapter_num,)
                 )
                 
                 for row in cursor.fetchall():
@@ -531,7 +528,7 @@ class StoryContextProvider:
         Returns:
             List of scene IDs that may need revision
         """
-        if not self.db or not self.story_id:
+        if not self.db:
             return []
         
         try:
@@ -543,8 +540,8 @@ class StoryContextProvider:
                 with self.db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT id FROM characters WHERE story_id = ? AND identifier = ?",
-                        (self.story_id, entity_id)
+                        "SELECT id FROM characters WHERE identifier = ?",
+                        (entity_id,)
                     )
                     result = cursor.fetchone()
                     if result:
@@ -553,8 +550,8 @@ class StoryContextProvider:
                 with self.db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT id FROM plot_threads WHERE story_id = ? AND name = ?",
-                        (self.story_id, entity_id)
+                        "SELECT id FROM plot_threads WHERE name = ?",
+                        (entity_id,)
                     )
                     result = cursor.fetchone()
                     if result:
@@ -641,18 +638,15 @@ class StoryContextProvider:
 _context_provider: Optional[StoryContextProvider] = None
 
 
-def initialize_context_provider(story_id: int) -> StoryContextProvider:
+def initialize_context_provider() -> StoryContextProvider:
     """
     Initialize the global context provider.
     
-    Args:
-        story_id: Story ID for context queries
-        
     Returns:
         Initialized context provider
     """
     global _context_provider
-    _context_provider = StoryContextProvider(story_id)
+    _context_provider = StoryContextProvider()
     return _context_provider
 
 

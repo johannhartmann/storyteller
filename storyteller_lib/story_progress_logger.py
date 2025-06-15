@@ -181,7 +181,7 @@ BACKSTORY:
 
 CURRENT STATE:
 - Emotional: {character.get('emotional_state', {}).get('current_emotion', 'Unknown')}
-- Goals: {character.get('inner_conflicts', {}).get('desires', 'Not specified')}
+- Goals: {self._extract_character_goals(character)}
 
 CHARACTER ARC:
 {character.get('character_arc', {}).get('transformation', 'Not specified')}
@@ -347,6 +347,30 @@ Log File: {self.log_file_path}
             Path to the log file
         """
         return self.log_file_path
+    
+    def _extract_character_goals(self, character: Dict[str, Any]) -> str:
+        """Extract character goals from various possible locations."""
+        # Check if personality dict has desires
+        personality = character.get('personality', {})
+        if isinstance(personality, dict) and 'desires' in personality:
+            desires = personality.get('desires', [])
+            if isinstance(desires, list) and desires:
+                return ", ".join(desires[:2])
+        
+        # Check inner_conflicts for desires
+        inner_conflicts = character.get('inner_conflicts', [])
+        if isinstance(inner_conflicts, list):
+            # Extract desires from conflict descriptions
+            desires = []
+            for conflict in inner_conflicts:
+                if isinstance(conflict, dict) and 'description' in conflict:
+                    desc = conflict['description']
+                    if 'desire' in desc.lower():
+                        desires.append(desc)
+            if desires:
+                return desires[0][:100] + "..." if len(desires[0]) > 100 else desires[0]
+        
+        return "Not specified"
 
 
 # Global instance for easy access
@@ -359,6 +383,9 @@ def get_progress_logger() -> Optional[StoryProgressLogger]:
     Returns:
         The progress logger instance or None if not initialized
     """
+    global _progress_logger
+    if _progress_logger is None:
+        print("[DEBUG] Progress logger is None in get_progress_logger()")
     return _progress_logger
 
 
@@ -385,6 +412,8 @@ def log_progress(content_type: str, **kwargs):
     """
     logger = get_progress_logger()
     if not logger:
+        # Debug: print when logger is not available
+        print(f"[DEBUG] Progress logger not available for {content_type}")
         return
     
     try:
@@ -415,4 +444,11 @@ def log_progress(content_type: str, **kwargs):
         elif content_type == "error":
             logger.log_error(**kwargs)
     except Exception as e:
-        logger.error(f"Failed to log {content_type}: {e}")
+        # Print error to stderr for debugging
+        import sys
+        print(f"[ERROR] Failed to log {content_type}: {str(e)}", file=sys.stderr)
+        # Try to write error to log file
+        try:
+            logger._write(f"[ERROR] Failed to log {content_type}: {str(e)}")
+        except:
+            pass

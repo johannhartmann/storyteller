@@ -100,42 +100,30 @@ def _prepare_worldbuilding_guidance(world_elements: Dict, chapter_outline: str, 
     if not world_elements:
         return ""
     
+    # Import optimization utility
+    from storyteller_lib.prompt_optimization import summarize_world_elements
+    
     # Identify which categories are most relevant for this chapter
     relevant_categories = _identify_relevant_world_categories(chapter_outline, world_elements)
     
     if not relevant_categories:
         return ""
     
-    # Limit to at most 3 most relevant categories to avoid overwhelming the prompt
-    if len(relevant_categories) > 3:
-        # Geography is most important, so keep it if it's there
-        if "geography" in relevant_categories:
-            relevant_categories.remove("geography")
-            selected_categories = ["geography"] + relevant_categories[:2]
-        else:
-            selected_categories = relevant_categories[:3]
-    else:
-        selected_categories = relevant_categories
+    # Limit to at most 3 most relevant categories
+    selected_categories = relevant_categories[:3]
+    
+    # Use the optimization utility to create concise summaries
+    world_summary = summarize_world_elements(
+        world_elements, 
+        relevant_categories=selected_categories,
+        max_words_per_category=30
+    )
     
     # Create the worldbuilding guidance section
     worldbuilding_sections = []
-    for category in selected_categories:
-        if category in world_elements:
-            category_elements = world_elements[category]
-            category_section = f"{category.upper()}:\n"
-            
-            for key, value in category_elements.items():
-                if isinstance(value, list) and value:
-                    # For lists, include the first 2-3 items
-                    items_to_include = value[:min(3, len(value))]
-                    # Ensure all items are strings
-                    items_str = [str(item) for item in items_to_include]
-                    category_section += f"- {key.replace('_', ' ').title()}: {', '.join(items_str)}\n"
-                elif value:
-                    # For strings or other values
-                    category_section += f"- {key.replace('_', ' ').title()}: {value}\n"
-            
-            worldbuilding_sections.append(category_section)
+    for category, summary in world_summary.items():
+        category_section = f"{category.upper()}: {summary}"
+        worldbuilding_sections.append(category_section)
     
     # Combine the sections
     worldbuilding_details = "\n".join(worldbuilding_sections)

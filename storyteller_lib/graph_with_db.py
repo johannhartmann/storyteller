@@ -34,7 +34,7 @@ def create_node_with_db_save(node_func, node_name: str, db_manager: Optional[Sto
     Returns:
         Wrapped function that includes database persistence
     """
-    @track_progress
+    # Create wrapper WITHOUT the @track_progress decorator first
     def wrapped(state: StoryState) -> Dict[str, Any]:
         # Execute the original node
         result = node_func(state)
@@ -49,14 +49,21 @@ def create_node_with_db_save(node_func, node_name: str, db_manager: Optional[Sto
                 
                 # Save state after node execution
                 db_manager.save_node_state(node_name, merged_state)
+                
+                # Log successful save
+                logger.debug(f"Successfully saved state after {node_name}")
+                    
             except Exception as e:
                 logger.error(f"Failed to save state after {node_name}: {e}")
         
         return result
     
-    # Preserve function name and metadata
+    # Preserve function name and metadata BEFORE applying decorator
     wrapped.__name__ = node_func.__name__
     wrapped.__doc__ = node_func.__doc__
+    
+    # Now apply the track_progress decorator to the properly named function
+    wrapped = track_progress(wrapped)
     
     return wrapped
 
@@ -180,41 +187,17 @@ def build_story_graph_with_db() -> StateGraph:
         }
     )
     
-    graph_builder.add_conditional_edges(
-        "brainstorm_story_concepts",
-        lambda state: "generate_story_outline" if should_generate_outline(state) else "brainstorm_story_concepts",
-        {
-            "generate_story_outline": "generate_story_outline",
-            "brainstorm_story_concepts": "brainstorm_story_concepts"
-        }
-    )
+    # Always go from brainstorming to outline (no loop back)
+    graph_builder.add_edge("brainstorm_story_concepts", "generate_story_outline")
     
-    graph_builder.add_conditional_edges(
-        "generate_story_outline",
-        lambda state: "generate_worldbuilding" if should_generate_worldbuilding(state) else "generate_story_outline",
-        {
-            "generate_worldbuilding": "generate_worldbuilding",
-            "generate_story_outline": "generate_story_outline"
-        }
-    )
+    # Always go from outline to worldbuilding (no loop back)
+    graph_builder.add_edge("generate_story_outline", "generate_worldbuilding")
     
-    graph_builder.add_conditional_edges(
-        "generate_worldbuilding",
-        lambda state: "generate_characters" if should_generate_characters(state) else "generate_worldbuilding",
-        {
-            "generate_characters": "generate_characters",
-            "generate_worldbuilding": "generate_worldbuilding"
-        }
-    )
+    # Always go from worldbuilding to characters (no loop back)
+    graph_builder.add_edge("generate_worldbuilding", "generate_characters")
     
-    graph_builder.add_conditional_edges(
-        "generate_characters",
-        lambda state: "plan_chapters" if should_plan_chapters(state) else "generate_characters",
-        {
-            "plan_chapters": "plan_chapters",
-            "generate_characters": "generate_characters"
-        }
-    )
+    # Always go from characters to plan_chapters (no loop back)
+    graph_builder.add_edge("generate_characters", "plan_chapters")
     
     # From plan_chapters to the scene iteration phase
     graph_builder.add_edge("plan_chapters", "brainstorm_scene_elements")
@@ -273,13 +256,10 @@ def build_story_graph_with_db() -> StateGraph:
     return graph_builder.compile()
 
 
-def load_story_from_database(story_id: int) -> Optional[StoryState]:
+def load_story_from_database() -> Optional[StoryState]:
     """
-    Load a story from the database.
+    Load the story from the database.
     
-    Args:
-        story_id: The ID of the story to load
-        
     Returns:
         The loaded story state, or None if not found
     """
@@ -288,4 +268,4 @@ def load_story_from_database(story_id: int) -> Optional[StoryState]:
         logger.error("Database manager not initialized")
         return None
     
-    return db_manager.load_story(story_id)
+    return db_manager.load_story()

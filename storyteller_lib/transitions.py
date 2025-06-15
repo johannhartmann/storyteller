@@ -240,10 +240,22 @@ def create_chapter_transition(current_chapter_data: Dict, next_chapter_data: Dic
     next_chapter_title = next_chapter_data.get("title", "")
     next_chapter_outline = next_chapter_data.get("outline", "")
     
+    # Get database manager
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available")
+    
     # Get the last scene of the current chapter
     current_chapter_scenes = current_chapter_data.get("scenes", {})
     last_scene_num = max(current_chapter_scenes.keys(), key=int)
-    last_scene_content = current_chapter_scenes[last_scene_num].get("content", "")
+    
+    # Get scene content from database
+    chapter_num = int(current_chapter_data.get("number", current_chapter_data.get("chapter_number", "0")))
+    last_scene_content = db_manager.get_scene_content(chapter_num, int(last_scene_num))
+    if not last_scene_content:
+        raise RuntimeError(f"Last scene of chapter {chapter_num} not found in database")
     
     # Analyze transition needs
     transition_analysis = analyze_transition_needs(last_scene_content, next_chapter_outline, "chapter", language)
@@ -359,11 +371,22 @@ def add_scene_transition(state: StoryState) -> Dict:
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     
+    # Get database manager
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available")
+    
     # Get the current chapter data
     chapter = chapters[current_chapter]
     
-    # Get the current scene content
-    scene_content = chapter["scenes"][current_scene]["content"]
+    # Get the current scene content from database or temporary state
+    scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    if not scene_content:
+        scene_content = state.get("current_scene_content", "")
+        if not scene_content:
+            raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
     
     # Calculate the next scene number
     next_scene = str(int(current_scene) + 1)
@@ -377,22 +400,16 @@ def add_scene_transition(state: StoryState) -> Dict:
         
         # Create a transition to the next scene
         transition = create_scene_transition(scene_content, next_scene_outline, state, language)
-        transition = create_scene_transition(scene_content, next_scene_outline, state)
         
         # Add the transition to the current scene
         updated_scene_content = scene_content + "\n\n" + transition
         
+        # Update scene content in database
+        db_manager.save_scene_content(int(current_chapter), int(current_scene), updated_scene_content)
+        
         return {
-            "chapters": {
-                current_chapter: {
-                    "scenes": {
-                        current_scene: {
-                            "content": updated_scene_content,
-                            "has_transition": True
-                        }
-                    }
-                }
-            }
+            "current_scene_content": updated_scene_content,
+            "has_transition": True
         }
     
     # If there's no next scene, we might be at the end of a chapter
@@ -425,7 +442,13 @@ def add_chapter_transition(state: StoryState) -> Dict:
         
         # Create a transition between chapters
         transition = create_chapter_transition(current_chapter_data, next_chapter_data, state, language)
-        transition = create_chapter_transition(current_chapter_data, next_chapter_data, state)
+        
+        # Get database manager
+        from storyteller_lib.database_integration import get_db_manager
+        db_manager = get_db_manager()
+        
+        if not db_manager or not db_manager._db:
+            raise RuntimeError("Database manager not available")
         
         # Get the last scene of the current chapter
         current_chapter_scenes = current_chapter_data.get("scenes", {})
@@ -433,22 +456,20 @@ def add_chapter_transition(state: StoryState) -> Dict:
             return {}
             
         last_scene_num = max(current_chapter_scenes.keys(), key=int)
-        last_scene_content = current_chapter_scenes[last_scene_num].get("content", "")
+        
+        # Get scene content from database
+        last_scene_content = db_manager.get_scene_content(int(current_chapter), int(last_scene_num))
+        if not last_scene_content:
+            raise RuntimeError(f"Last scene of chapter {current_chapter} not found in database")
         
         # Add the transition to the last scene of the current chapter
         updated_scene_content = last_scene_content + "\n\n" + transition
         
+        # Update scene content in database
+        db_manager.save_scene_content(int(current_chapter), int(last_scene_num), updated_scene_content)
+        
         return {
-            "chapters": {
-                current_chapter: {
-                    "scenes": {
-                        last_scene_num: {
-                            "content": updated_scene_content,
-                            "has_chapter_transition": True
-                        }
-                    }
-                }
-            }
+            "has_chapter_transition": True
         }
     
     return {}

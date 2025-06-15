@@ -314,31 +314,35 @@ def analyze_and_optimize_scene(state: StoryState) -> Dict:
     # Get the language from the state or use default
     language = state.get("language", DEFAULT_LANGUAGE)
     
-    # Get the scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get database manager
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available")
+    
+    # Get the scene content from database or temporary state
+    scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    if not scene_content:
+        scene_content = state.get("current_scene_content", "")
+        if not scene_content:
+            raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
     
     # Analyze pacing
     pacing_analysis = analyze_scene_pacing(scene_content, genre, tone, language)
     
-    # Store the pacing analysis in the state
-    pacing_updates = {
-        "chapters": {
-            current_chapter: {
-                "scenes": {
-                    current_scene: {
-                        "pacing_analysis": pacing_analysis
-                    }
-                }
-            }
-        }
-    }
+    # Prepare minimal state updates
+    pacing_updates = {}
     
     # If pacing needs improvement, optimize the scene
     if pacing_analysis["overall_pacing_score"] < 8:
         optimized_scene = optimize_scene_pacing(scene_content, pacing_analysis, genre, tone, language)
         
-        # Update the scene content with the optimized version
-        pacing_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = optimized_scene
+        # Update the scene content in database
+        db_manager.save_scene_content(int(current_chapter), int(current_scene), optimized_scene)
+        
+        # Update temporary state for next nodes
+        pacing_updates["current_scene_content"] = optimized_scene
         pacing_updates["pacing_optimized"] = True
     else:
         pacing_updates["pacing_optimized"] = False

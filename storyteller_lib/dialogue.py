@@ -487,40 +487,58 @@ def analyze_and_improve_dialogue(state: StoryState) -> Dict:
     Returns:
         Updates to the state
     """
-    chapters = state["chapters"]
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
-    characters = state["characters"]
     
     # Get the language from the state or use default
     language = state.get("language", DEFAULT_LANGUAGE)
     
-    # Get the scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get scene content from database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available - cannot retrieve scene content")
+    
+    scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    if not scene_content:
+        # Try temporary state
+        scene_content = state.get("current_scene_content", "")
+        if not scene_content:
+            raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
+    
+    # Get characters from database
+    characters = {}
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT identifier, name, role, backstory, personality
+            FROM characters
+        """)
+        for row in cursor.fetchall():
+            characters[row['identifier']] = {
+                'name': row['name'],
+                'role': row['role'],
+                'backstory': row['backstory'],
+                'personality': row['personality']
+            }
     
     # Analyze dialogue
     dialogue_analysis = analyze_dialogue(scene_content, characters, language)
     
-    # Store the dialogue analysis in the state
-    dialogue_updates = {
-        "chapters": {
-            current_chapter: {
-                "scenes": {
-                    current_scene: {
-                        "dialogue_analysis": dialogue_analysis
-                    }
-                }
-            }
-        }
-    }
+    # Prepare minimal state updates
+    dialogue_updates = {}
     
     # If dialogue needs improvement, improve the scene
     if dialogue_analysis["overall_score"] < 8:
         improved_scene = improve_dialogue(scene_content, dialogue_analysis, characters,
                                          language=language)
         
-        # Update the scene content with the improved version
-        dialogue_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = improved_scene
+        # Update the scene content in database
+        db_manager.save_scene_content(int(current_chapter), int(current_scene), improved_scene)
+        
+        # Update temporary state for next nodes
+        dialogue_updates["current_scene_content"] = improved_scene
         dialogue_updates["dialogue_improved"] = True
     else:
         dialogue_updates["dialogue_improved"] = False

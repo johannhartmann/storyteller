@@ -48,8 +48,19 @@ def _gather_previous_scenes_context(state: StoryState) -> Tuple[List[str], str]:
                 scene_num = int(scene_key)
                 if chap_num == curr_chap_num and scene_num >= curr_scene_num:
                     continue
+                # Get scene content from database if not in state
+                scene_content = None
                 if "content" in scene:
-                    prev_scene = scene["content"][:200]  # First 200 chars as summary
+                    scene_content = scene["content"]
+                elif scene.get("db_stored"):
+                    # Get from database
+                    from storyteller_lib.database_integration import get_db_manager
+                    db_manager = get_db_manager()
+                    if db_manager:
+                        scene_content = db_manager.get_scene_content(chap_num, scene_num)
+                
+                if scene_content:
+                    prev_scene = scene_content[:200]  # First 200 chars as summary
                     previous_scenes.append(f"Chapter {chap_num}, Scene {scene_num}: {prev_scene}...")
     
     previous_context = "\n".join(previous_scenes[-5:])  # Last 5 scenes for context
@@ -149,18 +160,64 @@ def reflect_on_scene(state: StoryState) -> Dict:
     chapters = state["chapters"]
     current_chapter = str(state["current_chapter"])
     current_scene = str(state["current_scene"])
-    characters = state["characters"]
     revelations = state["revelations"]
-    global_story = state["global_story"]
     language = state.get("language", DEFAULT_LANGUAGE)
     genre = state.get("genre", "fantasy")
     tone = state.get("tone", "adventurous")
     
-    # Get the scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get database manager
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
     
-    # Get worldbuilding elements if available
-    world_elements = state.get("world_elements", {})
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available")
+    
+    # Get full story outline from database
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT global_story FROM story_config WHERE id = 1"
+        )
+        result = cursor.fetchone()
+        if not result:
+            raise RuntimeError("Story outline not found in database")
+        global_story = result['global_story']
+    
+    # Get characters from database
+    characters = {}
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT identifier, name, role, backstory, personality
+            FROM characters
+        """)
+        for row in cursor.fetchall():
+            characters[row['identifier']] = {
+                'name': row['name'],
+                'role': row['role'],
+                'backstory': row['backstory'],
+                'personality': row['personality']
+            }
+    
+    # Get the scene content from database or temporary state
+    scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    if not scene_content:
+        scene_content = state.get("current_scene_content", "")
+        if not scene_content:
+            raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
+    
+    # Get worldbuilding elements from database
+    world_elements = {}
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT category, element_key, element_value
+            FROM world_elements
+        """)
+        for row in cursor.fetchall():
+            if row['category'] not in world_elements:
+                world_elements[row['category']] = {}
+            world_elements[row['category']][row['element_key']] = row['element_value']
     
     # Get previously addressed issues if available
     previously_addressed_issues = chapters[current_chapter]["scenes"][current_scene].get("issues_addressed", [])
@@ -176,8 +233,9 @@ def reflect_on_scene(state: StoryState) -> Dict:
     # Update scene content if closure improvement is needed
     if needs_improved_closure:
         scene_content = improved_scene
-        # Update the scene content in the state
-        chapters[current_chapter]["scenes"][current_scene]["content"] = improved_scene
+        # Save improved scene to database
+        if db_manager:
+            db_manager.save_scene_content(int(current_chapter), int(current_scene), improved_scene)
         logger.info(f"Improved scene closure for Chapter {current_chapter}, Scene {current_scene}")
     
     # Gather previous scenes for context
@@ -331,4 +389,11 @@ Be thorough but constructive in your analysis. Focus on actionable improvements.
     log_progress("scene_reflection", chapter=current_chapter, scene=current_scene,
                 reflection=reflection, needs_revision=needs_revision)
     
-    return state
+    # Return state updates
+    return {
+        "current_scene_content": scene_content,  # Pass along the (possibly improved) scene content
+        "scene_reflection": {
+            "issues": extracted_reflection.issues if needs_revision else [],
+            "needs_revision": needs_revision
+        }
+    }

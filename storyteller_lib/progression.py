@@ -6,6 +6,7 @@ removing router-specific code that could cause infinite loops.
 """
 
 from typing import Dict
+import json
 
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, memory_manager, prompt_optimizer, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage
 from storyteller_lib.models import StoryState
@@ -22,8 +23,21 @@ def update_world_elements(state: StoryState) -> Dict:
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     
-    # Get the scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get the scene content from temporary state or database
+    scene_content = state.get("current_scene_content", "")
+    
+    # If not in state, get from database
+    if not scene_content:
+        from storyteller_lib.story_context import get_context_provider
+        context_provider = get_context_provider()
+        if context_provider:
+            scene_data = context_provider.get_scene(int(current_chapter), int(current_scene))
+            if scene_data:
+                scene_content = scene_data.get("content", "")
+    
+    if not scene_content:
+        logger.warning(f"No scene content found for Ch{current_chapter}/Sc{current_scene}")
+        return {}
     
     # Prompt for world element updates
     prompt = f"""
@@ -173,14 +187,47 @@ def update_character_profiles(state: StoryState) -> Dict:
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     
-    # Get the scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get the scene content from temporary state or database
+    scene_content = state.get("current_scene_content", "")
+    
+    # If not in state, get from database
+    if not scene_content:
+        from storyteller_lib.story_context import get_context_provider
+        context_provider = get_context_provider()
+        if context_provider:
+            scene_data = context_provider.get_scene(int(current_chapter), int(current_scene))
+            if scene_data:
+                scene_content = scene_data.get("content", "")
+    
+    if not scene_content:
+        logger.warning(f"No scene content found for Ch{current_chapter}/Sc{current_scene}")
+        return {}
+    
+    # Import optimization utilities
+    from storyteller_lib.logger import get_logger
+    from storyteller_lib.prompt_optimization import (
+        truncate_scene_content, summarize_character, log_prompt_size,
+        get_relevant_characters
+    )
+    logger = get_logger(__name__)
+    
+    # Truncate scene content smartly
+    truncated_scene = truncate_scene_content(scene_content, keep_start=300, keep_end=200)
+    
+    # Get only relevant characters mentioned in the scene
+    relevant_characters = get_relevant_characters(characters, scene_content, max_characters=5)
+    scene_characters = [(char_id, char_data.get('name', '')) 
+                       for char_id, char_data in relevant_characters.items()]
+    
+    logger.info(f"Characters found in scene: {[name for _, name in scene_characters]}")
     
     # Prompt for character updates
     prompt = f"""
     Based on this scene from Chapter {current_chapter}, Scene {current_scene}:
     
-    {scene_content}
+    {truncated_scene}
+    
+    Characters in this scene: {', '.join([name for _, name in scene_characters])}
     
     Identify any developments or new information for each character.
     Consider:
@@ -190,11 +237,13 @@ def update_character_profiles(state: StoryState) -> Dict:
     4. New secrets that have been created but not yet revealed
     5. Emotional changes or reactions
     6. Progress in their character arc
-    7. Development of inner conflicts
-    8. Changes in desires, fears, or values
     
-    For each relevant character, specify what should be added to their profile.
+    For each relevant character, provide a BRIEF summary of what should be updated.
+    Keep your response under 300 words total.
     """
+    
+    # Log prompt size
+    log_prompt_size(prompt, "character update analysis")
     
     # Generate character updates
     character_updates_text = llm.invoke([HumanMessage(content=prompt)]).content
@@ -202,30 +251,33 @@ def update_character_profiles(state: StoryState) -> Dict:
     # For each character, check if there are updates and apply them
     updated_characters = state["characters"].copy()
     
-    # This simplified implementation assumes the LLM will provide somewhat structured output
-    # In a real application, you'd want to parse this more robustly
+    # Create optimized character summaries using utility function
+    character_summaries = {}
+    for char_id, char_name in scene_characters[:3]:  # Limit to 3 characters max
+        char_data = relevant_characters.get(char_id, {})
+        char_summary = summarize_character(char_data, max_words=50)
+        character_summaries[char_name] = char_summary
+    
+    # More focused update prompt
     character_update_prompt = f"""
-    Based on these potential character updates:
+    Based on these character developments from the scene:
     
-    {character_updates_text}
+    {character_updates_text[:400]}  # Further limit the updates text
     
-    And these existing character profiles:
+    Current character status (summary):
+    {json.dumps(character_summaries, indent=2)}
     
-    {characters}
+    For each character that needs updates, provide a JSON object with:
+    - character_name: The character's name
+    - new_facts: List of new facts learned (max 2)
+    - emotional_change: Any emotional state change (one line)
+    - relationship_changes: Dictionary of relationship changes (max 2)
     
-    For each character that needs updates, provide:
-    1. Character name
-    2. Any new evolution points to add
-    3. Any new known facts to add
-    4. Any new revealed facts to add
-    5. Any secret facts to add
-    6. Any relationship changes
-    7. Any emotional state changes
-    8. Any progress in inner conflicts
-    9. Any advancement in character arc stages
-    
-    Format as a JSON object where keys are character names and values are objects with the fields to update.
+    Keep the response under 200 words total.
     """
+    
+    # Log prompt size
+    log_prompt_size(character_update_prompt, "character updates structured")
     
     # Get structured character updates
     character_updates_structured = llm.invoke([HumanMessage(content=character_update_prompt)]).content
@@ -242,16 +294,54 @@ def update_character_profiles(state: StoryState) -> Dict:
         structured_updates = parse_json_with_langchain(character_updates_structured, "character updates")
         
         if structured_updates and isinstance(structured_updates, dict):
-            # Apply the structured updates
+            # Process the simpler update structure
             for char_name, updates in structured_updates.items():
                 # Skip if updates is None
                 if updates is None:
                     continue
+                
+                # Find the character in our character dictionary
+                char_id = None
+                for cid, cdata in characters.items():
+                    if cdata.get('name', '') == char_name:
+                        char_id = cid
+                        break
+                
+                if char_id and char_id in updated_characters:
+                    # Apply the updates to the character
+                    char_data = updated_characters[char_id]
                     
-                if char_name in characters:
-                    character_updates[char_name] = updates
+                    # Add new facts
+                    if 'new_facts' in updates and updates['new_facts']:
+                        if 'known_facts' not in char_data:
+                            char_data['known_facts'] = []
+                        char_data['known_facts'].extend(updates['new_facts'][:2])  # Max 2 facts
+                    
+                    # Update emotional state
+                    if 'emotional_change' in updates and updates['emotional_change']:
+                        if 'emotional_state' not in char_data:
+                            char_data['emotional_state'] = {}
+                        char_data['emotional_state']['current'] = updates['emotional_change']
+                    
+                    # Update relationships
+                    if 'relationship_changes' in updates and updates['relationship_changes']:
+                        if 'relationships' not in char_data:
+                            char_data['relationships'] = {}
+                        for other_char, rel_change in updates['relationship_changes'].items():
+                            if other_char in char_data['relationships']:
+                                # Update existing relationship
+                                if isinstance(char_data['relationships'][other_char], dict):
+                                    char_data['relationships'][other_char]['dynamics'] = rel_change
+                            else:
+                                # Create new relationship
+                                char_data['relationships'][other_char] = {
+                                    'type': 'evolved',
+                                    'dynamics': rel_change
+                                }
+                    
+                    character_updates[char_id] = char_data
     except Exception as e:
-        print(f"Error parsing character updates: {str(e)}")
+        logger.error(f"Error parsing character updates: {str(e)}")
     
     # Then, use the character arc tracking module for each character that appears in the scene
     for char_name, char_data in characters.items():
@@ -283,14 +373,23 @@ def update_character_profiles(state: StoryState) -> Dict:
                 "value": f"Character updated for Ch {current_chapter}, Scene {current_scene}"
             })
     
-    # Update state - only return what changed
-    return {
-        "characters": character_updates,  # Only specify what changes
-        "messages": [
-            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=f"I've updated character profiles with emotional developments and arc progression from scene {current_scene} of chapter {current_chapter}.")
-        ]
-    }
+    # Update state - return the full updated characters dictionary if there were changes
+    if character_updates:
+        return {
+            "characters": updated_characters,  # Return the full updated dictionary
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"I've updated character profiles with emotional developments and arc progression from scene {current_scene} of chapter {current_chapter}.")
+            ]
+        }
+    else:
+        # No updates needed
+        return {
+            "messages": [
+                *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=f"I've reviewed scene {current_scene} of chapter {current_chapter} but found no significant character updates needed.")
+            ]
+        }
 
 @track_progress
 def review_continuity(state: StoryState) -> Dict:
@@ -326,15 +425,16 @@ def review_continuity(state: StoryState) -> Dict:
             ]
         }
     
-    # Prepare chapter summaries for review
+    # Import optimization utilities
+    from storyteller_lib.prompt_optimization import create_context_summary, log_prompt_size
+    
+    # Prepare optimized chapter summaries for review
     chapter_summaries = []
-    for chapter_num in completed_chapters:
+    for chapter_num in completed_chapters[-3:]:  # Only last 3 chapters
         chapter = chapters[chapter_num]
-        scenes_summary = []
-        for scene_num, scene in sorted(chapter["scenes"].items(), key=lambda x: int(x[0])):
-            scenes_summary.append(f"Scene {scene_num}: {scene['content'][:150]}...")
-        
-        chapter_summaries.append(f"Chapter {chapter_num}: {chapter['title']}{chr(10)}{chapter['outline']}{chr(10)}Key scenes: {'; '.join(scenes_summary)}")
+        # Just chapter title and brief outline
+        outline_brief = chapter['outline'][:200] + "..." if len(chapter['outline']) > 200 else chapter['outline']
+        chapter_summaries.append(f"Chapter {chapter_num}: {chapter['title']} - {outline_brief}")
     
     # Get database context if available
     database_continuity_data = ""
@@ -382,38 +482,54 @@ def review_continuity(state: StoryState) -> Dict:
         Check for any inconsistencies in how the world elements are portrayed across chapters.
         """
     
+    # Import character summary utility
+    from storyteller_lib.prompt_optimization import create_character_summary_batch, summarize_world_elements
+    
+    # Create character summary
+    character_summary = create_character_summary_batch(characters, max_characters=10)
+    
+    # Create world elements summary
+    world_summary = ""
+    if world_elements:
+        world_summary = summarize_world_elements(world_elements, max_words_per_category=30)
+        world_elements_section = f"""
+        WORLD ELEMENTS (Summary):
+        {json.dumps(world_summary, indent=2)}
+        """
+    
     # Prompt for continuity review
     prompt = f"""
-    Perform a comprehensive continuity review of the story so far:
+    Perform a focused continuity review of the story so far:
     
-    STORY OUTLINE:
-    {global_story[:1000]}...
+    STORY PREMISE:
+    {global_story[:500]}...
     
-    COMPLETED CHAPTERS:
-    {chr(10) + chr(10).join(chapter_summaries)}
+    RECENT CHAPTERS:
+    {chr(10).join(chapter_summaries)}
     
-    CHARACTER PROFILES:
-    {characters}
+    KEY CHARACTERS:
+    {character_summary}
     
     {world_elements_section}
     
     {database_continuity_data}
     
-    Analyze the story for:
-    1. Continuity issues (contradictions, timeline problems, etc.)
-    2. Unresolved plot threads or elements
-    3. Character inconsistencies (behavior, motivation, etc.)
-    4. Hero's journey structure evaluation
-    5. World building inconsistencies
+    Analyze for CRITICAL issues only:
+    1. Major contradictions or timeline errors
+    2. Unresolved central plot threads
+    3. Significant character inconsistencies
+    4. Major world-building contradictions
     
-    For each issue, provide:
-    - Description of the issue
-    - Affected chapters and characters
-    - Severity (1-10)
-    - Suggestion for resolution
+    For each CRITICAL issue found:
+    - Brief description (1-2 sentences)
+    - Severity (only report if 7-10)
+    - Quick fix suggestion
     
-    Determine if any issues need immediate resolution before continuing the story.
+    Keep response under 500 words.
     """
+    
+    # Log prompt size before sending
+    log_prompt_size(prompt, "continuity review")
     
     # Generate the continuity review
     review_result = llm.invoke([HumanMessage(content=prompt)]).content
@@ -476,6 +592,10 @@ def review_continuity(state: StoryState) -> Dict:
         print(f"Continuity review completed for Chapter {current_chapter} with no critical issues.")
         print(f"The chapter is now ready to be written to the output file.")
         print(f"================================={chr(10)}")
+        
+        # Log chapter completion
+        from storyteller_lib.story_progress_logger import log_progress
+        log_progress("chapter_complete", chapter_num=current_chapter)
         
         return {
             "continuity_phase": "complete",
@@ -646,10 +766,20 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
     
     # Check if the next scene exists in the current chapter
     if next_scene in chapter["scenes"]:
+        # Get cleanup updates for scene transition
+        cleanup_updates = cleanup_old_state(state, current_chapter, current_scene)
+        
         # Move to the next scene in the same chapter
         return {
             "current_scene": next_scene,
+            "current_scene_content": None,  # Clear previous scene content
             "continuity_phase": "complete",  # Reset continuity phase
+            # Include cleanup updates
+            **cleanup_updates,
+            # Add memory tracking
+            "memory_usage": {
+                f"scene_transition_{current_chapter}_{current_scene}_to_{next_scene}": log_memory_usage(f"Scene transition {current_scene} to {next_scene}")
+            },
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
                 AIMessage(content=f"Moving on to write scene {next_scene} of chapter {current_chapter}.")
@@ -668,6 +798,7 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
             return {
                 "current_chapter": next_chapter,
                 "current_scene": "1",  # Start with first scene of new chapter
+                "current_scene_content": None,  # Clear scene content
                 "continuity_phase": "complete",  # Reset continuity phase
                 # Include cleanup updates
                 **cleanup_updates,
@@ -775,6 +906,9 @@ def compile_final_story(state: StoryState) -> Dict:
         "namespace": MEMORY_NAMESPACE
     })
     
+    # Import optimization utility
+    from storyteller_lib.prompt_optimization import log_prompt_size
+    
     # Create a summary of the story
     summary_prompt = f"""
     Create a brief summary of this story:
@@ -783,11 +917,19 @@ def compile_final_story(state: StoryState) -> Dict:
     Genre: {genre}
     Tone: {tone}
     
-    {global_story[:1000]}...
+    Story premise:
+    {global_story[:300]}...
     
-    The summary should capture the essence of the story, its main characters, and key plot points.
-    Keep it concise but engaging, around 200-300 words.
+    The story has {len(chapters)} chapters covering a hero's journey.
+    
+    Create an engaging summary (150-200 words) that captures:
+    - The main character and their quest
+    - The central conflict
+    - The story's unique elements
     """
+    
+    # Log prompt size
+    log_prompt_size(summary_prompt, "story summary generation")
     
     story_summary = llm.invoke([HumanMessage(content=summary_prompt)]).content
     

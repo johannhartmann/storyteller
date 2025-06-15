@@ -55,7 +55,15 @@ def should_generate_worldbuilding(state: StoryState) -> bool:
 
 def should_generate_characters(state: StoryState) -> bool:
     """Determine if we need to generate character profiles."""
+    # Check if worldbuilding exists (even if it's just a marker)
     has_worldbuilding = "world_elements" in state and state["world_elements"]
+    
+    # Check if it's the stored_in_db marker
+    if isinstance(state.get("world_elements"), dict):
+        if state["world_elements"].get("stored_in_db") is True and len(state["world_elements"]) == 1:
+            # This is the marker, worldbuilding is done
+            has_worldbuilding = True
+    
     no_characters = "characters" not in state or not state["characters"]
     return has_worldbuilding and no_characters
 

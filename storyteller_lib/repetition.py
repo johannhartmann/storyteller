@@ -233,31 +233,35 @@ def analyze_scene_repetition(state: StoryState) -> Dict:
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     
-    # Get the scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get database manager
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available")
+    
+    # Get the scene content from database or temporary state
+    scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    if not scene_content:
+        scene_content = state.get("current_scene_content", "")
+        if not scene_content:
+            raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
     
     # Analyze repetition
     repetition_analysis = detect_repetition(scene_content)
     
-    # Store the repetition analysis in the state
-    repetition_updates = {
-        "chapters": {
-            current_chapter: {
-                "scenes": {
-                    current_scene: {
-                        "repetition_analysis": repetition_analysis
-                    }
-                }
-            }
-        }
-    }
+    # Prepare minimal state updates
+    repetition_updates = {}
     
     # If repetition needs improvement, reduce it
     if repetition_analysis["overall_repetition_score"] < 8:
         improved_scene = reduce_repetition(scene_content, repetition_analysis)
         
-        # Update the scene content with the improved version
-        repetition_updates["chapters"][current_chapter]["scenes"][current_scene]["content"] = improved_scene
+        # Update the scene content in database
+        db_manager.save_scene_content(int(current_chapter), int(current_scene), improved_scene)
+        
+        # Update temporary state for next nodes
+        repetition_updates["current_scene_content"] = improved_scene
         repetition_updates["repetition_reduced"] = True
     else:
         repetition_updates["repetition_reduced"] = False

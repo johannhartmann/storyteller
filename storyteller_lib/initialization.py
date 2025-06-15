@@ -190,9 +190,12 @@ def initialize_state(state: StoryState) -> Dict:
         "global_story": "",
         "chapters": {},
         "characters": {},
+        "plot_threads": {},  # Initialize plot threads
         "revelations": {"reader": [], "characters": []},
         "current_chapter": "",
         "current_scene": "",
+        "current_scene_content": "",
+        "scene_reflection": {},
         "completed": False,
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],

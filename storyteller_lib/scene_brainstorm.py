@@ -90,6 +90,7 @@ def _prepare_plot_thread_guidance(active_plot_threads: List[Dict]) -> str:
     return guidance
 
 
+@track_progress
 def brainstorm_scene_elements(state: StoryState) -> Dict:
     """Brainstorm creative elements for the upcoming scene.
     
@@ -105,10 +106,43 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     
     current_chapter = state.get("current_chapter", "1")
     current_scene = state.get("current_scene", "1")
-    chapter_outline = state["chapters"][current_chapter]["outline"]
-    # Get scene description from the scene's description field if it exists
-    scene_data = state["chapters"][current_chapter]["scenes"][current_scene]
-    scene_description = scene_data.get("description", scene_data.get("outline", ""))
+    
+    # Get chapter outline from database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available - cannot retrieve chapter outline")
+    
+    # Get chapter outline from database
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT outline FROM chapters WHERE chapter_number = ?",
+            (int(current_chapter),)
+        )
+        result = cursor.fetchone()
+        if not result:
+            raise RuntimeError(f"Chapter {current_chapter} outline not found in database")
+        chapter_outline = result['outline']
+    
+    # Get scene description if available
+    scene_description = ""
+    chapter_id = db_manager._chapter_id_map.get(current_chapter)
+    if chapter_id:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT outline FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                (chapter_id, int(current_scene))
+            )
+            result = cursor.fetchone()
+            if result and result['outline']:
+                scene_description = result['outline']
+    
+    # Use generic description if scene outline not available yet
+    if not scene_description:
+        scene_description = f"Scene {current_scene} of Chapter {current_chapter}"
     
     # Get active plot threads for this scene
     active_plot_threads = get_active_plot_threads_for_scene(state)
@@ -123,7 +157,8 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     if active_plot_threads:
         plot_thread_context = "\nActive plot threads to consider:\n"
         for thread in active_plot_threads:
-            plot_thread_context += f"- {thread['name']}: {thread['current_development']}\n"
+            development = thread.get('last_development', thread.get('description', 'No development yet'))
+            plot_thread_context += f"- {thread['name']}: {development}\n"
     
     # Use creative brainstorming for scene approach
     brainstorm_result = creative_brainstorm(
@@ -163,10 +198,14 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         "namespace": MEMORY_NAMESPACE
     })
     
+    # Log scene start
+    from storyteller_lib.story_progress_logger import log_progress
+    log_progress("scene_start", chapter_num=current_chapter, scene_num=current_scene, 
+                description=scene_description)
+    
     # Update state
     state["scene_elements"] = scene_elements
     state["active_plot_threads"] = active_plot_threads
     state["last_node"] = NodeNames.BRAINSTORM_SCENE
-    
     
     return state
