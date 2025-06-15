@@ -131,7 +131,7 @@ def extract_scene_information(content: str, chapter_num: int, scene_num: int) ->
     prompt = f"""Analyze this scene and extract key information. Return a JSON object with:
 
 1. "events": List of 2-3 key events that happen (brief phrases)
-2. "character_actions": Object mapping character names to their key actions
+2. "character_actions": Object mapping character names to list of their key actions
 3. "descriptions": List of unique descriptive phrases used
 4. "revelations": List of any important revelations or discoveries
 5. "scene_type": Category like "action", "dialogue", "discovery", "conflict", etc.
@@ -154,6 +154,13 @@ Return ONLY the JSON object, no other text.
             content = content[3:]
         if content.endswith("```"):
             content = content[:-3]
+        
+        # Try to fix common JSON issues
+        content = content.strip()
+        
+        # Handle potential trailing commas
+        import re
+        content = re.sub(r',(\s*[}\]])', r'\1', content)
         
         result = json.loads(content)
         
@@ -178,6 +185,12 @@ Return ONLY the JSON object, no other text.
                 
                 # Register character actions
                 for char, actions in result.get("character_actions", {}).items():
+                    # Handle both string and list formats
+                    if isinstance(actions, str):
+                        actions = [actions]
+                    elif not isinstance(actions, list):
+                        actions = [str(actions)]
+                    
                     for action in actions:
                         db_manager._db.register_content("action", f"{char}: {action}", None, scene_id)
                 
