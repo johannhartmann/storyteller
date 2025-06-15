@@ -136,14 +136,10 @@ def extract_scene_information(content: str, chapter_num: int, scene_num: int) ->
     from storyteller_lib.database_integration import get_db_manager
     db_manager = get_db_manager()
     
-    # Check if we're using Gemini
-    import os
-    provider = os.environ.get("MODEL_PROVIDER", "gemini")
+    # Use structured output for all providers
+    llm = get_llm_with_structured_output(SceneInformation)
     
-    if provider == "gemini":
-        # Use structured output with Pydantic model
-        llm = get_llm_with_structured_output(SceneInformation)
-        prompt = f"""Analyze this scene and extract key information.
+    prompt = f"""Analyze this scene and extract key information.
 
 Scene (Chapter {chapter_num}, Scene {scene_num}):
 {content[:2000]}  # Limit to avoid token issues
@@ -155,59 +151,30 @@ Extract the following information:
 4. Important revelations or discoveries
 5. The type of scene (action, dialogue, discovery, etc.)
 """
-    else:
-        # For non-Gemini providers, use regular LLM with JSON output
-        llm = get_llm()
-        prompt = f"""Analyze this scene and extract key information. Return a JSON object with:
-
-1. "events": List of 2-3 key events that happen (brief phrases)
-2. "character_actions": Object mapping character names to list of their key actions
-3. "descriptions": List of unique descriptive phrases used
-4. "revelations": List of any important revelations or discoveries
-5. "scene_type": Category like "action", "dialogue", "discovery", "conflict", etc.
-
-Example format:
-{{
-    "events": ["Event 1", "Event 2"],
-    "character_actions": {{"Character Name": ["action 1", "action 2"]}},
-    "descriptions": ["description 1", "description 2"],
-    "revelations": ["revelation 1"],
-    "scene_type": "discovery"
-}}
-
-Scene (Chapter {chapter_num}, Scene {scene_num}):
-{content[:2000]}  # Limit to avoid token issues
-
-Return ONLY the JSON object, no other text.
-"""
     
     try:
         messages = [HumanMessage(content=prompt)]
         response = llm.invoke(messages)
         
-        # Handle structured output response from Gemini
-        if provider == "gemini" and hasattr(response, 'dict'):
-            # Pydantic model response
+        # Response is a SceneInformation instance when using structured output
+        if isinstance(response, SceneInformation):
             result = response.dict()
-        elif provider == "gemini" and isinstance(response, dict):
+        elif hasattr(response, 'dict'):
+            # Fallback for other response types with dict method
+            result = response.dict()
+        elif isinstance(response, dict):
             # Direct dictionary response
             result = response
-        elif provider == "gemini" and isinstance(response, SceneInformation):
-            # SceneInformation model instance
-            result = response.dict()
         else:
-            # Parse JSON response for non-Gemini providers
-            content = response.content.strip()
-            
-            # Handle markdown code blocks
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
-            
-            result = json.loads(content.strip())
+            # This shouldn't happen with structured output, but log it
+            logger.warning(f"Unexpected response type: {type(response)}")
+            result = {
+                "events": [],
+                "character_actions": {},
+                "descriptions": [],
+                "revelations": [],
+                "scene_type": "unknown"
+            }
         
         # Register extracted content in the database to prevent repetition
         if db_manager and db_manager._db:
@@ -248,44 +215,6 @@ Return ONLY the JSON object, no other text.
                     db_manager._db.register_content("revelation", rev, None, scene_id)
         
         return result
-    except json.JSONDecodeError as e:
-        logger.warning(f"Failed to parse JSON response: {e}")
-        logger.debug(f"Response content that failed to parse: {response.content if hasattr(response, 'content') else 'No content'}")
-        
-        # Try one more time with regex cleanup
-        if hasattr(response, 'content'):
-            try:
-                import re
-                content = response.content.strip()
-                # Remove markdown blocks
-                if "```json" in content:
-                    content = content.split("```json")[1].split("```")[0]
-                elif "```" in content:
-                    content = content.split("```")[1].split("```")[0]
-                    
-                # More aggressive JSON fixing
-                # Fix trailing commas
-                content = re.sub(r',(\s*[}\]])', r'\1', content)
-                # Fix missing commas between array items
-                content = re.sub(r'"\s*\n\s*"', '",\n"', content)
-                # Fix missing commas between object properties
-                content = re.sub(r'"\s*\n\s*"([^:])', '",\n"\1', content)
-                # Remove any control characters
-                content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', content)
-                
-                result = json.loads(content.strip())
-                return result
-            except Exception as e2:
-                logger.debug(f"Second JSON parse attempt failed: {e2}")
-                pass
-        
-        return {
-            "events": [],
-            "character_actions": {},
-            "descriptions": [],
-            "revelations": [],
-            "scene_type": "unknown"
-        }
     except Exception as e:
         logger.warning(f"Failed to extract scene information: {e}")
         return {
