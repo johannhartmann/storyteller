@@ -166,25 +166,15 @@ For character actions, provide each character's name and their list of actions s
         messages = [HumanMessage(content=prompt)]
         response = llm.invoke(messages)
         
-        # Debug logging
-        logger.debug(f"Response type: {type(response)}")
-        logger.debug(f"Response content: {response}")
-        
         # Response is a SceneInformation instance when using structured output
         if isinstance(response, SceneInformation):
             result = response.dict()
-        elif hasattr(response, 'dict'):
-            # Fallback for other response types with dict method
-            result = response.dict()
-        elif isinstance(response, dict):
-            # Direct dictionary response
-            result = response
         else:
-            # This shouldn't happen with structured output, but log it
+            # This shouldn't happen with structured output
             logger.warning(f"Unexpected response type: {type(response)}")
             result = {
                 "events": [],
-                "character_actions": {},
+                "character_actions": [],
                 "descriptions": [],
                 "revelations": [],
                 "scene_type": "unknown"

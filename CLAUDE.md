@@ -102,3 +102,8 @@ No formal test suite currently exists. Testing is done through running the story
 - `storyteller_lib/scenes.py`: Core scene generation logic
 - `storyteller_lib/plot_threads.py`: Plot thread tracking system
 - `storyteller_lib/consistency.py`: Continuity management
+
+## Memories and Known Issues
+
+- Gemini's structured output has a problem with nested dictionaries - it's returning them as JSON strings instead of properly parsed objects.
+- NEVER USE JSON parsing, ALWAYs use structured output.
