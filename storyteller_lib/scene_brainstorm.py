@@ -160,6 +160,31 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             development = thread.get('last_development', thread.get('description', 'No development yet'))
             plot_thread_context += f"- {thread['name']}: {development}\n"
     
+    # Get summary of previous scenes to avoid repetition
+    previous_scenes_summary = ""
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            # Get all previous scenes
+            cursor.execute("""
+                SELECT c.chapter_number, s.scene_number, s.content
+                FROM scenes s
+                JOIN chapters c ON s.chapter_id = c.id
+                WHERE (c.chapter_number < ? OR (c.chapter_number = ? AND s.scene_number < ?))
+                ORDER BY c.chapter_number DESC, s.scene_number DESC
+                LIMIT 20
+            """, (int(current_chapter), int(current_chapter), int(current_scene)))
+            
+            previous_scenes = cursor.fetchall()
+            if previous_scenes:
+                previous_scenes_summary = "\n\nPREVIOUS SCENES (DO NOT REPEAT):\n"
+                for scene in previous_scenes:
+                    # Get first paragraph of each scene
+                    content = scene['content']
+                    if content:
+                        first_para = content.strip().split('\n\n')[0]
+                        previous_scenes_summary += f"Ch{scene['chapter_number']}/Sc{scene['scene_number']}: {first_para}\n"
+    
     # Use creative brainstorming for scene approach
     brainstorm_result = creative_brainstorm(
         topic=f"scene approach for Chapter {current_chapter}, Scene {current_scene}",
@@ -169,13 +194,18 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         Chapter Outline: {chapter_outline}
         Scene Description: {scene_description}
         {plot_thread_context}
+        {previous_scenes_summary}
+        
+        CRITICAL: This scene must be COMPLETELY DIFFERENT from all previous scenes listed above.
+        DO NOT repeat any events, character actions, or plot developments that have already occurred.
         
         Consider:
-        1. How to advance the plot threads naturally
-        2. Character dynamics and emotional beats
-        3. The scene's purpose in the larger narrative
-        4. Creative ways to engage the reader
-        5. Sensory details and atmosphere
+        1. How to advance the plot threads in NEW ways
+        2. FRESH character dynamics and emotional beats not seen before
+        3. The scene's UNIQUE purpose in the larger narrative
+        4. ORIGINAL creative ways to engage the reader
+        5. NEW sensory details and atmosphere not used previously
+        6. Ensure this scene adds something COMPLETELY NEW to the story
         """,
         num_ideas=3,
         tone=tone

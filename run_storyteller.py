@@ -22,6 +22,7 @@ from storyteller_lib.constants import NodeNames
 from storyteller_lib.progress_manager import ProgressManager, create_progress_manager
 from storyteller_lib.story_info import save_story_info
 from storyteller_lib.storyteller import generate_story
+from storyteller_lib.book_statistics import display_progress_report
 
 # Load environment variables from .env file
 load_dotenv()
@@ -593,6 +594,9 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                     issues_text = issues_text[:300] + "...\n[issues truncated for display]"
                 sys.stdout.write(f"{issues_text}\n\n")
             sys.stdout.write("-----------------------------\n\n")
+        
+        # Progress report will be displayed at story completion
+        # No need to display it after every chapter to avoid duplication
             
     elif node_name == "advance_to_next_scene_or_chapter":
         current_chapter = state.get("current_chapter", "")
@@ -603,6 +607,14 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
         chapter_count = len(state.get("chapters", {}))
         scene_count = sum(len(chapter.get("scenes", {})) for chapter in state.get("chapters", {}).values())
         progress_message = f"[{elapsed_str}] Story complete! Compiled final narrative with {chapter_count} chapters and {scene_count} scenes"
+        
+        # Display final progress report
+        try:
+            from storyteller_lib.database_integration import get_db_manager
+            db_manager = get_db_manager()
+            display_progress_report(db_manager)
+        except Exception as e:
+            print(f"[Warning] Could not display final progress report: {e}")
     
     # Print the progress message
     sys.stdout.write(f"{progress_message}\n")
@@ -771,7 +783,8 @@ def main() -> None:
         
         # Reset progress tracking
         progress_manager.reset()
-        progress_manager.set_progress_callback(progress_callback)
+        # Remove duplicate callback registration - we only need one
+        # progress_manager.set_progress_callback(progress_callback)
         
         # Set up the progress callback in our library
         reset_progress_tracking()

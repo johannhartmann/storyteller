@@ -14,6 +14,169 @@ from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib import track_progress
 from storyteller_lib.constants import NodeNames
 from storyteller_lib.story_context import get_context_provider
+from storyteller_lib.logger import get_logger
+
+logger = get_logger(__name__)
+
+def generate_scene_progress_report(state: StoryState, chapter_num: str, scene_num: str) -> str:
+    """Generate a progress report after scene completion.
+    
+    Args:
+        state: Current story state
+        chapter_num: Chapter number just completed
+        scene_num: Scene number just completed
+        
+    Returns:
+        Formatted progress report string
+    """
+    from storyteller_lib.book_statistics import calculate_book_stats
+    from storyteller_lib.database_integration import get_db_manager
+    
+    # Get basic scene counts
+    chapters = state.get("chapters", {})
+    total_chapters = len(chapters)
+    current_chapter_data = chapters.get(chapter_num, {})
+    scenes_in_chapter = len(current_chapter_data.get("scenes", {}))
+    
+    # Calculate progress
+    completed_chapters = int(chapter_num) - 1
+    completed_scenes_current_chapter = int(scene_num)
+    
+    # Get database statistics
+    db_manager = get_db_manager()
+    stats = {}
+    if db_manager:
+        try:
+            stats = calculate_book_stats(db_manager)
+        except Exception as e:
+            logger.warning(f"Could not calculate book stats: {e}")
+    
+    # Extract stats
+    total_words = stats.get('current_words', 0)
+    total_pages = stats.get('current_pages', 0)
+    avg_scene_words = stats.get('avg_scene_words', 0)
+    
+    # Format progress bar
+    scenes_per_chapter = scenes_in_chapter  # Assume consistent
+    total_scenes = total_chapters * scenes_per_chapter
+    completed_scenes = completed_chapters * scenes_per_chapter + completed_scenes_current_chapter
+    progress_percentage = (completed_scenes / total_scenes * 100) if total_scenes > 0 else 0
+    
+    # Create progress bar
+    bar_length = 20
+    filled_length = int(bar_length * progress_percentage / 100)
+    bar = '█' * filled_length + '░' * (bar_length - filled_length)
+    
+    # Build the report
+    report = f"""
+📊 **Progress Report - Chapter {chapter_num}, Scene {scene_num} Complete**
+
+📖 **Story Progress:**
+{bar} {progress_percentage:.1f}%
+- Chapter {chapter_num} of {total_chapters} 
+- Scene {scene_num} of {scenes_in_chapter} in current chapter
+- Total scenes completed: {completed_scenes} of {total_scenes}
+
+📝 **Current Statistics:**
+- Total words written: {total_words:,}
+- Estimated pages: {total_pages}
+- Average words per scene: {avg_scene_words:,}
+- Words remaining (estimate): {max(0, (total_scenes - completed_scenes) * avg_scene_words):,}
+
+🎯 **Next:** Chapter {chapter_num}, Scene {int(scene_num) + 1}
+"""
+    
+    # Add milestone messages
+    if completed_scenes_current_chapter == scenes_in_chapter:
+        report += f"\n🎉 **Chapter {chapter_num} Complete!**"
+    
+    if progress_percentage >= 25 and progress_percentage < 26:
+        report += "\n📍 **Milestone: 25% Complete!** - The journey is well underway."
+    elif progress_percentage >= 50 and progress_percentage < 51:
+        report += "\n📍 **Milestone: 50% Complete!** - Halfway through the story!"
+    elif progress_percentage >= 75 and progress_percentage < 76:
+        report += "\n📍 **Milestone: 75% Complete!** - The climax approaches!"
+    
+    return report
+
+def generate_chapter_progress_report(state: StoryState, chapter_num: str) -> str:
+    """Generate a progress report after chapter completion.
+    
+    Args:
+        state: Current story state
+        chapter_num: Chapter number just completed
+        
+    Returns:
+        Formatted progress report string
+    """
+    from storyteller_lib.book_statistics import calculate_book_stats
+    from storyteller_lib.database_integration import get_db_manager
+    
+    # Get basic counts
+    chapters = state.get("chapters", {})
+    total_chapters = len(chapters)
+    
+    # Get database statistics
+    db_manager = get_db_manager()
+    stats = {}
+    if db_manager:
+        try:
+            stats = calculate_book_stats(db_manager)
+        except Exception as e:
+            logger.warning(f"Could not calculate book stats: {e}")
+    
+    # Extract stats
+    total_words = stats.get('current_words', 0)
+    total_pages = stats.get('current_pages', 0)
+    avg_scene_words = stats.get('avg_scene_words', 0)
+    
+    # Calculate progress
+    completed_chapters = int(chapter_num)
+    progress_percentage = (completed_chapters / total_chapters * 100) if total_chapters > 0 else 0
+    
+    # Create progress bar
+    bar_length = 20
+    filled_length = int(bar_length * progress_percentage / 100)
+    bar = '█' * filled_length + '░' * (bar_length - filled_length)
+    
+    # Get chapter-specific stats
+    chapter_data = chapters.get(chapter_num, {})
+    chapter_title = chapter_data.get("title", f"Chapter {chapter_num}")
+    scenes_in_chapter = len(chapter_data.get("scenes", {}))
+    
+    # Build the report
+    report = f"""
+🎉 **Chapter {chapter_num} Complete!**
+
+📊 **"{chapter_title}"**
+- Scenes written: {scenes_in_chapter}
+- Estimated chapter words: {scenes_in_chapter * avg_scene_words:,}
+
+📖 **Overall Progress:**
+{bar} {progress_percentage:.1f}%
+- Chapters completed: {completed_chapters} of {total_chapters}
+- Total words written: {total_words:,}
+- Total pages: {total_pages}
+
+📈 **Story Statistics:**
+- Average words per scene: {avg_scene_words:,}
+- Chapters remaining: {total_chapters - completed_chapters}
+- Estimated words remaining: {max(0, (total_chapters - completed_chapters) * scenes_in_chapter * avg_scene_words):,}
+"""
+    
+    # Add milestone messages for chapter completion
+    if completed_chapters == total_chapters // 2:
+        report += "\n🌟 **Major Milestone: Halfway through the story!**"
+    elif completed_chapters == total_chapters - 1:
+        report += "\n🏁 **Almost there! Just one more chapter to go!**"
+    
+    # Add next chapter preview if available
+    if str(int(chapter_num) + 1) in chapters:
+        next_chapter = chapters[str(int(chapter_num) + 1)]
+        next_title = next_chapter.get("title", f"Chapter {int(chapter_num) + 1}")
+        report += f"\n🎯 **Next Chapter:** \"{next_title}\""
+    
+    return report
 
 @track_progress
 def update_world_elements(state: StoryState) -> Dict:
@@ -593,9 +756,8 @@ def review_continuity(state: StoryState) -> Dict:
         print(f"The chapter is now ready to be written to the output file.")
         print(f"================================={chr(10)}")
         
-        # Log chapter completion
-        from storyteller_lib.story_progress_logger import log_progress
-        log_progress("chapter_complete", chapter_num=current_chapter)
+        # Chapter completion logging is handled by the progress callback
+        # No need for duplicate logging here
         
         return {
             "continuity_phase": "complete",
@@ -766,6 +928,9 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
     
     # Check if the next scene exists in the current chapter
     if next_scene in chapter["scenes"]:
+        # Generate progress report after scene completion
+        progress_report = generate_scene_progress_report(state, current_chapter, current_scene)
+        
         # Get cleanup updates for scene transition
         cleanup_updates = cleanup_old_state(state, current_chapter, current_scene)
         
@@ -782,12 +947,16 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
             },
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                AIMessage(content=progress_report),
                 AIMessage(content=f"Moving on to write scene {next_scene} of chapter {current_chapter}.")
             ]
         }
     else:
         # Move to the next chapter
         next_chapter = str(int(current_chapter) + 1)
+        
+        # Generate chapter completion progress report
+        progress_report = generate_chapter_progress_report(state, current_chapter)
         
         # Check if the next chapter exists
         if next_chapter in chapters:
@@ -808,6 +977,7 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
                 },
                 "messages": [
                     *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+                    AIMessage(content=progress_report),
                     AIMessage(content=f"Chapter {current_chapter} is complete. Moving on to chapter {next_chapter}.")
                 ]
             }
@@ -941,13 +1111,12 @@ def compile_final_story(state: StoryState) -> Dict:
         "namespace": MEMORY_NAMESPACE
     })
     
-    # Log story completion
-    from storyteller_lib.story_progress_logger import log_progress
+    # Story completion statistics are calculated for the return value
     total_chapters = len(chapters)
     total_scenes = sum(len(ch["scenes"]) for ch in chapters.values())
     total_words = len(final_story.split())
-    log_progress("story_complete", total_chapters=total_chapters, 
-                total_scenes=total_scenes, total_words=total_words)
+    # Story completion logging is handled by the progress callback
+    # No need for duplicate logging here
     
     # Return the final state with plot thread resolution information
     return {

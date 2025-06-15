@@ -63,7 +63,7 @@ def create_node_with_db_save(node_func, node_name: str, db_manager: Optional[Sto
     wrapped.__doc__ = node_func.__doc__
     
     # Now apply the track_progress decorator to the properly named function
-    wrapped = track_progress(wrapped)
+    # wrapped = track_progress(wrapped)  # Commented out - original functions already have @track_progress
     
     return wrapped
 

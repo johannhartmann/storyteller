@@ -345,10 +345,21 @@ Be thorough but constructive in your analysis. Focus on actionable improvements.
     
     # Parse the JSON response
     try:
-        reflection = json.loads(response.content)
-    except json.JSONDecodeError as e:
+        # Extract JSON from the response - handle cases where LLM returns markdown code blocks
+        content = response.content.strip()
+        if content.startswith("```json"):
+            content = content[7:]  # Remove ```json
+        if content.startswith("```"):
+            content = content[3:]  # Remove ```
+        if content.endswith("```"):
+            content = content[:-3]  # Remove trailing ```
+        content = content.strip()
+        
+        reflection = json.loads(content)
+    except (json.JSONDecodeError, AttributeError) as e:
         # If JSON parsing fails, create a basic reflection
         logger.warning(f"Failed to parse reflection JSON: {e}")
+        logger.debug(f"Response content: {response.content if hasattr(response, 'content') else 'No content'}")
         reflection = {
             "quality_scores": {"overall": 7},
             "issues": [],
@@ -385,15 +396,16 @@ Be thorough but constructive in your analysis. Focus on actionable improvements.
     })
     
     # Log the reflection
-    from storyteller_lib.story_progress_logger import log_progress
-    log_progress("scene_reflection", chapter=current_chapter, scene=current_scene,
-                reflection=reflection, needs_revision=needs_revision)
+    from storyteller_lib.story_progress_logger import get_progress_logger
+    progress_logger = get_progress_logger()
+    if progress_logger:
+        progress_logger.log_scene_reflection(current_chapter, current_scene, reflection)
     
     # Return state updates
     return {
         "current_scene_content": scene_content,  # Pass along the (possibly improved) scene content
         "scene_reflection": {
-            "issues": extracted_reflection.issues if needs_revision else [],
+            "issues": reflection.get("issues", []) if needs_revision else [],
             "needs_revision": needs_revision
         }
     }

@@ -358,6 +358,38 @@ def _generate_previous_scenes_summary(state: StoryState, db_manager) -> str:
     
     # Get previous scenes from database
     if db_manager and db_manager._db:
+        # First, add summaries from ALL previous chapters to prevent repetition
+        if int(current_chapter) > 1:
+            summary_parts.append("=== PREVIOUS CHAPTERS SUMMARY ===")
+            for chapter_num in range(1, int(current_chapter)):
+                # Get all scenes from this chapter
+                with db_manager._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT s.scene_number, s.content
+                        FROM scenes s
+                        JOIN chapters c ON s.chapter_id = c.id
+                        WHERE c.chapter_number = ?
+                        ORDER BY s.scene_number
+                    """, (chapter_num,))
+                    scenes = cursor.fetchall()
+                    
+                    if scenes:
+                        # Get first and last scenes for chapter summary
+                        first_scene = scenes[0]['content']
+                        last_scene = scenes[-1]['content']
+                        
+                        # Extract key points from first and last scenes
+                        first_paras = first_scene.strip().split('\n\n')[:2]
+                        last_paras = last_scene.strip().split('\n\n')[-2:]
+                        
+                        chapter_start = ' '.join(first_paras)
+                        chapter_end = ' '.join(last_paras)
+                        
+                        summary_parts.append(f"\nChapter {chapter_num} Summary:")
+                        summary_parts.append(f"Beginning: {chapter_start}")
+                        summary_parts.append(f"Ending: {chapter_end}")
+                        summary_parts.append("---")
         # Add previous chapter ending if this is the first scene
         if current_scene == "1" and int(current_chapter) > 1:
             prev_chapter_num = int(current_chapter) - 1
@@ -383,16 +415,18 @@ def _generate_previous_scenes_summary(state: StoryState, db_manager) -> str:
                 if paragraphs:
                     summary_parts.append(f"Previous Chapter Ending: {paragraphs[-1][:200]}...")
         
-        # Add previous scenes in current chapter
+        # Add previous scenes in current chapter (increased from 3 to 10 for better context)
         if int(current_scene) > 1:
-            # Get previous scenes up to 3 scenes back
-            scene_start = max(1, int(current_scene) - 3)
+            # Get previous scenes up to 10 scenes back
+            scene_start = max(1, int(current_scene) - 10)
             for i in range(scene_start, int(current_scene)):
                 content = db_manager.get_scene_content(int(current_chapter), i)
                 if content:
-                    # Get first paragraph as summary
-                    first_para = content.strip().split('\n\n')[0]
-                    summary_parts.append(f"Scene {i}: {first_para[:150]}...")
+                    # Get first two paragraphs as summary (increased from just first)
+                    paragraphs = content.strip().split('\n\n')
+                    summary = ' '.join(paragraphs[:2])
+                    # Don't truncate - provide full context to avoid repetition
+                    summary_parts.append(f"Scene {i}: {summary}")
     
     # Look for recent important events in memory
     try:
@@ -470,6 +504,9 @@ def write_scene(state: StoryState) -> Dict:
         truncate_scene_content, log_prompt_size
     )
     
+    # Import story summary for comprehensive context
+    from storyteller_lib.story_summary import get_story_summary_for_context
+    
     # Get characters from database
     all_characters = {}
     if db_manager and db_manager._db:
@@ -514,6 +551,9 @@ def write_scene(state: StoryState) -> Dict:
     emotional_guidance = _prepare_emotional_guidance(relevant_characters, scene_characters, tone, genre)
     previous_context = _generate_previous_scenes_summary(state, db_manager)
     
+    # Get comprehensive story summary to prevent repetition
+    story_summary = get_story_summary_for_context()
+    
     # Get database context if available
     database_context = _prepare_database_context(current_chapter, current_scene)
     
@@ -528,9 +568,9 @@ def write_scene(state: StoryState) -> Dict:
     plot_guidance = _prepare_plot_thread_guidance(active_plot_threads)
     world_guidance = _prepare_worldbuilding_guidance(world_elements, chapter_outline)
     
-    # Truncate story premise and chapter outline
-    premise_brief = story_premise[:200] + "..." if len(story_premise) > 200 else story_premise
-    outline_brief = chapter_outline[:300] + "..." if len(chapter_outline) > 300 else chapter_outline
+    # Don't truncate story premise and chapter outline to maintain full context
+    premise_brief = story_premise
+    outline_brief = chapter_outline
     
     # Construct the scene writing prompt
     prompt = f"""You are a skilled novelist writing Chapter {current_chapter}, Scene {current_scene} of a {genre} story.
@@ -546,6 +586,7 @@ def write_scene(state: StoryState) -> Dict:
     CURRENT SCENE:
     Scene {current_scene}: {scene_description}
     
+    {story_summary}
     {previous_context}
     {database_context}
     {creative_guidance}
@@ -555,6 +596,15 @@ def write_scene(state: StoryState) -> Dict:
     {author_guidance}
     {language_guidance}
     
+    CRITICAL ANTI-REPETITION GUIDELINES:
+    1. DO NOT repeat any events, descriptions, or dialogue from the previous chapters summary above
+    2. DO NOT reuse character introductions - assume readers know established characters
+    3. DO NOT repeat the same descriptive phrases (e.g., "charmingly crooked", "unusually fertile") 
+    4. DO NOT have characters perform similar actions they've done in previous scenes
+    5. Each scene must show NEW developments, NOT variations of previous events
+    6. If a plot point has been established, build on it rather than re-establishing it
+    7. Vary your sentence structures and vocabulary - avoid repetitive patterns
+    
     WRITING GUIDELINES:
     1. Start the scene immediately with action, dialogue, or vivid description
     2. Show character emotions through actions and dialogue, not exposition
@@ -563,6 +613,7 @@ def write_scene(state: StoryState) -> Dict:
     5. End with a hook that propels the reader forward
     6. Maintain consistent POV throughout the scene
     7. Write 800-1200 words
+    8. Ensure this scene is UNIQUE and hasn't been written before
     
     Write the scene now:
     """
