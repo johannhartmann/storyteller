@@ -425,56 +425,56 @@ class GeographyElements(BaseModel):
     major_locations: Optional[str] = Field(None, description="Major locations in the world")
     physical_features: Optional[str] = Field(None, description="Physical features and terrain")
     climate_weather: Optional[str] = Field(None, description="Climate and weather patterns")
-    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other geography elements")
+    additional_info: Optional[str] = Field(None, description="Any other geography-related information")
 
 class HistoryElements(BaseModel):
     """History category elements."""
     timeline: Optional[str] = Field(None, description="Historical timeline")
     past_conflicts: Optional[str] = Field(None, description="Past conflicts and wars")
     important_events: Optional[str] = Field(None, description="Important historical events")
-    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other history elements")
+    additional_info: Optional[str] = Field(None, description="Any other history-related information")
 
 class CultureElements(BaseModel):
     """Culture category elements."""
     customs: Optional[str] = Field(None, description="Cultural customs and traditions")
     values: Optional[str] = Field(None, description="Cultural values and beliefs")
     arts: Optional[str] = Field(None, description="Arts and entertainment")
-    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other culture elements")
+    additional_info: Optional[str] = Field(None, description="Any other culture-related information")
 
 class PoliticsElements(BaseModel):
     """Politics category elements."""
     government: Optional[str] = Field(None, description="Government structure")
     laws: Optional[str] = Field(None, description="Legal system and laws")
     factions: Optional[str] = Field(None, description="Political factions and parties")
-    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other politics elements")
+    additional_info: Optional[str] = Field(None, description="Any other politics-related information")
 
 class EconomicsElements(BaseModel):
     """Economics category elements."""
     currency: Optional[str] = Field(None, description="Currency and monetary system")
     trade: Optional[str] = Field(None, description="Trade and commerce")
     resources: Optional[str] = Field(None, description="Natural resources")
-    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other economics elements")
+    additional_info: Optional[str] = Field(None, description="Any other economics-related information")
 
 class TechnologyMagicElements(BaseModel):
     """Technology/Magic category elements."""
     level: Optional[str] = Field(None, description="Technology or magic level")
     systems: Optional[str] = Field(None, description="Technology or magic systems")
     limitations: Optional[str] = Field(None, description="Limitations and constraints")
-    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other technology/magic elements")
+    additional_info: Optional[str] = Field(None, description="Any other technology/magic-related information")
 
 class ReligionElements(BaseModel):
     """Religion category elements."""
     deities: Optional[str] = Field(None, description="Deities and divine beings")
     practices: Optional[str] = Field(None, description="Religious practices and rituals")
     beliefs: Optional[str] = Field(None, description="Core religious beliefs")
-    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other religion elements")
+    additional_info: Optional[str] = Field(None, description="Any other religion-related information")
 
 class DailyLifeElements(BaseModel):
     """Daily life category elements."""
     food: Optional[str] = Field(None, description="Food and cuisine")
     clothing: Optional[str] = Field(None, description="Clothing and fashion")
     housing: Optional[str] = Field(None, description="Housing and architecture")
-    other: Optional[Dict[str, str]] = Field(default_factory=dict, description="Other daily life elements")
+    additional_info: Optional[str] = Field(None, description="Any other daily life information")
 
 class WorldElements(BaseModel):
     """Complete world elements structure."""
