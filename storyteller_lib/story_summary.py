@@ -124,68 +124,12 @@ def extract_scene_information(content: str, chapter_num: int, scene_num: int) ->
         Dictionary containing extracted information
     """
     from storyteller_lib.database_integration import get_db_manager
-    from storyteller_lib.config import get_llm_with_structured_output, get_llm
     db_manager = get_db_manager()
     
-    # Check if we're using Gemini (which supports structured output)
-    import os
-    provider = os.environ.get("MODEL_PROVIDER", "gemini")
-    
-    # Define the schema for structured output
-    response_schema = {
-        "type": "object",
-        "properties": {
-            "events": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "List of 2-3 key events that happen (brief phrases)"
-            },
-            "character_actions": {
-                "type": "object",
-                "additionalProperties": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "description": "Object mapping character names to list of their key actions"
-            },
-            "descriptions": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "List of unique descriptive phrases used"
-            },
-            "revelations": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "List of any important revelations or discoveries"
-            },
-            "scene_type": {
-                "type": "string",
-                "enum": ["action", "dialogue", "discovery", "conflict", "exposition", "character_development", "transition", "climax", "resolution", "other"],
-                "description": "Category of the scene"
-            }
-        },
-        "required": ["events", "character_actions", "descriptions", "revelations", "scene_type"]
-    }
-    
-    # Get LLM with structured output if using Gemini, otherwise regular LLM
-    if provider == "gemini":
-        llm = get_llm_with_structured_output(response_schema)
-        prompt = f"""Analyze this scene and extract key information.
-
-Scene (Chapter {chapter_num}, Scene {scene_num}):
-{content[:2000]}  # Limit to avoid token issues
-
-Extract:
-1. Key events that happen (2-3 brief phrases)
-2. Character actions (map each character to their actions)
-3. Unique descriptive phrases used
-4. Important revelations or discoveries
-5. The type of scene (action, dialogue, discovery, etc.)
-"""
-    else:
-        # For non-Gemini providers, use regular LLM with explicit JSON instructions
-        llm = get_llm()
-        prompt = f"""Analyze this scene and extract key information. Return a JSON object with:
+    # Use regular LLM with JSON parsing for all providers
+    # (Structured output with Gemini has known issues with complex schemas)
+    llm = get_llm()
+    prompt = f"""Analyze this scene and extract key information. Return a JSON object with:
 
 1. "events": List of 2-3 key events that happen (brief phrases)
 2. "character_actions": Object mapping character names to list of their key actions
@@ -212,24 +156,18 @@ Return ONLY the JSON object, no other text.
         messages = [HumanMessage(content=prompt)]
         response = llm.invoke(messages)
         
-        # With structured output, the response should already be valid JSON
-        # Check if we're using Gemini with structured output
-        if hasattr(response, 'content') and isinstance(response.content, str):
-            # Parse the JSON response
-            content = response.content.strip()
-            
-            # Still handle markdown code blocks just in case
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
-            
-            result = json.loads(content.strip())
-        else:
-            # Direct structured output result
-            result = json.loads(response.content) if isinstance(response.content, str) else response.content
+        # Parse the JSON response
+        content = response.content.strip()
+        
+        # Handle markdown code blocks
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        
+        result = json.loads(content.strip())
         
         # Register extracted content in the database to prevent repetition
         if db_manager and db_manager._db:

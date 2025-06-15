@@ -202,11 +202,10 @@ def get_llm_with_structured_output(
     max_tokens: Optional[int] = None
 ) -> BaseChatModel:
     """
-    Get an LLM instance configured for structured output (JSON schema).
-    Currently only supports Gemini models.
+    Get an LLM instance configured for structured output using LangChain's with_structured_output.
     
     Args:
-        response_schema: JSON schema defining the expected output structure
+        response_schema: JSON schema or Pydantic model defining the expected output structure
         provider: The model provider (defaults to current provider)
         model: The model name to use
         temperature: The temperature setting
@@ -215,36 +214,16 @@ def get_llm_with_structured_output(
     Returns:
         A configured LLM instance with structured output
     """
-    # Get provider or use default
-    provider = provider or os.environ.get("MODEL_PROVIDER") or DEFAULT_MODEL_PROVIDER
+    # Get the base LLM
+    base_llm = get_llm(provider, model, temperature, max_tokens)
     
-    if provider == "gemini":
-        # For Gemini, we can use response_schema directly
-        provider_config = MODEL_CONFIGS[provider]
-        model_name = model or provider_config["default_model"]
-        api_key = os.environ.get(provider_config["env_key"])
-        temp = temperature or DEFAULT_TEMPERATURE
-        tokens = max_tokens or provider_config.get("max_tokens")
-        
-        if not api_key:
-            raise ValueError(f"No API key found for {provider}. Please set {provider_config['env_key']} in your .env file.")
-        
-        # Create Gemini model with structured output
-        # Pass response_mime_type and response_schema as model_kwargs
-        return ChatGoogleGenerativeAI(
-            model=model_name,
-            temperature=temp,
-            google_api_key=api_key,
-            max_tokens=tokens,
-            model_kwargs={
-                "response_mime_type": "application/json",
-                "response_schema": response_schema
-            }
-        )
-    else:
-        # For other providers, fall back to regular LLM with prompt engineering
-        logger.warning(f"Structured output not natively supported for {provider}, using prompt engineering")
-        return get_llm(provider, model, temperature, max_tokens)
+    # Use LangChain's with_structured_output method
+    try:
+        return base_llm.with_structured_output(response_schema)
+    except Exception as e:
+        logger.warning(f"Failed to create structured output LLM: {e}")
+        logger.warning("Falling back to regular LLM with prompt engineering")
+        return base_llm
 
 
 # Define the memory namespace consistently
