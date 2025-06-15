@@ -230,13 +230,16 @@ def get_llm_with_structured_output(
             raise ValueError(f"No API key found for {provider}. Please set {provider_config['env_key']} in your .env file.")
         
         # Create Gemini model with structured output
+        # Pass response_mime_type and response_schema as model_kwargs
         return ChatGoogleGenerativeAI(
             model=model_name,
             temperature=temp,
             google_api_key=api_key,
             max_tokens=tokens,
-            response_mime_type="application/json",
-            response_schema=response_schema
+            model_kwargs={
+                "response_mime_type": "application/json",
+                "response_schema": response_schema
+            }
         )
     else:
         # For other providers, fall back to regular LLM with prompt engineering
