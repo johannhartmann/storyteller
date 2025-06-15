@@ -123,7 +123,7 @@ def _get_revision_context(state: StoryState, current_chapter: str, current_scene
             # Get scene ID from database
             from storyteller_lib.database_integration import get_db_manager
             db_manager = get_db_manager()
-            if db_manager and db_manager._db and db_manager._story_id:
+            if db_manager and db_manager._db:
                 with db_manager._db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
@@ -131,9 +131,9 @@ def _get_revision_context(state: StoryState, current_chapter: str, current_scene
                         SELECT s.id 
                         FROM scenes s
                         JOIN chapters c ON s.chapter_id = c.id
-                        WHERE c.story_id = ? AND c.chapter_number = ? AND s.scene_number = ?
+                        WHERE c.chapter_number = ? AND s.scene_number = ?
                         """,
-                        (db_manager._story_id, int(current_chapter), int(current_scene))
+                        (int(current_chapter), int(current_scene))
                     )
                     result = cursor.fetchone()
                     if result:
@@ -360,8 +360,7 @@ Provide the revised scene now:"""
     
     # Log the revision
     from storyteller_lib.story_progress_logger import log_progress
-    log_progress("scene_revision", chapter=current_chapter, scene=current_scene,
-                revision_type=revision_type, revision_count=scene_data['revision_count'],
-                issues_addressed=addressed_issues)
+    log_progress("revision", chapter_num=current_chapter, scene_num=current_scene,
+                revision_reason=f"{revision_type} revision - addressing {len(addressed_issues)} issues")
     
     return state

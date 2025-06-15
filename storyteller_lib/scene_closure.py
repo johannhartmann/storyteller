@@ -272,8 +272,17 @@ def check_and_improve_scene_closure(state: StoryState) -> Tuple[bool, Dict[str, 
     # Get the language from the state or use default
     language = state.get("language", DEFAULT_LANGUAGE)
     
-    # Get the scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get the scene content from state or database
+    scene_content = state.get("current_scene_content", "")
+    if not scene_content:
+        # Try to get from database
+        from storyteller_lib.database_integration import get_db_manager
+        db_manager = get_db_manager()
+        if db_manager:
+            scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    
+    if not scene_content:
+        raise RuntimeError(f"Scene content not found for Chapter {current_chapter}, Scene {current_scene}")
     
     # Analyze scene closure
     closure_analysis = analyze_scene_closure(scene_content, current_chapter, current_scene, language)

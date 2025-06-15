@@ -664,10 +664,13 @@ def generate_story(
         "global_story": "",
         "chapters": {},
         "characters": {},
+        "plot_threads": {},  # Initialize plot threads
         "revelations": {},
         "creative_elements": {},
         "current_chapter": "",
         "current_scene": "",
+        "current_scene_content": "",
+        "scene_reflection": {},
         "completed": False,
         "last_node": ""  # Include this for schema compatibility
     }
@@ -696,8 +699,8 @@ def generate_story(
     try:
         from storyteller_lib.database_integration import get_db_manager
         db_manager = get_db_manager()
-        if db_manager and db_manager._db and db_manager._story_id:
-            compiled_story = db_manager._db.get_full_story(db_manager._story_id)
+        if db_manager and db_manager._db:
+            compiled_story = db_manager._db.get_full_story()
             if compiled_story:
                 return compiled_story
     except Exception:

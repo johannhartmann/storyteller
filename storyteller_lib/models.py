@@ -324,34 +324,45 @@ def merge_world_elements(existing: WorldElementsDict, new: WorldElementsDict) ->
     Returns:
         The merged world elements dictionary
     """
+    # Handle the special case where world_elements is just a marker
+    if isinstance(new, dict) and new.get("stored_in_db") is True and len(new) == 1:
+        # This is just a marker, return existing unchanged
+        return existing
+    
     result = existing.copy()
     
     for category, elements in new.items():
         if category in result:
+            # Skip if the existing value is just a boolean marker
+            if isinstance(result[category], bool):
+                result[category] = elements
+                continue
+                
             # If category exists, update it intelligently
-            result_category = result[category].copy()
-            
-            for key, value in elements.items():
-                if key in result_category:
-                    # Handle lists by appending
-                    if isinstance(value, list) and isinstance(result_category[key], list):
-                        # For lists, append new items to avoid duplicates
-                        existing_items = set(str(item) for item in result_category[key])
-                        for item in value:
-                            if str(item) not in existing_items:
-                                result_category[key].append(item)
-                    # Handle nested dictionaries recursively
-                    elif isinstance(value, dict) and isinstance(result_category[key], dict):
-                        result_category[key] = {**result_category[key], **value}
+            if isinstance(result[category], dict) and isinstance(elements, dict):
+                result_category = result[category].copy()
+                
+                for key, value in elements.items():
+                    if key in result_category:
+                        # Handle lists by appending
+                        if isinstance(value, list) and isinstance(result_category[key], list):
+                            # For lists, append new items to avoid duplicates
+                            existing_items = set(str(item) for item in result_category[key])
+                            for item in value:
+                                if str(item) not in existing_items:
+                                    result_category[key].append(item)
+                        # Handle nested dictionaries recursively
+                        elif isinstance(value, dict) and isinstance(result_category[key], dict):
+                            result_category[key] = {**result_category[key], **value}
+                        else:
+                            # For other types, replace if the new value is not empty
+                            if value:
+                                result_category[key] = value
                     else:
-                        # For other types, replace if the new value is not empty
-                        if value:
-                            result_category[key] = value
-                else:
-                    # If key doesn't exist in the category, add it
-                    result_category[key] = value
-            
-            result[category] = result_category
+                        # If key doesn't exist in the category, add it
+                        result_category[key] = value
+                
+                result[category] = result_category
         else:
             # If category doesn't exist, add it
             result[category] = elements
@@ -407,5 +418,7 @@ class StoryState(TypedDict):
     # Tracking fields
     current_chapter: str  # Track which chapter is being written
     current_scene: str  # Track which scene is being written
+    current_scene_content: str  # Temporary storage for scene content between nodes
+    scene_reflection: Dict[str, Any]  # Temporary storage for scene reflection results
     completed: bool  # Flag to indicate if the story is complete
     last_node: str  # Track which node was last executed for routing

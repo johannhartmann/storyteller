@@ -13,6 +13,9 @@ from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, 
 from storyteller_lib.models import StoryState
 from storyteller_lib import track_progress
 from storyteller_lib.creative_tools import parse_json_with_langchain
+from storyteller_lib.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Simple, focused Pydantic models for worldbuilding elements
 
@@ -484,7 +487,36 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     tone = state["tone"]
     author = state["author"]
     initial_idea = state.get("initial_idea", "")
-    global_story = state["global_story"]
+    # Get full story outline from database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available - cannot retrieve story outline")
+    
+    # Get full story outline from database
+    from storyteller_lib.logger import get_logger
+    logger = get_logger(__name__)
+    logger.debug("Fetching global story from database")
+    
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT global_story FROM story_config WHERE id = 1"
+        )
+        result = cursor.fetchone()
+        
+        if not result:
+            logger.error("No story configuration found in database")
+            raise RuntimeError("Story configuration not found in database")
+        
+        global_story = result['global_story']
+        
+        if not global_story or global_story.strip() == "":
+            logger.error("Story configuration exists but has empty global_story")
+            raise RuntimeError("Story outline is empty in database")
+        
+        logger.info(f"Retrieved global story for worldbuilding (length: {len(global_story)} chars)")
     
     # Get language elements if not English
     language = state.get("language", DEFAULT_LANGUAGE)
@@ -617,8 +649,20 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     log_progress("world_elements", world_elements=world_elements)
     
     # Return the world elements and summary
+    # Store world elements in database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    if db_manager:
+        try:
+            # Store world elements
+            db_manager.save_worldbuilding(world_elements)
+            logger.info("World elements stored in database")
+        except Exception as e:
+            logger.warning(f"Could not store world elements in database: {e}")
+    
+    # Return minimal state update - just a flag that worldbuilding is done
     return {
-        "world_elements": world_elements,
+        "world_elements": {"stored_in_db": True},  # Minimal marker
         "messages": [
             *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
             AIMessage(content=f"I've created detailed worldbuilding elements for your {genre} story with a {tone} tone. The world includes geography, history, culture, politics, economics, technology/magic, religion, and daily life elements that will support your story.{chr(10)}{chr(10)}World Summary:{chr(10)}{world_summary}")

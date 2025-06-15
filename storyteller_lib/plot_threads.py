@@ -288,10 +288,36 @@ def update_plot_threads(state: StoryState) -> Dict[str, Any]:
     chapters = state["chapters"]
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
-    characters = state["characters"]
     
-    # Get the scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get database manager
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available")
+    
+    # Get characters from database
+    characters = {}
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT identifier, name, role, backstory, personality
+            FROM characters
+        """)
+        for row in cursor.fetchall():
+            characters[row['identifier']] = {
+                'name': row['name'],
+                'role': row['role'],
+                'backstory': row['backstory'],
+                'personality': row['personality']
+            }
+    
+    # Get the scene content from database or temporary state
+    scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    if not scene_content:
+        scene_content = state.get("current_scene_content", "")
+        if not scene_content:
+            raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
     
     # Identify plot threads in the scene
     thread_updates = identify_plot_threads_in_scene(scene_content, current_chapter, current_scene, characters)

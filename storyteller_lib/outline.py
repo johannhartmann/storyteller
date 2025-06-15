@@ -10,10 +10,98 @@ from storyteller_lib.models import StoryState
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import parse_json_with_langchain
 from storyteller_lib import track_progress
+from storyteller_lib.plot_threads import PlotThread, THREAD_IMPORTANCE, THREAD_STATUS
+
+
+def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str, initial_idea: str) -> Dict[str, Dict]:
+    """Generate initial plot threads from the story outline."""
+    prompt = f"""
+    Analyze this story outline and identify the major plot threads that will need to be tracked throughout the story:
+    
+    Story Outline:
+    {story_outline}
+    
+    Genre: {genre}
+    Tone: {tone}
+    Initial Idea: {initial_idea}
+    
+    A plot thread is a narrative element that spans multiple chapters. Examples include:
+    - The main quest or mission
+    - Important mysteries that need solving
+    - Character relationships that develop
+    - Conflicts that need resolution
+    - Secrets that are gradually revealed
+    - Subplots that support the main story
+    
+    For each plot thread, provide:
+    1. name: A concise, memorable name for the thread
+    2. description: What this thread is about (2-3 sentences)
+    3. importance: major (central to main plot), minor (subplot), or background
+    4. related_characters: Which character roles are involved (e.g., "hero", "mentor", "antagonist")
+    
+    Identify 3-7 plot threads, with at least 1-2 major threads.
+    """
+    
+    try:
+        # Define the structured output
+        class PlotThreadDefinition(BaseModel):
+            name: str = Field(description="A concise, memorable name for the thread")
+            description: str = Field(description="What this thread is about (2-3 sentences)")
+            importance: str = Field(description="Thread importance: major, minor, or background")
+            related_characters: List[str] = Field(description="Character roles involved in this thread")
+        
+        class PlotThreadsContainer(BaseModel):
+            threads: List[PlotThreadDefinition] = Field(description="List of plot threads")
+        
+        # Get structured output
+        structured_llm = llm.with_structured_output(PlotThreadsContainer)
+        result = structured_llm.invoke(prompt)
+        
+        # Convert to plot thread objects
+        plot_threads = {}
+        for thread_def in result.threads:
+            thread = PlotThread(
+                name=thread_def.name,
+                description=thread_def.description,
+                importance=thread_def.importance,
+                status=THREAD_STATUS["INTRODUCED"],
+                first_chapter="",  # Will be set when first used
+                first_scene="",
+                related_characters=thread_def.related_characters
+            )
+            plot_threads[thread_def.name] = thread.to_dict()
+        
+        return plot_threads
+        
+    except Exception as e:
+        print(f"Error generating plot threads: {e}")
+        # Return minimal plot threads as fallback
+        return {
+            "Main Quest": {
+                "name": "Main Quest",
+                "description": "The hero's primary journey and mission",
+                "importance": THREAD_IMPORTANCE["MAJOR"],
+                "status": THREAD_STATUS["INTRODUCED"],
+                "first_chapter": "",
+                "first_scene": "",
+                "last_chapter": "",
+                "last_scene": "",
+                "related_characters": ["hero"],
+                "development_history": []
+            }
+        }
+
 
 @track_progress
 def generate_story_outline(state: StoryState) -> Dict:
     """Generate the overall story outline using the hero's journey structure."""
+    # Import dependencies at the start
+    from storyteller_lib.logger import get_logger
+    from storyteller_lib.database_integration import get_db_manager
+    from storyteller_lib.story_progress_logger import log_progress
+    
+    logger = get_logger(__name__)
+    
     genre = state["genre"]
     tone = state["tone"]
     author = state["author"]
@@ -567,8 +655,26 @@ def generate_story_outline(state: StoryState) -> Dict:
     })
     
     # Log the story outline
-    from storyteller_lib.story_progress_logger import log_progress
     log_progress("story_outline", outline=story_outline)
+    
+    # Generate initial plot threads from the outline
+    plot_threads = generate_plot_threads_from_outline(story_outline, genre, tone, initial_idea)
+    
+    # Save plot threads to database
+    try:
+        db_manager = get_db_manager()
+        if db_manager and db_manager._db:
+            for thread_name, thread_data in plot_threads.items():
+                db_manager._db.create_plot_thread(
+                    name=thread_name,
+                    description=thread_data.get('description', ''),
+                    thread_type=thread_data.get('importance', 'minor'),
+                    importance=thread_data.get('importance', 'minor'),
+                    status=thread_data.get('status', 'introduced')
+                )
+            logger.info(f"Saved {len(plot_threads)} plot threads to database")
+    except Exception as e:
+        logger.error(f"Failed to save plot threads to database: {e}")
     
     # Store in procedural memory that this was a result of initial generation
     manage_memory_tool.invoke({
@@ -591,8 +697,24 @@ def generate_story_outline(state: StoryState) -> Dict:
     idea_mention = f" based on your idea about {initial_idea_elements.get('setting', 'the specified setting')}" if initial_idea else ""
     new_msg = AIMessage(content=f"I've created a story outline following the hero's journey structure{idea_mention}. Now I'll develop the characters in more detail.")
     
+    # Store global story in database
+    
+    db_manager = get_db_manager()
+    if not db_manager:
+        raise RuntimeError("Database manager not available - cannot store story outline")
+    
+    try:
+        # Update the global story in the database
+        db_manager.update_global_story(story_outline)
+        logger.info("Story outline stored in database")
+    except Exception as e:
+        logger.error(f"Failed to store story outline in database: {e}")
+        raise RuntimeError(f"Could not store story outline in database: {e}")
+    
+    # Return minimal state update - just first 500 chars for routing context
     return {
-        "global_story": story_outline,
+        "global_story": story_outline[:500] + "...",
+        "plot_threads": plot_threads,  # Add generated plot threads to state
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],
             new_msg
@@ -962,6 +1084,34 @@ def plan_chapters(state: StoryState) -> Dict:
         "namespace": MEMORY_NAMESPACE
     })
     
+    # Log each chapter plan
+    from storyteller_lib.story_progress_logger import log_progress
+    for ch_num, ch_data in chapters.items():
+        log_progress("chapter_plan", chapter_num=ch_num, chapter_data=ch_data)
+    
+    # Store chapters in database
+    from storyteller_lib.database_integration import get_db_manager
+    from storyteller_lib.logger import get_logger
+    logger = get_logger(__name__)
+    
+    db_manager = get_db_manager()
+    if db_manager:
+        try:
+            # Store each chapter
+            for ch_num, ch_data in chapters.items():
+                db_manager.save_chapter_outline(int(ch_num), ch_data)
+            logger.info(f"Stored {len(chapters)} chapter outlines in database")
+        except Exception as e:
+            logger.warning(f"Could not store chapters in database: {e}")
+    
+    # Create minimal chapters structure for routing
+    minimal_chapters = {}
+    for ch_num, ch_data in chapters.items():
+        minimal_chapters[ch_num] = {
+            "title": ch_data.get("title", f"Chapter {ch_num}"),
+            "scenes": {str(i): {"db_stored": False} for i in range(1, len(ch_data.get("scenes", [])) + 1)}
+        }
+    
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
     
@@ -969,7 +1119,7 @@ def plan_chapters(state: StoryState) -> Dict:
     new_msg = AIMessage(content="I've planned out the chapters for the story. Now I'll begin writing the first scene of chapter 1.")
     
     return {
-        "chapters": chapters,
+        "chapters": minimal_chapters,
         "current_chapter": "1",  # Start with the first chapter
         "current_scene": "1",    # Start with the first scene
         

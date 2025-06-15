@@ -341,11 +341,12 @@ def _prepare_emotional_guidance(characters: Dict, scene_characters: List[str], t
     return guidance
 
 
-def _generate_previous_scenes_summary(state: StoryState) -> str:
+def _generate_previous_scenes_summary(state: StoryState, db_manager) -> str:
     """Generate a summary of previous scenes for context.
     
     Args:
         state: Current story state
+        db_manager: Database manager instance
         
     Returns:
         Formatted summary of previous scenes
@@ -355,34 +356,42 @@ def _generate_previous_scenes_summary(state: StoryState) -> str:
     
     summary_parts = []
     
-    # Add previous chapter ending if this is the first scene
-    if current_scene == "1" and int(current_chapter) > 1:
-        prev_chapter_num = str(int(current_chapter) - 1)
-        if prev_chapter_num in state["chapters"]:
-            prev_chapter = state["chapters"][prev_chapter_num]
-            if "scenes" in prev_chapter and prev_chapter["scenes"]:
-                # Get the last scene key and access it
-                last_scene_key = max(prev_chapter["scenes"].keys(), key=int)
-                last_scene = prev_chapter["scenes"][last_scene_key]
-                if "content" in last_scene:
-                    # Extract last paragraph for continuity
-                    paragraphs = last_scene["content"].strip().split('\n\n')
-                    if paragraphs:
-                        summary_parts.append(f"Previous Chapter Ending: {paragraphs[-1][:200]}...")
-    
-    # Add previous scenes in current chapter
-    if int(current_scene) > 1:
-        current_chapter_data = state["chapters"][current_chapter]
-        scenes = current_chapter_data.get("scenes", {})
-        # Get previous scenes up to 3 scenes back
-        scene_start = max(1, int(current_scene) - 3)
-        for i in range(scene_start, int(current_scene)):
-            scene_key = str(i)
-            if scene_key in scenes:
-                scene = scenes[scene_key]
-                if "content" in scene:
+    # Get previous scenes from database
+    if db_manager and db_manager._db:
+        # Add previous chapter ending if this is the first scene
+        if current_scene == "1" and int(current_chapter) > 1:
+            prev_chapter_num = int(current_chapter) - 1
+            # Get last scene of previous chapter from database
+            content = db_manager.get_scene_content(prev_chapter_num, 999)  # Try high number
+            if not content:
+                # Find actual last scene number
+                with db_manager._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT MAX(s.scene_number) as last_scene
+                        FROM scenes s
+                        JOIN chapters c ON s.chapter_id = c.id
+                        WHERE c.chapter_number = ?
+                    """, (prev_chapter_num,))
+                    result = cursor.fetchone()
+                    if result and result['last_scene']:
+                        content = db_manager.get_scene_content(prev_chapter_num, result['last_scene'])
+            
+            if content:
+                # Extract last paragraph for continuity
+                paragraphs = content.strip().split('\n\n')
+                if paragraphs:
+                    summary_parts.append(f"Previous Chapter Ending: {paragraphs[-1][:200]}...")
+        
+        # Add previous scenes in current chapter
+        if int(current_scene) > 1:
+            # Get previous scenes up to 3 scenes back
+            scene_start = max(1, int(current_scene) - 3)
+            for i in range(scene_start, int(current_scene)):
+                content = db_manager.get_scene_content(int(current_chapter), i)
+                if content:
                     # Get first paragraph as summary
-                    first_para = scene["content"].strip().split('\n\n')[0]
+                    first_para = content.strip().split('\n\n')[0]
                     summary_parts.append(f"Scene {i}: {first_para[:150]}...")
     
     # Look for recent important events in memory
@@ -429,28 +438,81 @@ def write_scene(state: StoryState) -> Dict:
     author = state.get("author", "")
     author_style_guidance = state.get("author_style_guidance", "")
     
-    # Get chapter and scene information
-    chapter_data = state["chapters"][current_chapter]
-    chapter_outline = chapter_data["outline"]
-    scene_data = chapter_data["scenes"][current_scene]
-    scene_description = scene_data.get("description", scene_data.get("outline", ""))
+    # Get chapter outline from database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available - cannot retrieve chapter outline")
+    
+    # Get chapter outline from database
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT outline FROM chapters WHERE chapter_number = ?",
+            (int(current_chapter),)
+        )
+        result = cursor.fetchone()
+        if not result:
+            raise RuntimeError(f"Chapter {current_chapter} outline not found in database")
+        chapter_outline = result['outline']
+    
+    # Scene description from brainstorming phase (if available)
+    scene_description = state.get("scene_elements", {}).get("scene_approach", f"Scene {current_scene}")
     
     # Get creative elements from brainstorming
     scene_elements = state.get("scene_elements", {})
     active_plot_threads = state.get("active_plot_threads", [])
     
-    # Get characters and world information
-    characters = state.get("characters", {})
-    world_elements = state.get("world_elements", {})
+    # Import optimization utilities
+    from storyteller_lib.prompt_optimization import (
+        get_relevant_characters, summarize_world_elements,
+        truncate_scene_content, log_prompt_size
+    )
+    
+    # Get characters from database
+    all_characters = {}
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT identifier, name, role, backstory, personality
+                FROM characters
+            """)
+            for row in cursor.fetchall():
+                all_characters[row['identifier']] = {
+                    'name': row['name'],
+                    'role': row['role'],
+                    'backstory': row['backstory'],
+                    'personality': row['personality']
+                }
+    
+    # Get only relevant characters for this scene
+    scene_context = f"{chapter_outline}\n{scene_description}"
+    relevant_characters = get_relevant_characters(all_characters, scene_context, max_characters=5)
+    
+    # Get world information from database
+    world_elements = {}
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT category, element_key, element_value
+                FROM world_elements
+            """)
+            for row in cursor.fetchall():
+                if row['category'] not in world_elements:
+                    world_elements[row['category']] = {}
+                world_elements[row['category']][row['element_key']] = row['element_value']
     
     # Identify which characters are in this scene
-    scene_characters = _identify_scene_characters(chapter_outline, characters)
+    scene_characters = list(relevant_characters.keys())
     
     # Prepare various guidance sections
     author_guidance = _prepare_author_style_guidance(author, author_style_guidance)
     language_guidance = _prepare_language_guidance(language)
-    emotional_guidance = _prepare_emotional_guidance(characters, scene_characters, tone, genre)
-    previous_context = _generate_previous_scenes_summary(state)
+    emotional_guidance = _prepare_emotional_guidance(relevant_characters, scene_characters, tone, genre)
+    previous_context = _generate_previous_scenes_summary(state, db_manager)
     
     # Get database context if available
     database_context = _prepare_database_context(current_chapter, current_scene)
@@ -466,16 +528,20 @@ def write_scene(state: StoryState) -> Dict:
     plot_guidance = _prepare_plot_thread_guidance(active_plot_threads)
     world_guidance = _prepare_worldbuilding_guidance(world_elements, chapter_outline)
     
+    # Truncate story premise and chapter outline
+    premise_brief = story_premise[:200] + "..." if len(story_premise) > 200 else story_premise
+    outline_brief = chapter_outline[:300] + "..." if len(chapter_outline) > 300 else chapter_outline
+    
     # Construct the scene writing prompt
     prompt = f"""You are a skilled novelist writing Chapter {current_chapter}, Scene {current_scene} of a {genre} story.
 
     STORY CONTEXT:
-    Premise: {story_premise}
+    Premise: {premise_brief}
     Genre: {genre}
     Tone: {tone}
     
-    CHAPTER OUTLINE:
-    {chapter_outline}
+    CHAPTER FOCUS:
+    {outline_brief}
     
     CURRENT SCENE:
     Scene {current_scene}: {scene_description}
@@ -501,6 +567,9 @@ def write_scene(state: StoryState) -> Dict:
     Write the scene now:
     """
     
+    # Log prompt size
+    log_prompt_size(prompt, f"scene writing Ch{current_chapter}/Sc{current_scene}")
+    
     # Generate the scene
     messages = [HumanMessage(content=prompt)]
     response = llm.invoke(messages)
@@ -518,15 +587,43 @@ def write_scene(state: StoryState) -> Dict:
         "namespace": MEMORY_NAMESPACE
     })
     
-    # Update the state with the written scene
-    state["chapters"][current_chapter]["scenes"][current_scene]["content"] = scene_content
-    state["chapters"][current_chapter]["scenes"][current_scene]["characters"] = scene_characters
-    state["current_scene_content"] = scene_content
-    state["last_node"] = NodeNames.WRITE_SCENE
+    # Store scene to database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if db_manager:
+        try:
+            # Store scene content to database
+            db_manager.save_scene_content(
+                int(current_chapter), 
+                int(current_scene), 
+                scene_content
+            )
+            logger.info(f"Scene content stored to database - {len(scene_content)} chars")
+        except Exception as e:
+            logger.warning(f"Could not store scene to database: {e}")
+    
+    # Prepare chapters update
+    chapters = state.get("chapters", {})
+    if current_chapter not in chapters:
+        chapters[current_chapter] = {"scenes": {}}
+    if "scenes" not in chapters[current_chapter]:
+        chapters[current_chapter]["scenes"] = {}
+    
+    # Store only metadata - no content
+    chapters[current_chapter]["scenes"][current_scene] = {
+        "db_stored": True,
+        "characters": scene_characters
+    }
     
     # Log the scene
     from storyteller_lib.story_progress_logger import log_progress
-    log_progress("scene", chapter=current_chapter, scene=current_scene, 
-                content=scene_content, characters=scene_characters)
+    log_progress("scene_content", chapter_num=current_chapter, scene_num=current_scene, 
+                scene_content=scene_content)
     
-    return state
+    # Return the updates to state
+    return {
+        "current_scene_content": scene_content,
+        "last_node": NodeNames.WRITE_SCENE,
+        "chapters": chapters
+    }

@@ -127,8 +127,24 @@ def track_key_concepts(state: StoryState) -> Dict:
     Returns:
         Updates to the state
     """
-    # Extract key concepts from the story outline
-    global_story = state["global_story"]
+    # Get database manager
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available")
+    
+    # Get full story outline from database
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT global_story FROM story_config WHERE id = 1"
+        )
+        result = cursor.fetchone()
+        if not result:
+            raise RuntimeError("Story outline not found in database")
+        global_story = result['global_story']
+    
     genre = state["genre"]
     
     # Get the language from the state or use default

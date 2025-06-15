@@ -879,7 +879,23 @@ def generate_characters(state: StoryState) -> Dict:
     Returns:
         Dictionary with updated characters and messages
     """
-    global_story = state["global_story"]
+    # Get full story outline from database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available - cannot retrieve story outline")
+    
+    # Get from database
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT global_story FROM story_config WHERE id = 1"
+        )
+        result = cursor.fetchone()
+        if not result:
+            raise RuntimeError("Story outline not found in database")
+        global_story = result['global_story']
     genre = state["genre"]
     tone = state["tone"]
     author = state["author"]
@@ -1026,8 +1042,27 @@ def generate_characters(state: StoryState) -> Dict:
     # Create message for the user
     new_msg = AIMessage(content="I've developed detailed character profiles with interconnected backgrounds and motivations. Now I'll plan the chapters.")
     
+    # Store characters in database
+    from storyteller_lib.database_integration import get_db_manager
+    from storyteller_lib.logger import get_logger
+    logger = get_logger(__name__)
+    
+    db_manager = get_db_manager()
+    if db_manager:
+        try:
+            # Store each character
+            for char_id, char_data in characters_dict.items():
+                db_manager.save_character(char_id, char_data)
+            logger.info(f"Stored {len(characters_dict)} characters in database")
+        except Exception as e:
+            logger.warning(f"Could not store characters in database: {e}")
+    
+    # Return minimal state update - just character IDs
+    minimal_characters = {char_id: {"name": char_data.get("name", char_id)} 
+                         for char_id, char_data in characters_dict.items()}
+    
     return {
-        "characters": characters_dict,
+        "characters": minimal_characters,
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],
             new_msg

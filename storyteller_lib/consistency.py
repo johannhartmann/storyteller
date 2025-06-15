@@ -6,6 +6,7 @@ addressing issues with character motivation inconsistencies in multiple language
 """
 
 from typing import Dict, List, Any, Optional
+import json
 from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
@@ -50,28 +51,34 @@ def check_character_consistency(character_data: Dict, scene_content: str,
     emotional_state = character_data.get("emotional_state", {})
     current_emotion = emotional_state.get("current", "")
     
+    # Import optimization utility
+    from storyteller_lib.prompt_optimization import truncate_scene_content, log_prompt_size
+    
     # Prepare context from previous scenes if available
     previous_context = ""
     if previous_scenes and len(previous_scenes) > 0:
-        previous_context = "\n\n".join([f"Previous scene excerpt: {scene[:300]}..." for scene in previous_scenes[-2:]])
+        # Only use the most recent scene, truncated
+        recent_scene = truncate_scene_content(previous_scenes[-1], keep_start=150, keep_end=100)
+        previous_context = f"Previous scene excerpt:\n{recent_scene}"
+    
+    # Truncate scene content
+    truncated_scene = truncate_scene_content(scene_content, keep_start=300, keep_end=200)
+    
+    # Prepare optimized character summary
+    from storyteller_lib.prompt_optimization import summarize_character
+    char_summary = summarize_character(character_data, max_words=80)
     
     # Prepare the prompt for checking character consistency
     prompt = f"""
     Analyze {character_name}'s consistency in this scene written in {language_name}:
     
-    CHARACTER PROFILE:
-    Name: {character_name}
-    Backstory: {backstory}
-    Traits: {', '.join(traits) if traits else 'Not specified'}
-    Flaws: {', '.join(flaws) if flaws else 'Not specified'}
-    Arc Type: {arc_type}
-    Current Arc Stage: {current_stage}
-    Current Emotional State: {current_emotion}
+    CHARACTER SUMMARY:
+    {json.dumps(char_summary, indent=2)}
     
     {previous_context}
     
     CURRENT SCENE:
-    {scene_content}
+    {truncated_scene}
     
     Evaluate:
     1. Are {character_name}'s actions consistent with established traits?
@@ -89,7 +96,11 @@ def check_character_consistency(character_data: Dict, scene_content: str,
     
     Format your response as a structured JSON object.
     Analyze and respond in {language_name}.
+    Keep analysis under 300 words.
     """
+    
+    # Log prompt size
+    log_prompt_size(prompt, f"character consistency check for {character_name}")
     
     try:
         # Define Pydantic models for structured output
@@ -422,29 +433,62 @@ def track_character_consistency(state: StoryState) -> Dict:
         Updates to the state
     """
     chapters = state["chapters"]
-    characters = state["characters"]
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     
     # Get the language from the state or use default
     language = state.get("language", DEFAULT_LANGUAGE)
     
-    # Get the current scene content
-    scene_content = chapters[current_chapter]["scenes"][current_scene]["content"]
+    # Get database manager
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    
+    if not db_manager or not db_manager._db:
+        raise RuntimeError("Database manager not available")
+    
+    # Get characters from database
+    characters = {}
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT identifier, name, role, backstory, personality
+            FROM characters
+        """)
+        for row in cursor.fetchall():
+            characters[row['identifier']] = {
+                'name': row['name'],
+                'role': row['role'],
+                'backstory': row['backstory'],
+                'personality': row['personality']
+            }
+    
+    # Get the current scene content from database or temporary state
+    scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    if not scene_content:
+        scene_content = state.get("current_scene_content", "")
+        if not scene_content:
+            raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
     
     # Get previous scenes for context (up to 2)
     previous_scenes = []
-    for ch_num in sorted(chapters.keys(), key=int):
-        if int(ch_num) < int(current_chapter) or (ch_num == current_chapter and int(current_scene) > 1):
-            for sc_num in sorted(chapters[ch_num]["scenes"].keys(), key=int):
-                if ch_num == current_chapter and int(sc_num) >= int(current_scene):
-                    continue
-                scene = chapters[ch_num]["scenes"][sc_num]
-                if "content" in scene:
-                    previous_scenes.append(scene["content"])
     
-    # Keep only the last 2 previous scenes
-    previous_scenes = previous_scenes[-2:] if len(previous_scenes) > 2 else previous_scenes
+    # Get all scenes from database to find the last 2
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT c.chapter_number, s.scene_number, s.content
+            FROM scenes s
+            JOIN chapters c ON s.chapter_id = c.id
+            WHERE (c.chapter_number < ? OR (c.chapter_number = ? AND s.scene_number < ?))
+            ORDER BY c.chapter_number DESC, s.scene_number DESC
+            LIMIT 2
+        """, (int(current_chapter), int(current_chapter), int(current_scene)))
+        
+        for row in cursor.fetchall():
+            previous_scenes.append(row['content'])
+    
+    # Reverse to get chronological order
+    previous_scenes = list(reversed(previous_scenes))
     
     # Check consistency for each character in the scene
     consistency_updates = {}
@@ -487,18 +531,13 @@ def track_character_consistency(state: StoryState) -> Dict:
                 if consistency_analysis["consistency_score"] < 7 and consistency_analysis["issues"]:
                     improved_scene = fix_character_inconsistencies(scene_content, char_data, consistency_analysis, state, language)
                     
-                    # Update the scene content with the improved version
+                    # Update the scene content in database
+                    db_manager.save_scene_content(int(current_chapter), int(current_scene), improved_scene)
+                    
+                    # Update temporary state for next nodes
                     consistency_updates = {
-                        "chapters": {
-                            current_chapter: {
-                                "scenes": {
-                                    current_scene: {
-                                        "content": improved_scene,
-                                        "consistency_fixed": True
-                                    }
-                                }
-                            }
-                        }
+                        "current_scene_content": improved_scene,
+                        "consistency_fixed": True
                     }
                     
                     # Only fix one character at a time to avoid conflicting changes

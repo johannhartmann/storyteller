@@ -54,7 +54,7 @@ MODEL_CONFIGS = {
         "max_tokens": 64000
     },
     "gemini": {
-        "default_model": "gemini-2.0-flash",
+        "default_model": "gemini-2.5-flash-preview-05-20",
         "env_key": "GEMINI_API_KEY",
         "max_tokens": 1000000
     }
@@ -272,13 +272,14 @@ def log_memory_usage(label: str) -> Dict[str, Any]:
     }
 
 # State cleanup utility
-def cleanup_old_state(state: Dict[str, Any], current_chapter: str) -> Dict[str, Any]:
+def cleanup_old_state(state: Dict[str, Any], current_chapter: str, current_scene: Optional[str] = None) -> Dict[str, Any]:
     """
     Remove old state data that's no longer needed to reduce memory usage.
     
     Args:
         state: The current state dictionary
         current_chapter: The current chapter being processed
+        current_scene: The current scene being processed (optional)
         
     Returns:
         A dictionary with state updates to remove old data
@@ -292,7 +293,35 @@ def cleanup_old_state(state: Dict[str, Any], current_chapter: str) -> Dict[str, 
     # Initialize cleanup updates
     cleanup_updates = {}
     
-    # 1. Clean up creative elements for old chapters
+    # 1. Clean up old scene content to save memory
+    if "chapters" in state:
+        chapters_update = {}
+        for ch_num, chapter in state["chapters"].items():
+            try:
+                ch_int = int(ch_num)
+                # For chapters more than 1 behind current, clear scene content
+                if ch_int < current_ch_num - 1:
+                    if "scenes" in chapter:
+                        scenes_update = {}
+                        for sc_num, scene in chapter["scenes"].items():
+                            if "content" in scene and isinstance(scene["content"], str) and len(scene["content"]) > 100:
+                                # Replace content with placeholder
+                                scenes_update[sc_num] = {
+                                    "content": f"[Cleared - was {len(scene['content'])} chars]"
+                                }
+                        if scenes_update:
+                            chapters_update[ch_num] = {"scenes": scenes_update}
+            except (ValueError, TypeError):
+                pass
+        
+        if chapters_update:
+            cleanup_updates["chapters"] = chapters_update
+    
+    # 2. Clean up current_scene_content if we've moved to a new scene
+    if current_scene and "current_scene_content" in state:
+        cleanup_updates["current_scene_content"] = "[Previous scene cleared]"
+    
+    # 3. Clean up creative elements for old chapters
     if "creative_elements" in state:
         creative_keys_to_remove = []
         for key in state["creative_elements"]:
@@ -302,8 +331,8 @@ def cleanup_old_state(state: Dict[str, Any], current_chapter: str) -> Dict[str, 
                 try:
                     ch_match = key.split("ch")[1].split("_")[0]
                     ch_num = int(ch_match)
-                    # Keep only current and recent chapters (within 2 chapters)
-                    if ch_num < current_ch_num - 2:
+                    # Keep only current and recent chapters (within 1 chapter)
+                    if ch_num < current_ch_num - 1:
                         creative_keys_to_remove.append(key)
                 except (ValueError, IndexError):
                     pass
