@@ -11,8 +11,7 @@ from typing import Dict, List, Optional, Any
 
 from langchain_core.messages import HumanMessage
 
-from storyteller_lib import MEMORY_NAMESPACE
-from storyteller_lib.config import get_llm
+from storyteller_lib.config import get_llm, MEMORY_NAMESPACE
 from storyteller_lib.database_integration import get_db_manager
 from storyteller_lib.langmem_tools import manage_memory_tool
 
