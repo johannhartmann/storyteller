@@ -853,16 +853,38 @@ class StoryDatabaseManager:
             return
         
         try:
-            chapter_id = self._db.create_chapter(
-                chapter_num=chapter_num,
-                title=chapter_data.get('title', f'Chapter {chapter_num}'),
-                outline=chapter_data.get('outline', '')
-            )
+            # First check if chapter already exists
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT id FROM chapters WHERE chapter_number = ?",
+                    (chapter_num,)
+                )
+                result = cursor.fetchone()
+                
+                if result:
+                    # Chapter exists, update it
+                    chapter_id = result['id']
+                    cursor.execute(
+                        "UPDATE chapters SET title = ?, outline = ? WHERE id = ?",
+                        (chapter_data.get('title', f'Chapter {chapter_num}'),
+                         chapter_data.get('outline', ''),
+                         chapter_id)
+                    )
+                    conn.commit()
+                    logger.info(f"Updated existing chapter {chapter_num} outline")
+                else:
+                    # Create new chapter
+                    chapter_id = self._db.create_chapter(
+                        chapter_num=chapter_num,
+                        title=chapter_data.get('title', f'Chapter {chapter_num}'),
+                        outline=chapter_data.get('outline', '')
+                    )
+                    logger.info(f"Saved new chapter {chapter_num} outline")
             
             # Store chapter ID mapping
             self._chapter_id_map[str(chapter_num)] = chapter_id
             
-            logger.info(f"Saved chapter {chapter_num} outline")
         except Exception as e:
             logger.error(f"Failed to save chapter {chapter_num}: {e}")
             raise
