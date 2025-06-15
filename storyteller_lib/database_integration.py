@@ -180,16 +180,43 @@ class StoryDatabaseManager:
         char_id_map = {}
         for char_id, char_data in characters.items():
             try:
-                # Serialize personality if it's a dict
+                # Serialize any dict fields to JSON strings, ensure all are strings
                 personality = char_data.get('personality', '')
                 if isinstance(personality, dict):
                     personality = json.dumps(personality)
+                elif personality is None:
+                    personality = ''
+                else:
+                    personality = str(personality)
+                
+                backstory = char_data.get('backstory', '')
+                if isinstance(backstory, dict):
+                    backstory = json.dumps(backstory)
+                elif backstory is None:
+                    backstory = ''
+                else:
+                    backstory = str(backstory)
+                
+                role = char_data.get('role', '')
+                if isinstance(role, dict):
+                    role = json.dumps(role)
+                elif role is None:
+                    role = ''
+                else:
+                    role = str(role)
+                
+                # Debug logging
+                logger.debug(f"Creating character {char_id} with:")
+                logger.debug(f"  name: {char_data.get('name', char_id)} (type: {type(char_data.get('name', char_id))})")
+                logger.debug(f"  role: {role} (type: {type(role)})")
+                logger.debug(f"  backstory: {backstory[:100] if backstory else 'None'}... (type: {type(backstory)})")
+                logger.debug(f"  personality: {personality[:100] if personality else 'None'}... (type: {type(personality)})")
                 
                 db_char_id = self._db.create_character(
                     identifier=char_id,
                     name=char_data.get('name', char_id),
-                    role=char_data.get('role', ''),
-                    backstory=char_data.get('backstory', ''),
+                    role=role,
+                    backstory=backstory,
                     personality=personality
                 )
                 char_id_map[char_id] = db_char_id
@@ -819,13 +846,38 @@ class StoryDatabaseManager:
             return
         
         try:
+            # Serialize any dict fields to JSON strings, ensure all are strings
+            personality = char_data.get('personality', '')
+            if isinstance(personality, dict):
+                personality = json.dumps(personality)
+            elif personality is None:
+                personality = ''
+            else:
+                personality = str(personality)
+            
+            backstory = char_data.get('backstory', '')
+            if isinstance(backstory, dict):
+                backstory = json.dumps(backstory)
+            elif backstory is None:
+                backstory = ''
+            else:
+                backstory = str(backstory)
+            
+            role = char_data.get('role', '')
+            if isinstance(role, dict):
+                role = json.dumps(role)
+            elif role is None:
+                role = ''
+            else:
+                role = str(role)
+            
             # Create character
             db_char_id = self._db.create_character(
                 identifier=char_id,
                 name=char_data.get('name', char_id),
-                role=char_data.get('role', ''),
-                backstory=char_data.get('backstory', ''),
-                personality=char_data.get('personality', '')
+                role=role,
+                backstory=backstory,
+                personality=personality
             )
             
             # Store character ID mapping
