@@ -130,7 +130,7 @@ def generate_story_summary() -> Dict[str, Any]:
     return summary
 
 
-def extract_scene_information(content: str, chapter_num: int, scene_num: int) -> Dict[str, Any]:
+def extract_scene_information(content: str, chapter_num: int, scene_num: int, language: str = "english") -> Dict[str, Any]:
     """
     Extract key information from a scene using LLM analysis.
     
@@ -138,30 +138,27 @@ def extract_scene_information(content: str, chapter_num: int, scene_num: int) ->
         content: Scene content
         chapter_num: Chapter number
         scene_num: Scene number
+        language: The language of the content
         
     Returns:
         Dictionary containing extracted information
     """
     from storyteller_lib.database_integration import get_db_manager
+    from storyteller_lib.prompt_templates import render_prompt
+    
     db_manager = get_db_manager()
     
     # Use structured output for all providers
     llm = get_llm_with_structured_output(SceneInformation)
     
-    prompt = f"""Analyze this scene and extract key information.
-
-Scene (Chapter {chapter_num}, Scene {scene_num}):
-{content[:2000]}  # Limit to avoid token issues
-
-Extract the following information:
-1. Key events that happen (2-3 brief phrases)
-2. Character actions - for each character in the scene, list their name and actions
-3. Unique descriptive phrases used
-4. Important revelations or discoveries
-5. The type of scene (action, dialogue, discovery, etc.)
-
-For character actions, provide each character's name and their list of actions separately.
-"""
+    # Render the scene information extraction prompt
+    prompt = render_prompt(
+        'scene_information_extraction',
+        language=language,
+        chapter_num=chapter_num,
+        scene_num=scene_num,
+        content=content[:2000]  # Limit to avoid token issues
+    )
     
     try:
         messages = [HumanMessage(content=prompt)]

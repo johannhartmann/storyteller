@@ -13,12 +13,13 @@ from storyteller_lib.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _identify_relevant_world_categories(chapter_outline: str, world_elements: Dict) -> List[str]:
+def _identify_relevant_world_categories(chapter_outline: str, world_elements: Dict, language: str = "english") -> List[str]:
     """Identify which world categories are most relevant for the current scene using LLM.
     
     Args:
         chapter_outline: The chapter outline text
         world_elements: Dictionary of world building elements
+        language: The language for analysis
         
     Returns:
         List of relevant category names
@@ -26,6 +27,7 @@ def _identify_relevant_world_categories(chapter_outline: str, world_elements: Di
     from storyteller_lib.config import llm
     from langchain_core.messages import HumanMessage
     from pydantic import BaseModel, Field
+    from storyteller_lib.prompt_templates import render_prompt
     
     class RelevantCategories(BaseModel):
         """World categories relevant to the scene."""
@@ -35,21 +37,13 @@ def _identify_relevant_world_categories(chapter_outline: str, world_elements: Di
         
     available_categories = list(world_elements.keys())
     
-    prompt = f"""Based on this chapter outline, which world-building categories are most relevant?
-
-CHAPTER OUTLINE:
-{chapter_outline}
-
-AVAILABLE CATEGORIES:
-{', '.join(available_categories)}
-
-Select only the categories that are DIRECTLY relevant to the events, themes, or settings in this chapter.
-For example:
-- If characters are traveling, 'geography' is relevant
-- If there's political intrigue, 'politics' is relevant
-- If magic is being used, 'magic_system' is relevant
-
-Be selective - choose only what's actually needed for this chapter."""
+    # Render the identify world categories prompt
+    prompt = render_prompt(
+        'identify_world_categories',
+        language=language,
+        chapter_outline=chapter_outline,
+        available_categories=available_categories
+    )
 
     try:
         structured_llm = llm.with_structured_output(RelevantCategories)
