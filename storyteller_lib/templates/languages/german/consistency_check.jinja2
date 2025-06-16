@@ -1,0 +1,98 @@
+{# German template for consistency checking #}
+Überprüfe diese Szene auf Konsistenz mit etablierten Geschichtselementen:
+
+ZU PRÜFENDE SZENE:
+{{ scene_content }}
+
+SZENENKONTEXT:
+- Kapitel {{ current_chapter }}, Szene {{ current_scene }}
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+
+ETABLIERTE GESCHICHTSELEMENTE:
+
+{% if characters %}
+CHARAKTERE:
+{% for char_name, char_info in characters.items() %}
+{{ char_name }}:
+- Rolle: {{ char_info.role }}
+- Schlüsseleigenschaften: {{ char_info.traits | join(', ') if char_info.traits else 'Nicht angegeben' }}
+- Aktueller Zustand: {{ char_info.current_state | default('Unbekannt') }}
+- Bekannte Fakten: {{ char_info.known_facts | join(', ') if char_info.known_facts else 'Keine' }}
+{% endfor %}
+{% endif %}
+
+{% if world_elements %}
+WELTELEMENTE:
+{% for category, elements in world_elements.items() %}
+{{ category | upper }}:
+{% for key, value in elements.items() %}
+- {{ key | replace('_', ' ') | title }}: {{ value }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+{% if previous_events %}
+VORHERIGE EREIGNISSE:
+{% for event in previous_events %}
+- Kapitel {{ event.chapter }}, Szene {{ event.scene }}: {{ event.summary }}
+{% endfor %}
+{% endif %}
+
+{% if plot_threads %}
+AKTIVE HANDLUNGSSTRÄNGE:
+{% for thread in plot_threads %}
+- {{ thread.name }} ({{ thread.type }}): {{ thread.current_status }}
+{% endfor %}
+{% endif %}
+
+{% if timeline %}
+GESCHICHTSZEITLINIE:
+- Aktueller Zeitpunkt: {{ timeline.current }}
+- Wichtige Daten: {{ timeline.important_dates | join(', ') }}
+{% endif %}
+
+ERFORDERLICHE KONSISTENZPRÜFUNGEN:
+
+1. CHARAKTERKONSISTENZ:
+   - Verhalten sich Charaktere gemäß ihrer etablierten Eigenschaften?
+   - Sind Charakterwissen und -fähigkeiten konsistent?
+   - Passen Charakterbeziehungen zu vorherigen Interaktionen?
+
+2. WELTKONSISTENZ:
+   - Stimmen Orte mit früheren Beschreibungen überein?
+   - Werden Weltregeln (Magie, Technologie, etc.) befolgt?
+   - Ist die Umgebung konsistent mit etablierten Elementen?
+
+3. HANDLUNGSKONSISTENZ:
+   - Folgen Ereignisse logisch aus vorherigen Szenen?
+   - Werden Ursache-Wirkungs-Beziehungen aufrechterhalten?
+   - Stimmen Handlungsentwicklungen mit etablierten Strängen überein?
+
+4. ZEITLINIENKONSISTENZ:
+   - Macht die Zeitabfolge der Ereignisse Sinn?
+   - Sind Reisezeiten und Dauern realistisch?
+   - Stimmen Verweise auf vergangene Ereignisse mit der Zeitlinie überein?
+
+5. DETAILKONSISTENZ:
+   - Sind physische Beschreibungen konsistent?
+   - Stimmen Gegenstands-Orte und -Zustände überein?
+   - Werden Namen und Titel korrekt verwendet?
+
+DEUTSCHE ERZÄHLSTANDARDS:
+- Prüfe auf kulturelle Authentizität
+- Achte auf sprachliche Konsistenz
+- Berücksichtige regionale Besonderheiten
+
+{% if specific_checks %}
+SPEZIFISCHE KONSISTENZPRÜFUNGEN:
+{% for check in specific_checks %}
+- {{ check }}
+{% endfor %}
+{% endif %}
+
+Identifiziere ALLE Konsistenzprobleme, auch kleine. Für jedes Problem gib an:
+- Art der Inkonsistenz
+- Was mit etablierten Elementen kollidiert
+- Schweregrad (1-10)
+- Korrekturvorschlag

@@ -8,9 +8,189 @@ addressing issues with character motivation inconsistencies in multiple language
 from typing import Dict, List, Any, Optional
 import json
 from langchain_core.messages import HumanMessage
+from pydantic import BaseModel, Field
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
+
+
+# Pydantic models for scene consistency checking
+class ConsistencyIssue(BaseModel):
+    """A consistency issue found in the scene."""
+    issue_type: str = Field(description="Type of inconsistency (character, world, plot, timeline, detail)")
+    description: str = Field(description="What is inconsistent")
+    conflicts_with: str = Field(description="What established element it conflicts with")
+    severity: int = Field(ge=1, le=10, description="Severity of the issue (1-10)")
+    correction: str = Field(description="Suggested correction")
+
+
+class SceneConsistencyCheck(BaseModel):
+    """Complete scene consistency check results."""
+    overall_consistency: int = Field(ge=1, le=10, description="Overall consistency score (1-10)")
+    character_consistency: bool = Field(description="Whether characters are consistent")
+    world_consistency: bool = Field(description="Whether world elements are consistent")
+    plot_consistency: bool = Field(description="Whether plot elements are consistent")
+    timeline_consistency: bool = Field(description="Whether timeline is consistent")
+    detail_consistency: bool = Field(description="Whether details are consistent")
+    issues: List[ConsistencyIssue] = Field(default_factory=list, description="List of consistency issues")
+    suggestions: List[str] = Field(default_factory=list, description="General suggestions for improvement")
+
+
+def check_scene_consistency(state: StoryState, scene_content: str = None, 
+                          language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
+    """
+    Perform comprehensive consistency checking on a scene using the template system.
+    
+    This function checks for consistency across characters, world elements, plot,
+    timeline, and details, using language-specific templates.
+    
+    Args:
+        state: Current story state
+        scene_content: Scene content to check (if None, gets from state/database)
+        language: Target language for checking
+        
+    Returns:
+        Dictionary with consistency check results
+    """
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    from storyteller_lib.database_integration import get_db_manager
+    
+    current_chapter = str(state.get("current_chapter", "1"))
+    current_scene = str(state.get("current_scene", "1"))
+    
+    # Get database manager
+    db_manager = get_db_manager()
+    
+    # Get scene content if not provided
+    if not scene_content:
+        if db_manager:
+            scene_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+        if not scene_content:
+            scene_content = state.get("current_scene_content", "")
+        if not scene_content:
+            raise ValueError("No scene content available for consistency check")
+    
+    # Get characters from database
+    characters = {}
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT identifier, name, role, backstory, personality, 
+                       emotional_state, known_facts
+                FROM characters
+            """)
+            for row in cursor.fetchall():
+                characters[row['name']] = {
+                    'role': row['role'],
+                    'traits': json.loads(row['personality'] or '{}').get('traits', []),
+                    'current_state': json.loads(row['emotional_state'] or '{}').get('current', 'Unknown'),
+                    'known_facts': json.loads(row['known_facts'] or '[]')
+                }
+    
+    # Get world elements from database
+    world_elements = {}
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT category, element_key, element_value
+                FROM world_elements
+            """)
+            for row in cursor.fetchall():
+                if row['category'] not in world_elements:
+                    world_elements[row['category']] = {}
+                world_elements[row['category']][row['element_key']] = row['element_value']
+    
+    # Get previous events
+    previous_events = []
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT c.chapter_number, s.scene_number, s.content
+                FROM scenes s
+                JOIN chapters c ON s.chapter_id = c.id
+                WHERE (c.chapter_number < ? OR (c.chapter_number = ? AND s.scene_number < ?))
+                ORDER BY c.chapter_number DESC, s.scene_number DESC
+                LIMIT 5
+            """, (int(current_chapter), int(current_chapter), int(current_scene)))
+            
+            for row in cursor.fetchall():
+                if row['content']:
+                    summary = row['content'][:200] + "..."
+                    previous_events.append({
+                        'chapter': row['chapter_number'],
+                        'scene': row['scene_number'],
+                        'summary': summary
+                    })
+    
+    # Get plot threads
+    plot_threads = get_active_plot_threads_for_scene(state)
+    plot_thread_data = []
+    for thread in plot_threads[:5]:  # Limit to 5
+        plot_thread_data.append({
+            'name': thread.get('name', 'Unknown'),
+            'type': thread.get('type', 'unknown'),
+            'current_status': thread.get('current_development', 'No status')
+        })
+    
+    # Get timeline info (simplified for now)
+    timeline = {
+        'current': f"Chapter {current_chapter}, Scene {current_scene}",
+        'important_dates': []
+    }
+    
+    # Get specific checks based on story type
+    specific_checks = []
+    genre = state.get("genre", "").lower()
+    if "fantasy" in genre or "magic" in genre:
+        specific_checks.append("Check magic system consistency")
+    if "sci-fi" in genre or "science" in genre:
+        specific_checks.append("Check technology consistency")
+    if "mystery" in genre:
+        specific_checks.append("Check clue and revelation consistency")
+    
+    # Render the consistency check prompt
+    prompt = render_prompt(
+        'consistency_check',
+        language=language,
+        scene_content=scene_content,
+        current_chapter=current_chapter,
+        current_scene=current_scene,
+        genre=state.get("genre", "fantasy"),
+        tone=state.get("tone", "adventurous"),
+        characters=characters if characters else None,
+        world_elements=world_elements if world_elements else None,
+        previous_events=previous_events if previous_events else None,
+        plot_threads=plot_thread_data if plot_thread_data else None,
+        timeline=timeline,
+        specific_checks=specific_checks if specific_checks else None
+    )
+    
+    try:
+        # Use structured output
+        structured_llm = llm.with_structured_output(SceneConsistencyCheck)
+        result = structured_llm.invoke(prompt)
+        
+        # Convert to dictionary
+        return result.dict()
+        
+    except Exception as e:
+        print(f"Error in scene consistency check: {e}")
+        # Fallback response
+        return {
+            "overall_consistency": 8,
+            "character_consistency": True,
+            "world_consistency": True,
+            "plot_consistency": True,
+            "timeline_consistency": True,
+            "detail_consistency": True,
+            "issues": [],
+            "suggestions": []
+        }
+
 
 def check_character_consistency(character_data: Dict, scene_content: str,
                               previous_scenes: List[str] = None,

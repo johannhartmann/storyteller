@@ -5,7 +5,137 @@ StoryCraft Agent - Character arc tracking and management.
 from typing import Dict, List, Any, Optional
 import json
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from pydantic import BaseModel, Field
+
+
+# Pydantic models for character arc planning
+class CharacterArcStage(BaseModel):
+    """A single stage in a character's arc."""
+    stage_name: str = Field(description="Name of the arc stage")
+    description: str = Field(description="What happens in this stage")
+    emotional_state: str = Field(description="Character's emotional state in this stage")
+    turning_point: str = Field(description="Key moment or realization")
+
+
+class CharacterArcPlan(BaseModel):
+    """Complete character arc plan."""
+    character_name: str = Field(description="Name of the character")
+    arc_type: str = Field(description="Type of arc (positive change, negative change, flat, circular)")
+    arc_stages: List[CharacterArcStage] = Field(description="Stages of the character arc")
+    relationship_dynamics: Dict[str, str] = Field(description="How relationships evolve")
+    thematic_connection: str = Field(description="How the arc reflects story themes")
+    emotional_journey_summary: str = Field(description="Summary of emotional progression")
+
+
+class CharacterArcPlans(BaseModel):
+    """Collection of character arc plans."""
+    character_arcs: List[CharacterArcPlan] = Field(description="List of character arc plans")
+
+
+def plan_character_arcs(characters: Dict[str, Any], story_outline: str, genre: str, tone: str,
+                       theme: str = "", author_style: str = "", language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
+    """
+    Plan comprehensive character arcs for all major characters in the story.
+    
+    This function uses the character_arc template to create detailed development
+    plans for each character, including arc types, stages, and emotional journeys.
+    
+    Args:
+        characters: Dictionary of character data
+        story_outline: The overall story outline
+        genre: Story genre
+        tone: Story tone
+        theme: Story theme (optional)
+        author_style: Author style guidance (optional)
+        language: Target language for generation
+        
+    Returns:
+        Dictionary containing character arc plans for all characters
+    """
+    # Use the template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Prepare character data for template
+    characters_data = {}
+    for char_id, char_data in characters.items():
+        char_info = {
+            "role": char_data.get("role", "Unknown"),
+            "initial_state": char_data.get("emotional_state", {}).get("initial", "Unknown"),
+            "backstory": char_data.get("backstory", ""),
+            "traits": char_data.get("personality", {}).get("traits", []),
+            "inner_conflicts": [
+                conflict.get("description", "") 
+                for conflict in char_data.get("inner_conflicts", [])
+            ]
+        }
+        characters_data[char_data.get("name", char_id)] = char_info
+    
+    # Render the prompt
+    prompt = render_prompt(
+        'character_arc',
+        language=language,
+        genre=genre,
+        tone=tone,
+        theme=theme,
+        story_outline=story_outline,
+        characters=characters_data,
+        author_style=author_style if author_style else None
+    )
+    
+    try:
+        # Use structured output for comprehensive arc planning
+        structured_llm = llm.with_structured_output(CharacterArcPlans)
+        result = structured_llm.invoke(prompt)
+        
+        # Convert to dictionary format
+        arc_plans = {}
+        for arc_plan in result.character_arcs:
+            arc_plans[arc_plan.character_name] = {
+                "arc_type": arc_plan.arc_type,
+                "stages": [stage.dict() for stage in arc_plan.arc_stages],
+                "relationship_dynamics": arc_plan.relationship_dynamics,
+                "thematic_connection": arc_plan.thematic_connection,
+                "emotional_journey_summary": arc_plan.emotional_journey_summary
+            }
+        
+        return arc_plans
+        
+    except Exception as e:
+        print(f"Error planning character arcs: {e}")
+        # Fallback: create basic arc plans
+        arc_plans = {}
+        for char_id, char_data in characters.items():
+            char_name = char_data.get("name", char_id)
+            arc_plans[char_name] = {
+                "arc_type": "growth",
+                "stages": [
+                    {
+                        "stage_name": "Beginning",
+                        "description": "Character introduced with limitations",
+                        "emotional_state": "Unaware or resistant",
+                        "turning_point": "Inciting incident"
+                    },
+                    {
+                        "stage_name": "Middle",
+                        "description": "Character faces challenges",
+                        "emotional_state": "Struggling but learning",
+                        "turning_point": "Major setback or revelation"
+                    },
+                    {
+                        "stage_name": "End",
+                        "description": "Character overcomes or succumbs",
+                        "emotional_state": "Transformed",
+                        "turning_point": "Final test"
+                    }
+                ],
+                "relationship_dynamics": {},
+                "thematic_connection": "Reflects story's central theme",
+                "emotional_journey_summary": "From limitation to growth"
+            }
+        
+        return arc_plans
+
 
 def identify_character_arc_type(character_data: Dict[str, Any]) -> str:
     """

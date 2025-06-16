@@ -322,17 +322,56 @@ def reflect_on_scene(state: StoryState) -> Dict:
     language_validation_section = _prepare_language_validation(language)
     previously_addressed_section = _format_previously_addressed_issues(previously_addressed_issues)
     
-    # Construct the reflection prompt
-    prompt = f"""Analyze this scene from Chapter {current_chapter}, Scene {current_scene}:
-
-SCENE CONTENT:
-{scene_content}
-
+    # Get forbidden elements from scene progression
+    forbidden_phrases = []
+    forbidden_structures = []
+    try:
+        from storyteller_lib.scene_progression import get_forbidden_elements
+        forbidden_elements = get_forbidden_elements(state)
+        forbidden_phrases = forbidden_elements.get("phrases", [])
+        forbidden_structures = forbidden_elements.get("structures", [])
+    except:
+        pass
+    
+    # Use template system for scene reflection
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Prepare scene purpose (extract from scene outline or use default)
+    scene_purpose = f"Scene {current_scene} of Chapter {current_chapter}"
+    try:
+        chapter_id = db_manager._chapter_id_map.get(current_chapter)
+        if chapter_id:
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT outline FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                    (chapter_id, int(current_scene))
+                )
+                result = cursor.fetchone()
+                if result and result['outline']:
+                    scene_purpose = result['outline']
+    except:
+        pass
+    
+    # Render the reflection prompt
+    prompt = render_prompt(
+        'scene_reflection',
+        language=language,
+        scene_content=scene_content,
+        current_chapter=current_chapter,
+        current_scene=current_scene,
+        genre=genre,
+        tone=tone,
+        scene_purpose=scene_purpose,
+        forbidden_phrases=forbidden_phrases if forbidden_phrases else None,
+        forbidden_structures=forbidden_structures if forbidden_structures else None
+    )
+    
+    # Add extra context that's not in the template
+    extra_context = f"""
 STORY CONTEXT:
 - Characters: {', '.join(characters.keys())}
 - Important revelations so far: {revelations}
-- Genre: {genre}
-- Tone: {tone}
 
 PREVIOUS SCENES CONTEXT:
 {previous_context}
@@ -349,20 +388,11 @@ PLOT THREAD UPDATES (from this scene):
 CLOSURE ANALYSIS:
 {json.dumps(closure_analysis, indent=2)}
 
-Analyze the scene and provide a detailed evaluation. Consider:
-
-1. Quality scores as INTEGERS from 1 to 10 (no decimals, no zeros) for overall quality, pacing, character development, dialogue, description, emotional impact, plot advancement, worldbuilding integration, and closure quality. If a scene has no dialogue, still give a dialogue score of at least 1 (not 0)
-2. Key strengths of the scene
-3. Any issues found (consistency, pacing, character, dialogue, description, worldbuilding, closure, language_mismatch, or other)
-4. Continuity with previous scenes
-5. Whether revision is needed and what priority fixes would be
-6. How effectively plot threads were advanced
-7. The scene's impact on story progression
-8. Technical aspects like word count, POV consistency, tense consistency, and showing vs telling
-
-Be thorough but constructive in your analysis. Focus on actionable improvements.
-
-IMPORTANT: All quality scores MUST be integers between 1 and 10 (inclusive). Do NOT use 0, decimals, or floats. If a scene lacks dialogue, still score dialogue as 1 (not 0)."""
+IMPORTANT: All quality scores MUST be integers between 1 and 10 (inclusive). Do NOT use 0, decimals, or floats. If a scene lacks dialogue, still score dialogue as 1 (not 0).
+"""
+    
+    # Combine template prompt with extra context
+    prompt = prompt + "\n\n" + extra_context
 
     # Get reflection from LLM using structured output
     structured_llm = get_llm_with_structured_output(SceneReflection)
