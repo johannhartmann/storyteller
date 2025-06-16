@@ -1,0 +1,61 @@
+{# German template for creative brainstorming #}
+Generiere kreative Ideen für {{ topic }}:
+
+KONTEXT:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+{% if specific_context %}
+- Zusätzlicher Kontext: {{ specific_context }}
+{% endif %}
+
+{% if constraints %}
+EINSCHRÄNKUNGEN:
+{% for constraint in constraints %}
+- {{ constraint }}
+{% endfor %}
+{% endif %}
+
+{% if avoid_elements %}
+ZU VERMEIDENDE ELEMENTE:
+{% for element in avoid_elements %}
+- {{ element }}
+{% endfor %}
+{% endif %}
+
+BRAINSTORMING-ANFORDERUNGEN:
+Generiere {{ num_ideas | default(3) }} unterschiedliche kreative Ideen, die:
+1. Originell und fesselnd sind
+2. Zu den {{ genre }}-Genre-Konventionen passen
+3. Dem {{ tone }}-Ton entsprechen
+4. Frisch und unerwartet wirken
+5. Das Leserengagement steigern könnten
+
+{% if idea_types %}
+ZU GENERIERENDE IDEENTYPEN:
+{% for type in idea_types %}
+- {{ type }}
+{% endfor %}
+{% endif %}
+
+Für jede Idee liefere:
+- Einen klaren, prägnanten Titel
+- Eine detaillierte Beschreibung (2-3 Sätze)
+- Warum sie in diesem Kontext gut funktionieren würde
+- Potenzielle Herausforderungen oder Überlegungen
+- Wie sie die Geschichte bereichert
+
+{% if evaluation_criteria %}
+BEWERTUNGSKRITERIEN:
+Berücksichtige diese Faktoren beim Generieren von Ideen:
+{% for criterion in evaluation_criteria %}
+- {{ criterion }}
+{% endfor %}
+{% endif %}
+
+DEUTSCHE KREATIVITÄTSTRADITION:
+- Nutze Elemente deutscher Erzählkunst und Mythologie
+- Berücksichtige kulturspezifische Motive und Symbole
+- Integriere philosophische oder tiefgründige Aspekte wo passend
+- Beachte deutsche literarische Traditionen
+
+Sei mutig und kreativ, während du die Kohärenz mit den etablierten Geschichtselementen bewahrst.

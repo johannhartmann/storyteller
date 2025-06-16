@@ -13,6 +13,24 @@ from pydantic import BaseModel, Field, create_model
 
 T = TypeVar('T', bound=BaseModel)
 
+
+# Pydantic models for structured creative brainstorming
+class CreativeIdea(BaseModel):
+    """A single creative idea."""
+    title: str = Field(description="Clear, concise title for the idea")
+    description: str = Field(description="Detailed description (2-3 sentences)")
+    enhancement_value: str = Field(description="How this enhances the story")
+    challenges: str = Field(description="Potential challenges or considerations")
+    fit_score: int = Field(ge=1, le=10, description="How well it fits the context (1-10)")
+
+
+class CreativeBrainstormResult(BaseModel):
+    """Result of creative brainstorming."""
+    ideas: List[CreativeIdea] = Field(description="List of creative ideas")
+    recommended_idea: CreativeIdea = Field(description="The best idea to use")
+    rationale: str = Field(description="Why this idea is recommended")
+
+
 def generate_genre_guidance(genre: str, tone: str, language: str = DEFAULT_LANGUAGE) -> str:
     """
     Dynamically generate genre-specific guidance using the LLM.
@@ -198,47 +216,64 @@ def creative_brainstorm(
     # Generate genre-specific guidance dynamically using the LLM
     genre_guidance = generate_genre_guidance(genre, tone, language)
     
-    # Brainstorming prompt
-    brainstorm_prompt = f"""
-    # Story Enhancement Brainstorming Session: {topic}
+    # Use template system for brainstorming
+    from storyteller_lib.prompt_templates import render_prompt
     
-    ## Context
-    - Genre: {genre}
-    - Tone: {tone}
-    - Current Story Context: {context}
+    # Prepare constraints list
+    constraints_list = []
+    if setting_constraint:
+        constraints_list.append(f"Setting must be in {setting_constraint}")
+    if character_constraints:
+        constraints_list.append(f"Must incorporate these characters: {character_constraints}")
+    if plot_constraints:
+        constraints_list.append(f"Must align with this plot: {plot_constraints}")
     
-    {constraints_section}
-    {genre_guidance}
-    {style_section}
-    {language_section}
-    ## IMPORTANT INSTRUCTIONS
-    {"Your ideas must adhere to the initial story concept and constraints. Maintain consistency with the core elements." if strict_adherence else ""}
+    if strict_adherence:
+        constraints_list.append("Must adhere to the initial story concept")
+        constraints_list.append("Must maintain consistency with core elements")
     
-    CRITICAL: Generate {num_ideas} ideas that ENHANCE the existing storyline rather than distract from it.
-    Each idea should ADD VALUE to the story by deepening character development, enriching the setting, or advancing the plot in meaningful ways.
+    # Prepare elements to avoid
+    avoid_elements = [
+        "Ideas that introduce unnecessary complexity",
+        "Ideas that distract from the main storyline",
+        "Ideas that contradict established elements",
+        "Ideas that feel disconnected from the core narrative"
+    ]
     
-    DO NOT generate ideas that:
-    - Introduce unnecessary complexity
-    - Distract from the main storyline
-    - Contradict established elements
-    - Feel disconnected from the core narrative
+    # Prepare idea types
+    idea_types = [
+        "Ideas that deepen character development",
+        "Ideas that enrich the setting",
+        "Ideas that advance the plot meaningfully",
+        "Ideas that enhance emotional impact",
+        "Ideas that strengthen thematic elements"
+    ]
     
-    {"If the initial idea specifies particular settings, characters, or plot elements, these should be preserved in your ideas. Do not substitute core elements with alternatives." if strict_adherence else ""}
+    # Update evaluation criteria to be more specific
+    enhanced_criteria = evaluation_criteria + [
+        "Adherence to genre conventions",
+        "Respect for established constraints",
+        "Enhancement value (not distraction)"
+    ]
     
-    For each idea:
-    1. Provide a concise title/headline
-    2. Describe the idea in 3-5 sentences
-    3. Explain specifically how this idea ENHANCES the existing storyline
-    4. Note one potential challenge to implementation
-    5. Explain how this idea adheres to the genre requirements and constraints
-    {"6. Verify that this idea maintains consistency with the initial concept" if strict_adherence else ""}
+    # Render the brainstorming prompt
+    brainstorm_prompt = render_prompt(
+        'creative_brainstorm',
+        language=language,
+        topic=topic,
+        genre=genre,
+        tone=tone,
+        specific_context=context,
+        constraints=constraints_list if constraints_list else None,
+        avoid_elements=avoid_elements,
+        num_ideas=num_ideas,
+        idea_types=idea_types,
+        evaluation_criteria=enhanced_criteria
+    )
     
-    Format each idea clearly and number them 1 through {num_ideas}.
-    
-    IMPORTANT: Double-check each idea to ensure it complies with ALL constraints and genre requirements before finalizing.
-    {"FINAL CHECK: Verify that your ideas preserve the essential elements of the initial concept while ENHANCING the storyline rather than distracting from it." if strict_adherence else ""}
-    IMPORTANT: Double-check each idea to ensure it fully complies with ALL constraints and genre requirements before finalizing.
-    """
+    # Add author style if provided
+    if author and author_style_guidance:
+        brainstorm_prompt += f"\n\nAUTHOR STYLE:\nConsider the writing style of {author}:\n{author_style_guidance}"
     
     # Generate ideas
     ideas_response = llm.invoke([HumanMessage(content=brainstorm_prompt)]).content

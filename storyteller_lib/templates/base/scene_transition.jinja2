@@ -1,0 +1,67 @@
+{# Base template for scene transitions - English version #}
+Create a smooth transition between these two scenes:
+
+ENDING OF PREVIOUS SCENE:
+{{ previous_scene_ending }}
+
+BEGINNING OF NEXT SCENE:
+{{ next_scene_beginning }}
+
+CONTEXT:
+- Previous: Chapter {{ previous_chapter }}, Scene {{ previous_scene }}
+- Next: Chapter {{ next_chapter }}, Scene {{ next_scene }}
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+
+{% if time_gap %}
+TIME GAP: {{ time_gap }}
+{% endif %}
+
+{% if location_change %}
+LOCATION CHANGE: From {{ previous_location }} to {{ next_location }}
+{% endif %}
+
+{% if pov_change %}
+POINT OF VIEW CHANGE: From {{ previous_pov }} to {{ next_pov }}
+{% endif %}
+
+{% if emotional_shift %}
+EMOTIONAL SHIFT: {{ emotional_shift }}
+{% endif %}
+
+TRANSITION REQUIREMENTS:
+1. Bridge the gap between scenes naturally
+2. Maintain narrative momentum
+3. Orient the reader to any changes (time, place, POV)
+4. Preserve emotional continuity or explain shifts
+5. Set up the new scene's tone and focus
+6. Keep the transition concise (1-3 paragraphs)
+
+TRANSITION TYPES TO CONSIDER:
+- Direct continuation (immediate follow-up)
+- Time skip (hours, days, weeks later)
+- Location shift (moving to new setting)
+- Character switch (changing POV)
+- Emotional bridge (mood transition)
+- Thematic link (connecting ideas)
+- Cliffhanger resolution (answering previous tension)
+
+{% if plot_threads %}
+ACTIVE PLOT THREADS TO MAINTAIN:
+{% for thread in plot_threads %}
+- {{ thread.name }}: {{ thread.status }}
+{% endfor %}
+{% endif %}
+
+{% if specific_requirements %}
+SPECIFIC REQUIREMENTS:
+{{ specific_requirements }}
+{% endif %}
+
+Write a transition that:
+- Connects the scenes seamlessly
+- Provides necessary orientation
+- Maintains reader engagement
+- Sets up the new scene effectively
+
+Provide ONLY the transition text (1-3 paragraphs), nothing else.

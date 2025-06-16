@@ -1,0 +1,69 @@
+{# Base template for scene closure analysis - English version #}
+Analyze the closure of this scene:
+
+SCENE CONTENT:
+{{ scene_content }}
+
+SCENE CONTEXT:
+- Chapter {{ current_chapter }}, Scene {{ current_scene }}
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+- Scene purpose: {{ scene_purpose | default("Not specified") }}
+
+{% if next_scene_outline %}
+NEXT SCENE PREVIEW:
+{{ next_scene_outline }}
+{% endif %}
+
+CLOSURE ANALYSIS CRITERIA:
+
+1. RESOLUTION (Score 1-10):
+   - Are immediate scene conflicts addressed?
+   - Do characters reach a stopping point?
+   - Is there a sense of completion?
+
+2. EMOTIONAL CLOSURE (Score 1-10):
+   - Is there emotional payoff?
+   - Are character emotions resolved or transitioned?
+   - Does the reader feel satisfied?
+
+3. NARRATIVE MOMENTUM (Score 1-10):
+   - Does the ending propel the story forward?
+   - Is there a hook for the next scene?
+   - Does it maintain reader engagement?
+
+4. THEMATIC RESONANCE (Score 1-10):
+   - Does the ending reflect scene themes?
+   - Is there meaningful insight or revelation?
+   - Does it connect to larger story themes?
+
+5. TECHNICAL EXECUTION (Score 1-10):
+   - Is the pacing appropriate?
+   - Is the final image/moment memorable?
+   - Is the prose polished?
+
+CLOSURE TYPES TO CONSIDER:
+- Resolution: Conflict resolved, questions answered
+- Cliffhanger: Dramatic tension, unresolved question
+- Reflection: Character insight, emotional processing
+- Transition: Natural bridge to next scene
+- Image: Powerful visual or sensory ending
+- Dialogue: Character exchange that resonates
+- Action: Dynamic movement or event
+
+{% if active_plot_threads %}
+ACTIVE PLOT THREADS:
+{% for thread in active_plot_threads %}
+- {{ thread.name }}: {{ thread.status }}
+{% endfor %}
+Consider which threads should be addressed or carried forward.
+{% endif %}
+
+ANALYSIS REQUIRED:
+1. Identify the current closure type
+2. Evaluate its effectiveness (1-10)
+3. Determine if it matches scene purpose
+4. Suggest improvements if score < 7
+5. Ensure it sets up the next scene appropriately
+
+Provide specific, actionable feedback for improving the scene's ending.

@@ -1,0 +1,73 @@
+{# German template for scene transitions #}
+Erstelle einen fließenden Übergang zwischen diesen beiden Szenen:
+
+ENDE DER VORHERIGEN SZENE:
+{{ previous_scene_ending }}
+
+BEGINN DER NÄCHSTEN SZENE:
+{{ next_scene_beginning }}
+
+KONTEXT:
+- Vorherige: Kapitel {{ previous_chapter }}, Szene {{ previous_scene }}
+- Nächste: Kapitel {{ next_chapter }}, Szene {{ next_scene }}
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+
+{% if time_gap %}
+ZEITSPRUNG: {{ time_gap }}
+{% endif %}
+
+{% if location_change %}
+ORTSWECHSEL: Von {{ previous_location }} nach {{ next_location }}
+{% endif %}
+
+{% if pov_change %}
+PERSPEKTIVWECHSEL: Von {{ previous_pov }} zu {{ next_pov }}
+{% endif %}
+
+{% if emotional_shift %}
+EMOTIONALE VERSCHIEBUNG: {{ emotional_shift }}
+{% endif %}
+
+ÜBERGANGSANFORDERUNGEN:
+1. Überbrücke die Lücke zwischen Szenen natürlich
+2. Erhalte den Erzählschwung
+3. Orientiere den Leser bei Änderungen (Zeit, Ort, Perspektive)
+4. Bewahre emotionale Kontinuität oder erkläre Verschiebungen
+5. Bereite Ton und Fokus der neuen Szene vor
+6. Halte den Übergang prägnant (1-3 Absätze)
+
+ZU BERÜCKSICHTIGENDE ÜBERGANGSTYPEN:
+- Direkte Fortsetzung (unmittelbare Folge)
+- Zeitsprung (Stunden, Tage, Wochen später)
+- Ortswechsel (Bewegung zu neuer Umgebung)
+- Charakterwechsel (Perspektivänderung)
+- Emotionale Brücke (Stimmungsübergang)
+- Thematische Verbindung (Ideenverknüpfung)
+- Cliffhanger-Auflösung (Beantwortung vorheriger Spannung)
+
+{% if plot_threads %}
+AKTIVE HANDLUNGSSTRÄNGE ZUM ERHALTEN:
+{% for thread in plot_threads %}
+- {{ thread.name }}: {{ thread.status }}
+{% endfor %}
+{% endif %}
+
+{% if specific_requirements %}
+SPEZIFISCHE ANFORDERUNGEN:
+{{ specific_requirements }}
+{% endif %}
+
+DEUTSCHE ERZÄHLTRADITION:
+- Nutze elegante Übergangstechniken der deutschen Literatur
+- Beachte Tempus-Konsistenz beim Szenenwechsel
+- Verwende passende Zeitangaben (währenddessen, unterdessen, etc.)
+- Achte auf flüssige Satzverbindungen
+
+Schreibe einen Übergang, der:
+- Die Szenen nahtlos verbindet
+- Notwendige Orientierung bietet
+- Das Leserengagement aufrechterhält
+- Die neue Szene effektiv vorbereitet
+
+Gib NUR den Übergangstext an (1-3 Absätze), nichts anderes.

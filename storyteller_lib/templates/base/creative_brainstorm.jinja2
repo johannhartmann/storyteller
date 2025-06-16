@@ -1,0 +1,55 @@
+{# Base template for creative brainstorming - English version #}
+Generate creative ideas for {{ topic }}:
+
+CONTEXT:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+{% if specific_context %}
+- Additional context: {{ specific_context }}
+{% endif %}
+
+{% if constraints %}
+CONSTRAINTS:
+{% for constraint in constraints %}
+- {{ constraint }}
+{% endfor %}
+{% endif %}
+
+{% if avoid_elements %}
+ELEMENTS TO AVOID:
+{% for element in avoid_elements %}
+- {{ element }}
+{% endfor %}
+{% endif %}
+
+BRAINSTORMING REQUIREMENTS:
+Generate {{ num_ideas | default(3) }} distinct creative ideas that:
+1. Are original and engaging
+2. Fit the {{ genre }} genre conventions
+3. Match the {{ tone }} tone
+4. Feel fresh and unexpected
+5. Could enhance reader engagement
+
+{% if idea_types %}
+TYPES OF IDEAS TO GENERATE:
+{% for type in idea_types %}
+- {{ type }}
+{% endfor %}
+{% endif %}
+
+For each idea, provide:
+- A clear, concise title
+- A detailed description (2-3 sentences)
+- Why it would work well in this context
+- Potential challenges or considerations
+- How it enhances the story
+
+{% if evaluation_criteria %}
+EVALUATION CRITERIA:
+Consider these factors when generating ideas:
+{% for criterion in evaluation_criteria %}
+- {{ criterion }}
+{% endfor %}
+{% endif %}
+
+Be bold and creative while maintaining coherence with the established story elements.
