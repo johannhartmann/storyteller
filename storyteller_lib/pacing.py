@@ -33,41 +33,17 @@ def analyze_scene_pacing(scene_content: str, genre: str, tone: str,
     Returns:
         A dictionary with pacing analysis results
     """
-    # Validate language
-    if language not in SUPPORTED_LANGUAGES:
-        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
-        language = DEFAULT_LANGUAGE
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    # Get the full language name
-    language_name = SUPPORTED_LANGUAGES[language]
-    
-    # Prepare the prompt for analyzing scene pacing
-    prompt = f"""
-    Analyze the pacing of this {genre} scene with a {tone} tone written in {language_name}:
-    
-    {scene_content}
-    
-    Evaluate the following aspects of pacing, considering the norms and conventions of {language_name} narrative:
-    
-    1. Overall pacing (fast, moderate, slow, varied)
-    2. Dialogue efficiency (concise vs. verbose)
-    3. Description efficiency (vivid but concise vs. overly detailed)
-    4. Action/plot advancement rate
-    5. Internal monologue/reflection balance
-    
-    For each aspect, provide:
-    - A rating from 1-10 (where 10 is excellent pacing, 1 is problematic)
-    - Specific examples of text that could be tightened (in the original {language_name})
-    - Suggested revisions that would improve pacing while maintaining essential content (in {language_name})
-    
-    Also identify:
-    - Any sections where tension is lost due to pacing issues
-    - Paragraphs or dialogue exchanges that could be condensed
-    - Repetitive elements that slow the narrative
-    
-    Format your response as a structured JSON object.
-    Analyze and respond in {language_name}.
-    """
+    # Render the pacing analysis prompt
+    prompt = render_prompt(
+        'pacing_analysis',
+        language=language,
+        scene_content=scene_content,
+        genre=genre,
+        tone=tone
+    )
     
     try:
         # Define Pydantic models for structured output

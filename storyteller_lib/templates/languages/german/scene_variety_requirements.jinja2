@@ -1,0 +1,79 @@
+{# German template for determining scene variety requirements #}
+Basierend auf den vorherigen Szenen und der Kapitelübersicht, bestimme Abwechslungsanforderungen für die nächste Szene:
+
+VORHERIGE SZENEN:
+{% for scene in scene_history %}
+Szene {{ loop.index }}:
+- Typ: {{ scene.scene_type }}
+- Struktur: {{ scene.structure }}
+- Figuren: {{ scene.characters | join(', ') }}
+- Ereignisse: {{ scene.events | join(', ') }}
+{% endfor %}
+
+KAPITELÜBERSICHT:
+{{ chapter_outline }}
+
+AKTUELLE POSITION:
+- Szene {{ scene_number }} von {{ total_scenes_in_chapter }}
+- Kapitelfortschritt: {{ ((scene_number - 1) / total_scenes_in_chapter * 100) | round }}%
+
+ABWECHSLUNGSANALYSE:
+
+1. SZENENTYP-ANFORDERUNG:
+Betrachte die letzten Szenentypen und bestimme, welcher Typ maximale Abwechslung bieten würde:
+- action: Physischer Konflikt, Verfolgung oder Kampf
+- dialogue: Figurengespräch und -interaktion
+- exploration: Entdeckung, Untersuchung oder Weltenbau
+- revelation: Wichtige Handlungs- oder Figurenenthüllung
+- transition: Bewegung zwischen Orten oder Zeitperioden
+- character_moment: Innere Reflexion oder Figurenentwicklung
+
+2. SCHAUPLATZ-ABWECHSLUNG:
+Sollte sich der Schauplatz von der vorherigen Szene ändern? Berücksichtige:
+- Waren wir zu lange an einem Ort?
+- Würde ein Ortswechsel die Geschichte bereichern?
+- Erfordert die Handlung einen neuen Ort?
+
+3. FIGURENMISCHUNG:
+- Welche Figuren wurden kürzlich überstrapaziert?
+- Welche Figuren brauchen mehr Präsenz?
+- Würden neue Figurenkombinationen Interesse erzeugen?
+
+4. ZU VERMEIDENDE ELEMENTE:
+Basierend auf jüngsten Wiederholungen, was sollten wir vermeiden?
+- Überstrapazierte Handlungsmittel
+- Sich wiederholende Figurenhandlungen
+- Ähnliche emotionale Momente
+- Wiederkehrende Bilder oder Symbole
+
+5. HANDLUNGSSTRANG-AUSWAHL:
+Welcher Handlungsstrang braucht Aufmerksamkeit?
+- Berücksichtige Stränge, die kürzlich nicht behandelt wurden
+- Balanciere Haupt- und Nebenstränge
+- Stelle Fortschritt zu Kapitelzielen sicher
+
+6. PERSPEKTIVFOKUS:
+Wessen Blickwinkel wäre am frischesten?
+- Figuren, die kürzlich keinen Fokus hatten
+- Perspektiven, die neue Informationen enthüllen
+- Blickwinkel, die Kontrast erzeugen
+
+7. EMOTIONALE ABWECHSLUNG:
+Welcher emotionale Ton würde Kontrast schaffen?
+- tense: Hohe Einsätze, Gefahr, Dringlichkeit
+- calm: Friedlich, nachdenklich, erholsam
+- mysterious: Rätselhaft, unsicher, hinterfragend
+- hopeful: Optimistisch, zukunftsorientiert
+- dark: Bedrohlich, drohend, verzweifelt
+
+DEUTSCHE ERZÄHLTRADITION:
+- Nutze Kontraste und Stimmungswechsel effektiv
+- Berücksichtige rhythmische Variation
+- Schaffe bedeutungsvolle Übergänge
+
+ANFORDERUNGEN:
+Generiere spezifische Anforderungen, die:
+- Wiederholende Muster verhindern
+- Fesselnde Abwechslung schaffen
+- Geschichtskohärenz bewahren
+- Die Handlung effektiv vorantreiben

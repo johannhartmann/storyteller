@@ -77,7 +77,8 @@ def determine_scene_variety_requirements(
     previous_scenes: List[Dict[str, Any]], 
     chapter_outline: str,
     scene_number: int,
-    total_scenes_in_chapter: int
+    total_scenes_in_chapter: int,
+    language: str = "english"
 ) -> SceneVarietyRequirements:
     """Determine requirements for the next scene to ensure variety.
     
@@ -100,27 +101,18 @@ def determine_scene_variety_requirements(
             'events': scene.get('event_types', [])
         })
     
-    prompt = f"""Based on the previous scenes and chapter outline, determine requirements for Scene {scene_number} to ensure variety and progression.
-
-CHAPTER OUTLINE:
-{chapter_outline}
-
-PREVIOUS SCENES:
-{scene_history}
-
-This is scene {scene_number} of {total_scenes_in_chapter} in this chapter.
-
-Determine:
-1. What type of scene would provide the best variety (action, dialogue, exploration, revelation, transition, character_moment)
-2. Whether the setting should change
-3. Which characters should appear (for variety)
-4. Which characters should be excluded (to avoid repetition)
-5. What elements to avoid that have been overused
-6. Which plot thread needs advancement
-7. Whose perspective to focus on
-8. What emotional tone would provide contrast
-
-Ensure variety by avoiding patterns from previous scenes."""
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Render the scene variety requirements prompt
+    prompt = render_prompt(
+        'scene_variety_requirements',
+        language=language,
+        scene_history=scene_history,
+        chapter_outline=chapter_outline,
+        scene_number=scene_number,
+        total_scenes_in_chapter=total_scenes_in_chapter
+    )
 
     try:
         structured_llm = llm.with_structured_output(SceneVarietyRequirements)

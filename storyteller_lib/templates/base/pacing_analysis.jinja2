@@ -1,0 +1,60 @@
+{# Base template for pacing analysis - English version #}
+Analyze the pacing of this {{ genre }} scene with a {{ tone }} tone:
+
+{{ scene_content }}
+
+PACING EVALUATION CRITERIA:
+
+1. OVERALL PACING (Score 1-10):
+   - Scene movement and progression
+   - Balance of action, dialogue, and description
+   - Tension and momentum maintenance
+   - Appropriate for genre and tone
+
+2. DIALOGUE EFFICIENCY (Score 1-10):
+   - Conciseness vs. verbosity
+   - Purpose-driven exchanges
+   - Natural flow and rhythm
+   - Character voice consistency
+
+3. DESCRIPTION EFFICIENCY (Score 1-10):
+   - Vivid but concise imagery
+   - Essential vs. excessive details
+   - Sensory engagement
+   - Scene-setting effectiveness
+
+4. PLOT ADVANCEMENT (Score 1-10):
+   - Story progression rate
+   - Information revelation timing
+   - Conflict development
+   - Stakes escalation
+
+5. REFLECTION BALANCE (Score 1-10):
+   - Internal monologue proportion
+   - Character introspection timing
+   - Thought vs. action balance
+   - Emotional processing pace
+
+IDENTIFY SPECIFIC ISSUES:
+
+For each pacing problem found:
+1. Quote the problematic text
+2. Identify the issue type (dialogue, description, action, reflection)
+3. Explain why it slows the narrative
+4. Suggest a more concise revision
+5. Note where in the scene it occurs (beginning, middle, end)
+
+LOOK FOR:
+- Redundant information
+- Overlong dialogue exchanges
+- Excessive description
+- Unnecessary exposition
+- Repetitive actions or thoughts
+- Loss of tension points
+- Meandering passages
+
+GENRE CONSIDERATIONS:
+- {{ genre }} typically requires {{ 'fast-paced action' if genre == 'thriller' else 'varied pacing with tension peaks' if genre == 'mystery' else 'balanced pacing with room for world-building' if genre == 'fantasy' else 'character-focused pacing' if genre == 'literary' else 'dynamic pacing' }}
+- {{ tone }} tone suggests {{ 'quick, energetic pace' if tone == 'adventurous' else 'deliberate, measured pace' if tone == 'contemplative' else 'tension-building pace' if tone == 'suspenseful' else 'varied, emotionally-driven pace' }}
+
+Determine if the pacing is appropriate for the genre and tone.

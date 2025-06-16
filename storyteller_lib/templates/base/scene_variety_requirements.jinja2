@@ -1,0 +1,74 @@
+{# Base template for determining scene variety requirements - English version #}
+Based on the previous scenes and chapter outline, determine variety requirements for the next scene:
+
+PREVIOUS SCENES:
+{% for scene in scene_history %}
+Scene {{ loop.index }}:
+- Type: {{ scene.scene_type }}
+- Structure: {{ scene.structure }}
+- Characters: {{ scene.characters | join(', ') }}
+- Events: {{ scene.events | join(', ') }}
+{% endfor %}
+
+CHAPTER OUTLINE:
+{{ chapter_outline }}
+
+CURRENT POSITION:
+- Scene {{ scene_number }} of {{ total_scenes_in_chapter }}
+- Chapter progress: {{ ((scene_number - 1) / total_scenes_in_chapter * 100) | round }}%
+
+VARIETY ANALYSIS:
+
+1. SCENE TYPE REQUIREMENT:
+Looking at recent scene types, determine what type would provide maximum variety:
+- action: Physical conflict, chase, or combat
+- dialogue: Character conversation and interaction  
+- exploration: Discovery, investigation, or world-building
+- revelation: Major plot or character revelation
+- transition: Movement between locations or time periods
+- character_moment: Internal reflection or character development
+
+2. SETTING VARIETY:
+Should the setting change from the previous scene? Consider:
+- Have we spent too long in one location?
+- Would a setting change enhance the story?
+- Does the plot require a new location?
+
+3. CHARACTER MIX:
+- Which characters have been overused recently?
+- Which characters need more screen time?
+- Would introducing new character combinations create interest?
+
+4. ELEMENTS TO AVOID:
+Based on recent repetition, what should we avoid?
+- Overused plot devices
+- Repetitive character actions
+- Similar emotional beats
+- Recurring imagery or symbols
+
+5. PLOT THREAD SELECTION:
+Which plot thread needs attention?
+- Consider threads that haven't been addressed recently
+- Balance major and minor threads
+- Ensure progression toward chapter goals
+
+6. PERSPECTIVE FOCUS:
+Whose viewpoint would be most fresh?
+- Characters who haven't had focus recently
+- Perspectives that reveal new information
+- Viewpoints that create contrast
+
+7. EMOTIONAL VARIETY:
+What emotional tone would create contrast?
+- tense: High stakes, danger, urgency
+- calm: Peaceful, reflective, restorative
+- mysterious: Enigmatic, uncertain, questioning
+- hopeful: Optimistic, forward-looking
+- dark: Ominous, threatening, despairing
+
+REQUIREMENTS:
+Generate specific requirements that will:
+- Prevent repetitive patterns
+- Create engaging variety
+- Maintain story coherence
+- Advance the plot effectively

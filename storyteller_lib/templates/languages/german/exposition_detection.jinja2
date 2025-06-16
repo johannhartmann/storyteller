@@ -1,0 +1,74 @@
+{# German template for exposition detection #}
+Analysiere diese Szene auf problematische Exposition:
+
+SZENENINHALT:
+{{ scene_content }}
+
+SZENENKONTEXT:
+- Kapitel {{ current_chapter }}, Szene {{ current_scene }}
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+
+{% if characters %}
+FIGUREN IN DER SZENE:
+{% for char in characters %}
+- {{ char.name }}: {{ char.role }}
+{% endfor %}
+{% endif %}
+
+KRITERIEN ZUR EXPOSITIONSERKENNUNG:
+
+1. INFO-DUMPING (Bewertung 1-10):
+   - Figuren erklären Dinge, die sie bereits wissen
+   - Unnatürlicher Dialog, der nur zur Leserinformation existiert
+   - Lange Monologe mit Hintergrundgeschichte oder Weltinformationen
+   - "Wie du weißt"-Syndrom
+
+2. ERZWUNGENE EXPOSITION (Bewertung 1-10):
+   - Informationen, die in Gespräche hineingezwängt werden
+   - Figuren denken unnatürlich über Dinge nach
+   - Erzählereingriffe mit übermäßigen Details
+   - Zeitpunkt wirkt konstruiert
+
+3. ERZÄHLEN STATT ZEIGEN (Bewertung 1-10):
+   - Direkte Aussagen statt Demonstrationen
+   - Emotionen werden erzählt statt gezeigt
+   - Charaktereigenschaften werden erklärt statt enthüllt
+   - Weltdetails werden aufgelistet statt erlebt
+
+4. TEMPO-EINFLUSS (Bewertung 1-10):
+   - Exposition, die den Erzählfluss stoppt
+   - Informationsüberladung in einzelnen Szenen
+   - Hintergrundgeschichte unterbricht Handlung
+   - Details, die das Leserengagement verlangsamen
+
+ZU IDENTIFIZIERENDE EXPOSITIONSTYPEN:
+- Hintergrundgeschichten-Dumps
+- Weltenbau-Vorträge
+- Figurengeschichte-Monologe
+- Technische/magische Systemerklärungen
+- Historische Kontexteingriffe
+- Beziehungserklärungen
+- Motivationsreden, die zu viel erklären
+
+Für jede problematische Expositionsstelle:
+1. Zitiere die spezifische Passage
+2. Identifiziere den Expositionstyp
+3. Erkläre, warum sie problematisch ist
+4. Bewerte die Schwere (1-10)
+5. Schlage vor, wie sie natürlicher integriert werden könnte
+
+GUTE EXPOSITIONSBEISPIELE:
+- Informationen durch Handlung enthüllt
+- Details entstehen aus Figureninteraktionen
+- Weltenbau durch sensorische Erfahrung
+- Hintergrundgeschichte durch Verhalten enthüllt
+- Konflikt, der natürlich Informationen offenlegt
+
+Identifiziere ALLE Fälle von schwerfälliger Exposition und gib spezifische, umsetzbare Verbesserungsvorschläge.
+
+DEUTSCHE ERZÄHLTRADITION:
+- Berücksichtige deutsche Erzählkonventionen
+- Nutze subtilere Expositionstechniken
+- Bevorzuge indirekte Informationsvermittlung
+- Achte auf elegante Integration von Hintergrundinformationen
