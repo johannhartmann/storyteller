@@ -120,89 +120,79 @@ def create_scene_transition(current_scene_content: str, next_scene_outline: str,
     Returns:
         The transition text
     """
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Get language from state if provided and not explicitly specified
     if state and not language:
         language = state.get("language", DEFAULT_LANGUAGE)
-        
-    # Analyze transition needs
-    transition_analysis = analyze_transition_needs(current_scene_content, next_scene_outline, "scene", language)
+    
+    # Extract scene ending (last 500 chars)
+    previous_scene_ending = current_scene_content[-500:] if current_scene_content else ""
+    
+    # Extract scene beginning from outline
+    next_scene_beginning = next_scene_outline[:500] if next_scene_outline else ""
+    
+    # Get current scene info from state
+    previous_chapter = str(state.get("current_chapter", "1")) if state else "1"
+    previous_scene = str(state.get("current_scene", "1")) if state else "1"
+    next_chapter = previous_chapter  # Same chapter for scene transitions
+    next_scene = str(int(previous_scene) + 1)
+    
+    # Get genre and tone
+    genre = state.get("genre", "fantasy") if state else "fantasy"
+    tone = state.get("tone", "adventurous") if state else "adventurous"
+    
+    # Detect if there's a time gap, location change, or POV change
+    # This would require more sophisticated analysis, but for now we'll leave as optional
+    time_gap = None
+    location_change = None
+    pov_change = None
+    emotional_shift = None
     
     # Get active plot threads if state is provided
-    plot_thread_guidance = ""
+    plot_threads = []
     if state:
         active_plot_threads = get_active_plot_threads_for_scene(state)
         
-        if active_plot_threads:
-            # Group threads by importance
-            major_threads = [t for t in active_plot_threads if t["importance"] == "major"]
-            minor_threads = [t for t in active_plot_threads if t["importance"] == "minor"]
-            
-            # Format major threads
-            major_thread_text = ""
-            if major_threads:
-                major_thread_text = "Major plot threads to maintain continuity for:\n"
-                for thread in major_threads:
-                    major_thread_text += f"- {thread['name']}: {thread['description']}\n  Status: {thread['status']}\n"
-            
-            # Format minor threads
-            minor_thread_text = ""
-            if minor_threads:
-                minor_thread_text = "Minor plot threads to consider:\n"
-                for thread in minor_threads:
-                    minor_thread_text += f"- {thread['name']}: {thread['description']}\n"
-            
-            # Combine thread guidance
-            plot_thread_guidance = f"""
-            PLOT THREAD CONTINUITY:
-            {major_thread_text}
-            {minor_thread_text}
-            
-            Ensure your transition maintains continuity of major plot threads.
-            Reference relevant plot threads to create a cohesive narrative flow between scenes.
-            """
-    # Validate language
-    if language not in SUPPORTED_LANGUAGES:
-        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
-        language = DEFAULT_LANGUAGE
+        # Format for template
+        for thread in active_plot_threads[:3]:  # Limit to 3
+            plot_threads.append({
+                'name': thread.get('name', 'Unknown'),
+                'status': thread.get('status', thread.get('current_development', 'Active'))
+            })
     
-    # Get the full language name
-    language_name = SUPPORTED_LANGUAGES[language]
+    # Analyze transition needs for specific requirements
+    transition_analysis = analyze_transition_needs(current_scene_content, next_scene_outline, "scene", language)
     
-    # Prepare the prompt for creating a scene transition
-    prompt = f"""
-    Create a smooth transition between these two scenes written in {language_name}:
+    # Prepare specific requirements based on analysis
+    specific_requirements = None
+    if transition_analysis.get("unresolved_tensions"):
+        specific_requirements = f"Address these unresolved tensions: {', '.join(transition_analysis['unresolved_tensions'])}"
     
-    CURRENT SCENE ENDING:
-    {current_scene_content[-500:]}
-    
-    NEXT SCENE OUTLINE:
-    {next_scene_outline}
-    
-    TRANSITION ANALYSIS:
-    Abruptness Score: {transition_analysis["abruptness_score"]}/10
-    Unresolved Tensions: {', '.join(transition_analysis["unresolved_tensions"])}
-    Connection Strength: {transition_analysis["connection_strength"]}/10
-    Recommended Elements: {', '.join(transition_analysis["recommended_elements"])}
-    Recommended Tone: {transition_analysis["recommended_tone"]}
-    
-    LANGUAGE CONSIDERATIONS:
-    - Use natural transition phrases and techniques common in {language_name} literature
-    - Consider cultural context and linguistic norms specific to {language_name}
-    - Ensure the transition flows naturally in {language_name}
-    
-    {plot_thread_guidance}
-    
-    Write a {transition_analysis["transition_length"]} transition (1-3 paragraphs) in {language_name} that:
-    1. Provides closure to the current scene
-    2. Creates a bridge to the next scene
-    3. Maintains narrative flow and reader engagement
-    4. Addresses any unresolved immediate tensions
-    5. Sets up the next scene naturally
-    6. Maintains continuity of relevant plot threads
-    7. Uses appropriate transitional phrases and techniques for {language_name} literature
-    
-    The transition should feel organic, maintain the story's rhythm, and sound natural to native {language_name} speakers.
-    """
+    # Render the transition prompt
+    prompt = render_prompt(
+        'scene_transition',
+        language=language,
+        previous_scene_ending=previous_scene_ending,
+        next_scene_beginning=next_scene_beginning,
+        previous_chapter=previous_chapter,
+        previous_scene=previous_scene,
+        next_chapter=next_chapter,
+        next_scene=next_scene,
+        genre=genre,
+        tone=tone,
+        time_gap=time_gap,
+        location_change=location_change,
+        previous_location=None,
+        next_location=None,
+        pov_change=pov_change,
+        previous_pov=None,
+        next_pov=None,
+        emotional_shift=emotional_shift,
+        plot_threads=plot_threads if plot_threads else None,
+        specific_requirements=specific_requirements
+    )
     
     try:
         # Generate the transition

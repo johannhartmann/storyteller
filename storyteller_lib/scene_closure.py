@@ -19,7 +19,7 @@ CLOSURE_STATUS = {
     "CLIFFHANGER": "cliffhanger"
 }
 def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
-                        language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
+                        language: str = DEFAULT_LANGUAGE, state: StoryState = None) -> Dict[str, Any]:
     """
     Analyze a scene for proper narrative closure.
     
@@ -28,69 +28,95 @@ def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
         chapter_num: The chapter number
         scene_num: The scene number
         language: The language of the scene (default: from config)
+        state: The current state (optional, for additional context)
         
     Returns:
         A dictionary with closure analysis results
     """
-    # Validate language
-    if language not in SUPPORTED_LANGUAGES:
-        print(f"Warning: Unsupported language '{language}'. Falling back to {DEFAULT_LANGUAGE}.")
-        language = DEFAULT_LANGUAGE
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    # Get the full language name
-    language_name = SUPPORTED_LANGUAGES[language]
+    # Get additional context from state if available
+    genre = "unknown"
+    tone = "unknown"
+    scene_purpose = None
+    next_scene_outline = None
+    active_plot_threads = []
     
-    # Prepare the prompt for analyzing scene closure
-    prompt = f"""
-    Analyze the closure of this scene written in {language_name} from Chapter {chapter_num}, Scene {scene_num}:
+    if state:
+        genre = state.get("genre", "fantasy")
+        tone = state.get("tone", "adventurous")
+        
+        # Try to get scene purpose
+        chapters = state.get("chapters", {})
+        if str(chapter_num) in chapters:
+            scenes = chapters[str(chapter_num)].get("scenes", {})
+            if str(scene_num) in scenes:
+                scene_purpose = scenes[str(scene_num)].get("outline", "")
+                
+                # Try to get next scene outline
+                next_scene_num = str(int(scene_num) + 1)
+                if next_scene_num in scenes:
+                    next_scene_outline = scenes[next_scene_num].get("outline", "")
+        
+        # Get active plot threads
+        active_threads = get_active_plot_threads_for_scene(state)
+        for thread in active_threads[:3]:  # Limit to 3
+            active_plot_threads.append({
+                'name': thread.get('name', 'Unknown'),
+                'status': thread.get('status', thread.get('current_development', 'Active'))
+            })
     
-    {scene_content}
-    
-    Evaluate whether this scene has proper narrative closure or ends abruptly.
-    
-    A scene with proper closure should:
-    1. Resolve the immediate tension or question raised in the scene
-    2. Complete the action or interaction that was central to the scene
-    3. Provide a sense of completion or transition to the next scene
-    4. Not end mid-paragraph, mid-dialogue, or mid-action without purpose
-    5. Follow narrative closure conventions appropriate for {language_name} literature
-    
-    A scene can end with a cliffhanger, but even cliffhangers should feel intentional
-    rather than abrupt or incomplete, and should respect cultural storytelling norms in {language_name}.
-    
-    Analyze and respond in {language_name}.
-    rather than abrupt or incomplete.
-    
-    Provide the following in your analysis:
-    1. Closure status: "complete", "abrupt", "transitional", or "cliffhanger"
-    2. Closure score: 1-10 (where 10 is perfect closure, 1 is completely abrupt)
-    3. Issues: List specific issues with the scene closure if any
-    4. Recommendations: Suggestions for improving the scene closure
-    
-    Format your response as a valid JSON object.
-    """
+    # Render the closure analysis prompt
+    prompt = render_prompt(
+        'scene_closure',
+        language=language,
+        scene_content=scene_content,
+        current_chapter=chapter_num,
+        current_scene=scene_num,
+        genre=genre,
+        tone=tone,
+        scene_purpose=scene_purpose,
+        next_scene_outline=next_scene_outline,
+        active_plot_threads=active_plot_threads if active_plot_threads else None
+    )
     
     try:
-        # Define a Pydantic model for structured output
+        # Define an enhanced Pydantic model for structured output
         from pydantic import BaseModel, Field
+        
+        class ClosureScores(BaseModel):
+            """Detailed closure scores."""
+            resolution: int = Field(ge=1, le=10, description="Resolution score")
+            emotional_closure: int = Field(ge=1, le=10, description="Emotional closure score")
+            narrative_momentum: int = Field(ge=1, le=10, description="Narrative momentum score")
+            thematic_resonance: int = Field(ge=1, le=10, description="Thematic resonance score")
+            technical_execution: int = Field(ge=1, le=10, description="Technical execution score")
         
         class SceneClosureAnalysis(BaseModel):
             """Analysis of a scene's closure."""
             
-            closure_status: str = Field(
-                description="The closure status: complete, abrupt, transitional, or cliffhanger"
+            closure_type: str = Field(
+                description="The closure type: resolution, cliffhanger, reflection, transition, image, dialogue, or action"
             )
-            closure_score: int = Field(
+            closure_effectiveness: int = Field(
                 ge=1, le=10,
-                description="Score from 1-10 indicating how well the scene closes"
+                description="Overall effectiveness score (1-10)"
+            )
+            closure_scores: ClosureScores = Field(
+                description="Detailed scores for different aspects"
             )
             issues: List[str] = Field(
                 default_factory=list,
                 description="List of issues with the scene closure"
             )
-            recommendations: List[str] = Field(
+            improvements: List[str] = Field(
                 default_factory=list,
-                description="List of recommendations for improving the scene closure"
+                description="Specific improvements needed"
+            )
+            strengths: List[str] = Field(
+                default_factory=list,
+                description="What's working well in the closure"
             )
         
         # Create a structured LLM that outputs a SceneClosureAnalysis object
@@ -99,8 +125,32 @@ def analyze_scene_closure(scene_content: str, chapter_num: str, scene_num: str,
         # Use the structured LLM to analyze scene closure
         closure_analysis = structured_llm.invoke(prompt)
         
-        # Convert Pydantic model to dictionary
-        return closure_analysis.dict()
+        # Convert to the expected format
+        result = closure_analysis.dict()
+        
+        # Map closure_type to closure_status for compatibility
+        type_to_status_map = {
+            "resolution": CLOSURE_STATUS["COMPLETE"],
+            "cliffhanger": CLOSURE_STATUS["CLIFFHANGER"],
+            "transition": CLOSURE_STATUS["TRANSITIONAL"],
+            "reflection": CLOSURE_STATUS["COMPLETE"],
+            "image": CLOSURE_STATUS["COMPLETE"],
+            "dialogue": CLOSURE_STATUS["COMPLETE"],
+            "action": CLOSURE_STATUS["COMPLETE"]
+        }
+        
+        # Determine if it's abrupt based on effectiveness
+        if result['closure_effectiveness'] <= 4:
+            result['closure_status'] = CLOSURE_STATUS["ABRUPT"]
+        else:
+            result['closure_status'] = type_to_status_map.get(
+                result['closure_type'], CLOSURE_STATUS["COMPLETE"]
+            )
+        
+        result['closure_score'] = result['closure_effectiveness']
+        result['recommendations'] = result.get('improvements', [])
+        
+        return result
     
     except Exception as e:
         print(f"Error analyzing scene closure: {str(e)}")
@@ -285,7 +335,7 @@ def check_and_improve_scene_closure(state: StoryState) -> Tuple[bool, Dict[str, 
         raise RuntimeError(f"Scene content not found for Chapter {current_chapter}, Scene {current_scene}")
     
     # Analyze scene closure
-    closure_analysis = analyze_scene_closure(scene_content, current_chapter, current_scene, language)
+    closure_analysis = analyze_scene_closure(scene_content, current_chapter, current_scene, language, state)
     
     # Check if the scene needs improved closure
     needs_improved_closure = (

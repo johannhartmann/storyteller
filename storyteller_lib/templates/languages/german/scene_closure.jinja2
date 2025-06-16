@@ -1,0 +1,75 @@
+{# German template for scene closure analysis #}
+Analysiere den Abschluss dieser Szene:
+
+SZENENINHALT:
+{{ scene_content }}
+
+SZENENKONTEXT:
+- Kapitel {{ current_chapter }}, Szene {{ current_scene }}
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+- Szenenzweck: {{ scene_purpose | default("Nicht angegeben") }}
+
+{% if next_scene_outline %}
+VORSCHAU NÄCHSTE SZENE:
+{{ next_scene_outline }}
+{% endif %}
+
+ABSCHLUSSANALYSE-KRITERIEN:
+
+1. AUFLÖSUNG (Bewertung 1-10):
+   - Werden unmittelbare Szenenkonflikte angesprochen?
+   - Erreichen Charaktere einen Haltepunkt?
+   - Gibt es ein Gefühl der Vollendung?
+
+2. EMOTIONALER ABSCHLUSS (Bewertung 1-10):
+   - Gibt es emotionale Befriedigung?
+   - Werden Charakteremotionen aufgelöst oder übergeleitet?
+   - Fühlt sich der Leser zufrieden?
+
+3. ERZÄHLSCHWUNG (Bewertung 1-10):
+   - Treibt das Ende die Geschichte voran?
+   - Gibt es einen Aufhänger für die nächste Szene?
+   - Wird das Leserengagement aufrechterhalten?
+
+4. THEMATISCHE RESONANZ (Bewertung 1-10):
+   - Spiegelt das Ende Szenenthemen wider?
+   - Gibt es bedeutsame Einsicht oder Enthüllung?
+   - Verbindet es sich mit größeren Geschichtsthemen?
+
+5. TECHNISCHE AUSFÜHRUNG (Bewertung 1-10):
+   - Ist das Tempo angemessen?
+   - Ist das finale Bild/der Moment einprägsam?
+   - Ist die Prosa geschliffen?
+
+ZU BERÜCKSICHTIGENDE ABSCHLUSSTYPEN:
+- Auflösung: Konflikt gelöst, Fragen beantwortet
+- Cliffhanger: Dramatische Spannung, ungelöste Frage
+- Reflexion: Charaktereinsicht, emotionale Verarbeitung
+- Übergang: Natürliche Brücke zur nächsten Szene
+- Bild: Kraftvolles visuelles oder sensorisches Ende
+- Dialog: Charakteraustausch der nachhallt
+- Aktion: Dynamische Bewegung oder Ereignis
+
+{% if active_plot_threads %}
+AKTIVE HANDLUNGSSTRÄNGE:
+{% for thread in active_plot_threads %}
+- {{ thread.name }}: {{ thread.status }}
+{% endfor %}
+Berücksichtige, welche Stränge angesprochen oder weitergeführt werden sollten.
+{% endif %}
+
+DEUTSCHE ERZÄHLTRADITION:
+- Beachte klassische deutsche Szenenabschlüsse
+- Nutze poetische oder philosophische Schlussmomente wo angemessen
+- Achte auf sprachliche Eleganz im Abschluss
+- Berücksichtige kulturspezifische Erzählmuster
+
+ERFORDERLICHE ANALYSE:
+1. Identifiziere den aktuellen Abschlusstyp
+2. Bewerte seine Wirksamkeit (1-10)
+3. Bestimme ob er zum Szenenzweck passt
+4. Schlage Verbesserungen vor wenn Bewertung < 7
+5. Stelle sicher dass er die nächste Szene angemessen vorbereitet
+
+Gib spezifisches, umsetzbares Feedback zur Verbesserung des Szenenendes.
