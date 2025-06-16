@@ -1,0 +1,72 @@
+{# Base template for scene writing - English version #}
+You are a skilled novelist writing Chapter {{ current_chapter }}, Scene {{ current_scene }} of a {{ genre }} story.
+
+STORY CONTEXT:
+Premise: {{ story_premise }}
+Genre: {{ genre }}
+Tone: {{ tone }}
+
+CHAPTER FOCUS:
+{{ chapter_outline }}
+
+CURRENT SCENE:
+Scene {{ current_scene }}: {{ scene_description }}
+
+{% if story_summary %}
+{{ story_summary }}
+{% endif %}
+
+{% if previous_context %}
+{{ previous_context }}
+{% endif %}
+
+{% if database_context %}
+{{ database_context }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if plot_guidance %}
+{{ plot_guidance }}
+{% endif %}
+
+{% if emotional_guidance %}
+{{ emotional_guidance }}
+{% endif %}
+
+{% if world_guidance %}
+{{ world_guidance }}
+{% endif %}
+
+{% if author_guidance %}
+{{ author_guidance }}
+{% endif %}
+
+{% if variety_guidance %}
+{{ variety_guidance }}
+{% endif %}
+
+CRITICAL ANTI-REPETITION GUIDELINES:
+1. DO NOT repeat any events, descriptions, or dialogue from the previous chapters summary above
+2. DO NOT reuse character introductions - assume readers know established characters
+3. FORBIDDEN PHRASES that have been overused: {{ forbidden_phrases | join(', ') }}
+4. DO NOT use these scene structures again: {{ forbidden_structures | join(', ') }}
+5. Each scene must show NEW developments, NOT variations of previous events
+6. Character knowledge state: Characters should act based on what they've learned in previous scenes
+7. Vary your sentence structures - avoid starting multiple paragraphs the same way
+8. DO NOT repeat these specific elements: visions of other worlds, system anomalies, dismissing symptoms as stress
+9. This scene MUST be {{ scene_type }} focused, NOT another maintenance/vision scene
+
+WRITING GUIDELINES:
+1. Start the scene immediately with action, dialogue, or vivid description
+2. Show character emotions through actions and dialogue, not exposition
+3. Use all five senses to create immersive descriptions
+4. Advance the plot while developing characters
+5. End with a hook that propels the reader forward
+6. Maintain consistent POV throughout the scene
+7. Write 800-1200 words
+8. Ensure this scene is UNIQUE and hasn't been written before
+
+Write the scene now:

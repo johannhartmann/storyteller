@@ -1,0 +1,46 @@
+{# Base template for dialogue enhancement - English version #}
+Review this scene and enhance the dialogue:
+
+ORIGINAL SCENE:
+{{ scene_content }}
+
+SCENE CONTEXT:
+Chapter {{ current_chapter }}, Scene {{ current_scene }}
+Genre: {{ genre }}
+Tone: {{ tone }}
+
+CHARACTER INFORMATION:
+{% for char_name, char_info in characters.items() %}
+{{ char_name }}:
+- Role: {{ char_info.role }}
+- Personality: {{ char_info.personality }}
+- Current emotional state: {{ char_info.emotional_state | default("Unknown") }}
+{% endfor %}
+
+DIALOGUE ENHANCEMENT GOALS:
+1. Make dialogue more natural and character-specific
+2. Add subtext and unspoken tensions
+3. Vary speech patterns for each character
+4. Include appropriate interruptions, pauses, and reactions
+5. Show character relationships through how they speak to each other
+6. Advance the plot through conversation
+7. Reveal character without exposition
+
+SPECIFIC IMPROVEMENTS NEEDED:
+- Remove on-the-nose dialogue
+- Add conflict and tension to conversations
+- Make each character's voice distinct
+- Include body language and action beats
+- Show emotions through dialogue choices, not descriptions
+
+{% if author_style %}
+AUTHOR STYLE NOTES:
+{{ author_style }}
+{% endif %}
+
+Rewrite the scene with enhanced dialogue that:
+- Sounds natural when read aloud
+- Reveals character through speech patterns
+- Moves the story forward
+- Creates tension and interest
+- Shows rather than tells

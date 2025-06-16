@@ -1,0 +1,76 @@
+{# German template for worldbuilding #}
+Basierend auf diesem Handlungsentwurf:
+{{ story_outline }}
+
+Erschaffe detaillierte Weltenbau-Elemente für diese {{ tone }} {{ genre }}-Geschichte.
+
+KATEGORIEN ZUR ENTWICKLUNG:
+1. Geographie & Schauplätze
+   - Wichtige Orte und ihre Bedeutung
+   - Klima und Terrain
+   - Bemerkenswerte Wahrzeichen
+   - Reisedistanzen/-methoden
+
+2. Geschichte & Überlieferungen
+   - Schlüsselereignisse der Geschichte
+   - Gründungsmythen
+   - Vergangene Konflikte
+   - Kulturelles Gedächtnis
+
+3. Sozialstruktur
+   - Klassen-/Kastensysteme
+   - Machtdynamiken
+   - Soziale Mobilität
+   - Kulturelle Normen
+
+4. Politik & Regierung
+   - Herrschaftssysteme
+   - Machtstrukturen
+   - Gesetze und Gerechtigkeit
+   - Internationale Beziehungen
+
+5. Wirtschaft & Handel
+   - Währungssysteme
+   - Hauptindustrien
+   - Handelsrouten
+   - Wirtschaftliche Unterschiede
+
+6. Kultur & Bräuche
+   - Traditionen und Rituale
+   - Kunst und Unterhaltung
+   - Essen und Kleidung
+   - Alltag
+
+{% if genre == "Fantasy" or genre == "Science-Fiction" %}
+7. Magie-/Technologiesystem
+   - Wie es funktioniert
+   - Wer es nutzen kann
+   - Einschränkungen
+   - Auswirkungen auf die Gesellschaft
+{% endif %}
+
+8. Religion & Philosophie
+   - Glaubenssysteme
+   - Religiöse Institutionen
+   - Philosophische Schulen
+   - Einfluss auf das tägliche Leben
+
+{% if existing_elements %}
+Hinweis: Die folgenden Weltenbau-Elemente wurden bereits etabliert:
+{{ existing_elements }}
+Bitte erweitere diese und stelle Konsistenz sicher.
+{% endif %}
+
+DEUTSCHE KULTURELLE EINFLÜSSE:
+- Berücksichtige deutsche historische Elemente (Heiliges Römisches Reich, Hanse, etc.)
+- Nutze germanische Mythologie und Folklore wo passend
+- Integriere typisch deutsche Landschaftselemente (Wälder, Berge, Flüsse)
+- Beachte deutsche Architekturtraditionen (Fachwerk, Burgen, etc.)
+- Verwende deutsche Namenskonventionen für Orte und Institutionen
+
+Erschaffe eine reichhaltige, immersive Welt, die:
+- Die Themen und Konflikte der Geschichte unterstützt
+- Sich bewohnt und authentisch anfühlt
+- Innere Konsistenz aufweist
+- Möglichkeiten für Konflikte und Entwicklung bietet
+- Die {{ genre }}-Elemente der Geschichte verstärkt

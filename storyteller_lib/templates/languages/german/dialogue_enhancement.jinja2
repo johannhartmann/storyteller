@@ -1,0 +1,54 @@
+{# German template for dialogue enhancement #}
+Überprüfe diese Szene und verbessere die Dialoge:
+
+ORIGINALSZENE:
+{{ scene_content }}
+
+SZENENKONTEXT:
+Kapitel {{ current_chapter }}, Szene {{ current_scene }}
+Genre: {{ genre }}
+Ton: {{ tone }}
+
+CHARAKTERINFORMATIONEN:
+{% for char_name, char_info in characters.items() %}
+{{ char_name }}:
+- Rolle: {{ char_info.role }}
+- Persönlichkeit: {{ char_info.personality }}
+- Aktueller emotionaler Zustand: {{ char_info.emotional_state | default("Unbekannt") }}
+{% endfor %}
+
+DIALOGVERBESSERUNGSZIELE:
+1. Dialoge natürlicher und charakterspezifischer gestalten
+2. Subtext und unausgesprochene Spannungen hinzufügen
+3. Sprachmuster für jeden Charakter variieren
+4. Angemessene Unterbrechungen, Pausen und Reaktionen einbauen
+5. Charakterbeziehungen durch ihre Art zu sprechen zeigen
+6. Die Handlung durch Gespräche vorantreiben
+7. Charakter ohne Exposition offenbaren
+
+SPEZIFISCHE VERBESSERUNGEN:
+- Zu direkte Dialoge entfernen
+- Konflikt und Spannung in Gespräche einbauen
+- Jede Charakterstimme unterscheidbar machen
+- Körpersprache und Handlungspausen einbeziehen
+- Emotionen durch Dialogwahl zeigen, nicht durch Beschreibungen
+
+DEUTSCHE DIALOGBESONDERHEITEN:
+- Nutze authentische deutsche Redewendungen und Umgangssprache
+- Berücksichtige regionale Dialekte wo angemessen
+- Verwende typisch deutsche Höflichkeitsformen (Sie/du)
+- Integriere deutsche Gesprächskultur (direkter, aber höflich)
+- Beachte deutsche Anredeformen und Titel
+
+{% if author_style %}
+AUTORENSTIL-HINWEISE:
+{{ author_style }}
+{% endif %}
+
+Schreibe die Szene mit verbesserten Dialogen neu, die:
+- Beim lauten Vorlesen natürlich klingen
+- Charakter durch Sprachmuster offenbaren
+- Die Geschichte vorantreiben
+- Spannung und Interesse erzeugen
+- Zeigen statt erzählen
+- Authentisch deutsch klingen

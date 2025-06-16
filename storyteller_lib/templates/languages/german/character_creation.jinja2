@@ -1,0 +1,39 @@
+{# German template for character creation #}
+Basierend auf diesem Handlungsentwurf:
+{{ story_outline }}
+
+Erschaffe {{ num_characters }} detaillierte Charaktere für diese {{ genre }}-Geschichte mit einer {{ tone }} Stimmung.
+
+Gib für jeden Charakter folgendes an:
+1. Name (passend zum Setting und Genre)
+2. Rolle in der Geschichte (Protagonist, Antagonist, Mentor, Verbündeter, etc.)
+3. Alter und körperliche Beschreibung
+4. Persönlichkeitsmerkmale (3-5 Haupteigenschaften)
+5. Hintergrundgeschichte (2-3 Absätze)
+6. Motivationen und Ziele
+7. Ängste und Schwächen
+8. Besondere Fähigkeiten oder Fertigkeiten (falls vorhanden)
+9. Beziehungen zu anderen Charakteren
+10. Potential für Charakterentwicklung
+
+{% if existing_characters %}
+Hinweis: Die folgenden Charaktere wurden bereits im Handlungsentwurf erwähnt:
+{{ existing_characters }}
+Bitte erweitere diese Charaktere und erschaffe zusätzliche, falls nötig.
+{% endif %}
+
+Stelle sicher, dass die Charaktere:
+- Vielfältig und interessant sind
+- Klare Motivationen haben, die die Handlung vorantreiben
+- Fehler haben und Raum für Entwicklung bieten
+- Natürlich in das {{ genre }}-Genre passen
+- Die {{ tone }} Stimmung der Geschichte unterstützen
+
+DEUTSCHE CHARAKTERBESONDERHEITEN:
+- Verwende authentisch deutsche Namen oder kulturell passende Varianten
+- Berücksichtige deutsche Charaktertypen und Archetypen
+- Integriere regionale Hintergründe (z.B. Norddeutsch vs. Süddeutsch)
+- Beachte deutsche Gesellschaftsstrukturen und kulturelle Normen
+- Nutze typisch deutsche Berufe, Hobbys oder Lebensweisen wo passend
+
+Erschaffe Charaktere, die den Lesern am Herzen liegen und in Erinnerung bleiben werden.

@@ -669,55 +669,38 @@ def write_scene(state: StoryState) -> Dict:
     premise_brief = story_premise
     outline_brief = chapter_outline
     
-    # Construct the scene writing prompt
-    prompt = f"""You are a skilled novelist writing Chapter {current_chapter}, Scene {current_scene} of a {genre} story.
-
-    STORY CONTEXT:
-    Premise: {premise_brief}
-    Genre: {genre}
-    Tone: {tone}
+    # Import prompt template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    CHAPTER FOCUS:
-    {outline_brief}
+    # Extract forbidden phrases and structures
+    forbidden_phrases = [elem.replace('phrase: ', '') for elem in overused_elements if 'phrase:' in elem]
+    forbidden_structures = [elem.replace('structure: ', '') for elem in overused_elements if 'structure:' in elem]
     
-    CURRENT SCENE:
-    Scene {current_scene}: {scene_description}
+    # Prepare template variables
+    template_vars = {
+        'current_chapter': current_chapter,
+        'current_scene': current_scene,
+        'genre': genre,
+        'tone': tone,
+        'story_premise': premise_brief,
+        'chapter_outline': outline_brief,
+        'scene_description': scene_description,
+        'story_summary': story_summary,
+        'previous_context': previous_context,
+        'database_context': database_context,
+        'creative_guidance': creative_guidance,
+        'plot_guidance': plot_guidance,
+        'emotional_guidance': emotional_guidance,
+        'world_guidance': world_guidance,
+        'author_guidance': author_guidance,
+        'variety_guidance': generate_scene_variety_guidance(variety_requirements),
+        'forbidden_phrases': forbidden_phrases,
+        'forbidden_structures': forbidden_structures,
+        'scene_type': variety_requirements.scene_type
+    }
     
-    {story_summary}
-    {previous_context}
-    {database_context}
-    {creative_guidance}
-    {plot_guidance}
-    {emotional_guidance}
-    {world_guidance}
-    {author_guidance}
-    {language_guidance}
-    
-    {generate_scene_variety_guidance(variety_requirements)}
-    
-    CRITICAL ANTI-REPETITION GUIDELINES:
-    1. DO NOT repeat any events, descriptions, or dialogue from the previous chapters summary above
-    2. DO NOT reuse character introductions - assume readers know established characters
-    3. FORBIDDEN PHRASES that have been overused: {', '.join(f'"{elem}"' for elem in overused_elements if 'phrase:' in elem)}
-    4. DO NOT use these scene structures again: {', '.join(elem.replace('structure: ', '') for elem in overused_elements if 'structure:' in elem)}
-    5. Each scene must show NEW developments, NOT variations of previous events
-    6. Character knowledge state: Characters should act based on what they've learned in previous scenes
-    7. Vary your sentence structures - avoid starting multiple paragraphs the same way
-    8. DO NOT repeat these specific elements: visions of other worlds, system anomalies, dismissing symptoms as stress
-    9. This scene MUST be {variety_requirements.scene_type} focused, NOT another maintenance/vision scene
-    
-    WRITING GUIDELINES:
-    1. Start the scene immediately with action, dialogue, or vivid description
-    2. Show character emotions through actions and dialogue, not exposition
-    3. Use all five senses to create immersive descriptions
-    4. Advance the plot while developing characters
-    5. End with a hook that propels the reader forward
-    6. Maintain consistent POV throughout the scene
-    7. Write 800-1200 words
-    8. Ensure this scene is UNIQUE and hasn't been written before
-    
-    Write the scene now:
-    """
+    # Render the prompt using the template system
+    prompt = render_prompt('scene_writing', language=language, **template_vars)
     
     # Log prompt size
     log_prompt_size(prompt, f"scene writing Ch{current_chapter}/Sc{current_scene}")

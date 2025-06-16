@@ -185,31 +185,89 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
                         first_para = content.strip().split('\n\n')[0]
                         previous_scenes_summary += f"Ch{scene['chapter_number']}/Sc{scene['scene_number']}: {first_para}\n"
     
-    # Use creative brainstorming for scene approach
-    brainstorm_result = creative_brainstorm(
-        topic=f"scene approach for Chapter {current_chapter}, Scene {current_scene}",
+    # Get scene variety requirements if available
+    from storyteller_lib.scene_variety import get_scene_variety_requirements
+    scene_variety_requirements = get_scene_variety_requirements(state)
+    
+    # Get forbidden elements from scene progression
+    forbidden_elements = {"phrases": [], "structures": []}
+    try:
+        from storyteller_lib.scene_progression import get_forbidden_elements
+        forbidden_elements = get_forbidden_elements(state)
+    except:
+        pass
+    
+    # Use template system for scene brainstorming
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Prepare previous scenes data for template
+    previous_scenes_data = []
+    if previous_scenes:
+        for scene in previous_scenes[:5]:  # Limit to 5 most recent
+            content = scene['content']
+            if content:
+                first_para = content.strip().split('\n\n')[0]
+                previous_scenes_data.append({
+                    "summary": f"Ch{scene['chapter_number']}/Sc{scene['scene_number']}: {first_para[:200]}..."
+                })
+    
+    # Get language from state
+    language = state.get("language", "english")
+    
+    # Render the brainstorming prompt
+    brainstorm_prompt = render_prompt(
+        'scene_brainstorm',
+        language=language,
+        current_chapter=current_chapter,
+        chapter_title=chapter_outline.split('\n')[0] if chapter_outline else f"Chapter {current_chapter}",
+        chapter_outline=chapter_outline,
+        scene_number=current_scene,
+        scene_description=scene_description,
         genre=genre,
-        context=f"""
-        Story Context: {story_context}
-        Chapter Outline: {chapter_outline}
-        Scene Description: {scene_description}
-        {plot_thread_context}
-        {previous_scenes_summary}
-        
-        CRITICAL: This scene must be COMPLETELY DIFFERENT from all previous scenes listed above.
-        DO NOT repeat any events, character actions, or plot developments that have already occurred.
-        
-        Consider:
-        1. How to advance the plot threads in NEW ways
-        2. FRESH character dynamics and emotional beats not seen before
-        3. The scene's UNIQUE purpose in the larger narrative
-        4. ORIGINAL creative ways to engage the reader
-        5. NEW sensory details and atmosphere not used previously
-        6. Ensure this scene adds something COMPLETELY NEW to the story
-        """,
-        num_ideas=3,
-        tone=tone
+        tone=tone,
+        story_premise=story_context,
+        previous_scenes=previous_scenes_data if previous_scenes_data else None,
+        scene_variety_requirements=scene_variety_requirements if scene_variety_requirements else None,
+        forbidden_elements=forbidden_elements if any(forbidden_elements.values()) else None
     )
+    
+    # Generate brainstorming ideas using LLM directly
+    try:
+        response = llm.invoke([HumanMessage(content=brainstorm_prompt)])
+        brainstorm_content = response.content
+        
+        # Parse the response to extract ideas
+        ideas = []
+        if "Approach" in brainstorm_content or "approach" in brainstorm_content:
+            # Extract numbered approaches
+            import re
+            approaches = re.findall(r'(?:Approach |approach |\d+\.|\d+\))[^\n]*(?:\n(?!(?:Approach |approach |\d+\.|\d+\)))[^\n]*)*', brainstorm_content)
+            ideas = [approach.strip() for approach in approaches[:3]]
+        
+        if not ideas:
+            # Fallback: take first three paragraphs
+            ideas = [p.strip() for p in brainstorm_content.split('\n\n')[:3] if p.strip()]
+        
+        brainstorm_result = {
+            "ideas": ideas,
+            "recommended_ideas": ideas[0] if ideas else "Standard scene progression"
+        }
+    except Exception as e:
+        print(f"Error in scene brainstorming: {e}")
+        # Fallback to creative_brainstorm
+        brainstorm_result = creative_brainstorm(
+            topic=f"scene approach for Chapter {current_chapter}, Scene {current_scene}",
+            genre=genre,
+            context=f"""
+            Story Context: {story_context}
+            Chapter Outline: {chapter_outline}
+            Scene Description: {scene_description}
+            {plot_thread_context}
+            {previous_scenes_summary}
+            """,
+            num_ideas=3,
+            tone=tone
+        )
     
     # Extract the best approach
     scene_elements = {

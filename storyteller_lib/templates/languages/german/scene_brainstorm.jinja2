@@ -1,0 +1,66 @@
+{# German template for scene brainstorming #}
+Entwickle Ideen für eine Szene basierend auf Folgendem:
+
+KAPITELKONTEXT:
+Kapitel {{ current_chapter }}: {{ chapter_title }}
+
+KAPITELÜBERSICHT:
+{{ chapter_outline }}
+
+SPEZIFISCHE ZU ENTWICKELNDE SZENE:
+Szene {{ scene_number }}: {{ scene_description }}
+
+GESCHICHTSKONTEXT:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+- Gesamtprämisse: {{ story_premise }}
+
+{% if previous_scenes %}
+VORHERIGE SZENEN IN DIESEM KAPITEL:
+{% for scene in previous_scenes %}
+Szene {{ loop.index }}: {{ scene.summary }}
+{% endfor %}
+{% endif %}
+
+{% if scene_variety_requirements %}
+ANFORDERUNGEN AN SZENENVIELFALT:
+- Erforderlicher Szenentyp: {{ scene_variety_requirements.scene_type }}
+- Erforderliche Charaktere: {{ scene_variety_requirements.required_characters | join(', ') }}
+- Tonanforderung: {{ scene_variety_requirements.tone_requirement }}
+- Zusätzliche Hinweise: {{ scene_variety_requirements.notes }}
+{% endif %}
+
+BRAINSTORMING-ZIELE:
+1. Generiere 3-5 verschiedene Ansätze für diese Szene
+2. Jeder Ansatz sollte:
+   - Einen einzigartigen Blickwinkel oder Perspektive haben
+   - Die Handlung bedeutsam vorantreiben
+   - Charakterbeziehungen entwickeln
+   - Spannung oder Konflikt erzeugen
+   - Frisch und fesselnd wirken
+
+3. Berücksichtige:
+   - Was ist der interessanteste Weg, in diese Szene einzusteigen?
+   - Welche unerwarteten Elemente könnten sie bereichern?
+   - Wie können wir Lesererwartungen unterlaufen?
+   - Welche sensorischen Details machen sie lebendig?
+   - Welche Emotionen soll der Leser fühlen?
+
+DEUTSCHE ERZÄHLTRADITIONEN:
+- Nutze Elemente deutscher Erzählkunst (Märchen, Sagen, moderne Literatur)
+- Berücksichtige kulturspezifische Szenarien und Schauplätze
+- Integriere typisch deutsche Konflikte und Dilemmata
+- Verwende authentische deutsche Settings wo passend
+
+{% if forbidden_elements %}
+ZU VERMEIDENDE ELEMENTE:
+- Phrasen: {{ forbidden_elements.phrases | join(', ') }}
+- Strukturen: {{ forbidden_elements.structures | join(', ') }}
+{% endif %}
+
+Für jeden Ansatz liefere:
+- Einen kurzen Titel oder Konzept
+- Schlüsselelemente, die ihn einzigartig machen
+- Wie er die Geschichte vorantreibt
+- Potenzielle Herausforderungen oder Konflikte
+- Emotionale Auswirkung auf Charaktere und Leser

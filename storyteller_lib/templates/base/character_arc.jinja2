@@ -1,0 +1,65 @@
+{# Base template for character arc planning - English version #}
+Plan character development arcs for the following characters:
+
+STORY CONTEXT:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+- Overall theme: {{ theme | default("Not specified") }}
+
+STORY OUTLINE:
+{{ story_outline }}
+
+CHARACTERS TO DEVELOP:
+{% for char_name, char_info in characters.items() %}
+{{ char_name }}:
+- Role: {{ char_info.role }}
+- Initial state: {{ char_info.initial_state }}
+- Background: {{ char_info.backstory }}
+- Key traits: {{ char_info.traits | join(', ') }}
+- Inner conflicts: {{ char_info.inner_conflicts | join(', ') }}
+{% endfor %}
+
+CHARACTER ARC REQUIREMENTS:
+For each character, develop:
+
+1. ARC TYPE - Choose from:
+   - Positive change arc (character overcomes flaws)
+   - Negative change arc (character falls or corrupts)
+   - Flat arc (character stays true, changes others)
+   - Circular arc (character returns changed)
+
+2. KEY STAGES (5-7 turning points):
+   - Initial state and worldview
+   - Inciting incident that challenges them
+   - First attempt and failure
+   - Dark night of the soul
+   - Moment of truth/choice
+   - Climactic test
+   - Final state
+
+3. RELATIONSHIP DYNAMICS:
+   - How relationships evolve
+   - Who influences their change
+   - Who they influence
+
+4. THEMATIC CONNECTION:
+   - How their arc reflects story themes
+   - What truth they discover/reject
+   - Universal resonance
+
+5. EMOTIONAL JOURNEY:
+   - Starting emotional state
+   - Key emotional beats
+   - Ending emotional state
+
+{% if author_style %}
+AUTHOR STYLE NOTES:
+{{ author_style }}
+{% endif %}
+
+Create arcs that:
+- Feel authentic to the character
+- Interweave with other character arcs
+- Support the overall narrative
+- Create satisfying emotional payoffs
+- Leave lasting impact on readers

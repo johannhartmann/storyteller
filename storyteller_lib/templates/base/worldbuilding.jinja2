@@ -1,0 +1,69 @@
+{# Base template for worldbuilding - English version #}
+Based on this story outline:
+{{ story_outline }}
+
+Create detailed worldbuilding elements for this {{ tone }} {{ genre }} story.
+
+CATEGORIES TO DEVELOP:
+1. Geography & Locations
+   - Major locations and their significance
+   - Climate and terrain
+   - Notable landmarks
+   - Travel distances/methods
+
+2. History & Lore
+   - Key historical events
+   - Founding myths
+   - Past conflicts
+   - Cultural memory
+
+3. Social Structure
+   - Class/caste systems
+   - Power dynamics
+   - Social mobility
+   - Cultural norms
+
+4. Politics & Governance
+   - Ruling systems
+   - Power structures
+   - Laws and justice
+   - International relations
+
+5. Economy & Trade
+   - Currency systems
+   - Major industries
+   - Trade routes
+   - Economic disparities
+
+6. Culture & Customs
+   - Traditions and rituals
+   - Arts and entertainment
+   - Food and clothing
+   - Daily life
+
+{% if genre == "fantasy" or genre == "science fiction" %}
+7. Magic/Technology System
+   - How it works
+   - Who can use it
+   - Limitations
+   - Impact on society
+{% endif %}
+
+8. Religion & Philosophy
+   - Belief systems
+   - Religious institutions
+   - Philosophical schools
+   - Impact on daily life
+
+{% if existing_elements %}
+Note: The following worldbuilding elements have already been established:
+{{ existing_elements }}
+Please expand on these and ensure consistency.
+{% endif %}
+
+Create a rich, immersive world that:
+- Supports the story's themes and conflicts
+- Feels lived-in and authentic
+- Has internal consistency
+- Provides opportunities for conflict and growth
+- Enhances the {{ genre }} elements of the story

@@ -321,7 +321,11 @@ def generate_basic_character(
         {author_style_guidance}
         """
     
-    # Create the prompt
+    # Import prompt template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Create a simple template for basic character generation
+    # TODO: Create a specific template file for this
     prompt = f"""
     {language_instruction}
     
