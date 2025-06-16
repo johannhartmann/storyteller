@@ -1,0 +1,36 @@
+{# German template for structured character updates #}
+Basierend auf diesen Figurenentwicklungen aus der Szene:
+
+{{ character_updates_text }}
+
+Aktueller Figurenstatus (Zusammenfassung):
+{{ character_summaries }}
+
+Liefere für jede Figur, die Updates benötigt, ein JSON-Objekt mit:
+- character_name: Der Name der Figur
+- new_facts: Liste neu gelernter Fakten (max. 2)
+- emotional_change: Jegliche emotionale Zustandsänderung (eine Zeile)
+- relationship_changes: Wörterbuch der Beziehungsänderungen (max. 2)
+
+Halte die Antwort unter 200 Wörtern insgesamt.
+
+BEISPIELFORMAT:
+{
+  "figurenname": {
+    "new_facts": [
+      "Enthüllte ein verborgenes Talent",
+      "Verlor ein Familienmitglied in der Vergangenheit"
+    ],
+    "emotional_change": "Wechselte von vorsichtig zu entschlossen",
+    "relationship_changes": {
+      "andere_figur": "Vertrauen hat sich vertieft",
+      "weitere_figur": "Neuer Konflikt entstanden"
+    }
+  }
+}
+
+RICHTLINIEN:
+- Füge nur Figuren mit bedeutsamen Updates ein
+- Sei prägnant und spezifisch
+- Fokussiere auf geschichtsrelevante Änderungen
+- Stelle Konsistenz mit Figurenentwicklungen sicher

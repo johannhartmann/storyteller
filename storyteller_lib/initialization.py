@@ -95,34 +95,15 @@ def initialize_state(state: StoryState) -> Dict:
     
     # Initialize language-specific naming and cultural elements if not English
     if language.lower() != DEFAULT_LANGUAGE:
-        language_elements_prompt = f"""
-        Create a comprehensive guide for generating story elements in {SUPPORTED_LANGUAGES[language.lower()]} that will ensure consistency throughout the story.
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
         
-        Provide the following:
-        
-        1. NAMING CONVENTIONS:
-           - Common first names for male characters in {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
-           - Common first names for female characters in {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
-           - Common family/last names in {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
-           - Naming patterns or traditions (e.g., patronymics, compound names)
-           
-        2. PLACE NAMES:
-           - Types of place names common in {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
-           - Common prefixes/suffixes for cities, towns, villages
-           - Geographical feature naming patterns (mountains, rivers, forests)
-           
-        3. CULTURAL REFERENCES:
-           - Common idioms and expressions in {SUPPORTED_LANGUAGES[language.lower()]}
-           - Cultural traditions and customs specific to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
-           - Historical references that would be familiar to {SUPPORTED_LANGUAGES[language.lower()]} speakers
-           
-        4. NARRATIVE ELEMENTS:
-           - Storytelling traditions in {SUPPORTED_LANGUAGES[language.lower()]} literature
-           - Common literary devices or techniques in {SUPPORTED_LANGUAGES[language.lower()]} writing
-           - Dialogue patterns or speech conventions in {SUPPORTED_LANGUAGES[language.lower()]}
-           
-        Format your response as a structured JSON object with these categories as keys.
-        """
+        # Render the language elements prompt
+        language_elements_prompt = render_prompt(
+            'language_elements',
+            language=language,
+            target_language=SUPPORTED_LANGUAGES[language.lower()]
+        )
         
         try:
             # Generate language-specific elements

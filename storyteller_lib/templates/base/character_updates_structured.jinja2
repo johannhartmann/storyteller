@@ -1,0 +1,36 @@
+{# Base template for structured character updates - English version #}
+Based on these character developments from the scene:
+
+{{ character_updates_text }}
+
+Current character status (summary):
+{{ character_summaries }}
+
+For each character that needs updates, provide a JSON object with:
+- character_name: The character's name
+- new_facts: List of new facts learned (max 2)
+- emotional_change: Any emotional state change (one line)
+- relationship_changes: Dictionary of relationship changes (max 2)
+
+Keep the response under 200 words total.
+
+EXAMPLE FORMAT:
+{
+  "character_name": {
+    "new_facts": [
+      "Revealed to have a hidden talent",
+      "Lost a family member in the past"
+    ],
+    "emotional_change": "Shifted from cautious to determined",
+    "relationship_changes": {
+      "other_character": "Trust has deepened",
+      "another_character": "New conflict emerged"
+    }
+  }
+}
+
+GUIDELINES:
+- Only include characters with meaningful updates
+- Be concise and specific
+- Focus on story-relevant changes
+- Ensure consistency with character arcs
