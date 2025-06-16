@@ -641,34 +641,43 @@ def identify_telling_passages(scene_content: str) -> List[str]:
         print(f"Error identifying telling passages: {str(e)}")
         return []  # Return empty list if identification fails
 
-def analyze_showing_vs_telling(scene_content: str) -> Dict[str, Any]:
+def analyze_showing_vs_telling(scene_content: str, genre: str = "fantasy", tone: str = "adventurous", language: str = DEFAULT_LANGUAGE, characters: List[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Analyze the balance of showing vs. telling in a scene.
     
     Args:
         scene_content: The content of the scene
+        genre: The genre of the story
+        tone: The tone of the story
+        language: The language of the scene
+        characters: List of characters in the scene
         
     Returns:
         A dictionary with showing vs. telling analysis results
     """
-    # Prepare the prompt for analyzing showing vs. telling
-    prompt = f"""
-    Analyze this scene for the balance of showing vs. telling:
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    {scene_content}
+    # Format characters for template
+    character_list = []
+    if characters:
+        for char in characters:
+            character_list.append({
+                'name': char.get('name', 'Unknown'),
+                'role': char.get('role', char.get('description', 'Character'))
+            })
     
-    Evaluate:
-    1. How effectively does the scene use sensory details?
-    2. Are emotions shown through physical manifestations or just stated?
-    3. Are world elements experienced through character interaction or just explained?
-    4. Is character development demonstrated through actions or just described?
-    5. What is the overall ratio of showing to telling?
-    
-    Identify specific examples of:
-    - Effective showing (with excerpts)
-    - Instances of telling that could be improved (with excerpts)
-    - Missed opportunities for sensory details
-    """
+    # Render the exposition detection prompt
+    prompt = render_prompt(
+        'exposition_detection',
+        language=language,
+        scene_content=scene_content,
+        current_chapter="N/A",
+        current_scene="N/A",
+        genre=genre,
+        tone=tone,
+        characters=character_list if character_list else None
+    )
     
     try:
         # Define Pydantic models for structured output

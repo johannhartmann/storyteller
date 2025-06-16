@@ -1,0 +1,65 @@
+{# German template for pacing analysis #}
+Analysiere das Tempo dieser {{ genre }}-Szene mit einem {{ tone }} Ton:
+
+{{ scene_content }}
+
+TEMPO-BEWERTUNGSKRITERIEN:
+
+1. GESAMTTEMPO (Bewertung 1-10):
+   - Szenenbewegung und -fortschritt
+   - Balance von Handlung, Dialog und Beschreibung
+   - Spannungs- und Schwungerhaltung
+   - Angemessen für Genre und Ton
+
+2. DIALOGEFFIZIENZ (Bewertung 1-10):
+   - Prägnanz vs. Weitschweifigkeit
+   - Zweckgebundene Austausche
+   - Natürlicher Fluss und Rhythmus
+   - Konsistenz der Figurenstimmen
+
+3. BESCHREIBUNGSEFFIZIENZ (Bewertung 1-10):
+   - Lebendige, aber prägnante Bilder
+   - Wesentliche vs. übermäßige Details
+   - Sensorisches Engagement
+   - Effektivität der Szenensetzung
+
+4. HANDLUNGSFORTSCHRITT (Bewertung 1-10):
+   - Geschichtsfortschrittsrate
+   - Timing der Informationsenthüllung
+   - Konfliktentwicklung
+   - Einsatzerhöhung
+
+5. REFLEXIONSBALANCE (Bewertung 1-10):
+   - Anteil innerer Monologe
+   - Timing der Figurenintrospektion
+   - Balance zwischen Gedanken und Handlung
+   - Tempo der emotionalen Verarbeitung
+
+IDENTIFIZIERE SPEZIFISCHE PROBLEME:
+
+Für jedes gefundene Tempo-Problem:
+1. Zitiere den problematischen Text
+2. Identifiziere den Problemtyp (Dialog, Beschreibung, Handlung, Reflexion)
+3. Erkläre, warum es die Erzählung verlangsamt
+4. Schlage eine prägnantere Überarbeitung vor
+5. Notiere, wo in der Szene es auftritt (Anfang, Mitte, Ende)
+
+ACHTE AUF:
+- Redundante Informationen
+- Überlange Dialogwechsel
+- Übermäßige Beschreibungen
+- Unnötige Exposition
+- Wiederholende Handlungen oder Gedanken
+- Spannungsverlustpunkte
+- Ausschweifende Passagen
+
+GENRE-ÜBERLEGUNGEN:
+- {{ genre }} erfordert typischerweise {{ 'schnelles Handlungstempo' if genre == 'thriller' else 'variiertes Tempo mit Spannungsspitzen' if genre == 'mystery' else 'ausgewogenes Tempo mit Raum für Weltenbau' if genre == 'fantasy' else 'figurenfokussiertes Tempo' if genre == 'literary' else 'dynamisches Tempo' }}
+- {{ tone }}-Ton legt nahe: {{ 'schnelles, energisches Tempo' if tone == 'adventurous' else 'bewusstes, gemessenes Tempo' if tone == 'contemplative' else 'spannungsaufbauendes Tempo' if tone == 'suspenseful' else 'variiertes, emotional getriebenes Tempo' }}
+
+DEUTSCHE ERZÄHLTRADITION:
+- Berücksichtige deutsche Erzählkonventionen bezüglich Tempo
+- Beachte kulturelle Erwartungen an Erzählrhythmus
+- Respektiere literarische Tempomuster
+
+Bestimme, ob das Tempo für Genre und Ton angemessen ist.

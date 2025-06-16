@@ -182,7 +182,7 @@ class PlotThreadRegistry:
         return registry
 
 
-def identify_plot_threads_in_scene(scene_content: str, chapter_num: str, scene_num: str, characters: Dict[str, Any]) -> List[Dict[str, Any]]:
+def identify_plot_threads_in_scene(scene_content: str, chapter_num: str, scene_num: str, characters: Dict[str, Any], language: str = "english") -> List[Dict[str, Any]]:
     """
     Identify plot threads introduced or developed in a scene.
     
@@ -191,39 +191,22 @@ def identify_plot_threads_in_scene(scene_content: str, chapter_num: str, scene_n
         chapter_num: The chapter number
         scene_num: The scene number
         characters: The character data
+        language: The language for analysis
         
     Returns:
         A list of plot thread updates
     """
-    # Prepare the prompt for identifying plot threads
-    prompt = f"""
-    Analyze this scene from Chapter {chapter_num}, Scene {scene_num} to identify plot threads:
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    {scene_content}
-    
-    A plot thread is a narrative element that spans multiple scenes or chapters. Examples include:
-    - A mystery that needs to be solved
-    - A quest or mission characters are undertaking
-    - A relationship development between characters
-    - A conflict that needs resolution
-    - A secret that is gradually revealed
-    
-    For each plot thread you identify in this scene, provide:
-    1. Thread name: A concise name for the plot thread
-    2. Description: What this thread is about
-    3. Status: Is this thread being introduced for the first time, developed further, resolved, or abandoned?
-    4. Importance: Is this a major thread central to the plot, a minor thread, or background element?
-    5. Related characters: Which characters are involved in this thread
-    6. Development: How the thread develops in this specific scene
-    
-    Format your response as a list of plot thread objects, each with the following fields:
-    - thread_name: A concise name for the plot thread
-    - description: What this thread is about
-    - status: The thread status (introduced, developed, resolved, or abandoned)
-    - importance: The importance level (major, minor, or background)
-    - related_characters: A list of characters involved in this thread
-    - development: How the thread develops in this specific scene
-    """
+    # Render the plot thread identification prompt
+    prompt = render_prompt(
+        'plot_thread_identification',
+        language=language,
+        scene_content=scene_content,
+        chapter_num=chapter_num,
+        scene_num=scene_num
+    )
     try:
         # Define Pydantic models for structured output
         from typing import List, Optional
@@ -319,8 +302,11 @@ def update_plot_threads(state: StoryState) -> Dict[str, Any]:
         if not scene_content:
             raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
     
+    # Get language from state
+    language = state.get("language", "english")
+    
     # Identify plot threads in the scene
-    thread_updates = identify_plot_threads_in_scene(scene_content, current_chapter, current_scene, characters)
+    thread_updates = identify_plot_threads_in_scene(scene_content, current_chapter, current_scene, characters, language)
     
     # Load the plot thread registry from state
     registry = PlotThreadRegistry.from_state(state)

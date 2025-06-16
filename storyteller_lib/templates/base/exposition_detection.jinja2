@@ -1,0 +1,68 @@
+{# Base template for exposition detection - English version #}
+Analyze this scene for problematic exposition:
+
+SCENE CONTENT:
+{{ scene_content }}
+
+SCENE CONTEXT:
+- Chapter {{ current_chapter }}, Scene {{ current_scene }}
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+
+{% if characters %}
+CHARACTERS IN SCENE:
+{% for char in characters %}
+- {{ char.name }}: {{ char.role }}
+{% endfor %}
+{% endif %}
+
+EXPOSITION DETECTION CRITERIA:
+
+1. INFO-DUMPING (Score 1-10):
+   - Characters explaining things they already know
+   - Unnatural dialogue that exists only to inform reader
+   - Long monologues of backstory or world information
+   - "As you know" syndrome
+
+2. FORCED EXPOSITION (Score 1-10):
+   - Information shoehorned into conversations
+   - Characters thinking about things unnaturally
+   - Narrator intrusions with excessive detail
+   - Timing that feels contrived
+
+3. TELLING VS SHOWING (Score 1-10):
+   - Direct statements instead of demonstrations
+   - Emotions told rather than shown
+   - Character traits explained rather than revealed
+   - World details listed rather than experienced
+
+4. PACING IMPACT (Score 1-10):
+   - Exposition that stops story momentum
+   - Information overload in single scenes
+   - Backstory interrupting action
+   - Details that slow reader engagement
+
+TYPES OF EXPOSITION TO IDENTIFY:
+- Backstory dumps
+- World-building lectures
+- Character history monologues
+- Technical/magical system explanations
+- Historical context intrusions
+- Relationship explanations
+- Motivational speeches that over-explain
+
+For each instance of problematic exposition:
+1. Quote the specific passage
+2. Identify the type of exposition
+3. Explain why it's problematic
+4. Rate severity (1-10)
+5. Suggest how to integrate it more naturally
+
+GOOD EXPOSITION EXAMPLES:
+- Information revealed through action
+- Details emerging from character interactions
+- World-building through sensory experience
+- Backstory revealed through behavior
+- Conflict that naturally exposes information
+
+Identify ALL instances of heavy-handed exposition and provide specific, actionable suggestions for improvement.
