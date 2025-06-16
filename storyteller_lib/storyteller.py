@@ -15,31 +15,27 @@ from storyteller_lib.memory_manager import manage_memory, search_memory
 from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.graph_with_db import build_story_graph_with_db
 
-def get_genre_key_elements(genre: str) -> List[str]:
+def get_genre_key_elements(genre: str, language: str = "english") -> List[str]:
     """
     Get key elements that should be present in a story of the specified genre.
     Uses LLM to generate genre-specific elements for flexibility with any genre.
     
     Args:
         genre: The genre of the story (e.g., fantasy, sci-fi, mystery)
+        language: The language for the elements
         
     Returns:
         A list of key elements for the genre
     """
-    # Use LLM to generate genre-specific elements
-    prompt = f"""
-    Identify the 5-7 most important elements that should be present in a {genre} story.
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    These elements should include:
-    - Plot structures typical of {genre}
-    - Character types commonly found in {genre}
-    - Setting characteristics appropriate for {genre}
-    - Themes and motifs associated with {genre}
-    - Stylistic elements expected in {genre}
-    
-    Format your response as a simple list of elements, one per line, without numbering or bullet points.
-    Each element should be a concise phrase (5-10 words) describing a key aspect of {genre} stories.
-    """
+    # Render the genre key elements prompt
+    prompt = render_prompt(
+        'genre_key_elements',
+        language=language,
+        genre=genre
+    )
     
     try:
         # Get genre elements from LLM
@@ -126,22 +122,15 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
         # Create a structured LLM that outputs a StoryElements object
         structured_llm = llm.with_structured_output(StoryElements)
         
-        # Use the structured LLM to extract key elements
-        prompt = f"""
-        CRITICAL TASK: Analyze this initial story idea and extract the key elements EXACTLY as they appear:
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
         
-        "{initial_idea}"
-        
-        Extract and structure the following elements as they appear in the idea:
-        1. Setting - The primary location or environment where the story takes place (e.g., "small northern German coastal village")
-        2. Characters - The key individuals or entities in the story with their roles or descriptions (e.g., "old fisherman detective")
-        3. Plot - The main problem, challenge, or storyline (e.g., "figuring out who stole the statue from the fish market")
-        4. Themes - Any specific themes or motifs mentioned
-        5. Genre elements - Any specific genre elements that should be emphasized (e.g., "hard boiled detective story")
-        
-        Be EXTREMELY precise and faithful to the original idea. Do not substitute, generalize, or omit elements.
-        If the idea explicitly mentions a setting, character, or plot element, you MUST include it exactly as stated.
-        """
+        # Render the parse initial idea prompt
+        prompt = render_prompt(
+            'parse_initial_idea',
+            language="english",  # Always parse in English for consistency
+            initial_idea=initial_idea
+        )
         
         # Invoke the structured LLM
         idea_elements = structured_llm.invoke(prompt)
@@ -564,7 +553,7 @@ def generate_story(
         "value": {
             "genre": genre,
             "tone": tone,
-            "key_elements": get_genre_key_elements(genre)
+            "key_elements": get_genre_key_elements(genre, language)
         },
         "namespace": MEMORY_NAMESPACE
     })

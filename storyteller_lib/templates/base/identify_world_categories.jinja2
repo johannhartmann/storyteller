@@ -1,0 +1,32 @@
+{# Base template for identifying relevant world categories - English version #}
+Based on this chapter outline, which world-building categories are most relevant?
+
+CHAPTER OUTLINE:
+{{ chapter_outline }}
+
+AVAILABLE CATEGORIES:
+{{ available_categories | join(', ') }}
+
+Select only the categories that are DIRECTLY relevant to the events, themes, or settings in this chapter.
+For example:
+- If characters are traveling, 'geography' is relevant
+- If there's political intrigue, 'politics' is relevant
+- If magic is being used, 'magic_system' or 'technology_magic' is relevant
+- If social interactions occur, 'culture' may be relevant
+- If commerce happens, 'economics' is relevant
+
+Be selective - choose only what's actually needed for this chapter.
+
+SELECTION GUIDELINES:
+- Focus on categories that directly impact the chapter's events
+- Include categories for settings where action takes place
+- Add categories for systems or elements characters interact with
+- Avoid categories that are merely background information
+- Prioritize categories that affect character decisions or plot
+
+COMMON RELEVANCE PATTERNS:
+- Action scenes: geography, technology/magic
+- Political scenes: politics, culture, economics
+- Character moments: culture, daily_life, religion
+- Travel scenes: geography, culture
+- Mystery/investigation: any category containing clues

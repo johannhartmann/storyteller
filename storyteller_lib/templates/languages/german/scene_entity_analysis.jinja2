@@ -1,0 +1,34 @@
+{# German template for scene entity analysis #}
+Analysiere diese Szene und identifiziere, welche Figuren und Weltelemente relevant sind.
+
+KAPITELÜBERSICHT:
+{{ chapter_outline }}
+
+SZENENBESCHREIBUNG:
+{{ scene_description }}
+
+VERFÜGBARE FIGUREN:
+{{ available_characters | join(', ') }}
+
+VERFÜGBARE WELTKATEGORIEN:
+{{ world_categories | join(', ') }}
+
+Identifiziere basierend auf der Kapitelübersicht und Szenenbeschreibung:
+1. Welche Figuren wahrscheinlich auftreten oder direkt relevant für diese Szene sind
+2. Welche Orte erwähnt oder impliziert werden
+3. Welche Weltelementkategorien (wie Magiesystem, Technologie, etc.) relevant sind
+4. Spezifische Handlungselemente oder Objekte, die wichtig sind
+
+Sei selektiv - füge nur Entitäten ein, die direkt relevant für diese spezifische Szene sind.
+
+AUSWAHLKRITERIEN:
+- Figuren: Nur jene, die aktiv teilnehmen oder direkt erwähnt werden
+- Orte: Nur Plätze, wo Handlung stattfindet oder explizit erwähnt werden
+- Weltkategorien: Nur Systeme/Elemente, die diese Szene beeinflussen
+- Handlungselemente: Nur Objekte/Konzepte, die für die Szenenereignisse entscheidend sind
+
+VERMEIDE EINZUFÜGEN:
+- Figuren nur weil sie in der Geschichte existieren
+- Orte ohne Relevanz zur aktuellen Handlung
+- Weltelemente, die in dieser Szene nicht verwendet werden
+- Hintergrundinformationen, die jetzt nicht benötigt werden

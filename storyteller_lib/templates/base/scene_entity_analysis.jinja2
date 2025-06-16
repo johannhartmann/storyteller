@@ -1,0 +1,34 @@
+{# Base template for scene entity analysis - English version #}
+Analyze this scene and identify which characters and world elements are relevant.
+
+CHAPTER OUTLINE:
+{{ chapter_outline }}
+
+SCENE DESCRIPTION:
+{{ scene_description }}
+
+AVAILABLE CHARACTERS:
+{{ available_characters | join(', ') }}
+
+AVAILABLE WORLD CATEGORIES:
+{{ world_categories | join(', ') }}
+
+Based on the chapter outline and scene description, identify:
+1. Which characters are likely to appear or be directly relevant to this scene
+2. Which locations are mentioned or implied
+3. Which world element categories (like magic_system, technology, etc.) are relevant
+4. Any specific plot elements or objects that are important
+
+Be selective - only include entities that are directly relevant to this specific scene.
+
+SELECTION CRITERIA:
+- Characters: Only those who actively participate or are directly referenced
+- Locations: Only places where action occurs or are explicitly mentioned
+- World categories: Only systems/elements that affect this scene
+- Plot elements: Only objects/concepts crucial to this scene's events
+
+AVOID INCLUDING:
+- Characters just because they exist in the story
+- Locations not relevant to current action
+- World elements not used in this scene
+- Background information not needed now

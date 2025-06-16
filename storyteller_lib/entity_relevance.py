@@ -23,7 +23,8 @@ class RelevantEntities(BaseModel):
 
 def analyze_scene_entities(chapter_outline: str, scene_description: str, 
                          all_characters: Dict[str, Any],
-                         world_elements: Dict[str, Any]) -> RelevantEntities:
+                         world_elements: Dict[str, Any],
+                         language: str = "english") -> RelevantEntities:
     """Use LLM to intelligently analyze which entities are relevant to a scene.
     
     Args:
@@ -46,28 +47,18 @@ def analyze_scene_entities(chapter_outline: str, scene_description: str,
     # Prepare world categories
     world_categories = list(world_elements.keys()) if world_elements else []
     
-    # Create analysis prompt
-    prompt = f"""Analyze this scene and identify which characters and world elements are relevant.
-
-CHAPTER OUTLINE:
-{chapter_outline}
-
-SCENE DESCRIPTION:
-{scene_description}
-
-AVAILABLE CHARACTERS:
-{', '.join(character_list)}
-
-AVAILABLE WORLD CATEGORIES:
-{', '.join(world_categories)}
-
-Based on the chapter outline and scene description, identify:
-1. Which characters are likely to appear or be directly relevant to this scene
-2. Which locations are mentioned or implied
-3. Which world element categories (like magic_system, technology, etc.) are relevant
-4. Any specific plot elements or objects that are important
-
-Be selective - only include entities that are directly relevant to this specific scene."""
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Render the scene entity analysis prompt
+    prompt = render_prompt(
+        'scene_entity_analysis',
+        language=language,
+        chapter_outline=chapter_outline,
+        scene_description=scene_description,
+        available_characters=character_list,
+        world_categories=world_categories
+    )
 
     try:
         # Use structured output
