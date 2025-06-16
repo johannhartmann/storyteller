@@ -540,7 +540,7 @@ class StoryDatabase:
             # Create query
             placeholders = ', '.join(['?' for _ in values])
             field_names = ', '.join(fields)
-            query = f"INSERT INTO plot_threads ({field_names}) VALUES ({placeholders})"
+            query = f"INSERT OR REPLACE INTO plot_threads ({field_names}) VALUES ({placeholders})"
             
             cursor.execute(query, values)
             conn.commit()

@@ -9,6 +9,7 @@ import os
 from typing import Dict, List, Any
 from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm
+from storyteller_lib.memory_manager import manage_memory, search_memory
 
 # Import the graph builder
 from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
@@ -258,10 +259,7 @@ def extract_partial_story(
     # Try to get the title and global story from memory
     try:
         title = ""
-        global_story = search_memory_tool.invoke({
-            "query": "global story outline or plot summary",
-            "namespace": MEMORY_NAMESPACE
-        })
+        global_story = search_memory(query="global story outline or plot summary", namespace=MEMORY_NAMESPACE)
         
         if global_story:
             # Extract a title
@@ -287,9 +285,7 @@ def extract_partial_story(
     try:
         # Get all chapters and scenes from memory
         # Use search_memory_tool to list all chapters
-        chapter_data = search_memory_tool.invoke({
-            "query": "chapter_"
-        })
+        chapter_data = search_memory(query="chapter_")
         
         if chapter_data and "keys" in chapter_data:
             chapter_keys = chapter_data["keys"]
@@ -322,9 +318,7 @@ def extract_partial_story(
             
             # Get scene data
             # Use search_memory_tool to list all scenes
-            scene_data = search_memory_tool.invoke({
-                "query": "scene_"
-            })
+            scene_data = search_memory(query="scene_")
             
             scene_dict = {}
             if scene_data and "keys" in scene_data:
@@ -403,9 +397,7 @@ def extract_partial_story(
         # Try to populate the state with recovered data
         try:
             # Recover chapters and scenes
-            chapter_data = search_memory_tool.invoke({
-                "query": "chapter_"
-            })
+            chapter_data = search_memory(query="chapter_")
             
             if chapter_data and "keys" in chapter_data:
                 for key in chapter_data["keys"]:
@@ -427,17 +419,13 @@ def extract_partial_story(
                             state["chapters"][ch_num] = ch_data_result["value"]
             
             # Recover characters
-            character_data = search_memory_tool.invoke({
-                "query": "character_"
-            })
+            character_data = search_memory(query="character_")
             
             if character_data and "keys" in character_data:
                 for key in character_data["keys"]:
                     if key.startswith("character_") and not key.startswith("character_arc_"):
                         char_name = key[10:]  # Remove "character_" prefix
-                        char_data = search_memory_tool.invoke({
-                            "query": key
-                        })
+                        char_data = search_memory(query=key)
                         
                         # Extract the character data
                         char_data_result = None
@@ -451,9 +439,7 @@ def extract_partial_story(
                             state["characters"][char_name] = char_data_result["value"]
             
             # Recover world elements
-            world_data = search_memory_tool.invoke({
-                "query": "world_elements"
-            })
+            world_data = search_memory(query="world_elements")
             
             if world_data:
                 # Extract the world elements data
@@ -708,9 +694,7 @@ def generate_story(
     
     # Fall back to memory search if database not available
     try:
-        complete_story = search_memory_tool.invoke({
-            "query": "complete final story with all chapters and scenes"
-        })
+        complete_story = search_memory(query="complete final story with all chapters and scenes")
         
         if complete_story:
             return complete_story
@@ -719,9 +703,7 @@ def generate_story(
     
     # If search fails, try direct key lookup
     try:
-        complete_story_obj = search_memory_tool.invoke({
-            "query": "final_story"
-        })
+        complete_story_obj = search_memory(query="final_story")
         
         # Extract the complete story from the results
         complete_story_result = None

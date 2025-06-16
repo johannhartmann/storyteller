@@ -17,6 +17,7 @@ from storyteller_lib.config import (
     DEFAULT_LANGUAGE, MEMORY_NAMESPACE, SUPPORTED_LANGUAGES,
     llm, manage_memory_tool, search_memory_tool
 )
+from storyteller_lib.memory_manager import manage_memory, search_memory
 from storyteller_lib.constants import NodeNames, SceneElements
 from storyteller_lib.logger import scene_logger as logger
 from storyteller_lib.models import StoryState
@@ -185,10 +186,7 @@ def _retrieve_language_elements(language: str) -> Tuple[Optional[Dict], str, str
     
     # Try to retrieve language consistency instruction
     try:
-        consistency_result = search_memory_tool.invoke({
-            "query": "language_consistency_instruction",
-            "namespace": MEMORY_NAMESPACE
-        })
+        consistency_result = search_memory(query="language_consistency_instruction", namespace=MEMORY_NAMESPACE)
         
         # Handle different return types from search_memory_tool
         if consistency_result:
@@ -358,38 +356,42 @@ def _generate_previous_scenes_summary(state: StoryState, db_manager) -> str:
     
     # Get previous scenes from database
     if db_manager and db_manager._db:
-        # First, add summaries from ALL previous chapters to prevent repetition
+        # First, add EVENT-BASED summaries from ALL previous chapters
         if int(current_chapter) > 1:
-            summary_parts.append("=== PREVIOUS CHAPTERS SUMMARY ===")
+            summary_parts.append("=== KEY EVENTS FROM PREVIOUS CHAPTERS ===")
             for chapter_num in range(1, int(current_chapter)):
-                # Get all scenes from this chapter
+                # Get story events for this chapter
                 with db_manager._db._get_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute("""
-                        SELECT s.scene_number, s.content
-                        FROM scenes s
-                        JOIN chapters c ON s.chapter_id = c.id
-                        WHERE c.chapter_number = ?
-                        ORDER BY s.scene_number
+                        SELECT event_type, event_description, participants
+                        FROM story_events
+                        WHERE chapter_number = ?
+                        ORDER BY scene_number
                     """, (chapter_num,))
-                    scenes = cursor.fetchall()
+                    events = cursor.fetchall()
                     
-                    if scenes:
-                        # Get first and last scenes for chapter summary
-                        first_scene = scenes[0]['content']
-                        last_scene = scenes[-1]['content']
-                        
-                        # Extract key points from first and last scenes
-                        first_paras = first_scene.strip().split('\n\n')[:2]
-                        last_paras = last_scene.strip().split('\n\n')[-2:]
-                        
-                        chapter_start = ' '.join(first_paras)
-                        chapter_end = ' '.join(last_paras)
-                        
-                        summary_parts.append(f"\nChapter {chapter_num} Summary:")
-                        summary_parts.append(f"Beginning: {chapter_start}")
-                        summary_parts.append(f"Ending: {chapter_end}")
+                    if events:
+                        summary_parts.append(f"\nChapter {chapter_num} Events:")
+                        for event in events[:3]:  # Limit to 3 key events per chapter
+                            summary_parts.append(f"- {event['event_type']}: {event['event_description']}")
                         summary_parts.append("---")
+                    else:
+                        # Fallback to extracting from content if no events logged
+                        cursor.execute("""
+                            SELECT s.scene_number, s.content
+                            FROM scenes s
+                            JOIN chapters c ON s.chapter_id = c.id
+                            WHERE c.chapter_number = ?
+                            ORDER BY s.scene_number
+                            LIMIT 1
+                        """, (chapter_num,))
+                        result = cursor.fetchone()
+                        if result:
+                            # Extract just the key action
+                            content = result['content'][:500]
+                            summary_parts.append(f"\nChapter {chapter_num}: [Scene content begins with maintenance/routine work]")
+                            summary_parts.append("---")
         # Add previous chapter ending if this is the first scene
         if current_scene == "1" and int(current_chapter) > 1:
             prev_chapter_num = int(current_chapter) - 1
@@ -415,18 +417,40 @@ def _generate_previous_scenes_summary(state: StoryState, db_manager) -> str:
                 if paragraphs:
                     summary_parts.append(f"Previous Chapter Ending: {paragraphs[-1][:200]}...")
         
-        # Add previous scenes in current chapter (increased from 3 to 10 for better context)
+        # Add previous scenes in current chapter as EVENT SUMMARIES
         if int(current_scene) > 1:
-            # Get previous scenes up to 10 scenes back
-            scene_start = max(1, int(current_scene) - 10)
-            for i in range(scene_start, int(current_scene)):
-                content = db_manager.get_scene_content(int(current_chapter), i)
-                if content:
-                    # Get first two paragraphs as summary (increased from just first)
-                    paragraphs = content.strip().split('\n\n')
-                    summary = ' '.join(paragraphs[:2])
-                    # Don't truncate - provide full context to avoid repetition
-                    summary_parts.append(f"Scene {i}: {summary}")
+            summary_parts.append(f"\n=== PREVIOUS SCENES IN CHAPTER {current_chapter} ===")
+            
+            # Get events from previous scenes
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT scene_number, event_type, event_description
+                    FROM story_events
+                    WHERE chapter_number = ? AND scene_number < ?
+                    ORDER BY scene_number
+                """, (int(current_chapter), int(current_scene)))
+                events = cursor.fetchall()
+                
+                if events:
+                    for event in events:
+                        summary_parts.append(f"Scene {event['scene_number']}: {event['event_type']} - {event['event_description']}")
+                else:
+                    # Fallback: extract key information from scenes
+                    for i in range(1, int(current_scene)):
+                        # Get character knowledge updates
+                        cursor.execute("""
+                            SELECT knowledge_item
+                            FROM character_knowledge
+                            WHERE chapter_number = ? AND scene_number = ?
+                            LIMIT 2
+                        """, (int(current_chapter), i))
+                        knowledge = cursor.fetchall()
+                        
+                        if knowledge:
+                            summary_parts.append(f"Scene {i}: Character learned - {', '.join([k['knowledge_item'] for k in knowledge])}")
+                        else:
+                            summary_parts.append(f"Scene {i}: [Routine maintenance and system checks]")
     
     # Look for recent important events in memory
     try:
@@ -500,12 +524,59 @@ def write_scene(state: StoryState) -> Dict:
     
     # Import optimization utilities
     from storyteller_lib.prompt_optimization import (
-        get_relevant_characters, summarize_world_elements,
+        summarize_world_elements,
         truncate_scene_content, log_prompt_size
+    )
+    
+    # Import entity relevance detection
+    from storyteller_lib.entity_relevance import (
+        analyze_scene_entities, filter_characters_for_scene,
+        filter_world_elements_for_scene, get_scene_relevant_plot_threads
+    )
+    
+    # Import scene progression and variety tracking
+    from storyteller_lib.scene_progression import SceneProgressionTracker
+    from storyteller_lib.scene_variety import (
+        determine_scene_variety_requirements, generate_scene_variety_guidance,
+        get_overused_elements
     )
     
     # Import story summary for comprehensive context
     from storyteller_lib.story_summary import get_story_summary_for_context
+    
+    # Initialize progression tracker
+    progression_tracker = SceneProgressionTracker()
+    
+    # Get previous scene metadata for variety analysis
+    previous_scenes = []
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.scene_number, se.event_type, se.event_description
+                FROM scenes s
+                LEFT JOIN story_events se ON se.chapter_number = ? AND se.scene_number = s.scene_number
+                JOIN chapters c ON s.chapter_id = c.id
+                WHERE c.chapter_number = ?
+                ORDER BY s.scene_number
+            """, (int(current_chapter), int(current_chapter)))
+            for row in cursor.fetchall():
+                previous_scenes.append({
+                    'scene_number': row['scene_number'],
+                    'event_types': [row['event_type']] if row['event_type'] else []
+                })
+    
+    # Determine variety requirements
+    total_scenes = len(state.get("chapters", {}).get(current_chapter, {}).get("scenes", {}))
+    variety_requirements = determine_scene_variety_requirements(
+        previous_scenes=previous_scenes,
+        chapter_outline=chapter_outline,
+        scene_number=int(current_scene),
+        total_scenes_in_chapter=total_scenes
+    )
+    
+    # Get overused elements to avoid
+    overused_elements = get_overused_elements(progression_tracker)
     
     # Get characters from database
     all_characters = {}
@@ -524,12 +595,8 @@ def write_scene(state: StoryState) -> Dict:
                     'personality': row['personality']
                 }
     
-    # Get only relevant characters for this scene
-    scene_context = f"{chapter_outline}\n{scene_description}"
-    relevant_characters = get_relevant_characters(all_characters, scene_context, max_characters=5)
-    
     # Get world information from database
-    world_elements = {}
+    all_world_elements = {}
     if db_manager and db_manager._db:
         with db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
@@ -538,9 +605,39 @@ def write_scene(state: StoryState) -> Dict:
                 FROM world_elements
             """)
             for row in cursor.fetchall():
-                if row['category'] not in world_elements:
-                    world_elements[row['category']] = {}
-                world_elements[row['category']][row['element_key']] = row['element_value']
+                if row['category'] not in all_world_elements:
+                    all_world_elements[row['category']] = {}
+                all_world_elements[row['category']][row['element_key']] = row['element_value']
+    
+    # Use intelligent entity analysis to determine what's relevant
+    relevant_entities = analyze_scene_entities(
+        chapter_outline=chapter_outline,
+        scene_description=scene_description,
+        all_characters=all_characters,
+        world_elements=all_world_elements
+    )
+    
+    # Filter to only relevant characters
+    relevant_characters = filter_characters_for_scene(
+        all_characters=all_characters,
+        relevant_entities=relevant_entities,
+        include_limit=5
+    )
+    
+    # Filter to only relevant world elements
+    world_elements = filter_world_elements_for_scene(
+        world_elements=all_world_elements,
+        relevant_entities=relevant_entities,
+        include_limit=3
+    )
+    
+    # Filter plot threads to only relevant ones
+    filtered_plot_threads = get_scene_relevant_plot_threads(
+        plot_threads=active_plot_threads,
+        relevant_entities=relevant_entities,
+        chapter_num=current_chapter,
+        scene_num=current_scene
+    )
     
     # Identify which characters are in this scene
     scene_characters = list(relevant_characters.keys())
@@ -596,14 +693,18 @@ def write_scene(state: StoryState) -> Dict:
     {author_guidance}
     {language_guidance}
     
+    {generate_scene_variety_guidance(variety_requirements)}
+    
     CRITICAL ANTI-REPETITION GUIDELINES:
     1. DO NOT repeat any events, descriptions, or dialogue from the previous chapters summary above
     2. DO NOT reuse character introductions - assume readers know established characters
-    3. DO NOT repeat the same descriptive phrases (e.g., "charmingly crooked", "unusually fertile") 
-    4. DO NOT have characters perform similar actions they've done in previous scenes
+    3. FORBIDDEN PHRASES that have been overused: {', '.join(f'"{elem}"' for elem in overused_elements if 'phrase:' in elem)}
+    4. DO NOT use these scene structures again: {', '.join(elem.replace('structure: ', '') for elem in overused_elements if 'structure:' in elem)}
     5. Each scene must show NEW developments, NOT variations of previous events
-    6. If a plot point has been established, build on it rather than re-establishing it
-    7. Vary your sentence structures and vocabulary - avoid repetitive patterns
+    6. Character knowledge state: Characters should act based on what they've learned in previous scenes
+    7. Vary your sentence structures - avoid starting multiple paragraphs the same way
+    8. DO NOT repeat these specific elements: visions of other worlds, system anomalies, dismissing symptoms as stress
+    9. This scene MUST be {variety_requirements.scene_type} focused, NOT another maintenance/vision scene
     
     WRITING GUIDELINES:
     1. Start the scene immediately with action, dialogue, or vivid description
@@ -671,6 +772,37 @@ def write_scene(state: StoryState) -> Dict:
     from storyteller_lib.story_progress_logger import log_progress
     log_progress("scene_content", chapter_num=current_chapter, scene_num=current_scene, 
                 scene_content=scene_content)
+    
+    # Track scene progression
+    try:
+        # Extract and track used phrases
+        phrases = progression_tracker.extract_phrases_from_content(scene_content)
+        progression_tracker.add_used_phrases(int(current_chapter), int(current_scene), phrases)
+        
+        # Analyze and track scene structure
+        from storyteller_lib.scene_variety import analyze_scene_structure
+        structure_analysis = analyze_scene_structure(scene_content)
+        progression_tracker.add_scene_structure(
+            int(current_chapter), 
+            int(current_scene), 
+            structure_analysis.structure_pattern,
+            variety_requirements.scene_type
+        )
+        
+        # Track main event (simplified for now)
+        main_event_type = variety_requirements.scene_type
+        main_event_desc = f"{variety_requirements.scene_type} scene with {', '.join(scene_characters[:2])}"
+        progression_tracker.add_story_event(
+            int(current_chapter),
+            int(current_scene),
+            main_event_type,
+            main_event_desc,
+            scene_characters
+        )
+        
+        logger.info(f"Tracked scene progression for Ch{current_chapter}/Sc{current_scene}")
+    except Exception as e:
+        logger.warning(f"Failed to track scene progression: {e}")
     
     # Return the updates to state
     return {

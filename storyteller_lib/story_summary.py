@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from storyteller_lib.config import get_llm, get_llm_with_structured_output, MEMORY_NAMESPACE, manage_memory_tool
 from storyteller_lib.database_integration import get_db_manager
+from storyteller_lib.memory_manager import manage_memory, search_memory
 
 logger = logging.getLogger(__name__)
 
@@ -292,12 +293,8 @@ def store_story_summary():
     """Store the current story summary in memory for quick access."""
     summary = generate_story_summary()
     
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "story_summary_comprehensive",
-        "value": summary,
-        "namespace": MEMORY_NAMESPACE
-    })
+    manage_memory(action="create", key="story_summary_comprehensive", value=summary,
+        namespace=MEMORY_NAMESPACE)
     
     logger.info("Stored comprehensive story summary in memory")
 

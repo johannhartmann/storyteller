@@ -8,10 +8,13 @@ from typing import Any, Dict, List
 
 # Local imports
 from storyteller_lib.scene_brainstorm import _prepare_creative_guidance, _prepare_plot_thread_guidance
+from storyteller_lib.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def _identify_relevant_world_categories(chapter_outline: str, world_elements: Dict) -> List[str]:
-    """Identify which world categories are most relevant for the current scene.
+    """Identify which world categories are most relevant for the current scene using LLM.
     
     Args:
         chapter_outline: The chapter outline text
@@ -20,37 +23,50 @@ def _identify_relevant_world_categories(chapter_outline: str, world_elements: Di
     Returns:
         List of relevant category names
     """
-    relevant_categories = []
+    from storyteller_lib.config import llm
+    from langchain_core.messages import HumanMessage
+    from pydantic import BaseModel, Field
     
-    # Keywords that suggest relevance for each category
-    category_keywords = {
-        "geography": ["location", "place", "travel", "journey", "landscape", "terrain", "weather", "climate"],
-        "history": ["past", "history", "ancient", "tradition", "legacy", "ancestor", "founding", "origin"],
-        "politics": ["power", "rule", "govern", "law", "authority", "council", "king", "queen", "noble"],
-        "economy": ["trade", "merchant", "gold", "coin", "market", "shop", "business", "wealth"],
-        "culture": ["custom", "tradition", "festival", "ritual", "ceremony", "belief", "art", "music"],
-        "magic_system": ["magic", "spell", "enchant", "wizard", "sorcerer", "power", "mystic", "arcane"],
-        "technology": ["device", "machine", "invention", "construct", "mechanism", "tool", "gear", "engine"],
-        "religion": ["god", "goddess", "divine", "priest", "temple", "faith", "prayer", "sacred"],
-        "social_structure": ["class", "caste", "noble", "common", "servant", "hierarchy", "status", "rank"]
-    }
+    class RelevantCategories(BaseModel):
+        """World categories relevant to the scene."""
+        categories: List[str] = Field(
+            description="List of world element categories that are directly relevant"
+        )
+        
+    available_categories = list(world_elements.keys())
     
-    outline_lower = chapter_outline.lower()
-    
-    # Check each category for keyword matches
-    for category, keywords in category_keywords.items():
-        if category in world_elements:
-            # Check if any keywords appear in the outline
-            for keyword in keywords:
-                if keyword in outline_lower:
-                    relevant_categories.append(category)
-                    break
-    
-    # Always include geography if it exists (location is fundamental)
-    if "geography" in world_elements and "geography" not in relevant_categories:
-        relevant_categories.insert(0, "geography")
-    
-    return relevant_categories
+    prompt = f"""Based on this chapter outline, which world-building categories are most relevant?
+
+CHAPTER OUTLINE:
+{chapter_outline}
+
+AVAILABLE CATEGORIES:
+{', '.join(available_categories)}
+
+Select only the categories that are DIRECTLY relevant to the events, themes, or settings in this chapter.
+For example:
+- If characters are traveling, 'geography' is relevant
+- If there's political intrigue, 'politics' is relevant
+- If magic is being used, 'magic_system' is relevant
+
+Be selective - choose only what's actually needed for this chapter."""
+
+    try:
+        structured_llm = llm.with_structured_output(RelevantCategories)
+        result = structured_llm.invoke(prompt)
+        
+        relevant_categories = [cat for cat in result.categories if cat in available_categories]
+        
+        # Ensure geography is included if we have any location-based content
+        if "geography" in world_elements and "geography" not in relevant_categories:
+            relevant_categories.insert(0, "geography")
+            
+        return relevant_categories[:3]  # Limit to 3 most relevant
+        
+    except Exception as e:
+        logger.error(f"Failed to identify relevant categories: {e}")
+        # Minimal fallback - just geography
+        return ["geography"] if "geography" in world_elements else []
 
 
 def _get_previously_established_elements(world_elements: Dict) -> str:

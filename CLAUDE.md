@@ -107,3 +107,6 @@ No formal test suite currently exists. Testing is done through running the story
 
 - Gemini's structured output has a problem with nested dictionaries - it's returning them as JSON strings instead of properly parsed objects.
 - NEVER USE JSON parsing, ALWAYs use structured output.
+- Always use `nix develop =c python` when starting python scripts
+- You can directly look into the database in ~/.storyteller/story_database.db
+- Use this command to run the storyteller for testing to reuse llm caching: `nix develop -c python run_storyteller.py --genre sci-fi --tone adventurous`

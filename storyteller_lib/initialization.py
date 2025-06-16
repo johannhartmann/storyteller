@@ -6,6 +6,7 @@ from typing import Dict
 
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
+from storyteller_lib.memory_manager import manage_memory, search_memory
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.messages.modifier import RemoveMessage
 from storyteller_lib import track_progress
@@ -40,20 +41,12 @@ def initialize_state(state: StoryState) -> Dict:
     # Ensure the idea elements are stored in memory for consistency checks
     if initial_idea:
         # Store the structured idea elements in memory for reference
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "initial_idea_elements",
-            "value": idea_elements,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="initial_idea_elements", value=idea_elements,
+            namespace=MEMORY_NAMESPACE)
         
         # Also store the raw initial idea for reference
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "initial_idea_raw",
-            "value": initial_idea,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="initial_idea_raw", value=initial_idea,
+            namespace=MEMORY_NAMESPACE)
         
         # Create a strong memory anchor for the initial idea to ensure it's preserved
         manage_memory_tool.invoke({
@@ -168,12 +161,8 @@ def initialize_state(state: StoryState) -> Dict:
             REMINDER: Even if you are analyzing, planning, or reflecting on the story, you MUST do so in {SUPPORTED_LANGUAGES[language.lower()]}.
             """
             
-            manage_memory_tool.invoke({
-                "action": "create",
-                "key": "language_consistency_instruction",
-                "value": language_consistency_instruction,
-                "namespace": MEMORY_NAMESPACE
-            })
+            manage_memory(action="create", key="language_consistency_instruction", value=language_consistency_instruction,
+                namespace=MEMORY_NAMESPACE)
         except Exception as e:
             print(f"Error generating language elements: {str(e)}")
             # If there's an error, we'll proceed without the language elements
@@ -226,9 +215,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     if not initial_idea:
         try:
             # Use search_memory_tool to retrieve the initial idea
-            results = search_memory_tool.invoke({
-                "query": "initial_idea_raw"
-            })
+            results = search_memory(query="initial_idea_raw")
             
             # Extract the initial idea from the results
             initial_idea_obj = None
@@ -248,11 +235,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     # If we have an initial idea but no elements, try to get them from memory
     if not initial_idea_elements and initial_idea:
         try:
-            elements_obj = search_memory_tool.invoke({
-                "query": "initial_idea_elements",
-                "key": "initial_idea_elements",
-                "namespace": MEMORY_NAMESPACE
-            })
+            elements_obj = search_memory(query="initial_idea_elements", namespace=MEMORY_NAMESPACE)
             if elements_obj and "value" in elements_obj:
                 if "extracted_elements" in elements_obj["value"]:
                     initial_idea_elements = elements_obj["value"]["extracted_elements"]
@@ -468,12 +451,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         validation_result = llm.invoke([HumanMessage(content=validation_prompt)]).content
         
         # Store the validation result in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "brainstorm_validation",
-            "value": validation_result,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="brainstorm_validation", value=validation_result,
+            namespace=MEMORY_NAMESPACE)
     
     # Store all creative elements
     creative_elements = {

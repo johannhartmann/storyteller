@@ -209,9 +209,31 @@ CREATE TABLE IF NOT EXISTS used_content_registry (
 CREATE INDEX IF NOT EXISTS idx_registry_content_type ON used_content_registry(content_type);
 CREATE INDEX IF NOT EXISTS idx_registry_scene_id ON used_content_registry(scene_id);
 
+-- 17. Memories table (replaces LangMem functionality)
+CREATE TABLE IF NOT EXISTS memories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    namespace TEXT DEFAULT 'storyteller',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(key, namespace)
+);
+
+-- Create indexes for memories table
+CREATE INDEX IF NOT EXISTS idx_memories_namespace ON memories(namespace);
+CREATE INDEX IF NOT EXISTS idx_memories_key ON memories(key);
+
 -- Trigger to update the updated_at timestamp on story_config
 CREATE TRIGGER IF NOT EXISTS update_story_config_timestamp 
 AFTER UPDATE ON story_config
 BEGIN
     UPDATE story_config SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+-- Trigger to update the updated_at timestamp on memories
+CREATE TRIGGER IF NOT EXISTS update_memories_timestamp 
+AFTER UPDATE ON memories
+BEGIN
+    UPDATE memories SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;

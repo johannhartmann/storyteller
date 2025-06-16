@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
+from storyteller_lib.memory_manager import manage_memory, search_memory
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib.creative_tools import parse_json_with_langchain
 from storyteller_lib import track_progress
@@ -305,8 +306,30 @@ def generate_story_outline(state: StoryState) -> Dict:
     """
     
     # Generate the story outline
-    story_outline = llm.invoke([HumanMessage(content=prompt)]).content
+    print(f"[DEBUG] About to generate story outline. Prompt length: {len(prompt)}")
+    logger.info("Generating story outline with LLM...")
+    logger.debug(f"Prompt length: {len(prompt)}")
+    try:
+        print("[DEBUG] Calling LLM...")
+        response = llm.invoke([HumanMessage(content=prompt)])
+        print(f"[DEBUG] LLM response type: {type(response)}")
+        story_outline = response.content
+        print(f"[DEBUG] Story outline length: {len(story_outline) if story_outline else 0}")
+        print(f"[DEBUG] Story outline preview: {story_outline[:100] if story_outline else 'EMPTY'}")
+        logger.info(f"LLM response type: {type(response)}")
+        logger.info(f"LLM response content type: {type(response.content)}")
+        logger.info(f"Generated story outline with length: {len(story_outline)}")
+        if not story_outline:
+            logger.error("LLM returned empty content!")
+            logger.debug(f"Full LLM response: {response}")
+    except Exception as e:
+        print(f"[DEBUG] Exception during LLM call: {e}")
+        logger.error(f"Failed to generate story outline: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        story_outline = ""
     # Perform multiple validation checks on the story outline
+    print(f"[DEBUG] Before validation, story_outline length: {len(story_outline)}")
     validation_results = {}
     
     # Validate language if not English
@@ -329,12 +352,8 @@ def generate_story_outline(state: StoryState) -> Dict:
         validation_results["language"] = language_validation_result
         
         # Store the validation result in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "outline_language_validation",
-            "value": language_validation_result,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="outline_language_validation", value=language_validation_result,
+            namespace=MEMORY_NAMESPACE)
     
     # 1. Validate that the outline adheres to the initial idea if one was provided
     if initial_idea and initial_idea_elements:
@@ -371,12 +390,8 @@ def generate_story_outline(state: StoryState) -> Dict:
         validation_results["initial_idea"] = idea_validation_result
         
         # Store the validation result in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "outline_idea_validation",
-            "value": idea_validation_result,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="outline_idea_validation", value=idea_validation_result,
+            namespace=MEMORY_NAMESPACE)
     
     # 2. Validate that the outline adheres to the specified genre
     genre_validation_prompt = f"""
@@ -428,12 +443,8 @@ def generate_story_outline(state: StoryState) -> Dict:
     validation_results["genre"] = genre_validation_result
     
     # Store the validation result in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "outline_genre_validation",
-        "value": genre_validation_result,
-        "namespace": MEMORY_NAMESPACE
-    })
+    manage_memory(action="create", key="outline_genre_validation", value=genre_validation_result,
+        namespace=MEMORY_NAMESPACE)
     
     # 3. Validate that the outline adheres to the specified setting if one was provided
     if initial_idea_elements and initial_idea_elements.get('setting'):
@@ -462,12 +473,8 @@ def generate_story_outline(state: StoryState) -> Dict:
         validation_results["setting"] = setting_validation_result
         
         # Store the validation result in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "outline_setting_validation",
-            "value": setting_validation_result,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="outline_setting_validation", value=setting_validation_result,
+            namespace=MEMORY_NAMESPACE)
     # Determine if we need to regenerate the outline based on validation results
     needs_regeneration = False
     improvement_guidance = ""
@@ -512,7 +519,11 @@ def generate_story_outline(state: StoryState) -> Dict:
             improvement_guidance += result.split("guidance on how to improve it:")[-1].strip() if "guidance on how to improve it:" in result else result
             improvement_guidance += "\n\n"
     
+    # Initialize final_verification_result for later use
+    final_verification_result = None
+    
     # If any validation failed, regenerate the outline
+    print(f"[DEBUG] Before regeneration check, story_outline length: {len(story_outline)}, needs_regeneration: {needs_regeneration}")
     if needs_regeneration:
         # Create a revised prompt with the improvement guidance
         language_instruction = ""
@@ -559,7 +570,12 @@ def generate_story_outline(state: StoryState) -> Dict:
         """
         
         # Regenerate the outline
-        story_outline = llm.invoke([HumanMessage(content=revised_prompt)]).content
+        logger.info("Regenerating story outline due to validation failures...")
+        print(f"[DEBUG] About to regenerate. Current story_outline length: {len(story_outline)}")
+        regenerated_outline = llm.invoke([HumanMessage(content=revised_prompt)]).content
+        print(f"[DEBUG] Regenerated outline length: {len(regenerated_outline)}")
+        story_outline = regenerated_outline
+        logger.info(f"Regenerated story outline with length: {len(story_outline)}")
         # Perform a final verification check to ensure the regenerated outline meets the requirements
         final_verification_prompt = f"""
         VERIFICATION CHECK: Evaluate whether this revised story outline meets all requirements.
@@ -585,7 +601,9 @@ def generate_story_outline(state: StoryState) -> Dict:
         """
         
         final_verification_result = llm.invoke([HumanMessage(content=final_verification_prompt)]).content
+        print(f"[DEBUG] Final verification result: {final_verification_result[:200]}")
         # If the outline still doesn't meet requirements, try one more time with additional guidance
+        print(f"[DEBUG] Checking if 'NO' in final_verification_result: {'NO' in final_verification_result}")
         if "NO" in final_verification_result:
             language_instruction = ""
             if language.lower() != DEFAULT_LANGUAGE:
@@ -624,15 +642,24 @@ def generate_story_outline(state: StoryState) -> Dict:
             """
             
             # Final regeneration attempt
-            story_outline = llm.invoke([HumanMessage(content=final_attempt_prompt)]).content
+            print(f"[DEBUG] Final regeneration attempt. Current story_outline length: {len(story_outline)}")
+            try:
+                final_response = llm.invoke([HumanMessage(content=final_attempt_prompt)])
+                final_outline = final_response.content
+                print(f"[DEBUG] Final regenerated outline length: {len(final_outline)}")
+                print(f"[DEBUG] Final outline preview: {final_outline[:100] if final_outline else 'EMPTY!'}")
+                if final_outline:
+                    story_outline = final_outline
+                else:
+                    print("[DEBUG] Final LLM call returned empty content! Keeping previous outline.")
+                    # Keep the previous outline instead of overwriting with empty
+            except Exception as e:
+                print(f"[DEBUG] Exception in final regeneration: {e}")
+                # Keep the previous outline on error
         
         # Store the revised outline
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "story_outline_revised",
-            "value": story_outline,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="story_outline_revised", value=story_outline,
+            namespace=MEMORY_NAMESPACE)
         
         # Store the combined validation results
         manage_memory_tool.invoke({
@@ -641,18 +668,35 @@ def generate_story_outline(state: StoryState) -> Dict:
             "value": {
                 "initial_validation": validation_results,
                 "improvement_guidance": improvement_guidance,
-                "final_verification": final_verification_result,
+                "final_verification": final_verification_result if final_verification_result else "Not performed",
                 "regenerated": True
             },
             "namespace": MEMORY_NAMESPACE
         })
         
+    # Ensure we have a story outline to store
+    print(f"[DEBUG] Final check - story_outline length: {len(story_outline) if story_outline else 0}")
+    print(f"[DEBUG] Final check - story_outline type: {type(story_outline)}")
+    if not story_outline:
+        logger.error("CRITICAL: story_outline is empty after all generation attempts!")
+        print("[DEBUG] story_outline is empty or None!")
+        # Try to recover from memory if possible
+        try:
+            memory_result = search_memory(query="story_outline_revised", namespace=MEMORY_NAMESPACE)
+            if memory_result and len(memory_result) > 0:
+                story_outline = memory_result[0].get('value', '')
+                logger.info(f"Recovered story outline from memory with length: {len(story_outline)}")
+        except:
+            pass
+            
+        if not story_outline:
+            # Generate a minimal outline as last resort
+            logger.error("Generating emergency fallback outline...")
+            story_outline = f"Emergency outline for {genre} story with {tone} tone. This should not happen."
+    
     # Store in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "story_outline",
-        "value": story_outline
-    })
+    logger.info(f"About to store story outline in memory. Length: {len(story_outline)}")
+    manage_memory(action="create", key="story_outline", value=story_outline)
     
     # Log the story outline
     log_progress("story_outline", outline=story_outline)
@@ -704,16 +748,30 @@ def generate_story_outline(state: StoryState) -> Dict:
         raise RuntimeError("Database manager not available - cannot store story outline")
     
     try:
+        # Log the outline length for debugging
+        logger.info(f"Attempting to store story outline of length {len(story_outline)} to database")
+        
         # Update the global story in the database
         db_manager.update_global_story(story_outline)
-        logger.info("Story outline stored in database")
+        logger.info("Story outline stored in database successfully")
+        
+        # Verify it was stored
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT global_story FROM story_config WHERE id = 1")
+            result = cursor.fetchone()
+            if result and result['global_story']:
+                logger.info(f"Verified: Story outline in database has length {len(result['global_story'])}")
+            else:
+                logger.error("Warning: Story outline appears empty in database after save!")
+                
     except Exception as e:
         logger.error(f"Failed to store story outline in database: {e}")
         raise RuntimeError(f"Could not store story outline in database: {e}")
     
-    # Return minimal state update - just first 500 chars for routing context
+    # Return the full story outline in state
     return {
-        "global_story": story_outline[:500] + "...",
+        "global_story": story_outline,  # Return full outline, not truncated
         "plot_threads": plot_threads,  # Add generated plot threads to state
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],
@@ -826,12 +884,8 @@ def plan_chapters(state: StoryState) -> Dict:
         language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
         
         # Store the validation result in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "chapter_plan_language_validation",
-            "value": language_validation_result,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="chapter_plan_language_validation", value=language_validation_result,
+            namespace=MEMORY_NAMESPACE)
         
         # If language validation fails, regenerate with stronger language instruction
         if "NO" in language_validation_result:

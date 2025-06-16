@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, AIMessage, RemoveMessage
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
+from storyteller_lib.memory_manager import manage_memory, search_memory
 from storyteller_lib import track_progress
 from storyteller_lib.creative_tools import parse_json_with_langchain
 from storyteller_lib.logger import get_logger
@@ -502,19 +503,29 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     with db_manager._db._get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT global_story FROM story_config WHERE id = 1"
+            "SELECT id, global_story, genre, tone FROM story_config WHERE id = 1"
         )
         result = cursor.fetchone()
         
         if not result:
             logger.error("No story configuration found in database")
+            # Try to check if any rows exist
+            cursor.execute("SELECT COUNT(*) FROM story_config")
+            count = cursor.fetchone()[0]
+            logger.error(f"Total rows in story_config: {count}")
             raise RuntimeError("Story configuration not found in database")
         
+        logger.info(f"Found story config row with id={result['id']}")
         global_story = result['global_story']
         
         if not global_story or global_story.strip() == "":
-            logger.error("Story configuration exists but has empty global_story")
-            raise RuntimeError("Story outline is empty in database")
+            logger.error(f"Story configuration exists but has empty global_story. Genre={result['genre']}, Tone={result['tone']}")
+            # Check state for global_story
+            if 'global_story' in state and state['global_story']:
+                logger.info(f"Found global_story in state with length {len(state['global_story'])}")
+                global_story = state['global_story']
+            else:
+                raise RuntimeError("Story outline is empty in database")
         
         logger.info(f"Retrieved global story for worldbuilding (length: {len(global_story)} chars)")
     
@@ -626,23 +637,15 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     }
     
     # Store the world state tracker in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "world_state_tracker",
-        "value": world_state_tracker,
-        "namespace": MEMORY_NAMESPACE
-    })
+    manage_memory(action="create", key="world_state_tracker", value=world_state_tracker,
+        namespace=MEMORY_NAMESPACE)
     
     # Generate a summary of the world
     world_summary = generate_world_summary(world_elements, genre, tone, language)
     
     # Store the world summary in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "world_summary",
-        "value": world_summary,
-        "namespace": MEMORY_NAMESPACE
-    })
+    manage_memory(action="create", key="world_summary", value=world_summary,
+        namespace=MEMORY_NAMESPACE)
     
     # Log world elements
     from storyteller_lib.story_progress_logger import log_progress
