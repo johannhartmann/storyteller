@@ -302,11 +302,12 @@ class SceneProgressionTracker:
                 'total_scenes': sum(scene_types.values())
             }
     
-    def extract_phrases_from_content(self, content: str) -> Dict[str, List[str]]:
+    def extract_phrases_from_content(self, content: str, language: str = "english") -> Dict[str, List[str]]:
         """Extract notable phrases from scene content for tracking using LLM.
         
         Args:
             content: Scene content text
+            language: The language of the content
             
         Returns:
             Dictionary of phrase types to lists of phrases
@@ -314,6 +315,7 @@ class SceneProgressionTracker:
         from storyteller_lib.config import llm
         from langchain_core.messages import HumanMessage
         from pydantic import BaseModel, Field
+        from storyteller_lib.prompt_templates import render_prompt
         
         class ExtractedPhrases(BaseModel):
             """Phrases extracted from scene content."""
@@ -330,16 +332,12 @@ class SceneProgressionTracker:
         # Only analyze first 1000 chars to save tokens
         content_sample = content[:1000] if len(content) > 1000 else content
         
-        prompt = f"""Analyze this scene excerpt and extract phrases that could become repetitive if overused:
-
-{content_sample}
-
-Extract:
-1. Descriptive phrases (especially unusual adjectives or sensory descriptions)
-2. Metaphors and similes
-3. Character actions or gestures
-
-Focus on phrases that are distinctive or unusual - not common words."""
+        # Render the phrase extraction prompt
+        prompt = render_prompt(
+            'phrase_extraction',
+            language=language,
+            content_sample=content_sample
+        )
 
         try:
             structured_llm = llm.with_structured_output(ExtractedPhrases)

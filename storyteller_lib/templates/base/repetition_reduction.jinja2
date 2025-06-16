@@ -1,0 +1,56 @@
+{# Base template for repetition reduction - English version #}
+Revise this text to reduce repetition:
+
+{{ text }}
+
+REPETITION ANALYSIS:
+Overall Repetition Score: {{ overall_score }}/10
+
+{% if repetitive_phrases %}
+Repetitive Phrases:
+{% for phrase in repetitive_phrases %}
+- "{{ phrase.element }}" ({{ phrase.occurrences }} times) - Alternatives: {{ phrase.alternatives | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if repetitive_descriptions %}
+Repetitive Descriptions:
+{% for desc in repetitive_descriptions %}
+- "{{ desc.element }}" ({{ desc.occurrences }} times) - Alternatives: {{ desc.alternatives | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if repetitive_character_traits %}
+Repetitive Character Traits:
+{% for trait in repetitive_character_traits %}
+- "{{ trait.element }}" ({{ trait.occurrences }} times) - Alternatives: {{ trait.alternatives | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if repetitive_themes %}
+Repetitive Themes:
+{% for theme in repetitive_themes %}
+- "{{ theme.element }}" ({{ theme.occurrences }} times) - Alternatives: {{ theme.alternatives | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if recommendations %}
+Recommendations:
+{% for rec in recommendations %}
+- {{ rec }}
+{% endfor %}
+{% endif %}
+
+Your task:
+1. Replace repeated phrases with varied alternatives
+2. Diversify descriptive elements
+3. Vary character trait expressions
+4. Rephrase repetitive thematic statements
+5. Maintain the original meaning and tone
+
+IMPORTANT:
+- Preserve the overall narrative and content
+- Maintain the same level of detail and information
+- Return the complete revised text
+- Use natural, flowing language
+- Ensure variations fit the context

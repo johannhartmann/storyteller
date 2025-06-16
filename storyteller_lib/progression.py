@@ -203,46 +203,31 @@ def update_world_elements(state: StoryState) -> Dict:
         logger.warning(f"No scene content found for Ch{current_chapter}/Sc{current_scene}")
         return {}
     
-    # Prompt for world element updates
-    prompt = f"""
-    Based on this scene from Chapter {current_chapter}, Scene {current_scene}:
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    {scene_content}
+    # Get language from state
+    language = state.get("language", "english")
     
-    Identify any developments or new information about the world.
-    Consider:
-    1. New geographical locations or details about existing locations
-    2. Historical information revealed
-    3. Cultural elements introduced or expanded upon
-    4. Political developments or revelations
-    5. Economic systems or changes
-    6. Technology or magic details revealed
-    7. Religious or belief system information
-    8. Daily life elements shown
-    
-    For each category of world elements, specify what should be added or modified.
-    """
+    # Render the world element updates prompt
+    prompt = render_prompt(
+        'world_element_updates',
+        language=language,
+        scene_content=scene_content,
+        current_chapter=current_chapter,
+        current_scene=current_scene
+    )
     
     # Generate world updates
     world_updates_text = llm.invoke([HumanMessage(content=prompt)]).content
     
-    # Get the existing world elements for reference
-    world_update_prompt = f"""
-    Based on these potential world updates:
-    
-    {world_updates_text}
-    
-    And these existing world elements:
-    
-    {world_elements}
-    
-    For each category of world elements that needs updates, provide:
-    1. Category name (geography, history, culture, politics, economics, technology_magic, religion, daily_life)
-    2. Specific elements within that category to add or update
-    
-    Format as a JSON object where keys are category names and values are objects with the elements to update.
-    Only include categories and elements that have meaningful updates from this scene.
-    """
+    # Render the structured world updates prompt
+    world_update_prompt = render_prompt(
+        'world_updates_structured',
+        language=language,
+        world_updates_text=world_updates_text,
+        world_elements=world_elements
+    )
     
     # Get structured world updates
     world_updates_structured = llm.invoke([HumanMessage(content=world_update_prompt)]).content
@@ -397,26 +382,15 @@ def update_character_profiles(state: StoryState) -> Dict:
     
     logger.info(f"Characters found in scene: {[name for _, name in scene_characters]}")
     
-    # Prompt for character updates
-    prompt = f"""
-    Based on this scene from Chapter {current_chapter}, Scene {current_scene}:
-    
-    {truncated_scene}
-    
-    Characters in this scene: {', '.join([name for _, name in scene_characters])}
-    
-    Identify any developments or new information for each character.
-    Consider:
-    1. New revealed facts about characters
-    2. Changes in relationships between characters
-    3. Character growth or evolution
-    4. New secrets that have been created but not yet revealed
-    5. Emotional changes or reactions
-    6. Progress in their character arc
-    
-    For each relevant character, provide a BRIEF summary of what should be updated.
-    Keep your response under 300 words total.
-    """
+    # Render the character updates prompt
+    prompt = render_prompt(
+        'character_updates',
+        language=language,
+        scene_content=truncated_scene,
+        current_chapter=current_chapter,
+        current_scene=current_scene,
+        characters=[name for _, name in scene_characters]
+    )
     
     # Log prompt size
     log_prompt_size(prompt, "character update analysis")
@@ -434,23 +408,13 @@ def update_character_profiles(state: StoryState) -> Dict:
         char_summary = summarize_character(char_data, max_words=50)
         character_summaries[char_name] = char_summary
     
-    # More focused update prompt
-    character_update_prompt = f"""
-    Based on these character developments from the scene:
-    
-    {character_updates_text[:400]}  # Further limit the updates text
-    
-    Current character status (summary):
-    {json.dumps(character_summaries, indent=2)}
-    
-    For each character that needs updates, provide a JSON object with:
-    - character_name: The character's name
-    - new_facts: List of new facts learned (max 2)
-    - emotional_change: Any emotional state change (one line)
-    - relationship_changes: Dictionary of relationship changes (max 2)
-    
-    Keep the response under 200 words total.
-    """
+    # Render the structured character updates prompt
+    character_update_prompt = render_prompt(
+        'character_updates_structured',
+        language=language,
+        character_updates_text=character_updates_text[:400],  # Further limit the updates text
+        character_summaries=json.dumps(character_summaries, indent=2)
+    )
     
     # Log prompt size
     log_prompt_size(character_update_prompt, "character updates structured")

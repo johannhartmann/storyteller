@@ -10,35 +10,26 @@ from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm
 from storyteller_lib.models import StoryState
 
-def detect_repetition(text: str) -> Dict[str, Any]:
+def detect_repetition(text: str, language: str = "english") -> Dict[str, Any]:
     """
     Detect repetitive phrases, descriptions, and themes in text.
     
     Args:
         text: The text to analyze
+        language: The language for analysis
         
     Returns:
         A dictionary with repetition analysis results
     """
-    # Prepare the prompt for detecting repetition
-    prompt = f"""
-    Analyze this text for repetition:
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    {text}
-    
-    Identify:
-    1. Repeated phrases or expressions
-    2. Overused descriptive elements
-    3. Redundant character traits or mannerisms
-    4. Repetitive thematic statements
-    
-    For each repetition, provide:
-    - The repeated element
-    - Number of occurrences
-    - Suggested alternatives for variation
-    
-    Format your response as a structured JSON object.
-    """
+    # Render the repetition detection prompt
+    prompt = render_prompt(
+        'repetition_detection',
+        language=language,
+        text=text
+    )
     
     try:
         # Define Pydantic models for structured output
@@ -107,13 +98,14 @@ def detect_repetition(text: str) -> Dict[str, Any]:
             "recommendations": ["Error detecting repetition"]
         }
 
-def reduce_repetition(text: str, repetition_analysis: Dict[str, Any]) -> str:
+def reduce_repetition(text: str, repetition_analysis: Dict[str, Any], language: str = "english") -> str:
     """
     Reduce repetition in text based on analysis.
     
     Args:
         text: The text to improve
         repetition_analysis: The repetition analysis results
+        language: The language for the text
         
     Returns:
         The improved text with reduced repetition
@@ -143,42 +135,21 @@ def reduce_repetition(text: str, repetition_analysis: Dict[str, Any]) -> str:
         for element in repetition_analysis["repetitive_themes"]
     ])
     
-    # Prepare the prompt for reducing repetition
-    prompt = f"""
-    Revise this text to reduce repetition:
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    {text}
-    
-    REPETITION ANALYSIS:
-    Overall Repetition Score: {repetition_analysis["overall_repetition_score"]}/10
-    
-    Repetitive Phrases:
-    {repetitive_phrases}
-    
-    Repetitive Descriptions:
-    {repetitive_descriptions}
-    
-    Repetitive Character Traits:
-    {repetitive_character_traits}
-    
-    Repetitive Themes:
-    {repetitive_themes}
-    
-    Recommendations:
-    {chr(10).join(repetition_analysis["recommendations"])}
-    
-    Your task:
-    1. Replace repeated phrases with varied alternatives
-    2. Diversify descriptive elements
-    3. Vary character trait expressions
-    4. Rephrase repetitive thematic statements
-    5. Maintain the original meaning and tone
-    
-    IMPORTANT:
-    - Preserve the overall narrative and content
-    - Maintain the same level of detail and information
-    - Return the complete revised text
-    """
+    # Render the repetition reduction prompt
+    prompt = render_prompt(
+        'repetition_reduction',
+        language=language,
+        text=text,
+        overall_score=repetition_analysis["overall_repetition_score"],
+        repetitive_phrases=repetition_analysis["repetitive_phrases"],
+        repetitive_descriptions=repetition_analysis["repetitive_descriptions"],
+        repetitive_character_traits=repetition_analysis["repetitive_character_traits"],
+        repetitive_themes=repetition_analysis["repetitive_themes"],
+        recommendations=repetition_analysis["recommendations"]
+    )
     
     try:
         # Generate the improved text

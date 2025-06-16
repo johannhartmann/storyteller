@@ -1,0 +1,61 @@
+{# German template for repetition reduction #}
+Überarbeite diesen Text, um Wiederholungen zu reduzieren:
+
+{{ text }}
+
+WIEDERHOLUNGSANALYSE:
+Gesamtbewertung der Wiederholungen: {{ overall_score }}/10
+
+{% if repetitive_phrases %}
+Wiederholende Phrasen:
+{% for phrase in repetitive_phrases %}
+- "{{ phrase.element }}" ({{ phrase.occurrences }} mal) - Alternativen: {{ phrase.alternatives | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if repetitive_descriptions %}
+Wiederholende Beschreibungen:
+{% for desc in repetitive_descriptions %}
+- "{{ desc.element }}" ({{ desc.occurrences }} mal) - Alternativen: {{ desc.alternatives | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if repetitive_character_traits %}
+Wiederholende Charaktereigenschaften:
+{% for trait in repetitive_character_traits %}
+- "{{ trait.element }}" ({{ trait.occurrences }} mal) - Alternativen: {{ trait.alternatives | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if repetitive_themes %}
+Wiederholende Themen:
+{% for theme in repetitive_themes %}
+- "{{ theme.element }}" ({{ theme.occurrences }} mal) - Alternativen: {{ theme.alternatives | join(', ') }}
+{% endfor %}
+{% endif %}
+
+{% if recommendations %}
+Empfehlungen:
+{% for rec in recommendations %}
+- {{ rec }}
+{% endfor %}
+{% endif %}
+
+Deine Aufgabe:
+1. Ersetze wiederholte Phrasen durch variierte Alternativen
+2. Diversifiziere beschreibende Elemente
+3. Variiere Ausdrücke von Charaktereigenschaften
+4. Formuliere wiederholende thematische Aussagen um
+5. Bewahre die ursprüngliche Bedeutung und den Ton
+
+WICHTIG:
+- Bewahre die gesamte Erzählung und den Inhalt
+- Behalte dasselbe Detailniveau und dieselben Informationen bei
+- Liefere den vollständig überarbeiteten Text
+- Verwende natürliche, fließende Sprache
+- Stelle sicher, dass Variationen zum Kontext passen
+
+DEUTSCHE STILRICHTLINIEN:
+- Nutze die Vielfalt deutscher Synonyme
+- Variiere Satzstrukturen geschickt
+- Verwende unterschiedliche Stilmittel

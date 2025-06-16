@@ -1,0 +1,34 @@
+{# German template for structuring world updates #}
+Basierend auf diesen potenziellen Welt-Updates:
+
+{{ world_updates_text }}
+
+Und diesen bestehenden Weltelementen:
+
+{{ world_elements }}
+
+Liefere für jede Kategorie von Weltelementen, die Updates benötigt:
+1. Kategorienname (geography, history, culture, politics, economics, technology_magic, religion, daily_life)
+2. Spezifische Elemente innerhalb dieser Kategorie zum Hinzufügen oder Aktualisieren
+
+Formatiere als JSON-Objekt, bei dem Schlüssel Kategorienamen sind und Werte Objekte mit den zu aktualisierenden Elementen.
+Füge nur Kategorien und Elemente ein, die bedeutsame Updates aus dieser Szene haben.
+
+RICHTLINIEN:
+- Füge nur Kategorien mit tatsächlichen Updates ein
+- Sei spezifisch darüber, was hinzugefügt oder modifiziert wird
+- Stelle sicher, dass Updates mit bestehenden Elementen konsistent sind
+- Vermeide redundante, bereits vorhandene Informationen
+- Fokussiere dich auf bedeutsame Weltenbau-Ergänzungen
+
+BEISPIELFORMAT:
+{
+  "geography": {
+    "neuer_ort": "Beschreibung des neuen Ortes",
+    "bestehender_ort_update": "Neues Detail über bestehenden Ort"
+  },
+  "culture": {
+    "tradition": "Neu enthüllte kulturelle Praxis",
+    "sozialstruktur": "Aktualisierung der sozialen Hierarchie"
+  }
+}
