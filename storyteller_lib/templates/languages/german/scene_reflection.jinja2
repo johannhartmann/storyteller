@@ -1,0 +1,72 @@
+{# German template for scene reflection #}
+Analysiere diese Szene kritisch und gib detailliertes Feedback:
+
+SZENENINHALT:
+{{ scene_content }}
+
+SZENENKONTEXT:
+- Kapitel {{ current_chapter }}, Szene {{ current_scene }}
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+- Szenenzweck: {{ scene_purpose | default("Nicht angegeben") }}
+
+ANALYSEKRITERIEN:
+
+1. TEMPO (Bewertung 1-10):
+   - Fließt die Szene natürlich?
+   - Gibt es Abschnitte, die schleppend oder gehetzt wirken?
+   - Ist der Rhythmus dem Szenentyp angemessen?
+
+2. CHARAKTERISIERUNG (Bewertung 1-10):
+   - Handeln Charaktere konsistent mit ihren etablierten Eigenschaften?
+   - Ist Charakterwachstum/-enthüllung vorhanden?
+   - Sind Charakterstimmen unterscheidbar?
+
+3. DIALOG (Bewertung 1-10):
+   - Klingt der Dialog natürlich?
+   - Offenbart er Charakter und treibt die Handlung voran?
+   - Gibt es angemessenen Subtext?
+
+4. HANDLUNGSFORTSCHRITT (Bewertung 1-10):
+   - Bringt die Szene die Geschichte voran?
+   - Sind die Einsätze klar und überzeugend?
+   - Verbindet sie sich mit größeren Erzählsträngen?
+
+5. SCHAUPLATZ/ATMOSPHÄRE (Bewertung 1-10):
+   - Ist der Schauplatz lebendig und immersiv?
+   - Unterstützt die Atmosphäre den Ton?
+   - Sind sensorische Details wirkungsvoll?
+
+6. SPANNUNG/KONFLIKT (Bewertung 1-10):
+   - Gibt es angemessene Spannung für diese Szene?
+   - Sind Konflikte klar und fesselnd?
+   - Erhält sie das Leserinteresse?
+
+7. PROSAQUALITÄT (Bewertung 1-10):
+   - Ist das Schreiben klar und fesselnd?
+   - Sind Beschreibungen lebendig ohne überschrieben zu sein?
+   - Ist der Stil konsistent mit der Geschichte?
+
+DEUTSCHE ERZÄHLSTANDARDS:
+- Berücksichtige deutsche Literaturtraditionen
+- Bewerte kulturelle Authentizität
+- Prüfe sprachliche Eleganz und Präzision
+
+{% if forbidden_phrases %}
+PRÜFE AUF VERBOTENE PHRASEN:
+Diese Phrasen wurden überstrapaziert und sollten nicht erscheinen:
+{{ forbidden_phrases | join(', ') }}
+{% endif %}
+
+{% if forbidden_structures %}
+PRÜFE AUF VERBOTENE STRUKTUREN:
+Diese Szenenstrukturen wurden überstrapaziert:
+{{ forbidden_structures | join(', ') }}
+{% endif %}
+
+LIEFERE:
+- Numerische Bewertungen für jedes Kriterium
+- Spezifische Stärken zum Bewahren
+- Spezifische Schwächen zum Beheben
+- Konkrete Verbesserungsvorschläge
+- Gesamtbewertung und prioritäre Korrekturen

@@ -295,98 +295,59 @@ def improve_dialogue(scene_content: str, dialogue_analysis: Dict[str, Any],
     if focus_on_exposition and dialogue_analysis.get("exposition_score", 0) >= 8:
         return scene_content
     
-    # Extract character information for context
-    character_info = ""
+    # Extract character information for the template
+    characters_info = {}
     for char_id, char_data in characters.items():
-        if "name" in char_data and "role" in char_data:
-            character_info += f"{char_data['name']} ({char_data['role']}): "
+        if "name" in char_data:
+            char_info = {
+                "role": char_data.get("role", "Unknown"),
+                "personality": char_data.get("personality", "Not specified")
+            }
             
             # Add voice characteristics if available
             if "voice_characteristics" in char_data:
-                character_info += f"Voice: {char_data['voice_characteristics']}. "
+                char_info["voice_characteristics"] = char_data['voice_characteristics']
             
-            # Add personality traits if available
-            if "personality" in char_data:
-                character_info += f"Personality: {char_data['personality']}. "
+            # Add emotional state if available
+            if "emotional_state" in char_data:
+                char_info["emotional_state"] = char_data['emotional_state']
             
-            character_info += "\n"
+            characters_info[char_data['name']] = char_info
     
-    # Get exposition instances if available
-    exposition_instances = dialogue_analysis.get("exposition_instances", [])
-    exposition_instances_text = "\n".join([f"- {instance}" for instance in exposition_instances]) if exposition_instances else "None specifically identified."
+    # Get scene context
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    current_chapter = 1
+    current_scene = 1
+    genre = "Unknown"
+    tone = "Unknown"
+    author_style = ""
     
-    # Get dialogue purpose map if available
-    dialogue_purpose_map = dialogue_analysis.get("dialogue_purpose_map", {})
-    purpose_map_text = ""
-    if dialogue_purpose_map:
-        for exchange, purpose in dialogue_purpose_map.items():
-            purpose_map_text += f"- \"{exchange}\": {purpose}\n"
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT genre, tone, author FROM story_config WHERE id = 1")
+            result = cursor.fetchone()
+            if result:
+                genre = result['genre']
+                tone = result['tone']
+                if result['author']:
+                    author_style = f"Write in the style of {result['author']}"
     
-    # Generate character dialogue patterns
-    dialogue_patterns = _generate_character_dialogue_patterns(characters, language)
+    # Use the template system for dialogue enhancement
+    from storyteller_lib.prompt_templates import render_prompt
     
-    # Prepare the prompt for improving dialogue
-    prompt = f"""
-    Revise the dialogue in this scene written in {language_name} to address the identified issues:
-    
-    {scene_content}
-    
-    CHARACTER INFORMATION:
-    {character_info}
-    
-    CHARACTER DIALOGUE PATTERNS:
-    {dialogue_patterns}
-    
-    DIALOGUE ANALYSIS:
-    Overall Score: {dialogue_analysis["overall_score"]}/10
-    Naturalness: {dialogue_analysis["naturalness_score"]}/10
-    Character Voice: {dialogue_analysis["character_voice_score"]}/10
-    Exposition: {dialogue_analysis["exposition_score"]}/10
-    Subtext: {dialogue_analysis["subtext_score"]}/10
-    Purpose: {dialogue_analysis["purpose_score"]}/10
-    Efficiency: {dialogue_analysis["efficiency_score"]}/10
-    
-    Issues to address:
-    {dialogue_analysis["issues"]}
-    
-    Recommendations:
-    {dialogue_analysis["recommendations"]}
-    
-    {"EXPOSITION ISSUES TO FOCUS ON:" if focus_on_exposition else ""}
-    {"These instances explain things characters would already know:" if focus_on_exposition else ""}
-    {exposition_instances_text if focus_on_exposition else ""}
-    
-    DIALOGUE REVISION GUIDELINES FOR {language_name.upper()}:
-    - Cut any dialogue where a character explains something the listener already knows
-    - Replace direct statements with reactions, questions, or partial information
-    - Add physical actions, gestures, or facial expressions between dialogue lines
-    - Create tension through what characters DON'T say or deliberately avoid
-    - Use dialect, word choice, and sentence structure to differentiate characters
-    - Consider cultural and linguistic norms specific to {language_name}
-    
-    BEFORE AND AFTER EXAMPLE:
-    
-    BEFORE: "As you know, the Salzmal is the ancient salt tax that the Patrizier imposed on us Sülfmeister."
-    
-    AFTER: [Character spits on ground] "Another tax collector. The Patrizier grow fat while we break our backs hauling salt." [Glances at the Salzmal symbol with disgust]
-    
-    Your task:
-    1. Make dialogue more natural and conversational in {language_name}
-    2. Ensure each character has a distinctive voice based on their patterns
-    3. Remove exposition that characters would already know
-    4. Add appropriate subtext and implied meaning
-    5. Make dialogue more concise and purposeful
-    6. Convert direct statements to implied meanings with subtext
-    7. Replace information-heavy dialogue with character actions or observations
-    8. Maintain all plot points and character development
-    9. Respect cultural and linguistic norms of {language_name}
-    
-    IMPORTANT:
-    - Only modify the dialogue, keeping all narration and description intact
-    - Preserve the essential information conveyed in the dialogue
-    - Return the complete revised scene in {language_name}, not just the modified dialogue
-    - Ensure the dialogue sounds natural to native {language_name} speakers
-    """
+    prompt = render_prompt(
+        'dialogue_enhancement',
+        language=language,
+        scene_content=scene_content,
+        current_chapter=current_chapter,
+        current_scene=current_scene,
+        genre=genre,
+        tone=tone,
+        characters=characters_info,
+        author_style=author_style
+    )
     
     try:
         # Generate the improved scene

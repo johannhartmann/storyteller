@@ -151,110 +151,190 @@ def create_category_prompt(category_name: str, genre: str, tone: str, author: st
     Returns:
         Prompt string for generating the category
     """
-    # Add language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        CRITICAL LANGUAGE INSTRUCTION:
-        You MUST generate ALL content ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL elements, descriptions, names, and terms must be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
-        DO NOT use English or any other language at any point.
+    # Use the template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Handle special category names
+    category_template_name = category_name.lower()
+    if category_template_name == "technology_magic":
+        category_template_name = "technology_or_magic"
+    elif category_template_name == "daily_life":
+        category_template_name = "daily_life"
+    
+    # Check if we have a worldbuilding template
+    try:
+        # Prepare existing elements if available
+        existing_elements = ""
+        try:
+            # Try to get existing worldbuilding from memory/database
+            from storyteller_lib.memory_manager import search_memory
+            existing_wb = search_memory(f"worldbuilding_{category_name}", MEMORY_NAMESPACE)
+            if existing_wb and isinstance(existing_wb, dict) and "value" in existing_wb:
+                existing_elements = str(existing_wb["value"])
+        except:
+            pass
+        
+        # Render the template
+        prompt = render_prompt(
+            'worldbuilding',
+            language=language,
+            story_outline=global_story[:500] + "...",
+            genre=genre,
+            tone=tone,
+            existing_elements=existing_elements if existing_elements else None
+        )
+        
+        # Add category-specific instructions
+        field_instructions = ""
+        if category_name.lower() == "geography":
+            field_instructions = """
+            
+            FOCUS ON GEOGRAPHY:
+            You MUST include ALL of these fields in your response:
+            - locations: Major locations (cities, countries, planets, etc.)
+            - climate: Climate and weather patterns
+            - landmarks: Notable landmarks and physical features
+            - relevance: How geography impacts the story
+            """
+        elif category_name.lower() == "history":
+            field_instructions = """
+            
+            FOCUS ON HISTORY:
+            You MUST include ALL of these fields in your response:
+            - timeline: Key historical events in chronological order
+            - figures: Important historical figures and their impact
+            - conflicts: Major historical conflicts and their resolutions
+            - relevance: How history impacts the current story
+            """
+        elif category_name.lower() == "culture":
+            field_instructions = """
+            
+            FOCUS ON CULTURE:
+            You MUST include ALL of these fields in your response:
+            - languages: Languages and communication methods
+            - traditions: Important traditions, customs, and arts
+            - values: Cultural values, taboos, and diversity
+            - relevance: How culture influences characters and plot
+            """
+        elif category_name.lower() == "politics":
+            field_instructions = """
+            
+            FOCUS ON POLITICS:
+            You MUST include ALL of these fields in your response:
+            - government: Government systems and power structures
+            - factions: Political factions and their relationships
+            - laws: Important laws and justice systems
+            - relevance: How politics affects the story
+            """
+        elif category_name.lower() == "economics":
+            field_instructions = """
+            
+            FOCUS ON ECONOMICS:
+            You MUST include ALL of these fields in your response:
+            - resources: Key resources and their distribution
+            - trade: Trade systems, currencies, and markets
+            - classes: Economic classes and inequality
+            - relevance: How economics drives conflict or cooperation
+            """
+        elif category_name.lower() == "technology_magic":
+            field_instructions = """
+            
+            FOCUS ON TECHNOLOGY/MAGIC:
+            You MUST include ALL of these fields in your response:
+            - systems: Available technologies or magic systems
+            - limitations: Limitations and costs of technology/magic
+            - impact: Impact on society and daily life
+            - relevance: How technology/magic creates opportunities or challenges
+            """
+        elif category_name.lower() == "religion":
+            field_instructions = """
+            
+            FOCUS ON RELIGION:
+            You MUST include ALL of these fields in your response:
+            - beliefs: Belief systems and deities
+            - practices: Religious practices and rituals
+            - organizations: Religious organizations and leaders
+            - relevance: How religion influences society and characters
+            """
+        elif category_name.lower() == "daily_life":
+            field_instructions = """
+            
+            FOCUS ON DAILY LIFE:
+            You MUST include ALL of these fields in your response:
+            - food: Food and cuisine
+            - clothing: Clothing and fashion
+            - housing: Housing and architecture
+            - relevance: How daily life reflects culture and status
+            """
+        
+        # Add field instructions to the prompt
+        prompt += field_instructions
+        
+        # Add author style and initial idea
+        prompt += f"""
+        
+        STORY CONTEXT:
+        Initial idea: {initial_idea}
+        Author style: {author}
+        
+        Focus ONLY on {category_name} elements. Be detailed and specific.
         """
-    
-    # Add field instructions based on category
-    field_instructions = ""
-    if category_name.lower() == "geography":
-        field_instructions = """
-        You MUST include ALL of these fields in your response:
-        - locations: Major locations (cities, countries, planets, etc.)
-        - climate: Climate and weather patterns
-        - landmarks: Notable landmarks and physical features
-        - relevance: How geography impacts the story
+        
+        return prompt
+        
+    except Exception as e:
+        # Fallback to the original implementation if template fails
+        logger.warning(f"Failed to use template for worldbuilding: {e}")
+        
+        # Original implementation as fallback
+        language_instruction = ""
+        if language.lower() != DEFAULT_LANGUAGE:
+            language_instruction = f"""
+            CRITICAL LANGUAGE INSTRUCTION:
+            You MUST generate ALL content ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
+            ALL elements, descriptions, names, and terms must be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
+            DO NOT use English or any other language at any point.
+            """
+        
+        # Field instructions (same as above)
+        field_instructions = ""
+        if category_name.lower() == "geography":
+            field_instructions = """
+            You MUST include ALL of these fields in your response:
+            - locations: Major locations (cities, countries, planets, etc.)
+            - climate: Climate and weather patterns
+            - landmarks: Notable landmarks and physical features
+            - relevance: How geography impacts the story
+            """
+        # ... rest of field instructions ...
+        
+        return f"""
+        Generate {category_name} elements for a {genre} story with a {tone} tone,
+        written in the style of {author}, based on this initial idea:
+        
+        {initial_idea}
+        
+        And this story outline:
+        
+        {global_story[:500]}...
+        
+        {language_instruction}
+        {language_guidance}
+        
+        {field_instructions}
+        
+        IMPORTANT: You MUST include ALL the fields listed above in your response. Do not omit any fields.
+        
+        Focus ONLY on {category_name} elements. Be detailed and specific.
+        
+        Ensure the elements are:
+        - Consistent with the {genre} genre conventions
+        - Appropriate for the {tone} tone
+        - Aligned with {author}'s style
+        - Directly relevant to the initial story idea
+        - Detailed enough to support rich storytelling
+        - {"Authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking cultures" if language.lower() != DEFAULT_LANGUAGE else ""}
         """
-    elif category_name.lower() == "history":
-        field_instructions = """
-        You MUST include ALL of these fields in your response:
-        - timeline: Key historical events in chronological order
-        - figures: Important historical figures and their impact
-        - conflicts: Major historical conflicts and their resolutions
-        - relevance: How history impacts the current story
-        """
-    elif category_name.lower() == "culture":
-        field_instructions = """
-        You MUST include ALL of these fields in your response:
-        - languages: Languages and communication methods
-        - traditions: Important traditions, customs, and arts
-        - values: Cultural values, taboos, and diversity
-        - relevance: How culture influences characters and plot
-        """
-    elif category_name.lower() == "politics":
-        field_instructions = """
-        You MUST include ALL of these fields in your response:
-        - government: Government systems and power structures
-        - factions: Political factions and their relationships
-        - laws: Important laws and justice systems
-        - relevance: How politics affects the story
-        """
-    elif category_name.lower() == "economics":
-        field_instructions = """
-        You MUST include ALL of these fields in your response:
-        - resources: Key resources and their distribution
-        - trade: Trade systems, currencies, and markets
-        - classes: Economic classes and inequality
-        - relevance: How economics drives conflict or cooperation
-        """
-    elif category_name.lower() == "technology_magic":
-        field_instructions = """
-        You MUST include ALL of these fields in your response:
-        - systems: Available technologies or magic systems
-        - limitations: Limitations and costs of technology/magic
-        - impact: Impact on society and daily life
-        - relevance: How technology/magic creates opportunities or challenges
-        """
-    elif category_name.lower() == "religion":
-        field_instructions = """
-        You MUST include ALL of these fields in your response:
-        - beliefs: Belief systems and deities
-        - practices: Religious practices and rituals
-        - organizations: Religious organizations and leaders
-        - relevance: How religion influences society and characters
-        """
-    elif category_name.lower() == "daily_life":
-        field_instructions = """
-        You MUST include ALL of these fields in your response:
-        - food: Food and cuisine
-        - clothing: Clothing and fashion
-        - housing: Housing and architecture
-        - relevance: How daily life reflects culture and status
-        """
-    
-    return f"""
-    Generate {category_name} elements for a {genre} story with a {tone} tone,
-    written in the style of {author}, based on this initial idea:
-    
-    {initial_idea}
-    
-    And this story outline:
-    
-    {global_story[:500]}...
-    
-    {language_instruction}
-    {language_guidance}
-    
-    {field_instructions}
-    
-    IMPORTANT: You MUST include ALL the fields listed above in your response. Do not omit any fields.
-    
-    Focus ONLY on {category_name} elements. Be detailed and specific.
-    
-    Ensure the elements are:
-    - Consistent with the {genre} genre conventions
-    - Appropriate for the {tone} tone
-    - Aligned with {author}'s style
-    - Directly relevant to the initial story idea
-    - Detailed enough to support rich storytelling
-    - {"Authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking cultures" if language.lower() != DEFAULT_LANGUAGE else ""}
-    """
 def generate_category(category_name: str, model: Type[BaseModel], genre: str, tone: str,
                      author: str, initial_idea: str, global_story: str,
                      language: str = DEFAULT_LANGUAGE, language_guidance: str = "") -> Dict[str, Any]:

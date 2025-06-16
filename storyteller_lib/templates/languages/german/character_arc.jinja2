@@ -1,0 +1,71 @@
+{# German template for character arc planning #}
+Plane Charakterentwicklungsbögen für die folgenden Charaktere:
+
+GESCHICHTSKONTEXT:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+- Übergreifendes Thema: {{ theme | default("Nicht angegeben") }}
+
+HANDLUNGSÜBERSICHT:
+{{ story_outline }}
+
+ZU ENTWICKELNDE CHARAKTERE:
+{% for char_name, char_info in characters.items() %}
+{{ char_name }}:
+- Rolle: {{ char_info.role }}
+- Ausgangszustand: {{ char_info.initial_state }}
+- Hintergrund: {{ char_info.backstory }}
+- Schlüsseleigenschaften: {{ char_info.traits | join(', ') }}
+- Innere Konflikte: {{ char_info.inner_conflicts | join(', ') }}
+{% endfor %}
+
+ANFORDERUNGEN AN CHARAKTERBÖGEN:
+Entwickle für jeden Charakter:
+
+1. BOGENTYP - Wähle aus:
+   - Positiver Wandlungsbogen (Charakter überwindet Schwächen)
+   - Negativer Wandlungsbogen (Charakter fällt oder korrumpiert)
+   - Flacher Bogen (Charakter bleibt treu, verändert andere)
+   - Zirkulärer Bogen (Charakter kehrt verändert zurück)
+
+2. SCHLÜSSELPHASEN (5-7 Wendepunkte):
+   - Ausgangszustand und Weltanschauung
+   - Auslösendes Ereignis, das sie herausfordert
+   - Erster Versuch und Scheitern
+   - Dunkle Nacht der Seele
+   - Moment der Wahrheit/Entscheidung
+   - Klimatische Prüfung
+   - Endzustand
+
+3. BEZIEHUNGSDYNAMIKEN:
+   - Wie sich Beziehungen entwickeln
+   - Wer ihre Veränderung beeinflusst
+   - Wen sie beeinflussen
+
+4. THEMATISCHE VERBINDUNG:
+   - Wie ihr Bogen Geschichtsthemen reflektiert
+   - Welche Wahrheit sie entdecken/ablehnen
+   - Universelle Resonanz
+
+5. EMOTIONALE REISE:
+   - Emotionaler Ausgangszustand
+   - Emotionale Schlüsselmomente
+   - Emotionaler Endzustand
+
+DEUTSCHE ERZÄHLTRADITION:
+- Berücksichtige deutsche Charakterentwicklungsmuster (Bildungsroman, etc.)
+- Nutze kulturspezifische Wendepunkte und Prüfungen
+- Integriere deutsche philosophische Konzepte wo passend
+- Beachte kulturelle Erwartungen an Charakterwachstum
+
+{% if author_style %}
+AUTORENSTIL-HINWEISE:
+{{ author_style }}
+{% endif %}
+
+Erstelle Bögen, die:
+- Authentisch zum Charakter passen
+- Mit anderen Charakterbögen verwoben sind
+- Die Gesamterzählung unterstützen
+- Befriedigende emotionale Auszahlungen schaffen
+- Bleibenden Eindruck bei Lesern hinterlassen

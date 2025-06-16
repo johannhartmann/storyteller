@@ -1,0 +1,67 @@
+{# Base template for scene reflection - English version #}
+Analyze this scene critically and provide detailed feedback:
+
+SCENE CONTENT:
+{{ scene_content }}
+
+SCENE CONTEXT:
+- Chapter {{ current_chapter }}, Scene {{ current_scene }}
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+- Scene purpose: {{ scene_purpose | default("Not specified") }}
+
+ANALYSIS CRITERIA:
+
+1. PACING (Score 1-10):
+   - Does the scene flow naturally?
+   - Are there sections that drag or rush?
+   - Is the rhythm appropriate for the scene type?
+
+2. CHARACTERIZATION (Score 1-10):
+   - Do characters act consistently with their established traits?
+   - Is character growth/revelation present?
+   - Are character voices distinct?
+
+3. DIALOGUE (Score 1-10):
+   - Does dialogue sound natural?
+   - Does it reveal character and advance plot?
+   - Is there appropriate subtext?
+
+4. PLOT ADVANCEMENT (Score 1-10):
+   - Does the scene move the story forward?
+   - Are stakes clear and compelling?
+   - Does it connect to larger narrative threads?
+
+5. SETTING/ATMOSPHERE (Score 1-10):
+   - Is the setting vivid and immersive?
+   - Does atmosphere support the tone?
+   - Are sensory details effective?
+
+6. TENSION/CONFLICT (Score 1-10):
+   - Is there appropriate tension for this scene?
+   - Are conflicts clear and engaging?
+   - Does it maintain reader interest?
+
+7. PROSE QUALITY (Score 1-10):
+   - Is the writing clear and engaging?
+   - Are descriptions vivid without being overwritten?
+   - Is the style consistent with the story?
+
+{% if forbidden_phrases %}
+CHECK FOR FORBIDDEN PHRASES:
+These phrases have been overused and should not appear:
+{{ forbidden_phrases | join(', ') }}
+{% endif %}
+
+{% if forbidden_structures %}
+CHECK FOR FORBIDDEN STRUCTURES:
+These scene structures have been overused:
+{{ forbidden_structures | join(', ') }}
+{% endif %}
+
+PROVIDE:
+- Numerical scores for each criterion
+- Specific strengths to preserve
+- Specific weaknesses to address
+- Concrete suggestions for improvement
+- Overall assessment and priority fixes

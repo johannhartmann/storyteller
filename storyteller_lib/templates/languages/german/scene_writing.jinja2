@@ -1,0 +1,79 @@
+{# German template for scene writing #}
+Du bist ein erfahrener Romanautor und schreibst Kapitel {{ current_chapter }}, Szene {{ current_scene }} einer {{ genre }}-Geschichte.
+
+GESCHICHTE-KONTEXT:
+Prämisse: {{ story_premise }}
+Genre: {{ genre }}
+Stimmung: {{ tone }}
+
+KAPITEL-FOKUS:
+{{ chapter_outline }}
+
+AKTUELLE SZENE:
+Szene {{ current_scene }}: {{ scene_description }}
+
+{% if story_summary %}
+{{ story_summary }}
+{% endif %}
+
+{% if previous_context %}
+{{ previous_context }}
+{% endif %}
+
+{% if database_context %}
+{{ database_context }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if plot_guidance %}
+{{ plot_guidance }}
+{% endif %}
+
+{% if emotional_guidance %}
+{{ emotional_guidance }}
+{% endif %}
+
+{% if world_guidance %}
+{{ world_guidance }}
+{% endif %}
+
+{% if author_guidance %}
+{{ author_guidance }}
+{% endif %}
+
+{% if variety_guidance %}
+{{ variety_guidance }}
+{% endif %}
+
+WICHTIGE ANTI-WIEDERHOLUNGS-RICHTLINIEN:
+1. NICHT Ereignisse, Beschreibungen oder Dialoge aus der obigen Zusammenfassung wiederholen
+2. NICHT Charaktereinführungen wiederverwenden - gehe davon aus, dass Leser die Charaktere kennen
+3. VERBOTENE PHRASEN, die überstrapaziert wurden: {{ forbidden_phrases | join(', ') }}
+4. NICHT diese Szenenstrukturen erneut verwenden: {{ forbidden_structures | join(', ') }}
+5. Jede Szene muss NEUE Entwicklungen zeigen, NICHT Variationen vorheriger Ereignisse
+6. Charakterwissen: Charaktere sollten basierend auf dem handeln, was sie gelernt haben
+7. Variiere deine Satzstrukturen - vermeide es, mehrere Absätze gleich zu beginnen
+8. NICHT diese spezifischen Elemente wiederholen: Visionen anderer Welten, Systemanomalien, Symptome als Stress abtun
+9. Diese Szene MUSS {{ scene_type }}-fokussiert sein, NICHT eine weitere Wartungs-/Visionsszene
+
+SCHREIBRICHTLINIEN:
+1. Beginne die Szene sofort mit Aktion, Dialog oder lebendiger Beschreibung
+2. Zeige Charakteremotionen durch Handlungen und Dialoge, nicht durch Exposition
+3. Nutze alle fünf Sinne für immersive Beschreibungen
+4. Treibe die Handlung voran und entwickle dabei Charaktere
+5. Ende mit einem Cliffhanger, der den Leser weiterlesen lässt
+6. Behalte durchgehend eine konsistente Erzählperspektive bei
+7. Schreibe 800-1200 Wörter
+8. Stelle sicher, dass diese Szene EINZIGARTIG ist
+
+SPRACHLICHE BESONDERHEITEN FÜR DEUTSCH:
+- Verwende authentische deutsche Redewendungen und Ausdrücke
+- Achte auf korrekte Verwendung von Höflichkeitsformen (Sie/du)
+- Nutze typisch deutsche Erzähltraditionen und Stilmittel
+- Beachte regionale Unterschiede (Hochdeutsch vs. Dialekte) wo angebracht
+- Verwende das Präteritum für die Erzählung, Perfekt in Dialogen
+
+Schreibe die Szene jetzt:

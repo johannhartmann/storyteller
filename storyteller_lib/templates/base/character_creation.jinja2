@@ -1,0 +1,32 @@
+{# Base template for character creation - English version #}
+Based on this story outline:
+{{ story_outline }}
+
+Create {{ num_characters }} detailed characters for this {{ genre }} story with a {{ tone }} tone.
+
+For each character, provide:
+1. Name (appropriate for the setting and genre)
+2. Role in the story (protagonist, antagonist, mentor, ally, etc.)
+3. Age and physical description
+4. Personality traits (3-5 key traits)
+5. Backstory (2-3 paragraphs)
+6. Motivations and goals
+7. Fears and weaknesses
+8. Special abilities or skills (if any)
+9. Relationships to other characters
+10. Character arc potential
+
+{% if existing_characters %}
+Note: The following characters have already been mentioned in the story outline:
+{{ existing_characters }}
+Please expand on these characters and create any additional ones needed.
+{% endif %}
+
+Ensure the characters:
+- Are diverse and interesting
+- Have clear motivations that drive the plot
+- Have flaws and room for growth
+- Fit naturally into the {{ genre }} genre
+- Support the {{ tone }} tone of the story
+
+Create characters that readers will care about and remember.

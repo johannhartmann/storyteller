@@ -1,0 +1,60 @@
+{# Base template for scene brainstorming - English version #}
+Brainstorm ideas for a scene based on the following:
+
+CHAPTER CONTEXT:
+Chapter {{ current_chapter }}: {{ chapter_title }}
+
+CHAPTER OUTLINE:
+{{ chapter_outline }}
+
+SPECIFIC SCENE TO DEVELOP:
+Scene {{ scene_number }}: {{ scene_description }}
+
+STORY CONTEXT:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+- Overall premise: {{ story_premise }}
+
+{% if previous_scenes %}
+PREVIOUS SCENES IN THIS CHAPTER:
+{% for scene in previous_scenes %}
+Scene {{ loop.index }}: {{ scene.summary }}
+{% endfor %}
+{% endif %}
+
+{% if scene_variety_requirements %}
+SCENE VARIETY REQUIREMENTS:
+- Required scene type: {{ scene_variety_requirements.scene_type }}
+- Required characters: {{ scene_variety_requirements.required_characters | join(', ') }}
+- Tone requirement: {{ scene_variety_requirements.tone_requirement }}
+- Additional notes: {{ scene_variety_requirements.notes }}
+{% endif %}
+
+BRAINSTORMING GOALS:
+1. Generate 3-5 different approaches to this scene
+2. Each approach should:
+   - Have a unique angle or perspective
+   - Advance the plot in meaningful ways
+   - Develop character relationships
+   - Create tension or conflict
+   - Feel fresh and engaging
+
+3. Consider:
+   - What is the most interesting way to enter this scene?
+   - What unexpected elements could enhance it?
+   - How can we subvert reader expectations?
+   - What sensory details will make it vivid?
+   - What emotions should the reader feel?
+
+{% if forbidden_elements %}
+ELEMENTS TO AVOID:
+- Phrases: {{ forbidden_elements.phrases | join(', ') }}
+- Structures: {{ forbidden_elements.structures | join(', ') }}
+{% endif %}
+
+For each approach, provide:
+- A brief title or concept
+- Key elements that make it unique
+- How it advances the story
+- Potential challenges or conflicts
+- Emotional impact on characters and readers

@@ -246,7 +246,10 @@ def generate_story_outline(state: StoryState) -> Dict:
         FINAL CHECK: Before finalizing the outline, verify that the key elements from the initial idea and the hero's journey are present and well-integrated into the story.
         """
     
-    # Prompt for story generation with emphasis on initial idea
+    # Import prompt template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Prepare language instruction if needed
     language_instruction = ""
     if language.lower() != DEFAULT_LANGUAGE:
         language_instruction = f"""
@@ -258,52 +261,20 @@ def generate_story_outline(state: StoryState) -> Dict:
         I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any outline that contains English.
         """
     
-    prompt = f"""
-    {language_instruction}
+    # Prepare template variables
+    template_vars = {
+        'tone': tone,
+        'genre': genre,
+        'initial_idea': initial_idea,
+        'language_instruction': language_instruction if language.lower() != DEFAULT_LANGUAGE else "",
+        'idea_guidance': idea_guidance,
+        'creative_guidance': creative_guidance,
+        'style_guidance': style_guidance,
+        'language_guidance': language_guidance
+    }
     
-    Create a compelling story outline for a {tone} {genre} narrative following the hero's journey structure.
-    {f"This story should be based on this initial idea: '{initial_idea}'" if initial_idea else ""}
-    
-    Include all major phases of the hero's journey, adapted to fit the initial idea:
-    1. The Ordinary World
-    2. The Call to Adventure
-    3. Refusal of the Call
-    4. Meeting the Mentor
-    5. Crossing the Threshold
-    6. Tests, Allies, and Enemies
-    7. Approach to the Inmost Cave
-    8. The Ordeal
-    9. Reward (Seizing the Sword)
-    10. The Road Back
-    11. Resurrection
-    12. Return with the Elixir
-    
-    For each phase, provide a brief description of what happens.
-    Also include:
-    - A captivating title for the story that reflects the initial idea
-    - 3-5 main characters with brief descriptions (include those specified in the initial idea)
-    - A central conflict or challenge (aligned with the plot from the initial idea)
-    - The world/setting of the story (consistent with the setting from the initial idea)
-    - Key themes or messages (should include those from the initial idea)
-    
-    Format your response as a structured outline with clear sections.
-    
-    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
-    
-    VERIFICATION STEP: After completing the outline, review it to ensure that:
-    1. The setting from the initial idea is well-integrated throughout
-    2. The characters from the initial idea are included with appropriate roles
-    3. The plot/conflict from the initial idea is central to the story
-    4. The key elements from the initial idea are preserved and developed
-    
-    {idea_guidance}
-    
-    {creative_guidance}
-    
-    {style_guidance}
-    
-    {language_guidance}
-    """
+    # Render the prompt using the template system
+    prompt = render_prompt('story_outline', language=language, **template_vars)
     
     # Generate the story outline
     print(f"[DEBUG] About to generate story outline. Prompt length: {len(prompt)}")
