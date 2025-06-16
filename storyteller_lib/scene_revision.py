@@ -268,60 +268,75 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         {author_style_guidance}
         """
     
-    # Determine revision approach based on type
-    if revision_type == RevisionTypes.COMPLETE_REWRITE:
-        prompt = f"""You need to completely rewrite this scene to address major issues.
-
-{context}
-
-CURRENT SCENE (TO BE REPLACED):
-{current_content}
-
-REFLECTION ANALYSIS:
-{json.dumps(reflection, indent=2)}
-
-{revision_guidance}
-
-{language_instruction}
-{author_instruction}
-
-Please write a completely new version of this scene that:
-1. Addresses all identified issues
-2. Maintains continuity with previous scenes
-3. Advances the plot effectively
-4. Develops characters authentically
-5. Creates emotional impact
-6. Ends with a compelling hook
-
-Write the new scene now:"""
+    # Get database manager for additional context
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
     
-    else:
-        # For minor/moderate/major revisions, work with the existing content
-        prompt = f"""Please revise this scene to address the identified issues.
-
-{context}
-
-CURRENT SCENE:
-{current_content}
-
-REFLECTION ANALYSIS:
-Quality Scores: {json.dumps(reflection.get('quality_scores', {}), indent=2)}
-Revision Type: {revision_type}
-
-{revision_guidance}
-
-{language_instruction}
-{author_instruction}
-
-REVISION INSTRUCTIONS:
-1. Maintain the core structure and events of the scene
-2. Address all priority fixes and specific issues
-3. Improve areas with low quality scores
-4. Enhance plot thread integration where noted
-5. Preserve what's working well (strengths identified in reflection)
-6. Ensure consistency with established story elements
-
-Provide the revised scene now:"""
+    # Get full scene content from database if needed
+    if not current_content and db_manager:
+        current_content = db_manager.get_scene_content(int(current_chapter), int(current_scene))
+    
+    # Get character information from database
+    characters = {}
+    character_voices = {}
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT identifier, name, role, backstory, personality
+                FROM characters
+            """)
+            for row in cursor.fetchall():
+                characters[row['identifier']] = {
+                    'name': row['name'],
+                    'role': row['role'],
+                    'backstory': row['backstory'],
+                    'personality': row['personality']
+                }
+                # Extract voice characteristics if available
+                if row['personality']:
+                    character_voices[row['name']] = f"{row['role']}, {row['personality'][:100]}..."
+    
+    # Get genre and tone from state
+    genre = state.get("genre", "fantasy")
+    tone = state.get("tone", "adventurous")
+    
+    # Use template system for scene revision
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Prepare issues for template
+    issues = reflection.get("issues", [])
+    
+    # Prepare quality scores
+    quality_scores = reflection.get("quality_scores", {})
+    
+    # Prepare plot threads
+    plot_threads = state.get("active_plot_threads", [])
+    
+    # Render the revision prompt
+    prompt = render_prompt(
+        'scene_revision',
+        language=language,
+        scene_content=current_content,
+        current_chapter=current_chapter,
+        current_scene=current_scene,
+        genre=genre,
+        tone=tone,
+        issues=issues,
+        quality_scores=quality_scores,
+        revision_type=revision_type,
+        specific_focus=revision_guidance if revision_guidance else None,
+        plot_threads=plot_threads[:3] if plot_threads else None,  # Limit to 3
+        character_voices=character_voices if character_voices else None
+    )
+    
+    # Add any additional context
+    if context:
+        prompt += f"\n\nADDITIONAL CONTEXT:\n{context}"
+    
+    # Add author style if applicable
+    if author and author_style_guidance:
+        prompt += f"\n\nAUTHOR STYLE:\nMaintain the style of {author} with these characteristics:\n{author_style_guidance}"
     
     # Get the revision from LLM
     messages = [HumanMessage(content=prompt)]

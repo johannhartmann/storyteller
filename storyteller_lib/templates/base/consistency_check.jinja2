@@ -1,0 +1,93 @@
+{# Base template for consistency checking - English version #}
+Check this scene for consistency with established story elements:
+
+SCENE TO CHECK:
+{{ scene_content }}
+
+SCENE CONTEXT:
+- Chapter {{ current_chapter }}, Scene {{ current_scene }}
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+
+ESTABLISHED STORY ELEMENTS:
+
+{% if characters %}
+CHARACTERS:
+{% for char_name, char_info in characters.items() %}
+{{ char_name }}:
+- Role: {{ char_info.role }}
+- Key traits: {{ char_info.traits | join(', ') if char_info.traits else 'Not specified' }}
+- Current state: {{ char_info.current_state | default('Unknown') }}
+- Known facts: {{ char_info.known_facts | join(', ') if char_info.known_facts else 'None' }}
+{% endfor %}
+{% endif %}
+
+{% if world_elements %}
+WORLD ELEMENTS:
+{% for category, elements in world_elements.items() %}
+{{ category | upper }}:
+{% for key, value in elements.items() %}
+- {{ key | replace('_', ' ') | title }}: {{ value }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+{% if previous_events %}
+PREVIOUS EVENTS:
+{% for event in previous_events %}
+- Chapter {{ event.chapter }}, Scene {{ event.scene }}: {{ event.summary }}
+{% endfor %}
+{% endif %}
+
+{% if plot_threads %}
+ACTIVE PLOT THREADS:
+{% for thread in plot_threads %}
+- {{ thread.name }} ({{ thread.type }}): {{ thread.current_status }}
+{% endfor %}
+{% endif %}
+
+{% if timeline %}
+STORY TIMELINE:
+- Current point: {{ timeline.current }}
+- Important dates: {{ timeline.important_dates | join(', ') }}
+{% endif %}
+
+CONSISTENCY CHECKS REQUIRED:
+
+1. CHARACTER CONSISTENCY:
+   - Do characters behave according to their established traits?
+   - Are character knowledge and abilities consistent?
+   - Do character relationships match previous interactions?
+
+2. WORLD CONSISTENCY:
+   - Do locations match previous descriptions?
+   - Are world rules (magic, technology, etc.) followed?
+   - Is the setting consistent with established elements?
+
+3. PLOT CONSISTENCY:
+   - Do events follow logically from previous scenes?
+   - Are cause-and-effect relationships maintained?
+   - Do plot developments align with established threads?
+
+4. TIMELINE CONSISTENCY:
+   - Does the timing of events make sense?
+   - Are travel times and durations realistic?
+   - Do references to past events match the timeline?
+
+5. DETAIL CONSISTENCY:
+   - Are physical descriptions consistent?
+   - Do item locations and states match?
+   - Are names and titles used correctly?
+
+{% if specific_checks %}
+SPECIFIC CONSISTENCY CHECKS:
+{% for check in specific_checks %}
+- {{ check }}
+{% endfor %}
+{% endif %}
+
+Identify ALL consistency issues, even minor ones. For each issue provide:
+- Type of inconsistency
+- What conflicts with established elements
+- Severity (1-10)
+- Suggested correction

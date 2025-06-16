@@ -1,0 +1,70 @@
+{# German template for scene revision #}
+Überarbeite diese Szene, um die identifizierten Probleme zu beheben:
+
+ORIGINALSZENE:
+{{ scene_content }}
+
+SZENENKONTEXT:
+- Kapitel {{ current_chapter }}, Szene {{ current_scene }}
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+
+ZU BEHEBENDE PROBLEME:
+{% for issue in issues %}
+{{ loop.index }}. {{ issue.type | upper }} (Schweregrad: {{ issue.severity }}/10):
+   - Problem: {{ issue.description }}
+   - Empfehlung: {{ issue.recommendation }}
+{% endfor %}
+
+{% if quality_scores %}
+QUALITÄTSWERTE DIE VERBESSERUNG BENÖTIGEN:
+{% for aspect, score in quality_scores.items() %}
+{% if score < 7 %}
+- {{ aspect | replace('_', ' ') | title }}: {{ score }}/10
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if revision_type %}
+ÜBERARBEITUNGSTYP: {{ revision_type }}
+{% endif %}
+
+ÜBERARBEITUNGSANFORDERUNGEN:
+1. Behebe ALLE identifizierten Probleme in Prioritätsreihenfolge
+2. Erhalte Geschichtskontinuität und Charakterkonsistenz
+3. Bewahre den Kernzweck der Szene und Handlungsfortschritt
+4. Verbessere schwache Qualitätsaspekte (Werte unter 7)
+5. Behalte den ursprünglichen Ton und Stil bei
+6. Stelle fließenden Erzählfluss sicher
+
+{% if specific_focus %}
+SPEZIFISCHE SCHWERPUNKTBEREICHE:
+{{ specific_focus }}
+{% endif %}
+
+{% if plot_threads %}
+AKTIVE HANDLUNGSSTRÄNGE ZUM ERHALTEN:
+{% for thread in plot_threads %}
+- {{ thread.name }}: {{ thread.status }}
+{% endfor %}
+{% endif %}
+
+{% if character_voices %}
+CHARAKTERSTIMMEN-ERINNERUNGEN:
+{% for char_name, voice_notes in character_voices.items() %}
+- {{ char_name }}: {{ voice_notes }}
+{% endfor %}
+{% endif %}
+
+DEUTSCHE ERZÄHLSTANDARDS:
+- Achte auf präzise und elegante Sprache
+- Verwende angemessene Erzählperspektive
+- Integriere kulturell authentische Elemente
+- Nutze deutsche Erzähltraditionen wo passend
+
+Schreibe die Szene neu und behebe alle Probleme während du ihre Stärken bewahrst. Die überarbeitete Szene sollte:
+- Alle identifizierten Probleme beheben
+- Qualitätswerte verbessern
+- Narrative Kontinuität erhalten
+- Charakterauthentizität bewahren
+- Leserengagement verstärken

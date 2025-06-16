@@ -1,0 +1,64 @@
+{# Base template for scene revision - English version #}
+Revise this scene to address identified issues:
+
+ORIGINAL SCENE:
+{{ scene_content }}
+
+SCENE CONTEXT:
+- Chapter {{ current_chapter }}, Scene {{ current_scene }}
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+
+ISSUES TO ADDRESS:
+{% for issue in issues %}
+{{ loop.index }}. {{ issue.type | upper }} (Severity: {{ issue.severity }}/10):
+   - Problem: {{ issue.description }}
+   - Recommendation: {{ issue.recommendation }}
+{% endfor %}
+
+{% if quality_scores %}
+QUALITY SCORES NEEDING IMPROVEMENT:
+{% for aspect, score in quality_scores.items() %}
+{% if score < 7 %}
+- {{ aspect | replace('_', ' ') | title }}: {{ score }}/10
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if revision_type %}
+REVISION TYPE: {{ revision_type }}
+{% endif %}
+
+REVISION REQUIREMENTS:
+1. Address ALL identified issues in priority order
+2. Maintain story continuity and character consistency
+3. Preserve the scene's core purpose and plot advancement
+4. Enhance weak quality aspects (scores below 7)
+5. Keep the original tone and style
+6. Ensure smooth narrative flow
+
+{% if specific_focus %}
+SPECIFIC FOCUS AREAS:
+{{ specific_focus }}
+{% endif %}
+
+{% if plot_threads %}
+ACTIVE PLOT THREADS TO MAINTAIN:
+{% for thread in plot_threads %}
+- {{ thread.name }}: {{ thread.status }}
+{% endfor %}
+{% endif %}
+
+{% if character_voices %}
+CHARACTER VOICE REMINDERS:
+{% for char_name, voice_notes in character_voices.items() %}
+- {{ char_name }}: {{ voice_notes }}
+{% endfor %}
+{% endif %}
+
+Rewrite the scene addressing all issues while maintaining its strengths. The revised scene should:
+- Fix all identified problems
+- Improve quality scores
+- Maintain narrative continuity
+- Preserve character authenticity
+- Enhance reader engagement
