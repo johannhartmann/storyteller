@@ -147,15 +147,15 @@ def _format_previously_addressed_issues(previously_addressed_issues: List[Dict])
 # Pydantic models for structured output
 class QualityScores(BaseModel):
     """Quality scores for various aspects of the scene."""
-    overall: int = Field(ge=1, le=10, description="Overall quality score (1-10)")
-    pacing: int = Field(ge=1, le=10, description="Pacing quality score (1-10)")
-    character_development: int = Field(ge=1, le=10, description="Character development score (1-10)")
-    dialogue: int = Field(ge=1, le=10, description="Dialogue quality score (1-10)")
-    description: int = Field(ge=1, le=10, description="Description quality score (1-10)")
-    emotional_impact: int = Field(ge=1, le=10, description="Emotional impact score (1-10)")
-    plot_advancement: int = Field(ge=1, le=10, description="Plot advancement score (1-10)")
-    worldbuilding_integration: int = Field(ge=1, le=10, description="Worldbuilding integration score (1-10)")
-    closure_quality: int = Field(ge=1, le=10, description="Scene closure quality score (1-10)")
+    overall: int = Field(ge=1, le=10, description="Overall quality score (1-10, must be integer)")
+    pacing: int = Field(ge=1, le=10, description="Pacing quality score (1-10, must be integer)")
+    character_development: int = Field(ge=1, le=10, description="Character development score (1-10, must be integer)")
+    dialogue: int = Field(ge=1, le=10, description="Dialogue quality score (1-10, must be integer, use 1 if no dialogue)")
+    description: int = Field(ge=1, le=10, description="Description quality score (1-10, must be integer)")
+    emotional_impact: int = Field(ge=1, le=10, description="Emotional impact score (1-10, must be integer)")
+    plot_advancement: int = Field(ge=1, le=10, description="Plot advancement score (1-10, must be integer)")
+    worldbuilding_integration: int = Field(ge=1, le=10, description="Worldbuilding integration score (1-10, must be integer)")
+    closure_quality: int = Field(ge=1, le=10, description="Scene closure quality score (1-10, must be integer)")
 
 class Issue(BaseModel):
     """An issue identified in the scene."""
@@ -351,7 +351,7 @@ CLOSURE ANALYSIS:
 
 Analyze the scene and provide a detailed evaluation. Consider:
 
-1. Quality scores (1-10) for overall quality, pacing, character development, dialogue, description, emotional impact, plot advancement, worldbuilding integration, and closure quality
+1. Quality scores as INTEGERS from 1 to 10 (no decimals, no zeros) for overall quality, pacing, character development, dialogue, description, emotional impact, plot advancement, worldbuilding integration, and closure quality. If a scene has no dialogue, still give a dialogue score of at least 1 (not 0)
 2. Key strengths of the scene
 3. Any issues found (consistency, pacing, character, dialogue, description, worldbuilding, closure, language_mismatch, or other)
 4. Continuity with previous scenes
@@ -360,7 +360,9 @@ Analyze the scene and provide a detailed evaluation. Consider:
 7. The scene's impact on story progression
 8. Technical aspects like word count, POV consistency, tense consistency, and showing vs telling
 
-Be thorough but constructive in your analysis. Focus on actionable improvements."""
+Be thorough but constructive in your analysis. Focus on actionable improvements.
+
+IMPORTANT: All quality scores MUST be integers between 1 and 10 (inclusive). Do NOT use 0, decimals, or floats. If a scene lacks dialogue, still score dialogue as 1 (not 0)."""
 
     # Get reflection from LLM using structured output
     structured_llm = get_llm_with_structured_output(SceneReflection)

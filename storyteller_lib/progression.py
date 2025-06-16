@@ -8,8 +8,9 @@ removing router-specific code that could cause infinite loops.
 from typing import Dict
 import json
 
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, memory_manager, prompt_optimizer, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage
+from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage
 from storyteller_lib.models import StoryState
+from storyteller_lib.memory_manager import manage_memory, search_memory
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib import track_progress
 from storyteller_lib.constants import NodeNames
@@ -271,9 +272,7 @@ def update_world_elements(state: StoryState) -> Dict:
     # Update the world state tracker in memory
     try:
         # Use search_memory_tool to retrieve the world state tracker
-        results = search_memory_tool.invoke({
-            "query": "world_state_tracker"
-        })
+        results = search_memory(query="world_state_tracker")
         
         # Extract the world state tracker from the results
         world_state_tracker = None
@@ -315,12 +314,8 @@ def update_world_elements(state: StoryState) -> Dict:
             }
             
             # Store the updated tracker
-            manage_memory_tool.invoke({
-                "action": "create",
-                "key": "world_state_tracker",
-                "value": updated_tracker,
-                "namespace": MEMORY_NAMESPACE
-            })
+            manage_memory(action="create", key="world_state_tracker", value=updated_tracker,
+                namespace=MEMORY_NAMESPACE)
     except Exception as e:
         print(f"Error updating world state tracker: {str(e)}")
     
@@ -369,16 +364,34 @@ def update_character_profiles(state: StoryState) -> Dict:
     # Import optimization utilities
     from storyteller_lib.logger import get_logger
     from storyteller_lib.prompt_optimization import (
-        truncate_scene_content, summarize_character, log_prompt_size,
-        get_relevant_characters
+        truncate_scene_content, summarize_character, log_prompt_size
     )
     logger = get_logger(__name__)
+    
+    # Import entity relevance detection
+    from storyteller_lib.entity_relevance import (
+        analyze_scene_entities, filter_characters_for_scene
+    )
     
     # Truncate scene content smartly
     truncated_scene = truncate_scene_content(scene_content, keep_start=300, keep_end=200)
     
-    # Get only relevant characters mentioned in the scene
-    relevant_characters = get_relevant_characters(characters, scene_content, max_characters=5)
+    # Use LLM to identify relevant characters
+    chapter_outline = ""  # We don't have chapter outline here, use scene content
+    relevant_entities = analyze_scene_entities(
+        chapter_outline=chapter_outline,
+        scene_description=scene_content[:500],  # Use first part of scene as description
+        all_characters=characters,
+        world_elements={}
+    )
+    
+    # Filter to relevant characters
+    relevant_characters = filter_characters_for_scene(
+        all_characters=characters,
+        relevant_entities=relevant_entities,
+        include_limit=5
+    )
+    
     scene_characters = [(char_id, char_data.get('name', '')) 
                        for char_id, char_data in relevant_characters.items()]
     
@@ -698,12 +711,8 @@ def review_continuity(state: StoryState) -> Dict:
     review_result = llm.invoke([HumanMessage(content=prompt)]).content
     
     # Store the review in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": review_key,
-        "value": review_result,
-        "namespace": MEMORY_NAMESPACE
-    })
+    manage_memory(action="create", key=review_key, value=review_result,
+        namespace=MEMORY_NAMESPACE)
     
     # Check if there are issues that need resolution
     needs_resolution = "needs resolution" in review_result.lower() or "critical issue" in review_result.lower()
@@ -829,9 +838,7 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
     if review_key:
         try:
             # Use search_memory_tool to retrieve the review
-            results = search_memory_tool.invoke({
-                "query": review_key
-            })
+            results = search_memory(query=review_key)
             
             # Extract the review from the results
             review_obj = None
@@ -1069,12 +1076,8 @@ def compile_final_story(state: StoryState) -> Dict:
     final_story = chr(10).join(story_content)
     
     # Store the final story in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "final_story",
-        "value": final_story,
-        "namespace": MEMORY_NAMESPACE
-    })
+    manage_memory(action="create", key="final_story", value=final_story,
+        namespace=MEMORY_NAMESPACE)
     
     # Import optimization utility
     from storyteller_lib.prompt_optimization import log_prompt_size
@@ -1104,12 +1107,8 @@ def compile_final_story(state: StoryState) -> Dict:
     story_summary = llm.invoke([HumanMessage(content=summary_prompt)]).content
     
     # Store the summary in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "story_summary",
-        "value": story_summary,
-        "namespace": MEMORY_NAMESPACE
-    })
+    manage_memory(action="create", key="story_summary", value=story_summary,
+        namespace=MEMORY_NAMESPACE)
     
     # Story completion statistics are calculated for the return value
     total_chapters = len(chapters)

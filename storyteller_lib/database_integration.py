@@ -808,10 +808,22 @@ class StoryDatabaseManager:
         try:
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE story_config SET global_story = ? WHERE id = 1",
-                    (global_story,)
-                )
+                # First check if the row exists
+                cursor.execute("SELECT COUNT(*) FROM story_config WHERE id = 1")
+                exists = cursor.fetchone()[0] > 0
+                
+                if exists:
+                    cursor.execute(
+                        "UPDATE story_config SET global_story = ? WHERE id = 1",
+                        (global_story,)
+                    )
+                else:
+                    # Create the row with minimal data
+                    cursor.execute(
+                        """INSERT INTO story_config (id, title, genre, tone, global_story) 
+                           VALUES (1, 'Untitled Story', 'unknown', 'unknown', ?)""",
+                        (global_story,)
+                    )
                 conn.commit()
                 
             logger.info(f"Updated global story (length: {len(global_story)} chars)")
@@ -1032,6 +1044,100 @@ class StoryDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get scene {scene_num} of chapter {chapter_num}: {e}")
             return None
+    
+    def create_memory(self, key: str, value: str, namespace: str = "storyteller") -> None:
+        """Create a new memory entry."""
+        if not self.enabled or not self._db:
+            return
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """INSERT OR REPLACE INTO memories (key, value, namespace) 
+                       VALUES (?, ?, ?)""",
+                    (key, value, namespace)
+                )
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to create memory {key}: {e}")
+            raise
+    
+    def update_memory(self, key: str, value: str, namespace: str = "storyteller") -> None:
+        """Update an existing memory entry."""
+        if not self.enabled or not self._db:
+            return
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """UPDATE memories SET value = ?, updated_at = CURRENT_TIMESTAMP 
+                       WHERE key = ? AND namespace = ?""",
+                    (value, key, namespace)
+                )
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to update memory {key}: {e}")
+            raise
+    
+    def delete_memory(self, key: str, namespace: str = "storyteller") -> None:
+        """Delete a memory entry."""
+        if not self.enabled or not self._db:
+            return
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM memories WHERE key = ? AND namespace = ?",
+                    (key, namespace)
+                )
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Failed to delete memory {key}: {e}")
+            raise
+    
+    def get_memory(self, key: str, namespace: str = "storyteller") -> Optional[Dict[str, Any]]:
+        """Get a specific memory by key."""
+        if not self.enabled or not self._db:
+            return None
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT key, value, namespace FROM memories WHERE key = ? AND namespace = ?",
+                    (key, namespace)
+                )
+                result = cursor.fetchone()
+                if result:
+                    return dict(result)
+                return None
+        except Exception as e:
+            logger.error(f"Failed to get memory {key}: {e}")
+            return None
+    
+    def search_memories(self, query: str, namespace: str = "storyteller") -> List[Dict[str, Any]]:
+        """Search for memories containing the query string."""
+        if not self.enabled or not self._db:
+            return []
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                # Simple text search - checks if query is in key or value
+                cursor.execute(
+                    """SELECT key, value, namespace FROM memories 
+                       WHERE namespace = ? AND (key LIKE ? OR value LIKE ?)
+                       ORDER BY updated_at DESC""",
+                    (namespace, f'%{query}%', f'%{query}%')
+                )
+                results = cursor.fetchall()
+                return [dict(row) for row in results]
+        except Exception as e:
+            logger.error(f"Failed to search memories for '{query}': {e}")
+            return []
     
     def close(self) -> None:
         """Close database connections."""

@@ -9,6 +9,7 @@ from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
+from storyteller_lib.memory_manager import manage_memory, search_memory
 
 def identify_key_concepts(global_story: str, genre: str, language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
@@ -154,12 +155,8 @@ def track_key_concepts(state: StoryState) -> Dict:
     key_concepts_analysis = identify_key_concepts(global_story, genre, language)
     
     # Store key concepts in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "key_concepts_tracker",
-        "value": key_concepts_analysis,
-        "namespace": MEMORY_NAMESPACE
-    })
+    manage_memory(action="create", key="key_concepts_tracker", value=key_concepts_analysis,
+        namespace=MEMORY_NAMESPACE)
     
     return {
         "key_concepts_tracker": key_concepts_analysis
@@ -181,10 +178,7 @@ def check_concept_introduction(state: StoryState) -> Dict[str, Any]:
     
     # Retrieve key concepts tracker from memory
     try:
-        results = search_memory_tool.invoke({
-            "query": "key_concepts_tracker",
-            "namespace": MEMORY_NAMESPACE
-        })
+        results = search_memory(query="key_concepts_tracker", namespace=MEMORY_NAMESPACE)
         
         key_concepts_tracker = None
         if results:
@@ -234,10 +228,7 @@ def update_concept_introduction_status(state: StoryState, concept_name: str) -> 
     
     # Retrieve key concepts tracker from memory
     try:
-        results = search_memory_tool.invoke({
-            "query": "key_concepts_tracker",
-            "namespace": MEMORY_NAMESPACE
-        })
+        results = search_memory(query="key_concepts_tracker", namespace=MEMORY_NAMESPACE)
         
         key_concepts_tracker = None
         if results:
@@ -270,12 +261,8 @@ def update_concept_introduction_status(state: StoryState, concept_name: str) -> 
         }
         
         # Store the updated tracker in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "key_concepts_tracker",
-            "value": updated_tracker,
-            "namespace": MEMORY_NAMESPACE
-        })
+        manage_memory(action="create", key="key_concepts_tracker", value=updated_tracker,
+            namespace=MEMORY_NAMESPACE)
         
         return {
             "key_concepts_tracker": updated_tracker

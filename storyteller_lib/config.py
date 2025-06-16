@@ -24,14 +24,11 @@ from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.sqlite import SqliteSaver
-from langmem import (
-    create_manage_memory_tool, create_memory_manager,
-    create_prompt_optimizer, create_search_memory_tool
-)
 
 # Local imports
 from storyteller_lib.logger import config_logger as logger
-from storyteller_lib.memory_adapter import MemoryStoreAdapter
+from storyteller_lib.database_integration import initialize_db_manager
+from storyteller_lib.memory_manager import memory_manager as mm, MemoryManager
 
 # Load environment variables
 load_dotenv()
@@ -39,12 +36,12 @@ load_dotenv()
 # LLM Configuration
 # Model provider options
 MODEL_PROVIDER_OPTIONS = ["openai", "anthropic", "gemini"]
-DEFAULT_PROVIDER = "gemini"
+DEFAULT_PROVIDER = "openai"  # Changed from gemini to avoid timeout issues
 
 # Model configurations for each provider
 MODEL_CONFIGS = {
     "openai": {
-        "default_model": "gpt-4o",
+        "default_model": "gpt-4.1-mini",  # Changed to gpt-4.1-mini for faster responses
         "env_key": "OPENAI_API_KEY",
         "max_tokens": 128000
     },
@@ -70,6 +67,13 @@ MEMORY_DB_PATH = os.environ.get("MEMORY_DB_PATH", str(Path.home() / ".storytelle
 
 # Database Configuration
 DATABASE_PATH = os.environ.get("STORY_DATABASE_PATH", str(Path.home() / ".storyteller" / "story_database.db"))
+
+# Initialize database manager and memory manager
+db_manager = initialize_db_manager(DATABASE_PATH)
+memory_manager = MemoryManager(db_manager)
+# Set the global memory manager instance
+from storyteller_lib import memory_manager as mm_module
+mm_module.memory_manager = memory_manager
 
 # Language Configuration
 DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "english")  # Default language from .env or fallback to english
@@ -227,50 +231,21 @@ def get_llm_with_structured_output(
 
 
 # Define the memory namespace consistently
-MEMORY_NAMESPACE = ("storyteller",)
+MEMORY_NAMESPACE = "storyteller"
 
-# Create parent directories for memory database if needed
-memory_db_dir = Path(MEMORY_DB_PATH).parent
-memory_db_dir.mkdir(parents=True, exist_ok=True)
+# Import memory functions for compatibility
+from storyteller_lib.memory_manager import manage_memory, search_memory
 
-# Create a persistent SqliteSaver instance
-memory_conn = sqlite3.connect(MEMORY_DB_PATH, check_same_thread=False)
-sqlite_store = SqliteSaver(memory_conn)
+# Create tool-like wrappers for backward compatibility
+class MemoryToolWrapper:
+    def __init__(self, func):
+        self.func = func
+    
+    def invoke(self, params):
+        return self.func(**params)
 
-# Set up the database schema
-sqlite_store.setup()
-
-# Create a memory adapter that bridges between LangMem and SqliteSaver
-memory_store = MemoryStoreAdapter(sqlite_store, namespace=MEMORY_NAMESPACE)
-
-# Force garbage collection after creating the memory store
-gc.collect()
-
-# Create memory tools with the adapter
-manage_memory_tool = create_manage_memory_tool(namespace=MEMORY_NAMESPACE, store=memory_store)
-search_memory_tool = create_search_memory_tool(namespace=MEMORY_NAMESPACE, store=memory_store)
-
-# Force garbage collection after creating memory tools
-gc.collect()
-
-# Create memory manager for background processing
-# Note: memory_manager doesn't accept a store parameter directly
-memory_manager = create_memory_manager(
-    llm,  # Use the already initialized LLM instance
-    instructions="Extract key narrative elements, character developments, plot points, and thematic elements from the story content.",
-    enable_inserts=True
-)
-
-# Force garbage collection after creating memory manager
-gc.collect()
-
-# Create prompt optimizer
-# Note: prompt_optimizer doesn't accept a store parameter directly
-prompt_optimizer = create_prompt_optimizer(
-    llm,  # Use the already initialized LLM instance
-    kind="metaprompt",
-    config={"max_reflection_steps": 3}
-)
+manage_memory_tool = MemoryToolWrapper(manage_memory)
+search_memory_tool = MemoryToolWrapper(search_memory)
 # Memory profiling utility
 def log_memory_usage(label: str) -> Dict[str, Any]:
     """
@@ -400,13 +375,7 @@ def cleanup_old_state(state: Dict[str, Any], current_chapter: str, current_scene
                 }
     
     # 3. Optimize SQLite database if needed
-    if sqlite_store and hasattr(sqlite_store, "conn"):
-        try:
-            sqlite_store.conn.execute("PRAGMA optimize;")
-            sqlite_store.conn.execute("VACUUM;")
-            logger.info("SQLite database optimized")
-        except Exception as e:
-            logger.error(f"Error optimizing SQLite database: {e}")
+    # Database optimization is now handled by the database manager
     
     # Force garbage collection
     gc.collect()

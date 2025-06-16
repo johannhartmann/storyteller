@@ -25,11 +25,9 @@ from storyteller_lib.config import (
     llm, 
     MEMORY_NAMESPACE, 
     manage_memory_tool, 
-    search_memory_tool, 
-    memory_manager, 
-    prompt_optimizer,
-    store,
+    search_memory_tool
 )
+from storyteller_lib.memory_manager import manage_memory, search_memory
 
 # Import from creative_tools module
 from storyteller_lib.creative_tools import generate_structured_json, parse_json_with_langchain, creative_brainstorm
@@ -322,21 +320,13 @@ def generate_story_outline(state: StoryState) -> Dict:
     story_outline = llm.invoke([HumanMessage(content=prompt)]).content
     
     # Store in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "story_outline",
-        "value": story_outline
-    })
+    manage_memory(action="create", key="story_outline", value=story_outline)
     
     # Store in procedural memory that this was a result of initial generation
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "procedural_memory_outline_generation",
-        "value": {
+    manage_memory(action="create", key="procedural_memory_outline_generation", value={
             "timestamp": "initial_creation",
             "method": "hero's_journey_structure"
-        }
-    })
+        })
     
     # Initialize key concepts tracker for exposition clarity
     key_concepts_result = track_key_concepts(state)
@@ -1429,27 +1419,8 @@ def review_continuity(state: StoryState) -> Dict:
                     "value": memories
                 })
                 
-        # Use prompt optimizer to improve prompts based on continuity feedback
-        if "No major continuity issues detected" not in continuity_review:
-            # Create a trajectory based on the continuity review
-            trajectory = [
-                {"role": "system", "content": prompt},
-                {"role": "assistant", "content": continuity_review}
-            ]
-            
-            # Optimize the continuity review prompt
-            optimized_prompt = prompt_optimizer.invoke({
-                "trajectories": [(trajectory, {"user_score": continuity_review.count("issue") * -1})],
-                "prompt": prompt
-            })
-            
-            # Store the optimized prompt for future continuity reviews
-            if optimized_prompt:
-                manage_memory_tool.invoke({
-                    "action": "create",
-                    "key": "optimized_continuity_prompt",
-                    "value": optimized_prompt
-                })
+        # Note: Prompt optimization has been removed as it was not being used effectively
+        # The continuity review is stored for future reference
     except Exception as e:
         # Log the error but don't halt execution
         print(f"Background memory processing error: {str(e)}")
@@ -1494,11 +1465,7 @@ def compile_final_story(state: StoryState) -> Dict:
     final_continuity_check = llm.invoke([HumanMessage(content=global_continuity_prompt)]).content
     
     # Store the final continuity check
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "final_continuity_check",
-        "value": final_continuity_check
-    })
+    manage_memory(action="create", key="final_continuity_check", value=final_continuity_check)
     
     # Compile the story
     story = []
@@ -1527,11 +1494,7 @@ def compile_final_story(state: StoryState) -> Dict:
     complete_story = "\n".join(story)
     
     # Store the complete story in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "complete_story",
-        "value": complete_story
-    })
+    manage_memory(action="create", key="complete_story", value=complete_story)
     
     # Final message to the user
     return {
@@ -1797,10 +1760,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "")
     )
     
     # Try to retrieve the complete story using semantic search first
-    complete_story = search_memory_tool.invoke({
-        "query": "complete final story with all chapters and scenes",
-        "namespace": MEMORY_NAMESPACE
-    })
+    complete_story = search_memory(query="complete final story with all chapters and scenes", namespace=MEMORY_NAMESPACE)
     
     # If semantic search doesn't yield good results, try direct key lookup
     if not complete_story or complete_story.strip() == "":
@@ -1817,11 +1777,7 @@ def generate_story(genre: str = "fantasy", tone: str = "epic", author: str = "")
     if not complete_story or complete_story.strip() == "":
         try:
             # Search for chapters using semantic search
-            chapter_results = search_memory_tool.invoke({
-                "query": "chapter content scenes story",
-                "namespace": MEMORY_NAMESPACE,
-                "k": 20  # Get more results to find all chapters
-            })
+            chapter_results = search_memory(query="chapter content scenes story", namespace=MEMORY_NAMESPACE)
             
             if chapter_results:
                 # This is a simplified approach - in a real implementation,
