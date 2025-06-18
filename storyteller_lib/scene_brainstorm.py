@@ -15,6 +15,7 @@ from storyteller_lib import track_progress
 from storyteller_lib.config import MEMORY_NAMESPACE, llm, manage_memory_tool, search_memory_tool
 from storyteller_lib.constants import NodeNames, SceneElements
 from storyteller_lib.creative_tools import creative_brainstorm
+from storyteller_lib.logger import scene_logger as logger
 from storyteller_lib.models import StoryState
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 from storyteller_lib.context_aware_scene_analysis import (
@@ -22,7 +23,7 @@ from storyteller_lib.context_aware_scene_analysis import (
 )
 
 
-def _prepare_creative_guidance(creative_elements: Dict, current_chapter: str, current_scene: str) -> str:
+def _prepare_creative_guidance(creative_elements: Dict, current_chapter: str, current_scene: str) -> Dict:
     """Prepare creative guidance based on brainstormed elements.
     
     Args:
@@ -31,69 +32,52 @@ def _prepare_creative_guidance(creative_elements: Dict, current_chapter: str, cu
         current_scene: Current scene number
         
     Returns:
-        Formatted creative guidance string
+        Structured creative elements dictionary
     """
-    # Keep it concise and scene-focused - we'll use these in the prompt
-    guidance = f"\nCREATIVE ELEMENTS for Chapter {current_chapter}, Scene {current_scene}:\n"
-    
-    if "plot_progression" in creative_elements:
-        guidance += f"Plot Progression: {creative_elements['plot_progression']}\n"
-    
-    if "character_dynamics" in creative_elements:
-        guidance += f"Character Dynamics: {creative_elements['character_dynamics']}\n"
-        
-    if "scene_purpose" in creative_elements:
-        guidance += f"Scene Purpose: {creative_elements['scene_purpose']}\n"
-        
-    if "creative_opportunities" in creative_elements:
-        guidance += f"Creative Opportunities: {creative_elements['creative_opportunities']}\n"
-    
-    return guidance
+    # Return the creative elements as-is for the template to format
+    return creative_elements
 
 
-def _prepare_plot_thread_guidance(active_plot_threads: List[Dict]) -> str:
+def _prepare_plot_thread_guidance(active_plot_threads: List[Dict]) -> List[Dict[str, Any]]:
     """Prepare guidance for active plot threads in the scene.
     
     Args:
         active_plot_threads: List of active plot thread dictionaries
         
     Returns:
-        Formatted plot thread guidance string
+        List of structured plot thread dictionaries
     """
     if not active_plot_threads:
-        return ""
+        return []
         
-    guidance = "\nACTIVE PLOT THREADS for this scene:\n"
+    structured_threads = []
     for thread in active_plot_threads:
         # Use importance field if type is not available
         thread_type = thread.get('type', thread.get('importance', 'minor'))
-        guidance += f"\n{thread['name']} ({thread_type}):\n"
-        guidance += f"  Status: {thread['status']}\n"
         
         # Handle different field names for development
         current_dev = thread.get('current_development', thread.get('last_development', 'No development yet'))
-        guidance += f"  Current Development: {current_dev}\n"
         
+        # Get characters involved
+        chars = thread.get('involved_characters', thread.get('related_characters', []))
+        
+        structured_thread = {
+            'name': thread['name'],
+            'type': thread_type,
+            'status': thread['status'],
+            'current_development': current_dev,
+            'characters_involved': chars if chars else None
+        }
+        
+        # Add optional fields if present
         if thread.get('next_steps'):
-            guidance += f"  Next Steps: {thread['next_steps']}\n"
-            
+            structured_thread['next_steps'] = thread['next_steps']
         if thread.get('tension_level'):
-            guidance += f"  Tension Level: {thread['tension_level']}\n"
+            structured_thread['tension_level'] = thread['tension_level']
             
-        if thread.get('involved_characters') or thread.get('related_characters'):
-            chars = thread.get('involved_characters', thread.get('related_characters', []))
-            if chars:
-                guidance += f"  Characters Involved: {', '.join(chars)}\n"
-            
-        # Add guidance based on importance level since we don't have specific types
-        if thread_type == 'major':
-            guidance += "  >>> This is a MAJOR plot thread. It should drive the primary narrative forward.\n"
-        elif thread_type == 'minor':
-            guidance += "  >>> This minor thread should complement the main narrative without overshadowing it.\n"
-        elif thread_type == 'background':
-            guidance += "  >>> This background thread should add depth without dominating the scene.\n"
+        structured_threads.append(structured_thread)
     
-    return guidance
+    return structured_threads
 
 
 @track_progress
@@ -138,65 +122,85 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         "plot_progressions": [],
         "character_learns": [],
         "required_characters": [],
-        "forbidden_repetitions": []
+        "forbidden_repetitions": [],
+        "dramatic_purpose": "development",
+        "tension_level": 5,
+        "ends_with": "transition",
+        "connects_to_next": "",
+        "scene_type": "exploration"  # Default scene type
     }
     
-    chapter_id = db_manager._chapter_id_map.get(current_chapter)
-    if chapter_id:
-        with db_manager._db._get_connection() as conn:
-            cursor = conn.cursor()
+    # Get chapter_id from database directly
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id FROM chapters WHERE chapter_number = ?",
+            (int(current_chapter),)
+        )
+        chapter_result = cursor.fetchone()
+        if chapter_result:
+            chapter_id = chapter_result['id']
             cursor.execute(
-                "SELECT outline FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                "SELECT description, scene_type FROM scenes WHERE chapter_id = ? AND scene_number = ?",
                 (chapter_id, int(current_scene))
             )
             result = cursor.fetchone()
-            if result and result['outline']:
-                scene_description = result['outline']
+            if result:
+                if result['description']:
+                    scene_description = result['description']
+                if result['scene_type']:
+                    scene_specifications['scene_type'] = result['scene_type']
     
     # Try to get scene specifications from state
     chapters = state.get("chapters", {})
     if current_chapter in chapters and "scenes" in chapters[current_chapter]:
         scene_data = chapters[current_chapter]["scenes"].get(current_scene, {})
         if scene_data:
+            # ALWAYS use scene description from chapter planning
+            if 'description' in scene_data:
+                scene_description = scene_data['description']
+            
             scene_specifications["plot_progressions"] = scene_data.get("plot_progressions", [])
             scene_specifications["character_learns"] = scene_data.get("character_learns", [])
             scene_specifications["required_characters"] = scene_data.get("required_characters", [])
             scene_specifications["forbidden_repetitions"] = scene_data.get("forbidden_repetitions", [])
+            scene_specifications["dramatic_purpose"] = scene_data.get("dramatic_purpose", "development")
+            scene_specifications["tension_level"] = scene_data.get("tension_level", 5)
+            scene_specifications["ends_with"] = scene_data.get("ends_with", "transition")
+            scene_specifications["connects_to_next"] = scene_data.get("connects_to_next", "")
+            # Get scene_type from state if available and not already set from DB
+            if 'scene_type' in scene_data and 'scene_type' not in scene_specifications:
+                scene_specifications["scene_type"] = scene_data.get("scene_type", "exploration")
     
-    # Use generic description if scene outline not available yet
+    # Fail if no scene description found - we should never use generic descriptions
     if not scene_description:
-        scene_description = f"Scene {current_scene} of Chapter {current_chapter}"
+        logger.error(f"No scene description found for Chapter {current_chapter}, Scene {current_scene}")
+        raise RuntimeError(f"No scene description found for Chapter {current_chapter}, Scene {current_scene}")
+    
+    logger.info(f"Scene description for Ch{current_chapter}/Sc{current_scene}: {scene_description[:100]}...")
     
     # Check plot progressions that have already occurred
     existing_progressions = db_manager.get_plot_progressions()
     existing_progression_keys = [p['progression_key'] for p in existing_progressions]
     
-    # Prepare guidance based on specifications
-    specification_guidance = ""
+    # Prepare structured data for specifications
+    plot_progressions = []
     if scene_specifications["plot_progressions"]:
-        specification_guidance += f"\nKEY PLOT PROGRESSIONS TO INCLUDE:\n"
         for prog in scene_specifications["plot_progressions"]:
-            if prog not in existing_progression_keys:
-                specification_guidance += f"- {prog}: This MUST happen in this scene\n"
-            else:
-                specification_guidance += f"- WARNING: '{prog}' has already occurred! Do not repeat.\n"
+            plot_progressions.append({
+                'key': prog,
+                'already_occurred': prog in existing_progression_keys
+            })
     
-    if scene_specifications["forbidden_repetitions"]:
-        specification_guidance += f"\nFORBIDDEN REPETITIONS (DO NOT include these):\n"
-        for forbidden in scene_specifications["forbidden_repetitions"]:
-            specification_guidance += f"- {forbidden}: This has already been revealed/happened\n"
-    
-    if scene_specifications["required_characters"]:
-        specification_guidance += f"\nREQUIRED CHARACTERS:\n"
-        specification_guidance += f"These characters MUST appear: {', '.join(scene_specifications['required_characters'])}\n"
-    
-    if scene_specifications["character_learns"]:
-        specification_guidance += f"\nCHARACTER LEARNING:\n"
-        for learning in scene_specifications["character_learns"]:
-            specification_guidance += f"- {learning}\n"
+    forbidden_repetitions = scene_specifications.get("forbidden_repetitions", [])
+    required_characters = scene_specifications.get("required_characters", [])
+    character_learns = scene_specifications.get("character_learns", [])
     
     # Get active plot threads for this scene
     active_plot_threads = get_active_plot_threads_for_scene(state)
+    
+    # Prepare structured plot threads for template
+    structured_plot_threads = _prepare_plot_thread_guidance(active_plot_threads)
     
     # Get the overall story context
     story_context = state.get("story_premise", "")
@@ -261,8 +265,6 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
                 if result:
                     chapter_outline = result['outline']
         except Exception as e:
-            from storyteller_lib.logger import get_logger
-            logger = get_logger(__name__)
             logger.warning(f"Could not get chapter outline from database: {e}")
         
         # Get previous scene metadata for analysis
@@ -270,7 +272,7 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         with db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT c.chapter_number, s.scene_number, se.event_type, se.event_description
+                SELECT c.chapter_number, s.scene_number, s.description, s.scene_type, se.event_type, se.event_description
                 FROM scenes s
                 JOIN chapters c ON s.chapter_id = c.id
                 LEFT JOIN story_events se ON se.chapter_number = c.chapter_number 
@@ -281,11 +283,20 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             """, (int(current_chapter),))
             
             for row in cursor.fetchall():
+                # Use scene description if available, otherwise event description
+                summary = row['description'] if row['description'] else (row['event_description'] or 'No summary available')
+                
+                # Use stored scene_type from database, fallback to event_type or default
+                scene_type = row['scene_type'] if row['scene_type'] else (row['event_type'] or 'exploration')
+                
                 previous_scenes.append({
                     'chapter': row['chapter_number'],
                     'scene': row['scene_number'],
-                    'type': row['event_type'] or 'unknown',
-                    'summary': row['event_description'] or 'No summary available'
+                    'type': scene_type,  # Keep for backward compatibility
+                    'scene_type': scene_type,  # Add proper field name
+                    'summary': summary,
+                    'description': row['description'] if row['description'] else '',  # Include actual scene description
+                    'focus': 'character development' if 'character' in summary.lower() else 'plot progression'  # Infer focus
                 })
     
     # Analyze scene sequence for variety appropriateness
@@ -293,6 +304,11 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     next_scene_suggestion = None
     
     if previous_scenes:
+        # Debug: Log what we're passing to variety analysis
+        logger.info(f"Previous scenes for variety analysis: {len(previous_scenes)} scenes")
+        for i, scene in enumerate(previous_scenes[:3]):
+            logger.info(f"  Scene {i}: Ch{scene['chapter']}/Sc{scene['scene']} - Type: {scene['type']}, Summary: {scene['summary'][:50]}...")
+        
         # Analyze if the scene sequence has appropriate variety
         sequence_analysis = analyze_scene_sequence_variety(
             recent_scenes=previous_scenes[:5],  # Last 5 scenes
@@ -359,6 +375,37 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     # Get language from state
     language = state.get("language", "english")
     
+    # Check if we should consider merging with previous scene
+    merge_analysis = None
+    if int(current_scene) > 1:
+        from storyteller_lib.dramatic_arc import analyze_dramatic_necessity
+        prev_scene = str(int(current_scene) - 1)
+        prev_scene_data = chapters.get(current_chapter, {}).get("scenes", {}).get(prev_scene, {})
+        
+        if prev_scene_data:
+            merge_analysis = analyze_dramatic_necessity(
+                prev_scene_data.get("description", ""),
+                scene_description,
+                active_plot_threads,
+                prev_scene_data.get("tension_level", 5),
+                scene_specifications["tension_level"],
+                prev_scene_data.get("dramatic_purpose", "development"),
+                scene_specifications["dramatic_purpose"]
+            )
+    
+    # Prepare dramatic context for brainstorming
+    dramatic_context = {
+        "purpose": scene_specifications["dramatic_purpose"],
+        "tension_level": scene_specifications["tension_level"],
+        "ends_with": scene_specifications["ends_with"],
+        "connects_to_next": scene_specifications["connects_to_next"],
+        "scene_type": scene_specifications["scene_type"],
+        "merge_analysis": merge_analysis
+    }
+    
+    # Log scene description before rendering
+    logger.info(f"About to render brainstorm prompt with scene_description: {scene_description[:100] if scene_description else 'NONE'}...")
+    
     # Render the brainstorming prompt
     brainstorm_prompt = render_prompt(
         'scene_brainstorm',
@@ -376,8 +423,24 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         forbidden_elements=forbidden_elements if any(forbidden_elements.values()) else None,
         sequence_analysis=sequence_analysis,
         next_scene_suggestion=next_scene_suggestion,
-        specification_guidance=specification_guidance if specification_guidance else None
+        plot_progressions=plot_progressions if plot_progressions else None,
+        forbidden_repetitions=forbidden_repetitions if forbidden_repetitions else None,
+        required_characters=required_characters if required_characters else None,
+        character_learns=character_learns if character_learns else None,
+        active_plot_threads=structured_plot_threads if structured_plot_threads else None,
+        creative_elements=creative_elements if 'creative_elements' in locals() else None,
+        dramatic_context=dramatic_context
     )
+    
+    # Log the first part of the prompt to check if scene description is there
+    logger.info("=== BRAINSTORM PROMPT START ===")
+    prompt_lines = brainstorm_prompt.split('\n')[:50]  # First 50 lines
+    for i, line in enumerate(prompt_lines):
+        if 'szene' in line.lower() and ('2:' in line or 'beschreibung' in line.lower()):
+            logger.info(f"Line {i}: {line}")
+            if i < len(prompt_lines) - 1:
+                logger.info(f"Line {i+1}: {prompt_lines[i+1]}")
+    logger.info("=== BRAINSTORM PROMPT END ===")
     
     # Generate brainstorming ideas using LLM directly
     try:
@@ -433,6 +496,17 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         "value": scene_elements,
         "namespace": MEMORY_NAMESPACE
     })
+    
+    # Check if this scene should be merged with the previous one
+    if merge_analysis and merge_analysis.get('merge_recommendation', False):
+        # Mark this scene for merging instead of separate writing
+        scene_elements['should_merge'] = True
+        scene_elements['merge_guidance'] = merge_analysis['transition_guidance']
+        
+        # Update the scene specifications to indicate merging
+        if current_chapter in state["chapters"] and "scenes" in state["chapters"][current_chapter]:
+            if current_scene in state["chapters"][current_chapter]["scenes"]:
+                state["chapters"][current_chapter]["scenes"][current_scene]["should_merge"] = True
     
     # Log scene start
     from storyteller_lib.story_progress_logger import log_progress

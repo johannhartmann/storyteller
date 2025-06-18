@@ -74,7 +74,7 @@ class StoryDatabaseManager:
                     (id, title, genre, tone, author, language, initial_idea, global_story)
                     VALUES (1, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    state.get('initial_idea', 'Untitled Story')[:100],
+                    f"{state.get('tone', 'unknown').capitalize()} {state.get('genre', 'unknown').capitalize()} Story",
                     state.get('genre', 'unknown'),
                     state.get('tone', 'unknown'),
                     state.get('author', ''),
@@ -348,7 +348,7 @@ class StoryDatabaseManager:
                     self._current_scene_id = self._db.create_scene(
                         chapter_id=self._current_chapter_id,
                         scene_num=scene_num,
-                        outline=scene_data.get('outline', ''),
+                        outline=scene_data.get('description', ''),  # Use 'description' from chapter planning
                         content=scene_data.get('content', '')
                     )
                     
@@ -800,7 +800,9 @@ class StoryDatabaseManager:
         
         try:
             # Extract title from the global story
+            logger.info(f"update_global_story called with outline of length {len(global_story)}")
             story_title = self._extract_title_from_outline(global_story)
+            logger.info(f"Extracted title from outline: '{story_title}'")
             
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
@@ -813,6 +815,7 @@ class StoryDatabaseManager:
                         "UPDATE story_config SET global_story = ?, title = ? WHERE id = 1",
                         (global_story, story_title)
                     )
+                    logger.info(f"Updated existing story_config with title: '{story_title}'")
                 else:
                     # Create the row with minimal data
                     cursor.execute(
@@ -820,7 +823,18 @@ class StoryDatabaseManager:
                            VALUES (1, ?, 'unknown', 'unknown', ?)""",
                         (story_title, global_story)
                     )
+                    logger.info(f"Created new story_config with title: '{story_title}'")
                 conn.commit()
+                
+            # Verify the update was successful
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT title FROM story_config WHERE id = 1")
+                result = cursor.fetchone()
+                if result:
+                    logger.info(f"Verified title in database: '{result['title']}'")
+                else:
+                    logger.error("Could not verify title update in database")
                 
             logger.info(f"Updated global story (length: {len(global_story)} chars) with title: {story_title}")
         except Exception as e:
@@ -830,20 +844,49 @@ class StoryDatabaseManager:
     def _extract_title_from_outline(self, global_story: str) -> str:
         """Extract the story title from the global story outline."""
         if not global_story:
+            logger.warning("No global story provided for title extraction")
             return "Untitled Story"
+        
+        logger.debug(f"Extracting title from outline (first 500 chars): {global_story[:500]}...")
         
         # Look for lines containing "Title:" or "Titel:" (for German)
         lines = global_story.split('\n')
-        for line in lines[:10]:  # Check first 10 lines
+        for i, line in enumerate(lines[:30]):  # Check first 30 lines
             if 'title:' in line.lower() or 'titel:' in line.lower():
+                logger.debug(f"Found title line at position {i}: {line}")
                 # Extract the title after the colon
                 parts = line.split(':', 1)
-                if len(parts) > 1:
+                if len(parts) > 1 and parts[1].strip():
+                    # Title is on the same line
                     title = parts[1].strip()
-                    # Remove any quotes if present
-                    title = title.strip('"').strip("'")
-                    if title:
-                        return title
+                else:
+                    # Title might be on the next line
+                    if i + 1 < len(lines):
+                        next_line = lines[i + 1].strip()
+                        # Skip separator lines
+                        if next_line and not next_line.startswith('---') and not next_line.startswith('==='):
+                            title = next_line
+                        else:
+                            # Try line after that
+                            if i + 2 < len(lines):
+                                title = lines[i + 2].strip()
+                            else:
+                                continue
+                    else:
+                        continue
+                
+                # Remove any quotes or special formatting - handle multiple levels
+                title = title.strip()
+                # Remove markdown bold formatting
+                while '**' in title:
+                    title = title.replace('**', '')
+                # Remove various quote types
+                title = title.strip('"').strip("'").strip('*').strip('„').strip('"').strip('»').strip('«')
+                # Final strip to remove any remaining whitespace
+                title = title.strip()
+                if title and title != '---' and title != '===':
+                    logger.info(f"Successfully extracted title: '{title}'")
+                    return title
         
         # If no explicit title line, try to get the first non-empty line
         for line in lines:
@@ -851,9 +894,13 @@ class StoryDatabaseManager:
             if line and not line.startswith('#') and not line.startswith('*'):
                 # Take the first meaningful line as title
                 if len(line) > 100:
-                    return line[:97] + "..."
-                return line
+                    title = line[:97] + "..."
+                else:
+                    title = line
+                logger.info(f"Using first meaningful line as title: '{title}'")
+                return title
         
+        logger.warning("Could not extract any title from outline")
         return "Untitled Story"
     
     # Public methods for saving specific data types
@@ -1010,6 +1057,41 @@ class StoryDatabaseManager:
             
             # Store chapter ID mapping
             self._chapter_id_map[str(chapter_num)] = chapter_id
+            
+            # Save scene descriptions from chapter planning
+            scenes = chapter_data.get('scenes', {})
+            for scene_num_str, scene_data in scenes.items():
+                try:
+                    scene_num = int(scene_num_str)
+                    scene_description = scene_data.get('description', '')
+                    scene_type = scene_data.get('scene_type', 'exploration')  # Get scene_type with default
+                    
+                    if scene_description:
+                        # Check if scene already exists
+                        with self._db._get_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                "SELECT id FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                                (chapter_id, scene_num)
+                            )
+                            existing_scene = cursor.fetchone()
+                            
+                            if existing_scene:
+                                # Update existing scene with description and type
+                                cursor.execute(
+                                    "UPDATE scenes SET description = ?, scene_type = ? WHERE id = ?",
+                                    (scene_description, scene_type, existing_scene['id'])
+                                )
+                            else:
+                                # Create scene with description and type
+                                cursor.execute(
+                                    "INSERT INTO scenes (chapter_id, scene_number, description, scene_type) VALUES (?, ?, ?, ?)",
+                                    (chapter_id, scene_num, scene_description, scene_type)
+                                )
+                            conn.commit()
+                            logger.info(f"Saved scene {scene_num} description (type: {scene_type}) for chapter {chapter_num}")
+                except (ValueError, KeyError) as e:
+                    logger.warning(f"Could not save scene {scene_num_str}: {e}")
             
         except Exception as e:
             logger.error(f"Failed to save chapter {chapter_num}: {e}")

@@ -30,13 +30,29 @@ ANFORDERUNGEN AN SZENENVIELFALT:
 - Zusätzliche Hinweise: {{ scene_variety_requirements.notes }}
 {% endif %}
 
+{% if dramatic_context %}
+DRAMATISCHER KONTEXT FÜR DIESE SZENE:
+- Szenentyp: {{ dramatic_context.scene_type }}
+- Dramatischer Zweck: {{ dramatic_context.purpose }}
+- Spannungsniveau: {{ dramatic_context.tension_level }}/10
+- Sollte enden mit: {{ dramatic_context.ends_with }}
+- Verbindung zur nächsten Szene: {{ dramatic_context.connects_to_next }}
+
+{% if dramatic_context.merge_analysis and dramatic_context.merge_analysis.merge_recommendation %}
+⚠️ VERSCHMELZUNGSÜBERLEGUNG: {{ dramatic_context.merge_analysis.transition_guidance }}
+Überlege, ob diese Szene mit der vorherigen für besseren Fluss kombiniert werden könnte.
+{% endif %}
+{% endif %}
+
 BRAINSTORMING-ZIELE:
 1. Generiere 3-5 verschiedene Ansätze für diese Szene
 2. Jeder Ansatz sollte:
    - Einen einzigartigen Blickwinkel oder Perspektive haben
    - Die Handlung bedeutsam vorantreiben
    - Charakterbeziehungen entwickeln
-   - Spannung oder Konflikt erzeugen
+   - Angemessen für eine {{ dramatic_context.scene_type if dramatic_context else 'Erkundung' }}-Szene sein
+   - Den dramatischen Zweck ({{ dramatic_context.purpose if dramatic_context else 'Entwicklung' }}) erfüllen
+   - Das Spannungsniveau von {{ dramatic_context.tension_level if dramatic_context else '5' }}/10 erreichen
    - Frisch und fesselnd wirken
 
 3. Berücksichtige:
@@ -45,6 +61,81 @@ BRAINSTORMING-ZIELE:
    - Wie können wir Lesererwartungen unterlaufen?
    - Welche sensorischen Details machen sie lebendig?
    - Welche Emotionen soll der Leser fühlen?
+
+{% if plot_progressions %}
+WICHTIGE HANDLUNGSFORTSCHRITTE:
+{% for prog in plot_progressions %}
+{% if not prog.already_occurred %}
+- {{ prog.key }}: Dies MUSS in dieser Szene geschehen
+{% else %}
+- WARNUNG: '{{ prog.key }}' ist bereits geschehen! Nicht wiederholen.
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if forbidden_repetitions %}
+VERBOTENE WIEDERHOLUNGEN (NICHT einbeziehen):
+{% for forbidden in forbidden_repetitions %}
+- {{ forbidden }}: Dies wurde bereits enthüllt/ist bereits geschehen
+{% endfor %}
+{% endif %}
+
+{% if required_characters %}
+ERFORDERLICHE CHARAKTERE:
+Diese Charaktere MÜSSEN auftreten: {{ required_characters | join(', ') }}
+{% endif %}
+
+{% if character_learns %}
+CHARAKTERENTWICKLUNG:
+{% for learning in character_learns %}
+- {{ learning }}
+{% endfor %}
+{% endif %}
+
+{% if active_plot_threads %}
+AKTIVE HANDLUNGSSTRÄNGE für diese Szene:
+{% for thread in active_plot_threads %}
+{{ thread.name }} ({{ thread.type }}):
+  Status: {{ thread.status }}
+  Aktuelle Entwicklung: {{ thread.current_development }}
+{% if thread.next_steps %}
+  Nächste Schritte: {{ thread.next_steps }}
+{% endif %}
+{% if thread.tension_level %}
+  Spannungsniveau: {{ thread.tension_level }}
+{% endif %}
+{% if thread.characters_involved %}
+  Beteiligte Charaktere: {{ thread.characters_involved | join(', ') }}
+{% endif %}
+{% if thread.type == 'major' %}
+  >>> Dies ist ein HAUPT-Handlungsstrang. Er sollte die Haupterzählung vorantreiben.
+{% elif thread.type == 'minor' %}
+  >>> Dieser Nebenstrang sollte die Haupterzählung ergänzen, ohne sie zu überschatten.
+{% elif thread.type == 'background' %}
+  >>> Dieser Hintergrundstrang sollte Tiefe verleihen, ohne die Szene zu dominieren.
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if creative_elements %}
+KREATIVE ELEMENTE für Kapitel {{ current_chapter }}, Szene {{ scene_number }}:
+{% if creative_elements.plot_progression %}
+Handlungsfortschritt:
+{{ creative_elements.plot_progression }}
+{% endif %}
+{% if creative_elements.character_dynamics %}
+Charakterdynamik:
+{{ creative_elements.character_dynamics }}
+{% endif %}
+{% if creative_elements.scene_purpose %}
+Szenenzweck:
+{{ creative_elements.scene_purpose }}
+{% endif %}
+{% if creative_elements.creative_opportunities %}
+Kreative Möglichkeiten:
+{{ creative_elements.creative_opportunities }}
+{% endif %}
+{% endif %}
 
 DEUTSCHE ERZÄHLTRADITIONEN:
 - Nutze Elemente deutscher Erzählkunst (Märchen, Sagen, moderne Literatur)

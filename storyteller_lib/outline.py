@@ -626,12 +626,19 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 class SceneSpec(BaseModel):
-    """Simplified scene specification to prevent repetition."""
+    """Scene specification with dramatic structure to ensure meaningful transitions."""
     description: str = Field(..., description="Brief description of what happens in this scene")
+    scene_type: str = Field(..., description="Type of scene: action, dialogue, exploration, revelation, character_moment, transition, conflict, resolution")
     plot_progressions: List[str] = Field(default_factory=list, description="Key plot points that MUST happen (e.g., 'hero_learns_about_quest')")
     character_learns: List[str] = Field(default_factory=list, description="What characters learn, formatted as 'CharacterName: knowledge item'")
     required_characters: List[str] = Field(default_factory=list, description="Characters who must appear in this scene")
     forbidden_repetitions: List[str] = Field(default_factory=list, description="Plot points that must NOT be repeated from earlier scenes")
+    
+    # Dramatic arc fields
+    dramatic_purpose: str = Field(default="development", description="Primary dramatic purpose: setup, rising_action, climax, falling_action, resolution")
+    tension_level: int = Field(default=5, ge=1, le=10, description="Tension level from 1 (calm) to 10 (maximum tension)")
+    ends_with: str = Field(default="transition", description="How scene should end: cliffhanger, resolution, soft_transition, hard_break")
+    connects_to_next: str = Field(default="", description="How this scene connects to the next one narratively")
 
 class Chapter(BaseModel):
     """Enhanced model for a chapter with detailed scene specifications."""
@@ -776,43 +783,30 @@ def plan_chapters(state: StoryState) -> Dict:
                 chapter_entry["scenes"][scene_num] = {
                     "content": "",  # Content will be filled in later
                     "description": scene.description,
+                    "scene_type": scene.scene_type if hasattr(scene, 'scene_type') else "exploration",  # Include scene_type
                     "plot_progressions": scene.plot_progressions if hasattr(scene, 'plot_progressions') else [],
                     "character_learns": scene.character_learns if hasattr(scene, 'character_learns') else [],
                     "required_characters": scene.required_characters if hasattr(scene, 'required_characters') else [],
                     "forbidden_repetitions": scene.forbidden_repetitions if hasattr(scene, 'forbidden_repetitions') else [],
+                    "dramatic_purpose": scene.dramatic_purpose if hasattr(scene, 'dramatic_purpose') else "development",
+                    "tension_level": scene.tension_level if hasattr(scene, 'tension_level') else 5,
+                    "ends_with": scene.ends_with if hasattr(scene, 'ends_with') else "transition",
+                    "connects_to_next": scene.connects_to_next if hasattr(scene, 'connects_to_next') else "",
                     "reflection_notes": []
                 }
             
-            # Ensure at least 3 scenes
-            for i in range(len(chapter.key_scenes) + 1, 4):
-                scene_num = str(i)
-                chapter_entry["scenes"][scene_num] = {
-                    "content": "",
-                    "description": f"Additional scene for chapter {chapter_num}",
-                    "reflection_notes": []
-                }
+            # Fail if no scenes at all
+            if len(chapter.key_scenes) < 1:
+                raise RuntimeError(f"Chapter {chapter_num} has no scenes. At least 1 scene is required.")
             
             chapters_dict[chapter_num] = chapter_entry
         
         # Use the dictionary as our chapters
         chapters = chapters_dict
         
-        # If we don't have enough chapters, create empty ones
+        # Fail if we don't have enough chapters
         if len(chapters) < 8:
-            print(f"Only {len(chapters)} chapters were generated. Adding empty chapters to reach at least 8.")
-            for i in range(1, 9):
-                chapter_num = str(i)
-                if chapter_num not in chapters:
-                    chapters[chapter_num] = {
-                        "title": f"Chapter {i}",
-                        "outline": f"Events of chapter {i}",
-                        "scenes": {
-                            "1": {"content": "", "description": f"First scene of chapter {i}", "reflection_notes": []},
-                            "2": {"content": "", "description": f"Second scene of chapter {i}", "reflection_notes": []},
-                            "3": {"content": "", "description": f"Third scene of chapter {i}", "reflection_notes": []}
-                        },
-                        "reflection_notes": []
-                    }
+            raise RuntimeError(f"Only {len(chapters)} chapters were generated. At least 8 chapters are required for a complete story.")
     except Exception as e:
         print(f"Error generating chapter data with Pydantic: {str(e)}")
         
@@ -838,16 +832,8 @@ def plan_chapters(state: StoryState) -> Dict:
                     # If we were processing a previous chapter, save it
                     if current_chapter:
                         chapter_num = current_chapter['number']
-                        chapters[chapter_num] = {
-                            "title": current_chapter['title'],
-                            "outline": '\n'.join(current_outline),
-                            "scenes": {
-                                "1": {"content": "", "description": f"First scene of chapter {chapter_num}", "reflection_notes": []},
-                                "2": {"content": "", "description": f"Second scene of chapter {chapter_num}", "reflection_notes": []},
-                                "3": {"content": "", "description": f"Third scene of chapter {chapter_num}", "reflection_notes": []}
-                            },
-                            "reflection_notes": []
-                        }
+                        # Fail - we should not create scenes without proper descriptions
+                        raise RuntimeError(f"Chapter planning failed: No scene descriptions were generated for chapter {chapter_num}. Structured output is required.")
                     
                     # Start a new chapter
                     chapter_num = match.group(1)
@@ -876,48 +862,16 @@ def plan_chapters(state: StoryState) -> Dict:
             # Don't forget to save the last chapter
             if current_chapter:
                 chapter_num = current_chapter['number']
-                chapters[chapter_num] = {
-                    "title": current_chapter['title'],
-                    "outline": '\n'.join(current_outline),
-                    "scenes": {
-                        "1": {"content": "", "description": f"First scene of chapter {chapter_num}", "reflection_notes": []},
-                        "2": {"content": "", "description": f"Second scene of chapter {chapter_num}", "reflection_notes": []},
-                        "3": {"content": "", "description": f"Third scene of chapter {chapter_num}", "reflection_notes": []}
-                    },
-                    "reflection_notes": []
-                }
+                # Fail - we should not create scenes without proper descriptions
+                raise RuntimeError(f"Chapter planning failed: No scene descriptions were generated for chapter {chapter_num}. Structured output is required.")
             
-            # If we still don't have enough chapters, create empty ones
+            # Fail if we still don't have enough chapters
             if len(chapters) < 8:
-                print(f"Only {len(chapters)} chapters were extracted. Adding empty chapters to reach at least 8.")
-                for i in range(1, 9):
-                    chapter_num = str(i)
-                    if chapter_num not in chapters:
-                        chapters[chapter_num] = {
-                            "title": f"Chapter {i}",
-                            "outline": f"Events of chapter {i}",
-                            "scenes": {
-                                "1": {"content": "", "description": f"First scene of chapter {i}", "reflection_notes": []},
-                                "2": {"content": "", "description": f"Second scene of chapter {i}", "reflection_notes": []},
-                                "3": {"content": "", "description": f"Third scene of chapter {i}", "reflection_notes": []}
-                            },
-                            "reflection_notes": []
-                        }
+                raise RuntimeError(f"Chapter planning failed: Only {len(chapters)} chapters were extracted. At least 8 chapters are required.")
         except Exception as e2:
             print(f"Error parsing chapter data directly: {str(e2)}")
-            # Create empty chapters as a last resort
-            chapters = {}
-            for i in range(1, 9):
-                chapters[str(i)] = {
-                    "title": f"Chapter {i}",
-                    "outline": f"Events of chapter {i}",
-                    "scenes": {
-                        "1": {"content": "", "description": f"First scene of chapter {i}", "reflection_notes": []},
-                        "2": {"content": "", "description": f"Second scene of chapter {i}", "reflection_notes": []},
-                        "3": {"content": "", "description": f"Third scene of chapter {i}", "reflection_notes": []}
-                    },
-                    "reflection_notes": []
-                }
+            # Re-raise the error - no fallback allowed
+            raise RuntimeError(f"Chapter planning failed completely: {str(e2)}. Cannot continue without proper scene descriptions.")
     
     # Validate the structure and ensure each chapter has the required fields
     for chapter_num, chapter in chapters.items():
@@ -926,10 +880,7 @@ def plan_chapters(state: StoryState) -> Dict:
         if "outline" not in chapter:
             chapter["outline"] = f"Events of chapter {chapter_num}"
         if "scenes" not in chapter:
-            chapter["scenes"] = {
-                "1": {"content": "", "description": f"First scene of chapter {chapter_num}", "reflection_notes": []},
-                "2": {"content": "", "description": f"Second scene of chapter {chapter_num}", "reflection_notes": []}
-            }
+            raise RuntimeError(f"Chapter {chapter_num} has no scenes. Cannot continue without proper scene descriptions.")
         if "reflection_notes" not in chapter:
             chapter["reflection_notes"] = []
             
@@ -938,7 +889,7 @@ def plan_chapters(state: StoryState) -> Dict:
             if "content" not in scene:
                 scene["content"] = ""
             if "description" not in scene:
-                scene["description"] = f"Scene {scene_num} of chapter {chapter_num}"
+                raise RuntimeError(f"Scene {scene_num} of Chapter {chapter_num} has no description. Cannot continue without proper scene descriptions.")
             if "reflection_notes" not in scene:
                 scene["reflection_notes"] = []
     
@@ -975,13 +926,33 @@ def plan_chapters(state: StoryState) -> Dict:
         except Exception as e:
             logger.warning(f"Could not store chapters in database: {e}")
     
-    # Create minimal chapters structure for routing
-    minimal_chapters = {}
+    # Create a lightweight chapters structure with only planning data
+    # Scene content will be stored in database, not in state
+    planning_chapters = {}
     for ch_num, ch_data in chapters.items():
-        minimal_chapters[ch_num] = {
+        planning_chapters[ch_num] = {
             "title": ch_data.get("title", f"Chapter {ch_num}"),
-            "scenes": {str(i): {"db_stored": False} for i in range(1, len(ch_data.get("scenes", [])) + 1)}
+            # Don't include full outline - it's in the database
+            "scenes": {}
         }
+        
+        # Only include essential planning data for each scene
+        for scene_num, scene_data in ch_data.get("scenes", {}).items():
+            planning_chapters[ch_num]["scenes"][scene_num] = {
+                # Planning data only - no content
+                "description": scene_data.get("description", ""),
+                "plot_progressions": scene_data.get("plot_progressions", []),
+                "character_learns": scene_data.get("character_learns", []),
+                "required_characters": scene_data.get("required_characters", []),
+                "forbidden_repetitions": scene_data.get("forbidden_repetitions", []),
+                "dramatic_purpose": scene_data.get("dramatic_purpose", "development"),
+                "tension_level": scene_data.get("tension_level", 5),
+                "ends_with": scene_data.get("ends_with", "transition"),
+                "connects_to_next": scene_data.get("connects_to_next", ""),
+                # Flags for workflow
+                "written": False,
+                "db_stored": False
+            }
     
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
@@ -990,7 +961,7 @@ def plan_chapters(state: StoryState) -> Dict:
     new_msg = AIMessage(content="I've planned out the chapters for the story. Now I'll begin writing the first scene of chapter 1.")
     
     return {
-        "chapters": minimal_chapters,
+        "chapters": planning_chapters,  # Lightweight structure with only planning data
         "current_chapter": "1",  # Start with the first chapter
         "current_scene": "1",    # Start with the first scene
         

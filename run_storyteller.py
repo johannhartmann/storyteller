@@ -84,12 +84,30 @@ def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> N
                 # Get story info from database
                 with db_manager._db._get_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute("SELECT title, genre, tone FROM story_config WHERE id = 1")
+                    cursor.execute("SELECT title, genre, tone, global_story FROM story_config WHERE id = 1")
                     story_info = cursor.fetchone()
                     if story_info:
-                        story_title = story_info['title'] if story_info['title'] else f"{story_info['tone'].title()} {story_info['genre'].title()} Story"
+                        story_title = story_info['title']
+                        # If title is still the placeholder, try to extract from global_story
+                        if (not story_title or 
+                            story_title == f"{story_info['tone'].title()} {story_info['genre'].title()} Story" or
+                            "Story" in story_title and len(story_title) < 30):
+                            print(f"[DEBUG] Title in DB is placeholder: '{story_title}', attempting to extract from outline")
+                            if story_info['global_story']:
+                                # Re-extract the title
+                                from storyteller_lib.database_integration import StoryDatabaseManager
+                                temp_manager = StoryDatabaseManager()
+                                extracted_title = temp_manager._extract_title_from_outline(story_info['global_story'])
+                                if extracted_title and extracted_title != "Untitled Story":
+                                    story_title = extracted_title
+                                    print(f"[DEBUG] Re-extracted title: '{story_title}'")
+                                    # Update the database with the correct title
+                                    cursor.execute("UPDATE story_config SET title = ? WHERE id = 1", (story_title,))
+                                    conn.commit()
+                        print(f"[DEBUG] Using story title: '{story_title}'")
                     else:
                         story_title = "Generated Story"
+                        print(f"[DEBUG] No story_config found, using default title")
                 
                 # Clear any error message and write title
                 f.seek(0)
@@ -103,7 +121,12 @@ def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> N
                     cursor = conn.cursor()
                     cursor.execute("SELECT title FROM chapters WHERE chapter_number = ?", (chapter_num,))
                     result = cursor.fetchone()
-                    chapter_title = result['title'] if result else f"Chapter {chapter_num}"
+                    if result and result['title']:
+                        chapter_title = result['title']
+                        print(f"[DEBUG] Found chapter title in DB: '{chapter_title}'")
+                    else:
+                        chapter_title = f"Chapter {chapter_num}"
+                        print(f"[DEBUG] No chapter title in DB, using default")
                 f.write(f"\n## Chapter {chapter_num}: {chapter_title}\n\n")
             
             # Write scene title
@@ -163,7 +186,19 @@ def write_chapter_to_file(chapter_num: int, chapter_data: Dict[str, Any], output
         with open(output_file, mode) as f:
             # If this is a new file, add a title
             if not file_exists:
-                f.write(f"# Generated Story\n\n")
+                # Try to get the actual title from the database
+                story_title = "Generated Story"  # Default
+                try:
+                    with db_manager._db._get_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT title FROM story_config WHERE id = 1")
+                        result = cursor.fetchone()
+                        if result and result['title']:
+                            story_title = result['title']
+                except Exception:
+                    pass  # Use default title if database query fails
+                
+                f.write(f"# {story_title}\n\n")
             
             # Write the chapter title
             f.write(f"\n## Chapter {chapter_num}: {chapter_title}\n\n")

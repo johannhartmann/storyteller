@@ -481,6 +481,17 @@ def write_scene(state: StoryState) -> Dict:
     current_chapter = str(state.get("current_chapter", "1"))
     current_scene = str(state.get("current_scene", "1"))
     
+    # Check if this scene should be merged with the previous one
+    scene_elements = state.get("scene_elements", {})
+    if scene_elements.get("should_merge", False):
+        # This scene should be appended to the previous scene
+        prev_scene = str(int(current_scene) - 1)
+        logger.info(f"Scene {current_scene} marked for merging with scene {prev_scene}")
+        
+        # Skip actual merging for now - just mark it
+        # In a full implementation, we would append to the previous scene
+        # For now, we'll write it with a soft transition marker
+    
     # Get story elements
     story_premise = state.get("story_premise", "")
     genre = state.get("genre", "fantasy")
@@ -495,7 +506,12 @@ def write_scene(state: StoryState) -> Dict:
         "character_learns": [],
         "required_characters": [],
         "forbidden_repetitions": [],
-        "prerequisites": []
+        "prerequisites": [],
+        "dramatic_purpose": "development",
+        "tension_level": 5,
+        "ends_with": "transition",
+        "connects_to_next": "",
+        "scene_type": "exploration"  # Default scene type
     }
     
     chapters = state.get("chapters", {})
@@ -507,6 +523,11 @@ def write_scene(state: StoryState) -> Dict:
             scene_specifications["required_characters"] = scene_data.get("required_characters", [])
             scene_specifications["forbidden_repetitions"] = scene_data.get("forbidden_repetitions", [])
             scene_specifications["prerequisites"] = scene_data.get("prerequisites", [])
+            scene_specifications["dramatic_purpose"] = scene_data.get("dramatic_purpose", "development")
+            scene_specifications["tension_level"] = scene_data.get("tension_level", 5)
+            scene_specifications["ends_with"] = scene_data.get("ends_with", "transition")
+            scene_specifications["connects_to_next"] = scene_data.get("connects_to_next", "")
+            scene_specifications["scene_type"] = scene_data.get("scene_type", "exploration")
     
     # Get chapter outline from database
     from storyteller_lib.database_integration import get_db_manager
@@ -527,8 +548,17 @@ def write_scene(state: StoryState) -> Dict:
             raise RuntimeError(f"Chapter {current_chapter} outline not found in database")
         chapter_outline = result['outline']
     
-    # Scene description from brainstorming phase (if available)
-    scene_description = state.get("scene_elements", {}).get("scene_approach", f"Scene {current_scene}")
+    # ALWAYS get scene description from chapter planning data
+    scene_description = ""
+    chapters = state.get("chapters", {})
+    if current_chapter in chapters and "scenes" in chapters[current_chapter]:
+        scene_data = chapters[current_chapter]["scenes"].get(current_scene, {})
+        if scene_data and 'description' in scene_data:
+            scene_description = scene_data['description']
+    
+    if not scene_description:
+        logger.error(f"No scene description found for Chapter {current_chapter}, Scene {current_scene}")
+        raise RuntimeError(f"No scene description found for Chapter {current_chapter}, Scene {current_scene}")
     
     # Get creative elements from brainstorming
     scene_elements = state.get("scene_elements", {})
@@ -753,30 +783,31 @@ def write_scene(state: StoryState) -> Dict:
     # Get database context if available
     database_context = _prepare_database_context(current_chapter, current_scene)
     
-    # Check plot progressions and generate specification guidance
-    specification_guidance = ""
+    # Prepare structured specification data for templates
+    plot_progressions = []
+    plot_progression_warnings = []
+    forbidden_content = []
+    character_learning = []
+    required_characters = scene_specifications.get("required_characters", [])
+    
     if db_manager:
         existing_progressions = db_manager.get_plot_progressions()
         existing_progression_keys = [p['progression_key'] for p in existing_progressions]
         
         # Check for required plot progressions
         if scene_specifications["plot_progressions"]:
-            specification_guidance += "\nREQUIRED PLOT PROGRESSIONS:\n"
             for prog in scene_specifications["plot_progressions"]:
                 if prog not in existing_progression_keys:
-                    specification_guidance += f"✓ {prog}: This MUST happen in this scene\n"
+                    plot_progressions.append(prog)
                 else:
-                    specification_guidance += f"⚠️ WARNING: '{prog}' has already occurred - DO NOT REPEAT!\n"
+                    plot_progression_warnings.append(prog)
         
         # Check for forbidden repetitions
         if scene_specifications["forbidden_repetitions"]:
-            specification_guidance += "\nFORBIDDEN CONTENT (DO NOT REPEAT):\n"
-            for forbidden in scene_specifications["forbidden_repetitions"]:
-                specification_guidance += f"❌ {forbidden}: This has already been revealed/happened earlier\n"
+            forbidden_content = scene_specifications["forbidden_repetitions"]
         
         # Check character knowledge
         if scene_specifications["character_learns"]:
-            specification_guidance += "\nCHARACTER LEARNING REQUIREMENTS:\n"
             # Parse character_learns list which contains "CharacterName: knowledge item" strings
             character_knowledge_map = {}
             for learning in scene_specifications["character_learns"]:
@@ -787,7 +818,11 @@ def write_scene(state: StoryState) -> Dict:
                     character_knowledge_map[char_name].append(knowledge)
             
             for char, knowledge_list in character_knowledge_map.items():
-                specification_guidance += f"• {char} must learn: {', '.join(knowledge_list)}\n"
+                char_learning = {
+                    'character': char,
+                    'learns': knowledge_list,
+                    'warnings': []
+                }
                 
                 # Check if character already knows this
                 if db_manager and db_manager._db:
@@ -812,12 +847,9 @@ def write_scene(state: StoryState) -> Dict:
                             existing_knowledge = [row['knowledge_content'] for row in cursor.fetchall()]
                             for knowledge in knowledge_list:
                                 if knowledge in existing_knowledge:
-                                    specification_guidance += f"  ⚠️ WARNING: {char} already knows '{knowledge}'!\n"
-        
-        # Required characters
-        if scene_specifications["required_characters"]:
-            specification_guidance += f"\nREQUIRED CHARACTERS:\n"
-            specification_guidance += f"These characters MUST appear: {', '.join(scene_specifications['required_characters'])}\n"
+                                    char_learning['warnings'].append(f"{char} already knows '{knowledge}'!")
+                
+                character_learning.append(char_learning)
     
     # Import helper functions from original scenes.py
     from storyteller_lib.scene_helpers import (
@@ -826,8 +858,8 @@ def write_scene(state: StoryState) -> Dict:
         _prepare_worldbuilding_guidance
     )
     
-    creative_guidance = _prepare_creative_guidance(scene_elements, current_chapter, current_scene)
-    plot_guidance = _prepare_plot_thread_guidance(active_plot_threads)
+    creative_elements = _prepare_creative_guidance(scene_elements, current_chapter, current_scene)
+    structured_plot_threads = _prepare_plot_thread_guidance(active_plot_threads)
     world_guidance = _prepare_worldbuilding_guidance(world_elements, chapter_outline, language=language)
     
     # Don't truncate story premise and chapter outline to maintain full context
@@ -841,6 +873,15 @@ def write_scene(state: StoryState) -> Dict:
     forbidden_phrases = [elem.replace('phrase: ', '') for elem in overused_elements if 'phrase:' in elem]
     forbidden_structures = [elem.replace('structure: ', '') for elem in overused_elements if 'structure:' in elem]
     
+    # Prepare dramatic context
+    dramatic_context = {
+        'purpose': scene_specifications["dramatic_purpose"],
+        'tension_level': scene_specifications["tension_level"],
+        'ends_with': scene_specifications["ends_with"],
+        'connects_to_next': scene_specifications["connects_to_next"],
+        'scene_type': scene_specifications["scene_type"]
+    }
+    
     # Prepare template variables
     template_vars = {
         'current_chapter': current_chapter,
@@ -853,8 +894,8 @@ def write_scene(state: StoryState) -> Dict:
         'story_summary': story_summary,
         'previous_context': previous_context,
         'database_context': database_context,
-        'creative_guidance': creative_guidance,
-        'plot_guidance': plot_guidance,
+        'creative_elements': creative_elements if creative_elements else None,
+        'active_plot_threads': structured_plot_threads if structured_plot_threads else None,
         'emotional_guidance': emotional_guidance,
         'world_guidance': world_guidance,
         'author': author,  # Pass author name for template
@@ -865,7 +906,12 @@ def write_scene(state: StoryState) -> Dict:
         'scene_type': variety_requirements.scene_type,
         'intelligent_variation_guidance': intelligent_variation_guidance,
         'structural_guidance': structural_guidance,
-        'specification_guidance': specification_guidance  # Add scene specifications
+        'plot_progressions': plot_progressions if plot_progressions else None,
+        'plot_progression_warnings': plot_progression_warnings if plot_progression_warnings else None,
+        'forbidden_content': forbidden_content if forbidden_content else None,
+        'character_learning': character_learning if character_learning else None,
+        'required_characters': required_characters if required_characters else None,
+        'dramatic_context': dramatic_context  # Add dramatic context
     }
     
     # Render the prompt using the template system
@@ -878,6 +924,14 @@ def write_scene(state: StoryState) -> Dict:
     messages = [HumanMessage(content=prompt)]
     response = llm.invoke(messages)
     scene_content = response.content
+    
+    # Handle different transition types
+    if scene_elements.get("should_merge", False):
+        # Add soft transition marker instead of scene break
+        scene_content = f"\n\n***\n\n{scene_content}"
+    elif scene_specifications.get("ends_with") == "soft_transition" and int(current_scene) > 1:
+        # Use section break for soft transitions
+        scene_content = f"\n\n***\n\n{scene_content}"
     
     # Store only scene metadata in memory (content goes to database)
     manage_memory_tool.invoke({

@@ -30,6 +30,20 @@ SCENE VARIETY REQUIREMENTS:
 - Additional notes: {{ scene_variety_requirements.notes }}
 {% endif %}
 
+{% if dramatic_context %}
+DRAMATIC CONTEXT FOR THIS SCENE:
+- Scene type: {{ dramatic_context.scene_type }}
+- Dramatic purpose: {{ dramatic_context.purpose }}
+- Tension level: {{ dramatic_context.tension_level }}/10
+- Should end with: {{ dramatic_context.ends_with }}
+- Connection to next scene: {{ dramatic_context.connects_to_next }}
+
+{% if dramatic_context.merge_analysis and dramatic_context.merge_analysis.merge_recommendation %}
+⚠️ MERGE CONSIDERATION: {{ dramatic_context.merge_analysis.transition_guidance }}
+Consider whether this scene could be combined with the previous one for better flow.
+{% endif %}
+{% endif %}
+
 BRAINSTORMING GOALS:
 1. Generate 3 different approaches to this scene
 2. Each approach should:
@@ -37,6 +51,10 @@ BRAINSTORMING GOALS:
    - Honor the characters' established personalities
    - Move the story forward (even if subtly)
    - Fit the {{ tone }} tone without forcing it
+   - Be appropriate for a {{ dramatic_context.scene_type if dramatic_context else 'exploration' }} scene
+   - Match the dramatic purpose ({{ dramatic_context.purpose if dramatic_context else 'development' }})
+   - Build to the specified ending type ({{ dramatic_context.ends_with if dramatic_context else 'transition' }})
+   - Achieve the tension level of {{ dramatic_context.tension_level if dramatic_context else '5' }}/10
 
 3. Consider:
    - What would naturally happen next?
@@ -44,9 +62,82 @@ BRAINSTORMING GOALS:
    - What small details could enrich the world?
    - What pacing serves this moment best?
    - Sometimes a quiet scene is exactly what's needed
+   - How to create a meaningful transition to the next scene
+   - Whether this scene truly needs its own break or could flow continuously
 
-{% if specification_guidance %}
-{{ specification_guidance }}
+{% if plot_progressions %}
+KEY PLOT PROGRESSIONS TO INCLUDE:
+{% for prog in plot_progressions %}
+{% if not prog.already_occurred %}
+- {{ prog.key }}: This MUST happen in this scene
+{% else %}
+- WARNING: '{{ prog.key }}' has already occurred! Do not repeat.
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if forbidden_repetitions %}
+FORBIDDEN REPETITIONS (DO NOT include these):
+{% for forbidden in forbidden_repetitions %}
+- {{ forbidden }}: This has already been revealed/happened
+{% endfor %}
+{% endif %}
+
+{% if required_characters %}
+REQUIRED CHARACTERS:
+These characters MUST appear: {{ required_characters | join(', ') }}
+{% endif %}
+
+{% if character_learns %}
+CHARACTER LEARNING:
+{% for learning in character_learns %}
+- {{ learning }}
+{% endfor %}
+{% endif %}
+
+{% if active_plot_threads %}
+ACTIVE PLOT THREADS for this scene:
+{% for thread in active_plot_threads %}
+{{ thread.name }} ({{ thread.type }}):
+  Status: {{ thread.status }}
+  Current Development: {{ thread.current_development }}
+{% if thread.next_steps %}
+  Next Steps: {{ thread.next_steps }}
+{% endif %}
+{% if thread.tension_level %}
+  Tension Level: {{ thread.tension_level }}
+{% endif %}
+{% if thread.characters_involved %}
+  Characters Involved: {{ thread.characters_involved | join(', ') }}
+{% endif %}
+{% if thread.type == 'major' %}
+  >>> This is a MAJOR plot thread. It should drive the primary narrative forward.
+{% elif thread.type == 'minor' %}
+  >>> This minor thread should complement the main narrative without overshadowing it.
+{% elif thread.type == 'background' %}
+  >>> This background thread should add depth without dominating the scene.
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if creative_elements %}
+CREATIVE ELEMENTS for Chapter {{ current_chapter }}, Scene {{ scene_number }}:
+{% if creative_elements.plot_progression %}
+Plot Progression:
+{{ creative_elements.plot_progression }}
+{% endif %}
+{% if creative_elements.character_dynamics %}
+Character Dynamics:
+{{ creative_elements.character_dynamics }}
+{% endif %}
+{% if creative_elements.scene_purpose %}
+Scene Purpose:
+{{ creative_elements.scene_purpose }}
+{% endif %}
+{% if creative_elements.creative_opportunities %}
+Creative Opportunities:
+{{ creative_elements.creative_opportunities }}
+{% endif %}
 {% endif %}
 
 {% if forbidden_elements %}
