@@ -101,8 +101,9 @@ CREATE TABLE IF NOT EXISTS scenes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     chapter_id INTEGER NOT NULL,
     scene_number INTEGER NOT NULL,
-    outline TEXT,
+    description TEXT,
     content TEXT,
+    scene_type TEXT DEFAULT 'exploration',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
     UNIQUE(chapter_id, scene_number)

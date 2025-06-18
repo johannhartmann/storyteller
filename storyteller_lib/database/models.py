@@ -53,8 +53,61 @@ class StoryDatabase:
             with self._get_connection() as conn:
                 conn.executescript(schema_sql)
                 logger.info(f"Database initialized at {self.db_path}")
+                
+                # Apply schema updates
+                self._apply_schema_updates(conn)
         except Exception as e:
             raise DatabaseError(f"Failed to initialize database: {str(e)}")
+    
+    def _apply_schema_updates(self, conn: sqlite3.Connection) -> None:
+        """Apply schema updates that aren't in the main schema file yet."""
+        cursor = conn.cursor()
+        
+        # Check if scene_type column exists
+        cursor.execute("PRAGMA table_info(scenes)")
+        columns = [col[1] for col in cursor.fetchall()]
+        
+        if 'scene_type' not in columns:
+            logger.info("Adding scene_type column to scenes table")
+            cursor.execute("""
+                ALTER TABLE scenes 
+                ADD COLUMN scene_type TEXT DEFAULT 'exploration'
+            """)
+            conn.commit()
+        
+        # Rename outline to description for consistency
+        if 'outline' in columns and 'description' not in columns:
+            logger.info("Renaming 'outline' column to 'description' in scenes table")
+            # SQLite doesn't support direct column rename, so we need to recreate the table
+            cursor.execute("""
+                CREATE TABLE scenes_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    chapter_id INTEGER NOT NULL,
+                    scene_number INTEGER NOT NULL,
+                    description TEXT,
+                    content TEXT,
+                    scene_type TEXT DEFAULT 'exploration',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+                    UNIQUE(chapter_id, scene_number)
+                )
+            """)
+            
+            # Copy data from old table
+            cursor.execute("""
+                INSERT INTO scenes_new (id, chapter_id, scene_number, description, content, scene_type, created_at)
+                SELECT id, chapter_id, scene_number, outline, content, scene_type, created_at
+                FROM scenes
+            """)
+            
+            # Drop old table and rename new one
+            cursor.execute("DROP TABLE scenes")
+            cursor.execute("ALTER TABLE scenes_new RENAME TO scenes")
+            
+            # Recreate index
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scenes_chapter_id ON scenes(chapter_id)")
+            
+            conn.commit()
     
     @contextmanager
     def _get_connection(self):
@@ -587,10 +640,11 @@ class StoryDatabase:
             
             cursor.execute(
                 """
-                INSERT INTO scenes (chapter_id, scene_number, outline, content)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO scenes (chapter_id, scene_number, description, content, scene_type)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (chapter_id, scene_num, kwargs.get('outline'), kwargs.get('content'))
+                (chapter_id, scene_num, kwargs.get('description', kwargs.get('outline')), 
+                 kwargs.get('content'), kwargs.get('scene_type', 'exploration'))
             )
             conn.commit()
             

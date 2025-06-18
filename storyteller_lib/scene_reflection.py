@@ -344,12 +344,12 @@ def reflect_on_scene(state: StoryState) -> Dict:
             with db_manager._db._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "SELECT outline FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                    "SELECT description FROM scenes WHERE chapter_id = ? AND scene_number = ?",
                     (chapter_id, int(current_scene))
                 )
                 result = cursor.fetchone()
-                if result and result['outline']:
-                    scene_purpose = result['outline']
+                if result and result['description']:
+                    scene_purpose = result['description']
     except:
         pass
     

@@ -13,7 +13,7 @@ from storyteller_lib.memory_manager import manage_memory, search_memory
 
 # Import the graph builder
 from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
-from storyteller_lib.graph_with_db import build_story_graph_with_db
+from storyteller_lib.graph import build_story_graph
 
 def get_genre_key_elements(genre: str, language: str = "english") -> List[str]:
     """
@@ -509,8 +509,8 @@ def generate_story(
             "namespace": MEMORY_NAMESPACE
         })
     
-    # Get the graph with database integration
-    graph = build_story_graph_with_db()
+    # Get the graph
+    graph = build_story_graph()
     
     # Get author style guidance if an author is specified
     author_style_guidance = ""

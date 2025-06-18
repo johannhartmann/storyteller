@@ -24,12 +24,46 @@ Scene {{ current_scene }}: {{ scene_description }}
 {{ database_context }}
 {% endif %}
 
-{% if creative_guidance %}
-{{ creative_guidance }}
+{% if creative_elements %}
+CREATIVE ELEMENTS for Chapter {{ current_chapter }}, Scene {{ current_scene }}:
+{% if creative_elements.plot_progression %}
+Plot Progression: {{ creative_elements.plot_progression }}
+{% endif %}
+{% if creative_elements.character_dynamics %}
+Character Dynamics: {{ creative_elements.character_dynamics }}
+{% endif %}
+{% if creative_elements.scene_purpose %}
+Scene Purpose: {{ creative_elements.scene_purpose }}
+{% endif %}
+{% if creative_elements.creative_opportunities %}
+Creative Opportunities: {{ creative_elements.creative_opportunities }}
+{% endif %}
 {% endif %}
 
-{% if plot_guidance %}
-{{ plot_guidance }}
+{% if active_plot_threads %}
+ACTIVE PLOT THREADS for this scene:
+{% for thread in active_plot_threads %}
+
+{{ thread.name }} ({{ thread.type }}):
+  Status: {{ thread.status }}
+  Current Development: {{ thread.current_development }}
+{% if thread.next_steps %}
+  Next Steps: {{ thread.next_steps }}
+{% endif %}
+{% if thread.tension_level %}
+  Tension Level: {{ thread.tension_level }}
+{% endif %}
+{% if thread.characters_involved %}
+  Characters Involved: {{ thread.characters_involved | join(', ') }}
+{% endif %}
+{% if thread.type == 'major' %}
+  >>> This is a MAJOR plot thread. It should drive the primary narrative forward.
+{% elif thread.type == 'minor' %}
+  >>> This minor thread should complement the main narrative without overshadowing it.
+{% elif thread.type == 'background' %}
+  >>> This background thread should add depth without dominating the scene.
+{% endif %}
+{% endfor %}
 {% endif %}
 
 {% if emotional_guidance %}
@@ -56,8 +90,60 @@ Scene {{ current_scene }}: {{ scene_description }}
 {{ structural_guidance }}
 {% endif %}
 
-{% if specification_guidance %}
-{{ specification_guidance }}
+{% if plot_progressions %}
+REQUIRED PLOT PROGRESSIONS:
+{% for prog in plot_progressions %}
+- {{ prog }}: This event MUST happen in this scene
+{% endfor %}
+{% endif %}
+
+{% if plot_progression_warnings %}
+WARNING - AVOID REPETITION:
+{% for warning in plot_progression_warnings %}
+- {{ warning }}: This has already occurred - DO NOT REPEAT!
+{% endfor %}
+{% endif %}
+
+{% if forbidden_content %}
+FORBIDDEN CONTENT (DO NOT REPEAT):
+{% for item in forbidden_content %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+
+{% if character_learning %}
+CHARACTER LEARNING REQUIREMENTS:
+{% for req in character_learning %}
+- {{ req.character }} must learn: {{ req.learns | join(', ') }}
+{% if req.warnings %}
+{% for warning in req.warnings %}
+  ⚠️ WARNING: {{ warning }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if required_characters %}
+REQUIRED CHARACTERS:
+These characters MUST appear: {{ required_characters | join(', ') }}
+{% endif %}
+
+{% if dramatic_context %}
+DRAMATIC GUIDANCE FOR THIS SCENE:
+- Scene type: {{ dramatic_context.scene_type }}
+- Primary purpose: {{ dramatic_context.purpose }}
+- Tension level: Build to {{ dramatic_context.tension_level }}/10
+- Scene should end with: {{ dramatic_context.ends_with }}
+{% if dramatic_context.ends_with == 'cliffhanger' %}
+  → Create suspense that compels reading the next scene
+{% elif dramatic_context.ends_with == 'resolution' %}
+  → Provide satisfying closure to the scene's conflict
+{% elif dramatic_context.ends_with == 'soft_transition' %}
+  → End naturally, allowing smooth flow to the next scene
+{% elif dramatic_context.ends_with == 'hard_break' %}
+  → Create a clear stopping point with strong closure
+{% endif %}
+- Connection to next: {{ dramatic_context.connects_to_next }}
 {% endif %}
 
 GENTLE WRITING REMINDERS:
@@ -65,7 +151,7 @@ GENTLE WRITING REMINDERS:
 2. Build naturally on what came before without repeating exact events
 3. If you've used certain phrases frequently ({{ forbidden_phrases[:3] | join(', ') if forbidden_phrases else 'none noted' }}), consider alternatives
 4. Allow characters to process and react naturally to events
-5. This is primarily a {{ scene_type }} scene - let that guide the pacing
+5. This is primarily a {{ dramatic_context.scene_type if dramatic_context else scene_type }} scene - let that guide the pacing
 6. Trust subtlety over explicit statements
 
 WRITING GUIDELINES:

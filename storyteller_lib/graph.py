@@ -8,7 +8,7 @@ It also uses SQLite for persistent storage instead of in-memory storage.
 
 # Standard library imports
 from operator import add  # Default reducer for lists
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # Third party imports
 from langgraph.graph import END, START, StateGraph
@@ -16,7 +16,11 @@ from langgraph.graph import END, START, StateGraph
 # Local imports
 from storyteller_lib import track_progress
 from storyteller_lib.character_creation import generate_characters
+from storyteller_lib.config import DATABASE_PATH
+from storyteller_lib.constants import NodeNames
+from storyteller_lib.database_integration import StoryDatabaseManager, get_db_manager, initialize_db_manager
 from storyteller_lib.initialization import brainstorm_story_concepts, initialize_state
+from storyteller_lib.logger import get_logger
 from storyteller_lib.models import StoryState
 from storyteller_lib.outline import generate_story_outline, plan_chapters
 from storyteller_lib.progression import (
@@ -35,43 +39,10 @@ from storyteller_lib.scenes import (
 )
 from storyteller_lib.worldbuilding import generate_worldbuilding
 
-# Replace the monolithic router with specific condition functions
+logger = get_logger(__name__)
 
-def should_brainstorm_concepts(state: StoryState) -> bool:
-    """Determine if we need to brainstorm story concepts."""
-    return "global_story" not in state or not state["global_story"]
 
-def should_generate_outline(state: StoryState) -> bool:
-    """Determine if we need to generate a story outline."""
-    has_concepts = "creative_elements" in state and state.get("creative_elements")
-    no_outline = "global_story" not in state or not state["global_story"]
-    return has_concepts and no_outline
-
-def should_generate_worldbuilding(state: StoryState) -> bool:
-    """Determine if we need to generate worldbuilding elements."""
-    has_outline = "global_story" in state and state["global_story"]
-    no_world_elements = "world_elements" not in state or not state["world_elements"]
-    return has_outline and no_world_elements
-
-def should_generate_characters(state: StoryState) -> bool:
-    """Determine if we need to generate character profiles."""
-    # Check if worldbuilding exists (even if it's just a marker)
-    has_worldbuilding = "world_elements" in state and state["world_elements"]
-    
-    # Check if it's the stored_in_db marker
-    if isinstance(state.get("world_elements"), dict):
-        if state["world_elements"].get("stored_in_db") is True and len(state["world_elements"]) == 1:
-            # This is the marker, worldbuilding is done
-            has_worldbuilding = True
-    
-    no_characters = "characters" not in state or not state["characters"]
-    return has_worldbuilding and no_characters
-
-def should_plan_chapters(state: StoryState) -> bool:
-    """Determine if we need to plan chapters."""
-    has_characters = "characters" in state and state["characters"]
-    no_chapters = "chapters" not in state or not state["chapters"]
-    return has_characters and no_chapters
+# Condition functions for scene iteration and continuity checking
 
 def is_story_completed(state: StoryState) -> bool:
     """Determine if the story is completed."""
@@ -207,13 +178,18 @@ def decide_after_advancing(state: StoryState) -> str:
 def build_story_graph() -> StateGraph:
     """
     Build and compile the story generation graph using LangGraph's native edge system.
+    Each node is responsible for its own database operations.
     """
+    # Initialize database manager
+    db_manager = initialize_db_manager(DATABASE_PATH)
+    logger.info(f"Database initialized at {DATABASE_PATH}")
+    
     # Create a state graph using Annotated type hints for custom reducers
     graph_builder = StateGraph(
         StoryState
     )
     
-    # Add nodes
+    # Add nodes directly - each handles its own DB operations
     graph_builder.add_node("initialize_state", initialize_state)
     graph_builder.add_node("brainstorm_story_concepts", brainstorm_story_concepts)
     graph_builder.add_node("generate_story_outline", generate_story_outline)
@@ -235,50 +211,20 @@ def build_story_graph() -> StateGraph:
     graph_builder.add_edge(START, "initialize_state")
     
     # Story setup phase - initial flow
-    graph_builder.add_conditional_edges(
-        "initialize_state",
-        lambda state: "brainstorm_story_concepts" if should_brainstorm_concepts(state) else "generate_story_outline",
-        {
-            "brainstorm_story_concepts": "brainstorm_story_concepts",
-            "generate_story_outline": "generate_story_outline"
-        }
-    )
+    # Always go from initialize to brainstorming
+    graph_builder.add_edge("initialize_state", "brainstorm_story_concepts")
     
-    graph_builder.add_conditional_edges(
-        "brainstorm_story_concepts",
-        lambda state: "generate_story_outline" if should_generate_outline(state) else "brainstorm_story_concepts",
-        {
-            "generate_story_outline": "generate_story_outline",
-            "brainstorm_story_concepts": "brainstorm_story_concepts"
-        }
-    )
+    # Always go from brainstorming to outline generation
+    graph_builder.add_edge("brainstorm_story_concepts", "generate_story_outline")
     
-    graph_builder.add_conditional_edges(
-        "generate_story_outline",
-        lambda state: "generate_worldbuilding" if should_generate_worldbuilding(state) else "generate_story_outline",
-        {
-            "generate_worldbuilding": "generate_worldbuilding",
-            "generate_story_outline": "generate_story_outline"
-        }
-    )
+    # Always go from outline to worldbuilding
+    graph_builder.add_edge("generate_story_outline", "generate_worldbuilding")
     
-    graph_builder.add_conditional_edges(
-        "generate_worldbuilding",
-        lambda state: "generate_characters" if should_generate_characters(state) else "generate_worldbuilding",
-        {
-            "generate_characters": "generate_characters",
-            "generate_worldbuilding": "generate_worldbuilding"
-        }
-    )
+    # Always go from worldbuilding to characters
+    graph_builder.add_edge("generate_worldbuilding", "generate_characters")
     
-    graph_builder.add_conditional_edges(
-        "generate_characters",
-        lambda state: "plan_chapters" if should_plan_chapters(state) else "generate_characters",
-        {
-            "plan_chapters": "plan_chapters",
-            "generate_characters": "generate_characters"
-        }
-    )
+    # Always go from characters to chapter planning
+    graph_builder.add_edge("generate_characters", "plan_chapters")
     
     # From plan_chapters to the scene iteration phase
     graph_builder.add_edge("plan_chapters", "brainstorm_scene_elements")
