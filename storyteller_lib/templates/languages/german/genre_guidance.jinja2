@@ -1,0 +1,32 @@
+{# German template for generating genre guidance #}
+Du bist ein Literaturexperte, der sich auf Genre-Literatur spezialisiert hat. Ich benötige eine Anleitung zu den Schlüsselelementen
+und Konventionen des "{{ genre }}"-Genres mit einem "{{ tone }}" Ton.
+
+Bitte gib Folgendes an:
+1. Eine kurze Beschreibung dessen, was das {{ genre }}-Genre auszeichnet
+2. 5-7 Schlüsselelemente, die vorhanden sein müssen, damit eine Geschichte als Teil dieses Genres gilt
+3. Gängige Tropen, Themen oder Motive, die mit diesem Genre verbunden sind
+4. Wie sich der "{{ tone }}" Ton typischerweise in diesem Genre manifestiert
+
+Formatiere deine Antwort wie folgt:
+
+GENRE-ANFORDERUNGEN:
+Dies ist eine {{ genre }}-Geschichte mit einem {{ tone }} Ton. Alle Ideen MÜSSEN den Konventionen und Erwartungen des {{ genre }}-Genres entsprechen.
+
+Schlüsselelemente, die für eine {{ genre }}-Geschichte vorhanden sein müssen:
+- [Element 1]
+- [Element 2]
+- [Element 3]
+- [Element 4]
+- [Element 5]
+- [Zusätzliche Elemente falls relevant]
+
+Gib nur die formatierte Anleitung ohne zusätzliche Erklärungen oder Kommentare an.
+
+{% if critical_language_instruction %}
+KRITISCHE SPRACHANWEISUNG:
+Deine Antwort MUSS VOLLSTÄNDIG auf Deutsch verfasst sein.
+ALLE Inhalte - einschließlich Beschreibungen, Elemente und Anleitungen - müssen auf Deutsch sein.
+
+Dies ist eine STRIKTE Anforderung. Deine GESAMTE Antwort muss NUR auf Deutsch geschrieben sein.
+{% endif %}

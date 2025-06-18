@@ -1,0 +1,29 @@
+{# Base template for analyzing dialogue quality - English version #}
+Analyze the dialogue in this scene written in {{ language_name }}:
+
+{{ scene_content }}
+
+Characters in the story: {{ character_names }}
+
+Evaluate the following aspects of dialogue, considering the norms and conventions of {{ language_name }} dialogue:
+
+1. Naturalness - Does it sound like real speech in {{ language_name }}?
+2. Character voice - Is each character's dialogue distinctive?
+3. Exposition - Is information revealed naturally or forced?
+4. Subtext - Does dialogue contain subtext and implied meaning?
+5. Purpose - Does each exchange advance character or plot?
+6. Efficiency - Is the dialogue concise or verbose?
+
+For each issue, provide:
+- The problematic dialogue (in the original {{ language_name }})
+- The character(s) speaking
+- Why it's problematic
+- A suggested improvement (in {{ language_name }})
+
+Also identify:
+- Dialogue that explains things characters would already know
+- Dialogue that could be more concise without losing meaning
+- Dialogue that lacks distinctive character voice
+
+Format your response as a structured JSON object.
+Analyze and respond in {{ language_name }}.

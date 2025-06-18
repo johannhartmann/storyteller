@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS used_content_registry (
 CREATE INDEX IF NOT EXISTS idx_registry_content_type ON used_content_registry(content_type);
 CREATE INDEX IF NOT EXISTS idx_registry_scene_id ON used_content_registry(scene_id);
 
--- 17. Memories table (replaces LangMem functionality)
+-- 17. Memories table (generic key-value storage)
 CREATE TABLE IF NOT EXISTS memories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     key TEXT NOT NULL,

@@ -1,0 +1,33 @@
+{# Base template for generating world summary - English version #}
+Based on these world elements:
+
+{{ category_summaries }}
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Create a concise summary (300-500 words) that captures the essence of this world.
+Focus on the most distinctive and important elements that make this world unique
+and that will most significantly impact the story.
+
+The summary should give a clear picture of what makes this world special and
+how it supports the {{ genre }} genre with a {{ tone }} tone.
+
+SUMMARY STRUCTURE:
+1. Opening: A compelling introduction to the world
+2. Core Elements: The most distinctive features
+3. Atmosphere: The overall feel and mood
+4. Conflicts: Inherent tensions and challenges
+5. Opportunities: What makes this world interesting for storytelling
+
+WRITING GUIDELINES:
+- Be vivid and evocative
+- Focus on elements that drive narrative
+- Show how different aspects interconnect
+- Highlight unique or surprising elements
+- Create a sense of place and possibility
+
+{% if make_authentic %}
+Make sure the summary is culturally authentic to {{ target_language }}-speaking readers.
+{% endif %}

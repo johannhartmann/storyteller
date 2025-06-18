@@ -1,0 +1,56 @@
+{# German template for extracting category information #}
+Extrahiere NUR {{ category_name }}-Informationen aus diesem Text:
+
+{{ text }}
+
+Fokussiere dich speziell auf die Schlüsselaspekte von {{ category_name }} und ignoriere andere Elemente.
+
+EXTRAKTIONSRICHTLINIEN:
+- Extrahiere nur Informationen, die direkt mit {{ category_name }} zusammenhängen
+- Sei umfassend innerhalb des Kategoriebereichs
+- Ignoriere Informationen über andere Kategorien
+- Strukturiere die Informationen klar
+- Füge alle erwähnten relevanten Details ein
+
+KATEGORIESPEZIFISCHER FOKUS:
+{% if category_name == "geography" %}
+- Physische Orte und Wahrzeichen
+- Klima- und Wettermuster
+- Natürliche Ressourcen
+- Gelände und geografische Merkmale
+{% elif category_name == "history" %}
+- Zeitlinie der Ereignisse
+- Historische Figuren
+- Vergangene Konflikte oder Errungenschaften
+- Ursprünge und Gründungen
+{% elif category_name == "culture" %}
+- Bräuche und Traditionen
+- Soziale Normen und Werte
+- Kunst und Unterhaltung
+- Sprachen und Kommunikation
+{% elif category_name == "politics" %}
+- Regierungsstruktur
+- Machtdynamiken
+- Gesetze und Vorschriften
+- Politische Fraktionen
+{% elif category_name == "economics" %}
+- Handel und Gewerbe
+- Währungs- und Finanzsysteme
+- Ressourcen und Produktion
+- Wirtschaftsklassen
+{% elif category_name == "technology_magic" %}
+- Technologischer Fortschrittsgrad
+- Magiesysteme und -regeln
+- Beschränkungen und Fähigkeiten
+- Integration in die Gesellschaft
+{% elif category_name == "religion" %}
+- Glaubenssysteme
+- Gottheiten oder spirituelle Wesen
+- Religiöse Praktiken
+- Heilige Orte oder Objekte
+{% elif category_name == "daily_life" %}
+- Typische Routinen
+- Essen und Küche
+- Wohnen und Architektur
+- Häufige Berufe
+{% endif %}

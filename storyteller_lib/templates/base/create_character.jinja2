@@ -1,0 +1,31 @@
+{# Base template for creating individual characters - English version #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Based on this story outline:
+
+{{ story_outline }}
+
+Create a character with the following role:
+
+Role: {{ role }}
+Importance: {{ importance }}
+Description: {{ description }}
+
+For this {{ tone }} {{ genre }} story, provide:
+
+1. A suitable name for the character
+2. The character's role in the story (be specific about their function)
+3. A concise backstory (3-5 sentences) that explains their motivations
+4. 3-5 key personality traits that define this character
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+Create a character that feels authentic and three-dimensional, with clear motivations that drive their actions in the story.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

@@ -1,0 +1,29 @@
+{# Base template for identifying character roles - English version #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Based on this story outline:
+
+{{ story_outline }}
+
+Identify 4-6 key character roles needed for this {{ tone }} {{ genre }} story.
+{% if required_characters %}
+
+REQUIRED CHARACTERS (HIGHEST PRIORITY):
+The following characters MUST be included as they are central to the story:
+{{ required_characters }}
+
+These characters are non-negotiable and must be included in your list of roles.
+{% endif %}
+
+For each character role, provide:
+1. The role in the story (protagonist, antagonist, mentor, etc.)
+2. The importance level (primary, secondary, tertiary)
+3. A brief description of what this character contributes to the story
+
+Focus on creating a balanced cast of characters that will drive the plot forward and create interesting dynamics.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

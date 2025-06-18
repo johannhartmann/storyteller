@@ -1,0 +1,31 @@
+{# German template for creating individual characters #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Basierend auf diesem Handlungsentwurf:
+
+{{ story_outline }}
+
+Erstelle einen Charakter mit folgender Rolle:
+
+Rolle: {{ role }}
+Wichtigkeit: {{ importance }}
+Beschreibung: {{ description }}
+
+Gib für diese {{ tone }} {{ genre }}-Geschichte Folgendes an:
+
+1. Einen passenden Namen für den Charakter
+2. Die Rolle des Charakters in der Geschichte (sei spezifisch über ihre Funktion)
+3. Eine prägnante Hintergrundgeschichte (3-5 Sätze), die ihre Motivationen erklärt
+4. 3-5 wichtige Persönlichkeitsmerkmale, die diesen Charakter definieren
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+Erstelle einen Charakter, der authentisch und dreidimensional wirkt, mit klaren Motivationen, die ihre Handlungen in der Geschichte antreiben.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

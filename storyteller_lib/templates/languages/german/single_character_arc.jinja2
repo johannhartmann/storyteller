@@ -1,0 +1,23 @@
+{# German template for generating single character arc #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Für diesen Charakter:
+
+Name: {{ name }}
+Rolle: {{ role }}
+Hintergrundgeschichte: {{ backstory }}
+
+Innere Konflikte:
+{{ inner_conflicts }}
+
+Bestimme:
+
+1. Die Art des Charakterbogens, den sie durchlaufen werden (z.B. Wachstum, Fall, Erlösung, flach usw.)
+2. 3-5 mögliche Phasen in ihrer Charakterentwicklungsreise
+3. Ihre aktuelle Phase zu Beginn der Geschichte
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

@@ -51,36 +51,30 @@ def create_varied_chapter_plan(
     # Extract key information
     characters = story_context.get('characters', {})
     plot_threads = story_context.get('plot_threads', {})
+    language = story_context.get('language', 'english')
+    
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    # Build character list
+    available_characters = ', '.join([f"{char['name']} ({char.get('role', 'unknown')})" for char in characters.values()])
+    
+    # Build plot threads list
+    plot_threads_list = ', '.join(plot_threads.keys())
+    
+    # Build previous patterns if any
+    previous_patterns = chr(10).join(previous_chapter_patterns) if previous_chapter_patterns else None
     
     # Build the prompt
-    prompt = f"""Create a detailed scene-by-scene plan for Chapter {chapter_number} that ensures variety and progression.
-
-CHAPTER OUTLINE:
-{chapter_outline}
-
-AVAILABLE CHARACTERS:
-{', '.join([f"{char['name']} ({char.get('role', 'unknown')})" for char in characters.values()])}
-
-PLOT THREADS TO ADVANCE:
-{', '.join(plot_threads.keys())}
-
-{"AVOID THESE PATTERNS FROM PREVIOUS CHAPTERS:" + chr(10).join(previous_chapter_patterns) if previous_chapter_patterns else ""}
-
-REQUIREMENTS:
-1. Each scene must have a DIFFERENT structure and purpose
-2. Vary the locations - don't keep characters in the same place
-3. Rotate which characters appear - don't use the same group every scene
-4. Each scene type should be different (action, dialogue, exploration, etc.)
-5. Vary emotional tones throughout the chapter
-6. Each scene must meaningfully advance at least one plot thread
-
-For Chapter 1 specifically:
-- Scene 1 can establish routine/normal world
-- Remaining scenes must show PROGRESSION and CHANGE
-- Avoid multiple "vision/anomaly" scenes
-- Show different aspects of the world and character
-
-Create 3-5 scenes that form a complete chapter arc while maintaining variety."""
+    prompt = render_prompt(
+        'chapter_variety_plan',
+        language=language,
+        chapter_number=chapter_number,
+        chapter_outline=chapter_outline,
+        available_characters=available_characters,
+        plot_threads=plot_threads_list,
+        previous_patterns=previous_patterns
+    )
 
     try:
         structured_llm = llm.with_structured_output(ChapterScenePlan)

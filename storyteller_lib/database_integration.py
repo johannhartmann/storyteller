@@ -884,14 +884,36 @@ class StoryDatabaseManager:
             else:
                 role = str(role)
             
-            # Create character
-            db_char_id = self._db.create_character(
-                identifier=char_id,
-                name=char_data.get('name', char_id),
-                role=role,
-                backstory=backstory,
-                personality=personality
-            )
+            # Check if character already exists
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT id FROM characters WHERE identifier = ?",
+                    (char_id,)
+                )
+                existing = cursor.fetchone()
+                
+                if existing:
+                    # Update existing character
+                    db_char_id = existing['id']
+                    cursor.execute(
+                        """UPDATE characters 
+                           SET name = ?, role = ?, backstory = ?, personality = ?
+                           WHERE id = ?""",
+                        (char_data.get('name', char_id), role, backstory, personality, db_char_id)
+                    )
+                    conn.commit()
+                    logger.info(f"Updated existing character {char_id}")
+                else:
+                    # Create new character
+                    db_char_id = self._db.create_character(
+                        identifier=char_id,
+                        name=char_data.get('name', char_id),
+                        role=role,
+                        backstory=backstory,
+                        personality=personality
+                    )
+                    logger.info(f"Created new character {char_id}")
             
             # Store character ID mapping
             self._character_id_map[char_id] = db_char_id
@@ -901,11 +923,25 @@ class StoryDatabaseManager:
                 for other_char, rel_data in char_data['relationships'].items():
                     if other_char in self._character_id_map:
                         rel_type = rel_data if isinstance(rel_data, str) else rel_data.get('type', 'unknown')
-                        self._db.create_relationship(
-                            char1_id=db_char_id,
-                            char2_id=self._character_id_map[other_char],
-                            rel_type=rel_type
-                        )
+                        other_char_id = self._character_id_map[other_char]
+                        
+                        # Check if relationship already exists
+                        with self._db._get_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute(
+                                """SELECT id FROM character_relationships 
+                                   WHERE (character1_id = ? AND character2_id = ?) 
+                                      OR (character1_id = ? AND character2_id = ?)""",
+                                (db_char_id, other_char_id, other_char_id, db_char_id)
+                            )
+                            existing_rel = cursor.fetchone()
+                            
+                            if not existing_rel:
+                                self._db.create_relationship(
+                                    char1_id=db_char_id,
+                                    char2_id=other_char_id,
+                                    rel_type=rel_type
+                                )
             
             logger.info(f"Saved character {char_id}")
         except Exception as e:

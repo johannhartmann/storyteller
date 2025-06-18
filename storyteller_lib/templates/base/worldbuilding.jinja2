@@ -67,3 +67,69 @@ Create a rich, immersive world that:
 - Has internal consistency
 - Provides opportunities for conflict and growth
 - Enhances the {{ genre }} elements of the story
+
+{% if category_name %}
+{% if category_name|lower == "geography" %}
+FOCUS ON GEOGRAPHY:
+You MUST include ALL of these fields in your response:
+- locations: Major locations (cities, countries, planets, etc.)
+- climate: Climate and weather patterns
+- landmarks: Notable landmarks and physical features
+- relevance: How geography impacts the story
+{% elif category_name|lower == "history" %}
+FOCUS ON HISTORY:
+You MUST include ALL of these fields in your response:
+- timeline: Key historical events in chronological order
+- figures: Important historical figures and their impact
+- conflicts: Major historical conflicts and their resolutions
+- relevance: How history impacts the current story
+{% elif category_name|lower == "culture" %}
+FOCUS ON CULTURE:
+You MUST include ALL of these fields in your response:
+- languages: Languages and communication methods
+- traditions: Important traditions, customs, and arts
+- values: Cultural values, taboos, and diversity
+- relevance: How culture influences characters and plot
+{% elif category_name|lower == "politics" %}
+FOCUS ON POLITICS:
+You MUST include ALL of these fields in your response:
+- government: Government systems and power structures
+- factions: Political factions and their relationships
+- laws: Important laws and justice systems
+- relevance: How politics affects the story
+{% elif category_name|lower == "economics" %}
+FOCUS ON ECONOMICS:
+You MUST include ALL of these fields in your response:
+- resources: Key resources and their distribution
+- trade: Trade systems, currencies, and markets
+- classes: Economic classes and inequality
+- relevance: How economics drives conflict or cooperation
+{% elif category_name|lower == "technology_magic" %}
+FOCUS ON TECHNOLOGY/MAGIC:
+You MUST include ALL of these fields in your response:
+- systems: Available technologies or magic systems
+- limitations: Limitations and costs of technology/magic
+- impact: Impact on society and daily life
+- relevance: How technology/magic creates opportunities or challenges
+{% elif category_name|lower == "religion" %}
+FOCUS ON RELIGION:
+You MUST include ALL of these fields in your response:
+- beliefs: Belief systems and deities
+- practices: Religious practices and rituals
+- organizations: Religious organizations and leaders
+- relevance: How religion influences society and characters
+{% elif category_name|lower == "daily_life" %}
+FOCUS ON DAILY LIFE:
+You MUST include ALL of these fields in your response:
+- food: Food and cuisine
+- clothing: Clothing and fashion
+- housing: Housing and architecture
+- relevance: How daily life reflects culture and status
+{% endif %}
+
+STORY CONTEXT:
+Initial idea: {{ initial_idea }}
+Author style: {{ author }}
+
+Focus ONLY on {{ category_name|upper }} elements. Be detailed and specific.
+{% endif %}

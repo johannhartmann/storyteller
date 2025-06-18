@@ -25,6 +25,9 @@ def initialize_state(state: StoryState) -> Dict:
     author_style_guidance = state.get("author_style_guidance", "")
     language = state.get("language") or DEFAULT_LANGUAGE
     
+    print(f"[DEBUG] initialize_state: language from state = '{state.get('language')}', using language = '{language}'")
+    print(f"[DEBUG] initialize_state: DEFAULT_LANGUAGE = '{DEFAULT_LANGUAGE}'")
+    
     # Validate language and default to English if not supported
     if language.lower() not in SUPPORTED_LANGUAGES:
         language = DEFAULT_LANGUAGE
@@ -36,7 +39,7 @@ def initialize_state(state: StoryState) -> Dict:
     if initial_idea and not idea_elements:
         # Import the parsing function from storyteller.py
         from storyteller_lib.storyteller import parse_initial_idea
-        idea_elements = parse_initial_idea(initial_idea)
+        idea_elements = parse_initial_idea(initial_idea, state.get("language", DEFAULT_LANGUAGE))
     
     # Ensure the idea elements are stored in memory for consistency checks
     if initial_idea:
@@ -84,11 +87,17 @@ def initialize_state(state: StoryState) -> Dict:
             # If error, we'll generate it later
             pass
     
-    # Prepare response message
-    author_mention = f" in the style of {author}" if author else ""
-    idea_mention = f" implementing the idea: '{initial_idea}'" if initial_idea else ""
-    language_mention = f" in {SUPPORTED_LANGUAGES[language.lower()]}" if language.lower() != DEFAULT_LANGUAGE else ""
-    response_message = f"I'll create a {tone} {genre} story{author_mention}{language_mention}{idea_mention} for you. Let me start planning the narrative..."
+    # Prepare language-specific response message
+    if language.lower() == 'german':
+        author_mention = f" im Stil von {author}" if author else ""
+        idea_mention = f" mit der Idee: '{initial_idea}'" if initial_idea else ""
+        response_message = f"Ich werde eine {tone} {genre}-Geschichte{author_mention}{idea_mention} für Sie erstellen. Lassen Sie mich mit der Planung der Erzählung beginnen..."
+    else:
+        # Default to English for other languages
+        author_mention = f" in the style of {author}" if author else ""
+        idea_mention = f" implementing the idea: '{initial_idea}'" if initial_idea else ""
+        language_mention = f" in {SUPPORTED_LANGUAGES[language.lower()]}" if language.lower() != DEFAULT_LANGUAGE else ""
+        response_message = f"I'll create a {tone} {genre} story{author_mention}{language_mention}{idea_mention} for you. Let me start planning the narrative..."
     
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
@@ -111,7 +120,7 @@ def initialize_state(state: StoryState) -> Dict:
             
             # Parse the response into structured data
             from storyteller_lib.creative_tools import parse_json_with_langchain
-            language_elements = parse_json_with_langchain(language_elements_response, "language elements")
+            language_elements = parse_json_with_langchain(language_elements_response, "language elements", language)
             
             # Store language elements in memory for reference throughout story generation
             manage_memory_tool.invoke({
@@ -228,7 +237,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     # If we still don't have elements but have an initial idea, parse it now
     if not initial_idea_elements and initial_idea:
         from storyteller_lib.storyteller import parse_initial_idea
-        initial_idea_elements = parse_initial_idea(initial_idea)
+        initial_idea_elements = parse_initial_idea(initial_idea, language)
     
     author_style_guidance = state["author_style_guidance"]
     language = state.get("language", DEFAULT_LANGUAGE)
@@ -245,19 +254,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         themes = initial_idea_elements.get("themes", [])
         genre_elements = initial_idea_elements.get("genre_elements", [])
         
-        # Build a rich context that emphasizes the initial idea
-        idea_context = f"""
-        IMPORTANT: The story MUST be based on this initial idea: '{initial_idea}'
-        
-        Key elements that MUST be incorporated:
-        - Setting: {setting}
-        - Main Characters: {', '.join(characters) if characters else 'To be determined based on the initial idea'}
-        - Central Plot: {plot}
-        - Themes: {', '.join(themes) if themes else 'To be determined based on the initial idea'}
-        - Genre Elements: {', '.join(genre_elements) if genre_elements else 'To be determined based on the initial idea'}
-        
-        These elements are non-negotiable and must form the foundation of the story.
-        """
+        # Just pass the initial idea - let templates handle formatting
+        idea_context = initial_idea
         
         # Store the elements in memory again to ensure consistency
         manage_memory_tool.invoke({
@@ -277,30 +275,8 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         print(f"[STORYTELLER] WARNING: No idea_context created - story will be generated without specific initial idea guidance")
         print(f"[STORYTELLER] Story will only use genre '{genre}' and tone '{tone}' as guidance, which may result in generic output")
     
-    language_context = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_context = f"\nThe story should be written in {SUPPORTED_LANGUAGES[language.lower()]} with character names, places, and cultural references appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences."
-    
-    context = f"""
-    We're creating a {tone} {genre} story that follows the hero's journey structure.
-    The story should be engaging, surprising, and emotionally resonant with readers.
-    {idea_context}
-    {language_context}
-    """
-    
-    # Create custom evaluation criteria that emphasize adherence to the initial idea
-    
-    # Create custom evaluation criteria that emphasize adherence to the initial idea
-    custom_evaluation_criteria = [
-        "Adherence to the initial idea and its key elements (setting, characters, plot)",
-        "Preservation of the essential nature of specified characters and their roles",
-        "Maintenance of the specified setting as the primary location",
-        "Development of the central conflict as described in the initial idea",
-        "Originality and surprise factor while respecting the initial concept",
-        "Coherence with the established narrative requirements",
-        "Reader engagement and emotional impact",
-        "Feasibility within the specified story world"
-    ]
+    # Just pass the idea context directly, let the template handle the formatting
+    context = idea_context if idea_context else ""
     
     # Create constraints dictionary from initial idea elements
     constraints = {}
@@ -370,7 +346,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         author_style_guidance=author_style_guidance,
         language=language,
         num_ideas=5,
-        evaluation_criteria=custom_evaluation_criteria,
+        evaluation_criteria=None,  # Let template use its own criteria
         constraints=constraints,
         strict_adherence=True
     )
@@ -385,7 +361,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         author_style_guidance=author_style_guidance,
         language=language,
         num_ideas=4,
-        evaluation_criteria=custom_evaluation_criteria,
+        evaluation_criteria=None,  # Let template use its own criteria
         constraints=constraints,
         strict_adherence=True
     )
@@ -400,34 +376,24 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         author_style_guidance=author_style_guidance,
         language=language,
         num_ideas=3,
-        evaluation_criteria=custom_evaluation_criteria,
+        evaluation_criteria=None,  # Let template use its own criteria
         constraints=constraints,
         strict_adherence=True
     )
     
     # Validate that the brainstormed ideas adhere to the initial idea
     if initial_idea:
-        validation_prompt = f"""
-            Evaluate whether these brainstormed ideas properly incorporate the initial story idea:
-            
-            Initial Idea: "{initial_idea}"
-            
-            Story Concepts:
-            {brainstorm_results.get("recommended_ideas", "No recommendations available")}
-            
-            World Building Elements:
-            {world_building_results.get("recommended_ideas", "No recommendations available")}
-            
-            Central Conflicts:
-            {conflict_results.get("recommended_ideas", "No recommendations available")}
-            
-            For each category, provide:
-            1. A score from 1-10 on how well it adheres to the initial idea
-            2. Specific feedback on what elements are missing or need adjustment
-            3. A YES/NO determination if the ideas are acceptable
-            
-            If any category scores below 7 or receives a NO, provide specific guidance on how to improve it.
-            """
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
+        
+        validation_prompt = render_prompt(
+            'brainstorm_validation',
+            language=language,
+            initial_idea=initial_idea,
+            story_concepts=brainstorm_results.get("recommended_ideas", "No recommendations available"),
+            world_building=world_building_results.get("recommended_ideas", "No recommendations available"),
+            central_conflicts=conflict_results.get("recommended_ideas", "No recommendations available")
+        )
             
         validation_result = llm.invoke([HumanMessage(content=validation_prompt)]).content
         
@@ -446,10 +412,13 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     if initial_idea_elements:
         creative_elements["initial_idea_elements"] = initial_idea_elements
     
-    # Create messages to add and remove
-    idea_mention = f" based on your idea" if initial_idea else ""
-    
-    new_msg = AIMessage(content=f"I've brainstormed several creative concepts for your {tone} {genre} story{idea_mention}. Now I'll develop a cohesive outline based on the most promising ideas.")
+    # Create language-specific messages
+    if language.lower() == 'german':
+        idea_mention = f" basierend auf Ihrer Idee" if initial_idea else ""
+        new_msg = AIMessage(content=f"Ich habe mehrere kreative Konzepte für Ihre {tone} {genre}-Geschichte{idea_mention} entwickelt. Jetzt werde ich eine zusammenhängende Gliederung basierend auf den vielversprechendsten Ideen entwickeln.")
+    else:
+        idea_mention = f" based on your idea" if initial_idea else ""
+        new_msg = AIMessage(content=f"I've brainstormed several creative concepts for your {tone} {genre} story{idea_mention}. Now I'll develop a cohesive outline based on the most promising ideas.")
     
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]

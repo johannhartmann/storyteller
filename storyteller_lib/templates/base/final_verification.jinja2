@@ -1,0 +1,41 @@
+{# Base template for final verification - English version #}
+VERIFICATION CHECK: Evaluate whether this revised story outline meets all requirements.
+
+Initial Idea: "{{ initial_idea }}"
+
+Key Elements:
+- Setting: {{ setting }}
+- Characters: {{ characters | join(', ') }}
+- Plot: {{ plot }}
+
+Revised Story Outline:
+{{ story_outline }}
+
+Check the following:
+1. Does the outline effectively incorporate the initial idea? (YES/NO)
+2. Does the outline adhere to the {{ genre }} genre with a {{ tone }} tone? (YES/NO)
+{% if check_language %}
+3. Is the outline written ENTIRELY in {{ target_language }} without any English text? (YES/NO)
+{% endif %}
+
+Provide a YES/NO determination for each question.
+If any answer is NO, specify what still needs improvement.
+
+VERIFICATION STANDARDS:
+- Initial idea incorporation must be clear and complete
+- Genre conventions must be properly followed
+- Tone must be consistent throughout
+{% if check_language %}
+- Language must be 100% in the target language
+{% endif %}
+- All key elements must be present and recognizable
+
+FORMAT YOUR RESPONSE:
+1. [YES/NO] - [Brief explanation]
+2. [YES/NO] - [Brief explanation]
+{% if check_language %}
+3. [YES/NO] - [Brief explanation]
+{% endif %}
+
+Overall Assessment: [PASS/FAIL]
+If FAIL, prioritize what must be fixed.

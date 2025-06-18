@@ -182,6 +182,8 @@ def generate_chapter_progress_report(state: StoryState, chapter_num: str) -> str
 @track_progress
 def update_world_elements(state: StoryState) -> Dict:
     """Update world elements based on developments in the current scene."""
+    from storyteller_lib.prompt_templates import render_prompt
+    
     chapters = state["chapters"]
     world_elements = state.get("world_elements", {})
     current_chapter = state["current_chapter"]
@@ -325,10 +327,13 @@ def update_world_elements(state: StoryState) -> Dict:
 @track_progress
 def update_character_profiles(state: StoryState) -> Dict:
     """Update character profiles based on developments in the current scene."""
+    from storyteller_lib.prompt_templates import render_prompt
+    
     chapters = state["chapters"]
     characters = state["characters"]
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
+    language = state.get("language", "english")
     
     # Get the scene content from temporary state or database
     scene_content = state.get("current_scene_content", "")
@@ -367,7 +372,8 @@ def update_character_profiles(state: StoryState) -> Dict:
         chapter_outline=chapter_outline,
         scene_description=scene_content[:500],  # Use first part of scene as description
         all_characters=characters,
-        world_elements={}
+        world_elements={},
+        language=language
     )
     
     # Filter to relevant characters
@@ -975,6 +981,31 @@ def compile_final_story(state: StoryState) -> Dict:
     initial_idea = state.get("initial_idea", "")
     world_elements = state.get("world_elements", {})
     
+    # Load full chapter and scene content from database
+    from storyteller_lib.database_integration import get_db_manager
+    from storyteller_lib.logger import get_logger
+    logger = get_logger(__name__)
+    
+    db_manager = get_db_manager()
+    if db_manager:
+        # Load actual scene content from database for each chapter
+        for chapter_num in chapters.keys():
+            for scene_num in chapters[chapter_num].get("scenes", {}).keys():
+                try:
+                    scene_content = db_manager.get_scene_content(int(chapter_num), int(scene_num))
+                    if scene_content:
+                        # Ensure the scene dictionary exists
+                        if "scenes" not in chapters[chapter_num]:
+                            chapters[chapter_num]["scenes"] = {}
+                        if scene_num not in chapters[chapter_num]["scenes"]:
+                            chapters[chapter_num]["scenes"][scene_num] = {}
+                        # Add the content to the scene
+                        chapters[chapter_num]["scenes"][scene_num]["content"] = scene_content
+                    else:
+                        logger.warning(f"No content found in database for Chapter {chapter_num}, Scene {scene_num}")
+                except Exception as e:
+                    logger.error(f"Failed to load scene content for Chapter {chapter_num}, Scene {scene_num}: {e}")
+    
     # Check for unresolved plot threads
     from storyteller_lib.plot_threads import check_plot_thread_resolution
     plot_thread_resolution = check_plot_thread_resolution(state)
@@ -1032,9 +1063,17 @@ def compile_final_story(state: StoryState) -> Dict:
         for scene_num in sorted(chapter["scenes"].keys(), key=int):
             scene = chapter["scenes"][scene_num]
             
-            # Add scene content
-            story_content.append(scene["content"])
-            story_content.append("")
+            # Add scene content (handle missing content gracefully)
+            if "content" in scene and scene["content"]:
+                story_content.append(scene["content"])
+                story_content.append("")
+            else:
+                # Log missing content but continue compilation
+                from storyteller_lib.logger import get_logger
+                logger = get_logger(__name__)
+                logger.warning(f"Chapter {chapter_num}, Scene {scene_num} is missing content")
+                story_content.append(f"[Scene {scene_num} content missing]")
+                story_content.append("")
     
     # Join all content
     final_story = chr(10).join(story_content)

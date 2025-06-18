@@ -93,24 +93,17 @@ CHARACTER STATES:
 
 
 def _prepare_author_style_guidance(author: str, author_style_guidance: str) -> str:
-    """Prepare author style guidance section for scene writing.
+    """Return author style guidance for template.
     
     Args:
         author: Author name to emulate
         author_style_guidance: Detailed style guidance
         
     Returns:
-        Formatted author style guidance string
+        Style guidance string or empty string
     """
-    if not author:
-        return ""
-        
-    return f"""
-    AUTHOR STYLE GUIDANCE:
-    You are writing in the style of {author}. Apply these stylistic elements:
-    
-    {author_style_guidance}
-    """
+    # Just return the guidance - let template handle formatting
+    return author_style_guidance if author and author_style_guidance else ""
 
 
 def _retrieve_language_elements(language: str) -> Tuple[Optional[Dict], str, str]:
@@ -572,7 +565,8 @@ def write_scene(state: StoryState) -> Dict:
         previous_scenes=previous_scenes,
         chapter_outline=chapter_outline,
         scene_number=int(current_scene),
-        total_scenes_in_chapter=total_scenes
+        total_scenes_in_chapter=total_scenes,
+        language=language
     )
     
     # Get overused elements to avoid
@@ -614,7 +608,8 @@ def write_scene(state: StoryState) -> Dict:
         chapter_outline=chapter_outline,
         scene_description=scene_description,
         all_characters=all_characters,
-        world_elements=all_world_elements
+        world_elements=all_world_elements,
+        language=language
     )
     
     # Filter to only relevant characters
@@ -663,7 +658,7 @@ def write_scene(state: StoryState) -> Dict:
     
     creative_guidance = _prepare_creative_guidance(scene_elements, current_chapter, current_scene)
     plot_guidance = _prepare_plot_thread_guidance(active_plot_threads)
-    world_guidance = _prepare_worldbuilding_guidance(world_elements, chapter_outline)
+    world_guidance = _prepare_worldbuilding_guidance(world_elements, chapter_outline, language=language)
     
     # Don't truncate story premise and chapter outline to maintain full context
     premise_brief = story_premise
@@ -692,6 +687,7 @@ def write_scene(state: StoryState) -> Dict:
         'plot_guidance': plot_guidance,
         'emotional_guidance': emotional_guidance,
         'world_guidance': world_guidance,
+        'author': author,  # Pass author name for template
         'author_guidance': author_guidance,
         'variety_guidance': generate_scene_variety_guidance(variety_requirements),
         'forbidden_phrases': forbidden_phrases,
@@ -759,12 +755,12 @@ def write_scene(state: StoryState) -> Dict:
     # Track scene progression
     try:
         # Extract and track used phrases
-        phrases = progression_tracker.extract_phrases_from_content(scene_content)
+        phrases = progression_tracker.extract_phrases_from_content(scene_content, language)
         progression_tracker.add_used_phrases(int(current_chapter), int(current_scene), phrases)
         
         # Analyze and track scene structure
         from storyteller_lib.scene_variety import analyze_scene_structure
-        structure_analysis = analyze_scene_structure(scene_content)
+        structure_analysis = analyze_scene_structure(scene_content, language)
         progression_tracker.add_scene_structure(
             int(current_chapter), 
             int(current_scene), 

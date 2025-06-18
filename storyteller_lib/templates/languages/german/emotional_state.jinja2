@@ -1,0 +1,29 @@
+{# German template for generating emotional state #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Für diesen Charakter:
+
+Name: {{ name }}
+Rolle: {{ role }}
+Hintergrundgeschichte: {{ backstory }}
+
+Persönlichkeit:
+- Eigenschaften: {{ traits }}
+- Stärken: {{ strengths }}
+- Schwächen: {{ flaws }}
+- Ängste: {{ fears }}
+- Wünsche: {{ desires }}
+- Werte: {{ values }}
+
+Bestimme:
+
+1. Den anfänglichen emotionalen Zustand des Charakters zu Beginn der Geschichte
+2. Ihren aktuellen emotionalen Zustand (vorerst gleich dem anfänglichen)
+
+Beschreibe jeden emotionalen Zustand in 1-2 Sätzen, die ihre Gefühle, Einstellung und Haltung erfassen.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

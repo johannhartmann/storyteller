@@ -34,27 +34,24 @@ class SceneStructureAnalysis(BaseModel):
     structure_pattern: str = Field(description="Overall pattern like 'routine->disruption->vision->dismissal'")
 
 
-def analyze_scene_structure(scene_content: str) -> SceneStructureAnalysis:
+def analyze_scene_structure(scene_content: str, language: str = "english") -> SceneStructureAnalysis:
     """Analyze the structure of a written scene.
     
     Args:
         scene_content: The full scene text
+        language: Language for the analysis
         
     Returns:
         SceneStructureAnalysis object
     """
-    prompt = f"""Analyze the structure of this scene:
-
-{scene_content[:1500]}...
-
-Identify:
-1. How the scene opens (action, dialogue, description, or internal thought)
-2. The main events that occur in order (be specific but concise)
-3. The type of climax or high point
-4. How the scene resolves
-5. The overall structural pattern (e.g., 'routine->disruption->discovery')
-
-Be analytical and specific about the actual structure, not the content."""
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    prompt = render_prompt(
+        'scene_structure_analysis',
+        language=language,
+        scene_excerpt=scene_content[:1500]
+    )
 
     try:
         structured_llm = llm.with_structured_output(SceneStructureAnalysis)
@@ -78,7 +75,7 @@ def determine_scene_variety_requirements(
     chapter_outline: str,
     scene_number: int,
     total_scenes_in_chapter: int,
-    language: str = "english"
+    language: str
 ) -> SceneVarietyRequirements:
     """Determine requirements for the next scene to ensure variety.
     
@@ -91,6 +88,8 @@ def determine_scene_variety_requirements(
     Returns:
         SceneVarietyRequirements object
     """
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Build context about previous scenes
     scene_history = []
     for scene in previous_scenes[-3:]:  # Last 3 scenes

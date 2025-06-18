@@ -1,0 +1,30 @@
+{# Base template for analyzing character development in a scene - English version #}
+Analyze the character development for {{ character_name }} in this scene from Chapter {{ chapter_num }}, Scene {{ scene_num }}:
+
+{{ scene_content }}
+
+Current character information:
+- Arc type: {{ arc_type }}
+- Current arc stage: {{ current_stage }}
+- Current emotional state: {{ emotional_state }}
+- Inner conflicts: {{ inner_conflicts }}
+
+Provide the following information in JSON format:
+1. Has the character progressed to a new stage in their arc? If so, which one?
+2. Has their emotional state changed? If so, how?
+3. Have any inner conflicts developed, progressed, or been resolved?
+4. Any new emotional experiences that should be added to their journey?
+Format your response as a valid JSON object with these keys:
+{
+    "new_arc_stage": "Stage name or empty if unchanged",
+    "emotional_state_update": "New emotional state or empty if unchanged",
+    "inner_conflict_updates": [
+        {
+            "conflict_index": 0,
+            "description": "Description of conflict",
+            "resolution_status": "unresolved|in_progress|resolved",
+            "impact": "How this affects the character"
+        }
+    ],
+    "emotional_journey_addition": "New emotional experience to add to journey or empty"
+}

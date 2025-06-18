@@ -1,0 +1,29 @@
+{# German template for identifying character roles #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Basierend auf diesem Handlungsentwurf:
+
+{{ story_outline }}
+
+Identifiziere 4-6 Schlüssel-Charakterrollen, die für diese {{ tone }} {{ genre }}-Geschichte benötigt werden.
+{% if required_characters %}
+
+ERFORDERLICHE CHARAKTERE (HÖCHSTE PRIORITÄT):
+Die folgenden Charaktere MÜSSEN einbezogen werden, da sie zentral für die Geschichte sind:
+{{ required_characters }}
+
+Diese Charaktere sind nicht verhandelbar und müssen in deiner Liste der Rollen enthalten sein.
+{% endif %}
+
+Gib für jede Charakterrolle Folgendes an:
+1. Die Rolle in der Geschichte (Protagonist, Antagonist, Mentor usw.)
+2. Die Wichtigkeitsstufe (primär, sekundär, tertiär)
+3. Eine kurze Beschreibung dessen, was dieser Charakter zur Geschichte beiträgt
+
+Konzentriere dich darauf, eine ausgewogene Besetzung von Charakteren zu erstellen, die die Handlung vorantreiben und interessante Dynamiken erzeugen.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

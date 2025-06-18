@@ -110,6 +110,8 @@ def reduce_repetition(text: str, repetition_analysis: Dict[str, Any], language: 
     Returns:
         The improved text with reduced repetition
     """
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # If repetition is already low, no need to reduce
     if repetition_analysis["overall_repetition_score"] >= 8:
         return text

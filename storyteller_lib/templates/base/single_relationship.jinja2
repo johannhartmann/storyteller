@@ -1,0 +1,30 @@
+{# Base template for generating relationship between two characters - English version #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Define the relationship between these two characters:
+
+Character 1:
+Name: {{ char1_name }}
+Role: {{ char1_role }}
+Backstory: {{ char1_backstory }}
+
+Character 2:
+Name: {{ char2_name }}
+Role: {{ char2_role }}
+Backstory: {{ char2_backstory }}
+
+Based on this story outline:
+{{ story_outline }}
+
+Define their relationship with:
+
+1. The type of relationship (friend, enemy, mentor, etc.)
+2. The dynamics between them (power balance, emotional connection)
+3. 1-2 potential conflicts or tensions between them
+4. 1-2 evolution points for how their relationship might develop
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

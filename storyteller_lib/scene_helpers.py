@@ -13,7 +13,7 @@ from storyteller_lib.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _identify_relevant_world_categories(chapter_outline: str, world_elements: Dict, language: str = "english") -> List[str]:
+def _identify_relevant_world_categories(chapter_outline: str, world_elements: Dict, language: str) -> List[str]:
     """Identify which world categories are most relevant for the current scene using LLM.
     
     Args:
@@ -96,13 +96,14 @@ def _get_previously_established_elements(world_elements: Dict) -> str:
     return ""
 
 
-def _prepare_worldbuilding_guidance(world_elements: Dict, chapter_outline: str, mystery_relevance: bool = False) -> str:
+def _prepare_worldbuilding_guidance(world_elements: Dict, chapter_outline: str, mystery_relevance: bool = False, language: str = "english") -> str:
     """Prepare worldbuilding guidance for scene writing.
     
     Args:
         world_elements: Dictionary of world building elements
         chapter_outline: The chapter outline
         mystery_relevance: Whether mystery elements are relevant
+        language: The language for the guidance
         
     Returns:
         Formatted worldbuilding guidance string
@@ -114,7 +115,7 @@ def _prepare_worldbuilding_guidance(world_elements: Dict, chapter_outline: str, 
     from storyteller_lib.prompt_optimization import summarize_world_elements
     
     # Identify which categories are most relevant for this chapter
-    relevant_categories = _identify_relevant_world_categories(chapter_outline, world_elements)
+    relevant_categories = _identify_relevant_world_categories(chapter_outline, world_elements, language)
     
     if not relevant_categories:
         return ""

@@ -43,7 +43,7 @@ MODEL_CONFIGS = {
     "openai": {
         "default_model": "gpt-4.1-mini",  # Changed to gpt-4.1-mini for faster responses
         "env_key": "OPENAI_API_KEY",
-        "max_tokens": 128000
+        "max_tokens": 32768
     },
     "anthropic": {
         "default_model": "claude-3-7-sonnet-20250219",
@@ -59,6 +59,7 @@ MODEL_CONFIGS = {
 
 # Default settings
 DEFAULT_MODEL_PROVIDER = os.environ.get("DEFAULT_MODEL_PROVIDER", DEFAULT_PROVIDER)
+DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", None)  # Specific model override
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_CACHE_TYPE = "sqlite"  # Only sqlite cache is supported
 CACHE_LOCATION = os.environ.get("CACHE_LOCATION", str(Path.home() / ".storyteller" / "llm_cache.db"))
@@ -77,6 +78,7 @@ mm_module.memory_manager = memory_manager
 
 # Language Configuration
 DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "english")  # Default language from .env or fallback to english
+print(f"[CONFIG] DEFAULT_LANGUAGE set to: {DEFAULT_LANGUAGE}")
 # Dictionary mapping language codes to their full names
 SUPPORTED_LANGUAGES = {
     "english": "English",
@@ -149,7 +151,8 @@ def get_llm(
     
     # Get provider config
     provider_config = MODEL_CONFIGS[provider]
-    model_name = model or provider_config["default_model"]
+    # Use model parameter, then DEFAULT_MODEL env var, then provider's default
+    model_name = model or DEFAULT_MODEL or provider_config["default_model"]
     api_key_env = provider_config["env_key"]
     api_key = os.environ.get(api_key_env)
     
@@ -158,7 +161,7 @@ def get_llm(
         logger.warning(f"No API key found for {provider} (env: {api_key_env}). Falling back to {DEFAULT_PROVIDER}.")
         provider = DEFAULT_PROVIDER
         provider_config = MODEL_CONFIGS[provider]
-        model_name = provider_config["default_model"]
+        model_name = model or DEFAULT_MODEL or provider_config["default_model"]
         api_key = os.environ.get(provider_config["env_key"])
         
         # If still no API key, raise error
@@ -407,16 +410,15 @@ def translate_guidance(guidance_text: str, target_language: str) -> str:
     # Get the full language name
     language_name = SUPPORTED_LANGUAGES[target_language.lower()]
     
-    prompt = f"""
-    Translate the following writing guidance to {language_name}.
-    Maintain all formatting, bullet points, and structure.
-    Ensure the translation sounds natural to native {language_name} speakers.
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    TEXT TO TRANSLATE:
-    {guidance_text}
-    
-    IMPORTANT: Return ONLY the translated text, without any explanations or notes.
-    """
+    prompt = render_prompt(
+        'translate_guidance',
+        "english",  # Always use English template for translation instructions
+        language_name=language_name,
+        guidance_text=guidance_text
+    )
     
     try:
         translated_guidance = llm.invoke([HumanMessage(content=prompt)]).content

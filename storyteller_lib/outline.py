@@ -14,34 +14,20 @@ from storyteller_lib import track_progress
 from storyteller_lib.plot_threads import PlotThread, THREAD_IMPORTANCE, THREAD_STATUS
 
 
-def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str, initial_idea: str) -> Dict[str, Dict]:
+def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str, initial_idea: str, language: str = "english") -> Dict[str, Dict]:
     """Generate initial plot threads from the story outline."""
-    prompt = f"""
-    Analyze this story outline and identify the major plot threads that will need to be tracked throughout the story:
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    Story Outline:
-    {story_outline}
-    
-    Genre: {genre}
-    Tone: {tone}
-    Initial Idea: {initial_idea}
-    
-    A plot thread is a narrative element that spans multiple chapters. Examples include:
-    - The main quest or mission
-    - Important mysteries that need solving
-    - Character relationships that develop
-    - Conflicts that need resolution
-    - Secrets that are gradually revealed
-    - Subplots that support the main story
-    
-    For each plot thread, provide:
-    1. name: A concise, memorable name for the thread
-    2. description: What this thread is about (2-3 sentences)
-    3. importance: major (central to main plot), minor (subplot), or background
-    4. related_characters: Which character roles are involved (e.g., "hero", "mentor", "antagonist")
-    
-    Identify 3-7 plot threads, with at least 1-2 major threads.
-    """
+    # Render the plot threads prompt
+    prompt = render_prompt(
+        'plot_threads_from_outline',
+        language=language,
+        story_outline=story_outline,
+        genre=genre,
+        tone=tone,
+        initial_idea=initial_idea
+    )
     
     try:
         # Define the structured output
@@ -100,6 +86,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     from storyteller_lib.logger import get_logger
     from storyteller_lib.database_integration import get_db_manager
     from storyteller_lib.story_progress_logger import log_progress
+    from storyteller_lib.prompt_templates import render_prompt
     
     logger = get_logger(__name__)
     
@@ -110,6 +97,8 @@ def generate_story_outline(state: StoryState) -> Dict:
     initial_idea_elements = state.get("initial_idea_elements", {})
     author_style_guidance = state["author_style_guidance"]
     language = state.get("language", DEFAULT_LANGUAGE)
+    print(f"[DEBUG] generate_story_outline: language from state = '{state.get('language')}', using language = '{language}'")
+    print(f"[DEBUG] generate_story_outline: DEFAULT_LANGUAGE = '{DEFAULT_LANGUAGE}'")
     creative_elements = state.get("creative_elements", {})
     
     # Prepare author style guidance
@@ -117,22 +106,15 @@ def generate_story_outline(state: StoryState) -> Dict:
     if author:
         # If we don't have author guidance yet, generate it now
         if not author_style_guidance:
-            author_prompt = f"""
-            Analyze the writing style of {author} in detail.
+            # Use template system
+            from storyteller_lib.prompt_templates import render_prompt
             
-            Describe:
-            1. Narrative techniques and point of view
-            2. Typical sentence structure and paragraph organization
-            3. Dialogue style and character voice
-            4. Description style and level of detail
-            5. Pacing and plot development approaches
-            6. Themes and motifs commonly explored
-            7. Unique stylistic elements or literary devices frequently used
-            8. Tone and atmosphere typically created
-            
-            Focus on providing specific, actionable guidance that could help emulate this author's style
-            when writing a new story.
-            """
+            # Render the author style analysis prompt
+            author_prompt = render_prompt(
+                'author_style_analysis',
+                language=language,
+                author=author
+            )
             
             author_style_guidance = llm.invoke([HumanMessage(content=author_prompt)]).content
             
@@ -203,48 +185,8 @@ def generate_story_outline(state: StoryState) -> Dict:
         The story should feel authentic to readers of {SUPPORTED_LANGUAGES[language.lower()]} rather than like a translated work.
         """
     
-    # Prepare enhanced initial idea guidance using structured elements
-    idea_guidance = ""
-    if initial_idea:
-        # Extract structured elements for more detailed guidance
-        setting = initial_idea_elements.get("setting", "Unknown")
-        characters = initial_idea_elements.get("characters", [])
-        plot = initial_idea_elements.get("plot", "Unknown")
-        themes = initial_idea_elements.get("themes", [])
-        genre_elements = initial_idea_elements.get("genre_elements", [])
-        
-        idea_guidance = f"""
-        INITIAL STORY IDEA (HIGH PRIORITY):
-        {initial_idea}
-        
-        This initial idea forms the foundation of the story. The outline should incorporate these key elements:
-        
-        1. SETTING: {setting}
-           - This is the primary setting where the story takes place
-           - Major events should occur within or be connected to this setting
-           - Maintain consistency with this established setting
-        
-        2. MAIN CHARACTERS: {', '.join(characters) if characters else 'To be determined based on the initial idea'}
-           - These characters should be central to the story
-           - Their characteristics and roles should align with the initial idea
-           - Preserve the essential nature of these characters
-        
-        3. CENTRAL PLOT: {plot}
-           - This is the main storyline that drives the narrative
-           - Other plot elements should support this central conflict
-           - Maintain the core nature of this conflict
-        
-        4. THEMES: {', '.join(themes) if themes else 'To be determined based on the initial idea'}
-           - These themes should be woven throughout the story
-        
-        5. GENRE ELEMENTS: {', '.join(genre_elements) if genre_elements else 'To be determined based on the initial idea'}
-           - These elements should be incorporated to maintain genre consistency
-        
-        The hero's journey structure should be use to create a long version of this initial idea, not the other way around.
-        If any conflict arises between the hero's journey structure and the initial idea, extend the initial idea as needed.
-        
-        FINAL CHECK: Before finalizing the outline, verify that the key elements from the initial idea and the hero's journey are present and well-integrated into the story.
-        """
+    # Pass raw elements to template - let template handle formatting
+    idea_elements = initial_idea_elements if initial_idea and initial_idea_elements else None
     
     # Import prompt template system
     from storyteller_lib.prompt_templates import render_prompt
@@ -266,8 +208,7 @@ def generate_story_outline(state: StoryState) -> Dict:
         'tone': tone,
         'genre': genre,
         'initial_idea': initial_idea,
-        'language_instruction': language_instruction if language.lower() != DEFAULT_LANGUAGE else "",
-        'idea_guidance': idea_guidance,
+        'idea_elements': idea_elements,  # Pass structured elements instead of formatted guidance
         'creative_guidance': creative_guidance,
         'style_guidance': style_guidance,
         'language_guidance': language_guidance
@@ -305,19 +246,16 @@ def generate_story_outline(state: StoryState) -> Dict:
     
     # Validate language if not English
     if language.lower() != DEFAULT_LANGUAGE:
-        language_validation_prompt = f"""
-        LANGUAGE VALIDATION: Check if this text is written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
         
-        Text to validate:
-        {story_outline}
-        
-        Provide:
-        1. A YES/NO determination if the text is completely in {SUPPORTED_LANGUAGES[language.lower()]}
-        2. If NO, identify which parts are not in {SUPPORTED_LANGUAGES[language.lower()]}
-        3. A score from 1-10 on language authenticity (does it feel like it was written by a native speaker?)
-        
-        Your response should be in English for this validation only.
-        """
+        # Render the language validation prompt
+        language_validation_prompt = render_prompt(
+            'language_validation',
+            "english",  # Always validate in English
+            target_language=SUPPORTED_LANGUAGES[language.lower()],
+            text_to_validate=story_outline
+        )
         
         language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
         validation_results["language"] = language_validation_result
@@ -328,34 +266,18 @@ def generate_story_outline(state: StoryState) -> Dict:
     
     # 1. Validate that the outline adheres to the initial idea if one was provided
     if initial_idea and initial_idea_elements:
-        idea_validation_prompt = f"""
-        VALIDATION: Evaluate whether this story outline effectively incorporates the initial story idea:
-        
-        Initial Idea: "{initial_idea}"
-        
-        Key Elements to Check:
-        - Setting: {initial_idea_elements.get('setting', 'Unknown')}
-        - Characters: {', '.join(initial_idea_elements.get('characters', []))}
-        - Plot: {initial_idea_elements.get('plot', 'Unknown')}
-        - Themes: {', '.join(initial_idea_elements.get('themes', []))}
-        - Genre Elements: {', '.join(initial_idea_elements.get('genre_elements', []))}
-        
-        Story Outline:
-        {story_outline}
-        
-        VALIDATION CRITERIA:
-        1. The setting should be consistent with what was specified in the initial idea
-        2. The characters should maintain their essential nature and roles as described in the initial idea
-        3. The plot should align with the central conflict described in the initial idea
-        
-        Provide:
-        1. A score from 1-10 on how well the outline adheres to the initial idea
-        2. An analysis of how well each key element is incorporated
-        3. Specific feedback on what elements could be better integrated
-        4. A YES/NO determination if the outline is acceptable
-        
-        If the score is below 8 or the determination is NO, provide specific guidance on how to improve it.
-        """
+        # Render the idea validation prompt
+        idea_validation_prompt = render_prompt(
+            'idea_validation',
+            "english",  # Always validate in English
+            initial_idea=initial_idea,
+            setting=initial_idea_elements.get('setting', 'Unknown'),
+            characters=initial_idea_elements.get('characters', []),
+            plot=initial_idea_elements.get('plot', 'Unknown'),
+            themes=initial_idea_elements.get('themes', []),
+            genre_elements=initial_idea_elements.get('genre_elements', []),
+            story_outline=story_outline
+        )
         
         idea_validation_result = llm.invoke([HumanMessage(content=idea_validation_prompt)]).content
         validation_results["initial_idea"] = idea_validation_result
@@ -365,50 +287,18 @@ def generate_story_outline(state: StoryState) -> Dict:
             namespace=MEMORY_NAMESPACE)
     
     # 2. Validate that the outline adheres to the specified genre
-    genre_validation_prompt = f"""
-    Evaluate whether this story outline properly adheres to the {genre} genre with a {tone} tone:
+    # Genre validation will be done directly with the genre parameter
+    genre_elements = None  # Template will handle genre requirements
     
-    Story Outline:
-    {story_outline}
-    
-    Key elements that should be present in a {genre} story:
-    """
-    
-    # Generate genre-specific validation criteria using the LLM
-    from storyteller_lib.creative_tools import generate_genre_guidance
-    
-    # Extract just the bullet points from the genre guidance
-    genre_guidance = generate_genre_guidance(genre, tone)
-    
-    # Extract the bullet points from the guidance
-    if "Key elements that must be present" in genre_guidance:
-        elements_section = genre_guidance.split("Key elements that must be present")[1]
-        genre_validation_prompt += elements_section
-    else:
-        # Fallback if the format is unexpected
-        genre_validation_prompt += f"""
-        - Elements typical of {genre} stories
-        - Appropriate pacing and structure for {genre}
-        - Character types commonly found in {genre}
-        - Themes and motifs associated with {genre}
-        - Reader expectations for a {genre} story
-        """
-    
-    genre_validation_prompt += f"""
-    
-    Tone considerations for a {tone} story:
-    - Appropriate language and narrative style for {tone} tone
-    - Consistent mood and atmosphere
-    - Character interactions that reflect the {tone} tone
-    
-    Provide:
-    1. A score from 1-10 on how well the outline adheres to the {genre} genre
-    2. A score from 1-10 on how well the outline maintains a {tone} tone
-    3. Specific feedback on what genre elements are missing or need adjustment
-    4. A YES/NO determination if the outline is acceptable as a {genre} story with {tone} tone
-    
-    If either score is below 8 or the determination is NO, provide specific guidance on how to improve it.
-    """
+    # Render the genre validation prompt
+    genre_validation_prompt = render_prompt(
+        'genre_validation',
+        "english",  # Always validate in English
+        genre=genre,
+        tone=tone,
+        story_outline=story_outline,
+        genre_elements=genre_elements
+    )
     
     genre_validation_result = llm.invoke([HumanMessage(content=genre_validation_prompt)]).content
     validation_results["genre"] = genre_validation_result
@@ -420,25 +310,13 @@ def generate_story_outline(state: StoryState) -> Dict:
     # 3. Validate that the outline adheres to the specified setting if one was provided
     if initial_idea_elements and initial_idea_elements.get('setting'):
         setting = initial_idea_elements.get('setting')
-        setting_validation_prompt = f"""
-        Evaluate whether this story outline properly incorporates the required setting: "{setting}"
-        
-        Story Outline:
-        {story_outline}
-        
-        A story set in "{setting}" should:
-        - Have most or all scenes take place in this setting
-        - Include details and descriptions specific to this setting
-        - Have plot elements that naturally arise from or connect to this setting
-        - Feature characters whose roles make sense within this setting
-        
-        Provide:
-        1. A score from 1-10 on how well the outline incorporates the "{setting}" setting
-        2. Specific feedback on how the setting is used or could be better utilized
-        3. A YES/NO determination if the setting is adequately incorporated
-        
-        If the score is below 8 or the determination is NO, provide specific guidance on how to improve it.
-        """
+        # Render the setting validation prompt
+        setting_validation_prompt = render_prompt(
+            'setting_validation',
+            "english",  # Always validate in English
+            setting=setting,
+            story_outline=story_outline
+        )
         
         setting_validation_result = llm.invoke([HumanMessage(content=setting_validation_prompt)]).content
         validation_results["setting"] = setting_validation_result
@@ -548,28 +426,20 @@ def generate_story_outline(state: StoryState) -> Dict:
         story_outline = regenerated_outline
         logger.info(f"Regenerated story outline with length: {len(story_outline)}")
         # Perform a final verification check to ensure the regenerated outline meets the requirements
-        final_verification_prompt = f"""
-        VERIFICATION CHECK: Evaluate whether this revised story outline meets all requirements.
-        
-        Initial Idea: "{initial_idea}"
-        
-        Key Elements:
-        - Setting: {initial_idea_elements.get('setting', 'Unknown') if initial_idea_elements else 'Not specified'}
-        - Characters: {', '.join(initial_idea_elements.get('characters', [])) if initial_idea_elements else 'Not specified'}
-        - Plot: {initial_idea_elements.get('plot', 'Unknown') if initial_idea_elements else 'Not specified'}
-        
-        Revised Story Outline:
-        {story_outline}
-        
-        Check the following:
-        1. Does the outline effectively incorporate the initial idea? (YES/NO)
-        2. Does the outline adhere to the {genre} genre with a {tone} tone? (YES/NO)
-        {f'3. Is the outline written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]} without any English text? (YES/NO)' if language.lower() != DEFAULT_LANGUAGE else ''}
-        
-        Provide a YES/NO determination for each question.
-        If any answer is NO, specify what still needs improvement.
-        If NO, specify what still needs improvement.
-        """
+        # Render the final verification prompt
+        final_verification_prompt = render_prompt(
+            'final_verification',
+            "english",  # Always validate in English
+            initial_idea=initial_idea,
+            setting=initial_idea_elements.get('setting', 'Unknown') if initial_idea_elements else 'Not specified',
+            characters=initial_idea_elements.get('characters', []) if initial_idea_elements else [],
+            plot=initial_idea_elements.get('plot', 'Unknown') if initial_idea_elements else 'Not specified',
+            story_outline=story_outline,
+            genre=genre,
+            tone=tone,
+            check_language=language.lower() != DEFAULT_LANGUAGE,
+            target_language=SUPPORTED_LANGUAGES[language.lower()] if language.lower() != DEFAULT_LANGUAGE else None
+        )
         
         final_verification_result = llm.invoke([HumanMessage(content=final_verification_prompt)]).content
         print(f"[DEBUG] Final verification result: {final_verification_result[:200]}")
@@ -673,7 +543,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     log_progress("story_outline", outline=story_outline)
     
     # Generate initial plot threads from the outline
-    plot_threads = generate_plot_threads_from_outline(story_outline, genre, tone, initial_idea)
+    plot_threads = generate_plot_threads_from_outline(story_outline, genre, tone, initial_idea, language)
     
     # Save plot threads to database
     try:
@@ -773,6 +643,8 @@ class ChapterPlan(BaseModel):
 @track_progress
 def plan_chapters(state: StoryState) -> Dict:
     """Divide the story into chapters with detailed outlines."""
+    from storyteller_lib.prompt_templates import render_prompt
+    
     global_story = state["global_story"]
     characters = state["characters"]
     genre = state["genre"]
@@ -804,53 +676,29 @@ def plan_chapters(state: StoryState) -> Dict:
         The chapter structure should feel natural to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like a translated work.
         """
     
-    # Prompt for chapter planning
-    prompt = f"""
-    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
-    
-    Based on this story outline:
-    
-    {global_story}
-    
-    And these characters:
-    
-    {characters}
-    
-    Create a plan for 8-15 chapters that cover the entire hero's journey for this {tone} {genre} story.
-    IMPORTANT: THERE SHOULD NEVER BE LESS THAN 8 CHAPTERS. A COMPLETE STORY REQUIRES AT LEAST 8 CHAPTERS TO PROPERLY DEVELOP.
-    
-    For each chapter, provide:
-    1. Chapter number and title
-    2. A summary of major events (200-300 words)
-    3. Which characters appear and how they develop
-    4. 3-6 key scenes that should be included
-    5. Any major revelations or plot twists
-    
-    Ensure the chapters flow logically and maintain the arc of the hero's journey.
-    
-    {language_guidance}
-    
-    {language_instruction if language.lower() != DEFAULT_LANGUAGE else ""}
-    {language_guidance}
-    """
+    # Render the chapter planning prompt
+    prompt = render_prompt(
+        'chapter_planning',
+        language=language,
+        global_story=global_story,
+        characters=characters,
+        tone=tone,
+        genre=genre,
+        language_instruction=language_instruction if language.lower() != DEFAULT_LANGUAGE else None,
+        language_guidance=language_guidance
+    )
     # Generate chapter plan
     chapter_plan_text = llm.invoke([HumanMessage(content=prompt)]).content
     
     # Validate language if not English
     if language.lower() != DEFAULT_LANGUAGE:
-        language_validation_prompt = f"""
-        LANGUAGE VALIDATION: Check if this text is written entirely in {SUPPORTED_LANGUAGES[language.lower()]}.
-        
-        Text to validate:
-        {chapter_plan_text}
-        
-        Provide:
-        1. A YES/NO determination if the text is completely in {SUPPORTED_LANGUAGES[language.lower()]}
-        2. If NO, identify which parts are not in {SUPPORTED_LANGUAGES[language.lower()]}
-        3. A score from 1-10 on language authenticity (does it feel like it was written by a native speaker?)
-        
-        Your response should be in English for this validation only.
-        """
+        # Render the language validation prompt
+        language_validation_prompt = render_prompt(
+            'language_validation',
+            "english",  # Always validate in English
+            target_language=SUPPORTED_LANGUAGES[language.lower()],
+            text_to_validate=chapter_plan_text
+        )
         
         language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
         
@@ -889,22 +737,12 @@ def plan_chapters(state: StoryState) -> Dict:
     # Use direct LLM structured output with simplified Pydantic model
     try:
         # Create a structured output prompt that explicitly asks for chapter data with scenes
-        structured_prompt = f"""
-        Based on the chapter plan you've created, I need you to extract a list of chapters with their key scenes.
-        
-        For each chapter, provide:
-        1. The chapter number (as a string)
-        2. A title
-        3. A detailed outline (200-300 words)
-        4. 3-5 key scenes that should be included in this chapter (with a brief description for each)
-        
-        For the key scenes, focus on the most important moments that advance the plot or develop characters.
-        
-        Format your response as a list of chapters, each with these properties.
-        
-        Chapter plan:
-        {chapter_plan_text}
-        """
+        # Render the chapter extraction prompt
+        structured_prompt = render_prompt(
+            'chapter_extraction',
+            language=language,
+            chapter_plan_text=chapter_plan_text
+        )
         
         # Use LLM with structured output directly
         structured_output_llm = llm.with_structured_output(ChapterPlan)
