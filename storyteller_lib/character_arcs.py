@@ -167,26 +167,18 @@ def identify_character_arc_type(character_data: Dict[str, Any]) -> str:
     if "character_arc" in character_data and "type" in character_data["character_arc"]:
         return character_data["character_arc"]["type"]
     
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Use LLM to identify the most appropriate arc type
-    prompt = f"""
-    Based on this character information:
-    
-    Backstory: {backstory}
-    Flaws: {', '.join(flaws)}
-    Fears: {', '.join(fears)}
-    Desires: {', '.join(desires)}
-    
-    Identify the most appropriate character arc type from the following options:
-    - Redemption: Character overcomes moral failing or past mistake
-    - Fall: Character succumbs to negative traits or temptation
-    - Growth: Character develops and improves as a person
-    - Flat: Character remains essentially unchanged but affects others
-    - Transformation: Character fundamentally changes identity or beliefs
-    - Disillusionment: Character loses idealism or innocence
-    - Education: Character gains new understanding or wisdom
-    
-    Respond with ONLY the arc type name, nothing else.
-    """
+    prompt = render_prompt(
+        'character_arc_type',
+        language=DEFAULT_LANGUAGE,
+        backstory=backstory,
+        flaws=', '.join(flaws),
+        fears=', '.join(fears),
+        desires=', '.join(desires)
+    )
     
     try:
         response = llm.invoke([HumanMessage(content=prompt)]).content.strip()
@@ -321,38 +313,22 @@ def update_character_arc(character: Dict[str, Any], scene_content: str, chapter_
     # Extract character name for the prompt
     character_name = character.get("name", "Character")
     
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Prepare the prompt for analyzing character development in the scene
-    prompt = f"""
-    Analyze the character development for {character_name} in this scene from Chapter {chapter_num}, Scene {scene_num}:
-    
-    {scene_content}
-    
-    Current character information:
-    - Arc type: {character["character_arc"].get("type", "Not specified")}
-    - Current arc stage: {character["character_arc"].get("current_stage", "Not specified")}
-    - Current emotional state: {character["emotional_state"].get("current", "Not specified")}
-    - Inner conflicts: {json.dumps(character.get("inner_conflicts", []))}
-    
-    Provide the following information in JSON format:
-    1. Has the character progressed to a new stage in their arc? If so, which one?
-    2. Has their emotional state changed? If so, how?
-    3. Have any inner conflicts developed, progressed, or been resolved?
-    4. Any new emotional experiences that should be added to their journey?
-    Format your response as a valid JSON object with these keys:
-    {{
-        "new_arc_stage": "Stage name or empty if unchanged",
-        "emotional_state_update": "New emotional state or empty if unchanged",
-        "inner_conflict_updates": [
-            {{
-                "conflict_index": 0,
-                "description": "Description of conflict",
-                "resolution_status": "unresolved|in_progress|resolved",
-                "impact": "How this affects the character"
-            }}
-        ],
-        "emotional_journey_addition": "New emotional experience to add to journey or empty"
-    }}
-    """
+    prompt = render_prompt(
+        'character_arc_update',
+        language=DEFAULT_LANGUAGE,
+        character_name=character_name,
+        chapter_num=chapter_num,
+        scene_num=scene_num,
+        scene_content=scene_content,
+        arc_type=character["character_arc"].get("type", "Not specified"),
+        current_stage=character["character_arc"].get("current_stage", "Not specified"),
+        emotional_state=character["emotional_state"].get("current", "Not specified"),
+        inner_conflicts=json.dumps(character.get("inner_conflicts", []))
+    )
     
     try:
         # Get the analysis from the LLM
@@ -493,32 +469,20 @@ def evaluate_arc_consistency(character: Dict[str, Any]) -> Dict[str, Any]:
     emotional_journey = character.get("emotional_state", {}).get("journey", [])
     inner_conflicts = character.get("inner_conflicts", [])
     
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Prepare the prompt for evaluating arc consistency
-    prompt = f"""
-    Evaluate the consistency of {character_name}'s character arc:
-    
-    Character arc type: {arc_type}
-    Current stage: {current_stage}
-    Arc stages: {stages}
-    Emotional journey: {emotional_journey}
-    Inner conflicts: {json.dumps(inner_conflicts)}
-    
-    Analyze the following:
-    1. Is the character's progression through arc stages logical and consistent?
-    2. Do the emotional states align with the expected arc type?
-    3. Are inner conflicts developing in a way that supports the character arc?
-    4. Are there any gaps or inconsistencies in the character's development?
-    5. What suggestions would improve the character's arc?
-    
-    Format your response as a valid JSON object:
-    {{
-        "consistency_score": 1-10,
-        "strengths": ["Strength 1", "Strength 2"],
-        "inconsistencies": ["Inconsistency 1", "Inconsistency 2"],
-        "suggestions": ["Suggestion 1", "Suggestion 2"],
-        "next_logical_developments": ["Development 1", "Development 2"]
-    }}
-    """
+    prompt = render_prompt(
+        'character_arc_consistency',
+        language=DEFAULT_LANGUAGE,
+        character_name=character_name,
+        arc_type=arc_type,
+        current_stage=current_stage,
+        stages=stages,
+        emotional_journey=emotional_journey,
+        inner_conflicts=json.dumps(inner_conflicts)
+    )
     
     try:
         from typing import List

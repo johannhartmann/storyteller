@@ -1,0 +1,24 @@
+{# German template for evaluating character arc consistency #}
+Bewerte die Konsistenz von {{ character_name }}s Charakterbogen:
+
+Charakterbogentyp: {{ arc_type }}
+Aktuelle Stufe: {{ current_stage }}
+Bogenstufen: {{ stages }}
+Emotionale Reise: {{ emotional_journey }}
+Innere Konflikte: {{ inner_conflicts }}
+
+Analysiere Folgendes:
+1. Ist der Fortschritt des Charakters durch die Bogenstufen logisch und konsistent?
+2. Stimmen die emotionalen Zustände mit dem erwarteten Bogentyp überein?
+3. Entwickeln sich innere Konflikte in einer Weise, die den Charakterbogen unterstützt?
+4. Gibt es Lücken oder Inkonsistenzen in der Charakterentwicklung?
+5. Welche Vorschläge würden den Charakterbogen verbessern?
+
+Formatiere deine Antwort als gültiges JSON-Objekt:
+{
+    "consistency_score": 1-10,
+    "strengths": ["Stärke 1", "Stärke 2"],
+    "inconsistencies": ["Inkonsistenz 1", "Inkonsistenz 2"],
+    "suggestions": ["Vorschlag 1", "Vorschlag 2"],
+    "next_logical_developments": ["Entwicklung 1", "Entwicklung 2"]
+}

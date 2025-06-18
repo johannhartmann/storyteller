@@ -26,6 +26,7 @@ class PromptTemplateManager:
         """
         self.language = language.lower()
         self.template_dir = Path(__file__).parent / "templates"
+        logger.info(f"Initializing PromptTemplateManager for language: {self.language}")
         self.jinja_env = self._setup_jinja_environment()
         self._template_cache: Dict[str, PromptTemplate] = {}
         
@@ -35,15 +36,25 @@ class PromptTemplateManager:
         loaders = []
         
         # Add language-specific loader if not English
-        if self.language != DEFAULT_LANGUAGE:
+        if self.language != 'english':  # Always check against 'english', not DEFAULT_LANGUAGE
             lang_dir = self.template_dir / "languages" / self.language
+            logger.info(f"Looking for language-specific templates in: {lang_dir}")
             if lang_dir.exists():
+                logger.info(f"Found language directory for {self.language}")
                 loaders.append(FileSystemLoader(str(lang_dir)))
+                # List files in language directory for debugging
+                template_files = list(lang_dir.glob("*.jinja2"))
+                logger.info(f"Found {len(template_files)} templates in {self.language} directory")
+                if len(template_files) < 10:
+                    logger.debug(f"Templates: {[f.name for f in template_files]}")
+            else:
+                logger.warning(f"Language directory not found: {lang_dir}")
         
         # Always add base templates as fallback
         base_dir = self.template_dir / "base"
         if base_dir.exists():
             loaders.append(FileSystemLoader(str(base_dir)))
+            logger.info(f"Added base template directory as fallback")
         
         # Create environment with all loaders
         from jinja2 import ChoiceLoader
@@ -122,7 +133,18 @@ class PromptTemplateManager:
         """
         try:
             template = self.jinja_env.get_template(f"{template_name}.jinja2")
-            return template.render(**kwargs)
+            logger.debug(f"Rendering template '{template_name}' for language '{self.language}'")
+            logger.debug(f"Template filename: {getattr(template, 'filename', 'Unknown')}")
+            
+            # Log if we're getting the base template instead of language-specific
+            template_path = getattr(template, 'filename', '')
+            if self.language != DEFAULT_LANGUAGE and '/base/' in template_path:
+                logger.warning(f"Using base template for '{template_name}' instead of {self.language}-specific template")
+            
+            rendered = template.render(**kwargs)
+            # Log first 100 chars of rendered template to verify language
+            logger.debug(f"Rendered template starts with: {rendered[:100]}...")
+            return rendered
         except TemplateNotFound:
             logger.error(f"Template '{template_name}' not found for language '{self.language}'")
             return f"[Template {template_name} not found]"
@@ -194,6 +216,7 @@ def render_prompt(template_name: str, language: str = DEFAULT_LANGUAGE, **kwargs
     Returns:
         Rendered prompt string
     """
+    logger.info(f"render_prompt called with template_name='{template_name}', language='{language}'")
     manager = get_template_manager(language)
     return manager.render(template_name, **kwargs)
 

@@ -1,0 +1,30 @@
+{# German template for analyzing character development in a scene #}
+Analysiere die Charakterentwicklung für {{ character_name }} in dieser Szene aus Kapitel {{ chapter_num }}, Szene {{ scene_num }}:
+
+{{ scene_content }}
+
+Aktuelle Charakterinformationen:
+- Bogentyp: {{ arc_type }}
+- Aktuelle Bogenstufe: {{ current_stage }}
+- Aktueller emotionaler Zustand: {{ emotional_state }}
+- Innere Konflikte: {{ inner_conflicts }}
+
+Gib die folgenden Informationen im JSON-Format an:
+1. Hat der Charakter zu einer neuen Stufe in seinem Bogen fortgeschritten? Wenn ja, welche?
+2. Hat sich sein emotionaler Zustand geändert? Wenn ja, wie?
+3. Haben sich innere Konflikte entwickelt, sind fortgeschritten oder wurden gelöst?
+4. Gibt es neue emotionale Erfahrungen, die zu ihrer Reise hinzugefügt werden sollten?
+Formatiere deine Antwort als gültiges JSON-Objekt mit diesen Schlüsseln:
+{
+    "new_arc_stage": "Stufenname oder leer wenn unverändert",
+    "emotional_state_update": "Neuer emotionaler Zustand oder leer wenn unverändert",
+    "inner_conflict_updates": [
+        {
+            "conflict_index": 0,
+            "description": "Beschreibung des Konflikts",
+            "resolution_status": "unresolved|in_progress|resolved",
+            "impact": "Wie dies den Charakter beeinflusst"
+        }
+    ],
+    "emotional_journey_addition": "Neue emotionale Erfahrung zur Reise hinzufügen oder leer"
+}

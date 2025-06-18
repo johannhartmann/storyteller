@@ -31,84 +31,6 @@ class CreativeBrainstormResult(BaseModel):
     rationale: str = Field(description="Why this idea is recommended")
 
 
-def generate_genre_guidance(genre: str, tone: str, language: str = DEFAULT_LANGUAGE) -> str:
-    """
-    Dynamically generate genre-specific guidance using the LLM.
-    
-    Args:
-        genre: Story genre
-        tone: Story tone
-        language: Target language for story generation
-        
-    Returns:
-        String containing genre-specific guidance
-    """
-    # Prompt the LLM to generate genre-specific guidance
-    prompt = f"""
-    You are a literary expert specializing in genre fiction. I need you to provide guidance on the key elements
-    and conventions of the "{genre}" genre with a "{tone}" tone.
-    
-    Please provide:
-    1. A brief description of what makes the {genre} genre distinctive
-    2. 5-7 key elements that must be present for a story to be considered part of this genre
-    3. Common tropes, themes, or motifs associated with this genre
-    4. How the "{tone}" tone typically manifests in this genre
-    
-    Format your response as follows:
-    
-    GENRE REQUIREMENTS:
-    This is a {genre} story with a {tone} tone. All ideas MUST adhere to the conventions and expectations of the {genre} genre.
-    
-    Key elements that must be present for a {genre} story:
-    - [Element 1]
-    - [Element 2]
-    - [Element 3]
-    - [Element 4]
-    - [Element 5]
-    - [Additional elements if relevant]
-    
-    Provide only the formatted guidance without any additional explanations or commentary.
-    """
-    
-    # Add language instruction if not English
-    if language.lower() != DEFAULT_LANGUAGE:
-        prompt += f"""
-        
-        CRITICAL LANGUAGE INSTRUCTION:
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content - including descriptions, elements, and guidance - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        
-        This is a STRICT requirement. Your ENTIRE response must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
-    
-    # Get the response from the LLM
-    response = llm.invoke([HumanMessage(content=prompt)]).content
-    
-    # If the response doesn't start with "GENRE REQUIREMENTS", extract just the relevant part
-    if "GENRE REQUIREMENTS:" not in response:
-        # Create a properly formatted response
-        formatted_guidance = f"""
-    GENRE REQUIREMENTS:
-    This is a {genre} story with a {tone} tone. All ideas MUST adhere to the conventions and expectations of the {genre} genre.
-    
-    Key elements that must be present for a {genre} story:
-    """
-        # Extract bullet points if they exist
-        if "-" in response:
-            bullet_points = [line.strip() for line in response.split("\n") if line.strip().startswith("-")]
-            if bullet_points:
-                formatted_guidance += "\n        " + "\n        ".join(bullet_points)
-            else:
-                # If no bullet points found, use the whole response
-                formatted_guidance += f"\n        - {response.strip()}"
-        else:
-            # If no bullet points, create some from the response
-            formatted_guidance += f"\n        - {response.strip()}"
-        
-        return formatted_guidance
-    
-    return response
-
 def creative_brainstorm(
     topic: str,
     genre: str,
@@ -158,103 +80,24 @@ def creative_brainstorm(
     character_constraints = constraints.get("characters", "")
     plot_constraints = constraints.get("plot", "")
     
-    # Build constraints section
-    constraints_section = ""
-    if any([setting_constraint, character_constraints, plot_constraints]):
-        constraints_section = f"""
-        CRITICAL CONSTRAINTS (MUST BE FOLLOWED):
-        """
-        
-        if setting_constraint:
-            constraints_section += f"""
-            - Setting: All ideas MUST take place in {setting_constraint}. Do not deviate from this setting.
-            """
-            
-        if character_constraints:
-            constraints_section += f"""
-            - Characters: All ideas MUST incorporate these characters: {character_constraints}
-            """
-            
-        if plot_constraints:
-            constraints_section += f"""
-            - Plot Elements: All ideas MUST align with this plot: {plot_constraints}
-            """
-            
-        constraints_section += """
-        These constraints are non-negotiable. Any idea that violates these constraints will be rejected.
-        """
-        
-    # Prepare author style guidance if provided
-    style_section = ""
-    if author and author_style_guidance:
-        style_section = f"""
-        AUTHOR STYLE CONSIDERATION:
-        Consider the writing style of {author} as you generate ideas:
-        
-        {author_style_guidance}
-        
-        The ideas should feel like they could appear in a story by this author.
-        """
-    
-    # Prepare language guidance if not English
-    language_section = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_section = f"""
-        CRITICAL LANGUAGE INSTRUCTION:
-        You MUST generate ALL ideas ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content - including idea titles, descriptions, explanations, and analyses - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        DO NOT switch to any other language at ANY point in your response.
-        
-        Additionally:
-        - Character names, places, and cultural references should be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
-        - Consider cultural nuances, idioms, and storytelling traditions specific to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
-        - Use vocabulary, expressions, and sentence structures natural to {SUPPORTED_LANGUAGES[language.lower()]}
-        
-        This is a STRICT requirement. Your ENTIRE response must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
-    
-    # Generate genre-specific guidance dynamically using the LLM
-    genre_guidance = generate_genre_guidance(genre, tone, language)
+    # All constraint handling and language instructions are now in the templates
     
     # Use template system for brainstorming
     from storyteller_lib.prompt_templates import render_prompt
     
-    # Prepare constraints list
-    constraints_list = []
-    if setting_constraint:
-        constraints_list.append(f"Setting must be in {setting_constraint}")
-    if character_constraints:
-        constraints_list.append(f"Must incorporate these characters: {character_constraints}")
-    if plot_constraints:
-        constraints_list.append(f"Must align with this plot: {plot_constraints}")
-    
-    if strict_adherence:
-        constraints_list.append("Must adhere to the initial story concept")
-        constraints_list.append("Must maintain consistency with core elements")
-    
-    # Prepare elements to avoid
-    avoid_elements = [
-        "Ideas that introduce unnecessary complexity",
-        "Ideas that distract from the main storyline",
-        "Ideas that contradict established elements",
-        "Ideas that feel disconnected from the core narrative"
-    ]
-    
-    # Prepare idea types
-    idea_types = [
-        "Ideas that deepen character development",
-        "Ideas that enrich the setting",
-        "Ideas that advance the plot meaningfully",
-        "Ideas that enhance emotional impact",
-        "Ideas that strengthen thematic elements"
-    ]
-    
-    # Update evaluation criteria to be more specific
-    enhanced_criteria = evaluation_criteria + [
-        "Adherence to genre conventions",
-        "Respect for established constraints",
-        "Enhancement value (not distraction)"
-    ]
+    # Extract the idea context if available
+    idea_context = ""
+    if context:
+        # Extract just the idea-specific part if it exists
+        if "Initial idea:" in context:
+            idea_context = context.split("Initial idea:")[1].strip()
+        elif idea_context == "":
+            # If no initial idea marker, check for other context
+            lines = context.strip().split('\n')
+            for line in lines:
+                if line.strip() and not line.strip().startswith("We're creating"):
+                    idea_context = line.strip()
+                    break
     
     # Render the brainstorming prompt
     brainstorm_prompt = render_prompt(
@@ -263,82 +106,37 @@ def creative_brainstorm(
         topic=topic,
         genre=genre,
         tone=tone,
-        specific_context=context,
-        constraints=constraints_list if constraints_list else None,
-        avoid_elements=avoid_elements,
+        idea_context=idea_context,
+        setting_constraint=setting_constraint,
+        character_constraints=character_constraints,
+        plot_constraints=plot_constraints,
         num_ideas=num_ideas,
-        idea_types=idea_types,
-        evaluation_criteria=enhanced_criteria
+        author=author,
+        author_style_guidance=author_style_guidance
     )
     
-    # Add author style if provided
-    if author and author_style_guidance:
-        brainstorm_prompt += f"\n\nAUTHOR STYLE:\nConsider the writing style of {author}:\n{author_style_guidance}"
+    # Author style will be handled in the template if needed
     
     # Generate ideas
     ideas_response = llm.invoke([HumanMessage(content=brainstorm_prompt)]).content
     
-    # Evaluation prompt with emphasis on story enhancement
-    eval_prompt = f"""
-    # Idea Evaluation for: {topic}
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
-    ## Ideas Generated
-    {ideas_response}
-    
-    ## Story Context
-    {context}
-    
-    ## Constraints
-    {constraints_section}
-    
-    ## Genre Requirements
-    {genre_guidance}
-    
-    ## Evaluation Criteria
-    {', '.join(evaluation_criteria)}
-    
-    ## EVALUATION INSTRUCTIONS
-    {"First, check if each idea maintains consistency with the initial concept and preserves essential elements." if strict_adherence else ""}
-    
-    First, check each idea for compliance with the constraints and genre requirements.
-    REJECT any idea that:
-    """
-    
-    # Add language instruction for evaluation if not English
-    if language.lower() != DEFAULT_LANGUAGE:
-        eval_prompt += f"""
-    - Is not written entirely in {SUPPORTED_LANGUAGES[language.lower()]}
-    - Contains any English text or other languages
-    - Uses character names or cultural references not authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures
-    
-    CRITICAL LANGUAGE INSTRUCTION:
-    Your evaluation MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-    ALL content - including your analysis, ratings, and recommendations - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-    DO NOT switch to any other language at ANY point in your evaluation.
-    
-    This is a STRICT requirement. Your ENTIRE evaluation must be written ONLY in {SUPPORTED_LANGUAGES[language.lower()]}.
-    """
-    
-    eval_prompt += """
-    {"1. Significantly alters or omits essential elements from the initial concept" if strict_adherence else ""}
-    2. Violates the constraints
-    3. Doesn't fit the {genre} genre
-    4. Distracts from rather than enhances the main storyline
-    
-    {"Ideas should build upon the initial concept while preserving its core elements. Significant deviations from the established setting, characters, or central conflict should be avoided." if strict_adherence else ""}
-    
-    Then, evaluate the remaining ideas against the criteria above on a scale of 1-10.
-    For each idea:
-    1. Provide scores for each criterion
-    2. Calculate a total score
-    3. Write a brief justification focusing on how the idea enhances the storyline
-    4. Indicate if the idea should be incorporated (YES/MAYBE/NO)
-    
-    Then rank the ideas from best to worst fit for the story.
-    Finally, recommend the top 1-2 ideas to incorporate, with brief reasoning that explains how they enhance the storyline without distracting from it.
-    
-    {"FINAL CHECK: Verify that your recommended ideas maintain consistency with the initial concept while enhancing the storyline." if strict_adherence else ""}
-    """
+    # Evaluation prompt - let template handle all the text
+    eval_prompt = render_prompt(
+        'creative_evaluation',
+        language=language,
+        topic=topic,
+        ideas_response=ideas_response,
+        idea_context=idea_context,
+        setting_constraint=setting_constraint,
+        character_constraints=character_constraints,
+        plot_constraints=plot_constraints,
+        genre=genre,
+        tone=tone,
+        strict_adherence=strict_adherence
+    )
     
     # Evaluate ideas
     evaluation = llm.invoke([HumanMessage(content=eval_prompt)]).content
@@ -418,7 +216,8 @@ def structured_output_with_pydantic(
     text_content: str, 
     schema_dict: Dict,
     description: str,
-    model_name: str = "DynamicModel"
+    model_name: str = "DynamicModel",
+    language: str = DEFAULT_LANGUAGE
 ) -> Dict[str, Any]:
     """
     Parse structured data from text using LangChain's structured output approach.
@@ -439,14 +238,16 @@ def structured_output_with_pydantic(
         # Use structured output with the model
         structured_output_llm = llm.with_structured_output(model_class)
         
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
+        
         # Invoke with the text content
-        prompt = f"""
-        Based on this {description}:
-        
-        {text_content}
-        
-        Extract the structured data according to the specified format.
-        """
+        prompt = render_prompt(
+            'structured_extraction',
+            language=language,
+            description=description,
+            text_content=text_content
+        )
         
         result = structured_output_llm.invoke(prompt)
         return result.dict()
@@ -522,7 +323,7 @@ class WorldElements(BaseModel):
     RELIGION: Optional[ReligionElements] = Field(None, description="Religion elements")
     DAILY_LIFE: Optional[DailyLifeElements] = Field(None, description="Daily life elements")
 
-def parse_json_with_langchain(text: str, description: str = "world elements") -> Dict[str, Any]:
+def parse_json_with_langchain(text: str, description: str = "world elements", language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Parse world elements from text using structured output.
     
@@ -537,21 +338,14 @@ def parse_json_with_langchain(text: str, description: str = "world elements") ->
     
     # Use structured output to parse the world elements
     try:
-        prompt = f"""Extract the world building information from this text into a structured format:
-
-{text}
-
-Organize the information into these categories:
-- GEOGRAPHY: locations, physical features, climate
-- HISTORY: timeline, past conflicts, important events  
-- CULTURE: customs, values, arts
-- POLITICS: government, laws, factions
-- ECONOMICS: currency, trade, resources
-- TECHNOLOGY/MAGIC: level, systems, limitations
-- RELIGION: deities, practices, beliefs
-- DAILY_LIFE: food, clothing, housing
-
-For each category, extract the relevant information. If a category is not mentioned in the text, leave it empty."""
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
+        
+        prompt = render_prompt(
+            'world_extraction',
+            language=language,
+            text=text
+        )
         
         structured_llm = get_llm_with_structured_output(WorldElements)
         response = structured_llm.invoke(prompt)

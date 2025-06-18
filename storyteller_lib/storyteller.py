@@ -103,7 +103,7 @@ class StoryElements(BaseModel):
         description="Any specific genre elements that should be emphasized (e.g., 'hard boiled detective story')"
     )
 
-def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
+def parse_initial_idea(initial_idea: str, language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Parse an initial story idea to extract key elements using Pydantic.
     
@@ -128,7 +128,7 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
         # Render the parse initial idea prompt
         prompt = render_prompt(
             'parse_initial_idea',
-            language="english",  # Always parse in English for consistency
+            language=language,
             initial_idea=initial_idea
         )
         
@@ -182,7 +182,7 @@ def parse_initial_idea(initial_idea: str) -> Dict[str, Any]:
                 },
                 "namespace": MEMORY_NAMESPACE
             })
-            # Store initial idea elements in LangMem with must-include constraints
+            # Store initial idea elements in memory with must-include constraints
         
         return idea_elements_dict
     except Exception as e:
@@ -496,7 +496,7 @@ def generate_story(
     idea_elements = {}
     if initial_idea:
         # Parse the initial idea to extract key elements
-        idea_elements = parse_initial_idea(initial_idea)
+        idea_elements = parse_initial_idea(initial_idea, language)
         
         # Let the LLM determine the appropriate genre based on the initial idea
         # instead of hardcoding specific genre rules
@@ -614,7 +614,7 @@ def generate_story(
         })
         
         # Parse initial idea to extract key elements
-        idea_elements = parse_initial_idea(initial_idea)
+        idea_elements = parse_initial_idea(initial_idea, language)
         
         # Store each key element as a separate memory anchor
         for key, value in idea_elements.items():
@@ -627,6 +627,8 @@ def generate_story(
                 })
     
     # Initial state with all fields from StoryState schema
+    print(f"[DEBUG] generate_story: language parameter = '{language}'")
+    print(f"[DEBUG] generate_story: DEFAULT_LANGUAGE = '{DEFAULT_LANGUAGE}'")
     initial_state = {
         "messages": [HumanMessage(content=f"Please write a {tone} {genre} story{' in the style of '+author if author else ''}{language_mention}{idea_text} for me.")],
         "genre": genre,

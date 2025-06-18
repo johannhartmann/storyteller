@@ -1,0 +1,32 @@
+{# Base template for generating genre guidance - English version #}
+You are a literary expert specializing in genre fiction. I need you to provide guidance on the key elements
+and conventions of the "{{ genre }}" genre with a "{{ tone }}" tone.
+
+Please provide:
+1. A brief description of what makes the {{ genre }} genre distinctive
+2. 5-7 key elements that must be present for a story to be considered part of this genre
+3. Common tropes, themes, or motifs associated with this genre
+4. How the "{{ tone }}" tone typically manifests in this genre
+
+Format your response as follows:
+
+GENRE REQUIREMENTS:
+This is a {{ genre }} story with a {{ tone }} tone. All ideas MUST adhere to the conventions and expectations of the {{ genre }} genre.
+
+Key elements that must be present for a {{ genre }} story:
+- [Element 1]
+- [Element 2]
+- [Element 3]
+- [Element 4]
+- [Element 5]
+- [Additional elements if relevant]
+
+Provide only the formatted guidance without any additional explanations or commentary.
+
+{% if critical_language_instruction %}
+CRITICAL LANGUAGE INSTRUCTION:
+Your response MUST be written ENTIRELY in {{ target_language }}.
+ALL content - including descriptions, elements, and guidance - must be in {{ target_language }}.
+
+This is a STRICT requirement. Your ENTIRE response must be written ONLY in {{ target_language }}.
+{% endif %}

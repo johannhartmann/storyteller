@@ -1,0 +1,40 @@
+{# Base template for idea validation - English version #}
+VALIDATION: Evaluate whether this story outline effectively incorporates the initial story idea:
+
+Initial Idea: "{{ initial_idea }}"
+
+Key Elements to Check:
+- Setting: {{ setting }}
+- Characters: {{ characters | join(', ') }}
+- Plot: {{ plot }}
+{% if themes %}
+- Themes: {{ themes | join(', ') }}
+{% endif %}
+{% if genre_elements %}
+- Genre Elements: {{ genre_elements | join(', ') }}
+{% endif %}
+
+Story Outline:
+{{ story_outline }}
+
+Evaluate:
+1. Does the outline properly incorporate the specified setting?
+2. Are all mentioned characters included with their specified roles?
+3. Does the main plot follow the initial idea?
+4. Are the themes (if any) woven into the narrative?
+5. Does it maintain the genre elements specified?
+
+Provide:
+- A score from 1-10 for adherence to the initial idea
+- Specific examples of successful incorporation
+- Any elements that were omitted or changed
+- Recommendations for better alignment if needed
+
+CRITICAL: The initial idea is the foundation - deviations should only enhance, not replace core elements.
+
+VALIDATION FOCUS:
+- Setting must match exactly (no substitutions)
+- Characters must retain their specified roles
+- Core plot must remain intact
+- Enhancements are welcome but not at the expense of the original
+- Genre consistency throughout

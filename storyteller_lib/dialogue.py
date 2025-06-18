@@ -37,37 +37,17 @@ def analyze_dialogue(scene_content: str, characters: Dict[str, Any], language: s
     # Get the full language name
     language_name = SUPPORTED_LANGUAGES[language]
     
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Prepare the prompt for analyzing dialogue
-    prompt = f"""
-    Analyze the dialogue in this scene written in {language_name}:
-    
-    {scene_content}
-    
-    Characters in the story: {', '.join(character_names)}
-    
-    Evaluate the following aspects of dialogue, considering the norms and conventions of {language_name} dialogue:
-    
-    1. Naturalness - Does it sound like real speech in {language_name}?
-    2. Character voice - Is each character's dialogue distinctive?
-    3. Exposition - Is information revealed naturally or forced?
-    4. Subtext - Does dialogue contain subtext and implied meaning?
-    5. Purpose - Does each exchange advance character or plot?
-    6. Efficiency - Is the dialogue concise or verbose?
-    
-    For each issue, provide:
-    - The problematic dialogue (in the original {language_name})
-    - The character(s) speaking
-    - Why it's problematic
-    - A suggested improvement (in {language_name})
-    
-    Also identify:
-    - Dialogue that explains things characters would already know
-    - Dialogue that could be more concise without losing meaning
-    - Dialogue that lacks distinctive character voice
-    
-    Format your response as a structured JSON object.
-    Analyze and respond in {language_name}.
-    """
+    prompt = render_prompt(
+        'dialogue_analysis',
+        language=language,
+        scene_content=scene_content,
+        character_names=', '.join(character_names),
+        language_name=language_name
+    )
     
     try:
         # Define Pydantic models for structured output
@@ -389,26 +369,18 @@ def generate_dialogue_guidance(characters: Dict[str, Any], genre: str, tone: str
         if "name" in char_data:
             character_names.append(char_data["name"])
     
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Prepare the prompt for generating dialogue guidance
-    prompt = f"""
-    Generate specific dialogue guidance for a {genre} story with a {tone} tone written in {language_name}.
-    
-    Characters: {', '.join(character_names)}
-    
-    Provide guidance on:
-    1. How to make dialogue natural and conversational in {language_name}
-    2. How to create distinctive voices for each character
-    3. How to reveal information naturally through dialogue
-    4. How to use subtext and implied meaning
-    5. How to make dialogue concise and purposeful
-    6. Common dialogue pitfalls to avoid in this genre
-    7. Language-specific considerations for writing dialogue in {language_name}
-    8. Cultural nuances that should be reflected in {language_name} dialogue
-    
-    Format your response as concise, actionable guidelines that could be included in a scene writing prompt.
-    Focus on creating engaging, natural dialogue appropriate for the genre, tone, and language.
-    Provide your guidance in {language_name}.
-    """
+    prompt = render_prompt(
+        'dialogue_guidance',
+        language=language,
+        genre=genre,
+        tone=tone,
+        character_names=', '.join(character_names),
+        language_name=language_name
+    )
     
     try:
         # Generate the dialogue guidance

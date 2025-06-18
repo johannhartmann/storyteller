@@ -1,0 +1,56 @@
+{# Base template for extracting category information - English version #}
+Extract ONLY {{ category_name }} information from this text:
+
+{{ text }}
+
+Focus specifically on the key aspects of {{ category_name }} and ignore other elements.
+
+EXTRACTION GUIDELINES:
+- Only extract information directly related to {{ category_name }}
+- Be comprehensive within the category scope
+- Ignore information about other categories
+- Structure the information clearly
+- Include all relevant details mentioned
+
+CATEGORY-SPECIFIC FOCUS:
+{% if category_name == "geography" %}
+- Physical locations and landmarks
+- Climate and weather patterns
+- Natural resources
+- Terrain and geographical features
+{% elif category_name == "history" %}
+- Timeline of events
+- Historical figures
+- Past conflicts or achievements
+- Origins and foundations
+{% elif category_name == "culture" %}
+- Customs and traditions
+- Social norms and values
+- Arts and entertainment
+- Languages and communication
+{% elif category_name == "politics" %}
+- Government structure
+- Power dynamics
+- Laws and regulations
+- Political factions
+{% elif category_name == "economics" %}
+- Trade and commerce
+- Currency and financial systems
+- Resources and production
+- Economic classes
+{% elif category_name == "technology_magic" %}
+- Technological advancement level
+- Magic systems and rules
+- Limitations and capabilities
+- Integration with society
+{% elif category_name == "religion" %}
+- Belief systems
+- Deities or spiritual entities
+- Religious practices
+- Sacred places or objects
+{% elif category_name == "daily_life" %}
+- Typical routines
+- Food and cuisine
+- Housing and architecture
+- Common occupations
+{% endif %}

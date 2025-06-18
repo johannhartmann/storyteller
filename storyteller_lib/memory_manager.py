@@ -1,4 +1,4 @@
-"""Memory management module to replace LangMem functionality."""
+"""Memory management module for storing and retrieving story elements."""
 
 from typing import List, Dict, Any, Optional
 import json
@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 
 
 class MemoryManager:
-    """Manages story memories using the database instead of LangMem."""
+    """Manages story memories using the database."""
     
     def __init__(self, db_manager: StoryDatabaseManager):
         self.db_manager = db_manager

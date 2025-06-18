@@ -51,6 +51,15 @@ def generate_story_summary() -> Dict[str, Any]:
     if not db_manager or not db_manager._db:
         return {}
     
+    # Get language from story config
+    language = "english"
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT language FROM story_config WHERE id = 1")
+        result = cursor.fetchone()
+        if result and result['language']:
+            language = result['language']
+    
     summary = {
         "chapters": {},
         "character_actions": {},
@@ -92,7 +101,7 @@ def generate_story_summary() -> Dict[str, Any]:
                 content = row['content']
                 
                 # Extract key information from scene
-                scene_info = extract_scene_information(content, chapter_num, scene_num)
+                scene_info = extract_scene_information(content, chapter_num, scene_num, language)
                 
                 summary["chapters"][chapter_num]["scenes"][scene_num] = scene_info
                 summary["chapters"][chapter_num]["key_events"].extend(scene_info["events"])
@@ -130,7 +139,7 @@ def generate_story_summary() -> Dict[str, Any]:
     return summary
 
 
-def extract_scene_information(content: str, chapter_num: int, scene_num: int, language: str = "english") -> Dict[str, Any]:
+def extract_scene_information(content: str, chapter_num: int, scene_num: int, language: str) -> Dict[str, Any]:
     """
     Extract key information from a scene using LLM analysis.
     

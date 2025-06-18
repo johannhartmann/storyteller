@@ -1,0 +1,30 @@
+{# Base template for generating inner conflicts - English version #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+For this character:
+
+Name: {{ name }}
+Role: {{ role }}
+Backstory: {{ backstory }}
+
+Personality:
+- Traits: {{ traits }}
+- Strengths: {{ strengths }}
+- Flaws: {{ flaws }}
+- Fears: {{ fears }}
+- Desires: {{ desires }}
+- Values: {{ values }}
+
+Generate 1-2 inner conflicts this character struggles with. For each conflict:
+
+1. Provide a description of the conflict (e.g., "Desire for revenge vs. moral code")
+2. Set the resolution status as "unresolved" (since the story hasn't started)
+3. Explain how this conflict impacts the character's behavior
+
+Focus on conflicts that create interesting tension and drive character development.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

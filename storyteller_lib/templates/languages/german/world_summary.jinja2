@@ -1,0 +1,33 @@
+{# German template for generating world summary #}
+Basierend auf diesen Weltelementen:
+
+{{ category_summaries }}
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Erstelle eine prägnante Zusammenfassung (300-500 Wörter), die das Wesen dieser Welt einfängt.
+Konzentriere dich auf die markantesten und wichtigsten Elemente, die diese Welt einzigartig machen
+und die den größten Einfluss auf die Geschichte haben werden.
+
+Die Zusammenfassung sollte ein klares Bild davon vermitteln, was diese Welt besonders macht und
+wie sie das {{ genre }}-Genre mit einem {{ tone }} Ton unterstützt.
+
+STRUKTUR DER ZUSAMMENFASSUNG:
+1. Einleitung: Eine fesselnde Einführung in die Welt
+2. Kernelemente: Die markantesten Merkmale
+3. Atmosphäre: Das allgemeine Gefühl und die Stimmung
+4. Konflikte: Inhärente Spannungen und Herausforderungen
+5. Möglichkeiten: Was diese Welt für das Geschichtenerzählen interessant macht
+
+SCHREIBRICHTLINIEN:
+- Sei lebhaft und eindrucksvoll
+- Fokussiere auf Elemente, die die Erzählung vorantreiben
+- Zeige, wie verschiedene Aspekte miteinander verbunden sind
+- Hebe einzigartige oder überraschende Elemente hervor
+- Erschaffe ein Gefühl von Ort und Möglichkeit
+
+{% if make_authentic %}
+Stelle sicher, dass die Zusammenfassung kulturell authentisch für deutschsprachige Leser ist.
+{% endif %}

@@ -1,0 +1,29 @@
+{# Base template for generating emotional state - English version #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+For this character:
+
+Name: {{ name }}
+Role: {{ role }}
+Backstory: {{ backstory }}
+
+Personality:
+- Traits: {{ traits }}
+- Strengths: {{ strengths }}
+- Flaws: {{ flaws }}
+- Fears: {{ fears }}
+- Desires: {{ desires }}
+- Values: {{ values }}
+
+Determine:
+
+1. The character's initial emotional state at the beginning of the story
+2. Their current emotional state (same as initial for now)
+
+Describe each emotional state in 1-2 sentences that capture their feelings, outlook, and attitude.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}

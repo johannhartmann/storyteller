@@ -1,0 +1,61 @@
+{# Base template for evaluating creative ideas - English version #}
+# Idea Evaluation for: {{ topic }}
+
+## Ideas Generated
+{{ ideas_response }}
+
+## Story Context
+{{ context }}
+
+## Constraints
+{{ constraints_section }}
+
+## Genre Requirements
+{{ genre_guidance }}
+
+## Evaluation Criteria
+{{ evaluation_criteria }}
+
+## EVALUATION INSTRUCTIONS
+{% if strict_adherence %}
+First, check if each idea maintains consistency with the initial concept and preserves essential elements.
+{% endif %}
+
+First, check each idea for compliance with the constraints and genre requirements.
+REJECT any idea that:
+{% if language_check %}
+- Is not written entirely in {{ target_language }}
+- Contains any English text or other languages
+- Uses character names or cultural references not authentic to {{ target_language }}-speaking cultures
+
+CRITICAL LANGUAGE INSTRUCTION:
+Your evaluation MUST be written ENTIRELY in {{ target_language }}.
+ALL content - including your analysis, ratings, and recommendations - must be in {{ target_language }}.
+DO NOT switch to any other language at ANY point in your evaluation.
+
+This is a STRICT requirement. Your ENTIRE evaluation must be written ONLY in {{ target_language }}.
+{% endif %}
+{% if strict_adherence %}
+1. Significantly alters or omits essential elements from the initial concept
+{% endif %}
+2. Violates the constraints
+3. Doesn't fit the {{ genre }} genre
+4. Distracts from rather than enhances the main storyline
+
+{% if strict_adherence %}
+Ideas should build upon the initial concept while preserving its core elements. Significant deviations from the established setting, characters, or central conflict should be avoided.
+{% endif %}
+
+Then, evaluate the remaining ideas against the criteria above on a scale of 1-10.
+For each idea:
+1. Provide scores for each criterion
+2. Calculate a total score
+3. Write a brief justification focusing on how the idea enhances the storyline
+4. Indicate if the idea should be incorporated (YES/MAYBE/NO)
+
+Then rank the ideas from best to worst fit for the story.
+Finally, recommend the top 1-2 ideas to incorporate, with brief reasoning that explains how they enhance the storyline without distracting from it.
+
+{% if strict_adherence %}
+FINAL CHECK: Verify that your recommended ideas maintain consistency with the initial concept while enhancing the storyline.
+{% endif %}

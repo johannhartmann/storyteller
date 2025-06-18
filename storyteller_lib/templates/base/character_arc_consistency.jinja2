@@ -1,0 +1,24 @@
+{# Base template for evaluating character arc consistency - English version #}
+Evaluate the consistency of {{ character_name }}'s character arc:
+
+Character arc type: {{ arc_type }}
+Current stage: {{ current_stage }}
+Arc stages: {{ stages }}
+Emotional journey: {{ emotional_journey }}
+Inner conflicts: {{ inner_conflicts }}
+
+Analyze the following:
+1. Is the character's progression through arc stages logical and consistent?
+2. Do the emotional states align with the expected arc type?
+3. Are inner conflicts developing in a way that supports the character arc?
+4. Are there any gaps or inconsistencies in the character's development?
+5. What suggestions would improve the character's arc?
+
+Format your response as a valid JSON object:
+{
+    "consistency_score": 1-10,
+    "strengths": ["Strength 1", "Strength 2"],
+    "inconsistencies": ["Inconsistency 1", "Inconsistency 2"],
+    "suggestions": ["Suggestion 1", "Suggestion 2"],
+    "next_logical_developments": ["Development 1", "Development 2"]
+}

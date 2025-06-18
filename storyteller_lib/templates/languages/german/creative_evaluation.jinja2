@@ -1,0 +1,84 @@
+{# German template for evaluating creative ideas #}
+# Ideenbewertung für: {{ topic }}
+
+## Generierte Ideen
+{{ ideas_response }}
+
+## Geschichtenkontext
+Wir erstellen eine {{ tone }} {{ genre }}-Geschichte, die der Heldenreise-Struktur folgt.
+Die Geschichte sollte fesselnd, überraschend und emotional berührend für die Leser sein.
+{% if idea_context %}
+{{ idea_context }}
+{% endif %}
+
+## Einschränkungen
+{% if setting_constraint or character_constraints or plot_constraints %}
+KRITISCHE EINSCHRÄNKUNGEN (MÜSSEN BEFOLGT WERDEN):
+{% if setting_constraint %}
+- Setting: Alle Ideen MÜSSEN in {{ setting_constraint }} stattfinden. Weiche nicht von diesem Setting ab.
+{% endif %}
+{% if character_constraints %}
+- Charaktere: Alle Ideen MÜSSEN diese Charaktere einbeziehen: {{ character_constraints }}
+{% endif %}
+{% if plot_constraints %}
+- Handlungselemente: Alle Ideen MÜSSEN mit dieser Handlung übereinstimmen: {{ plot_constraints }}
+{% endif %}
+Diese Einschränkungen sind nicht verhandelbar. Jede Idee, die gegen diese Einschränkungen verstößt, wird abgelehnt.
+{% endif %}
+
+## Genre-Anforderungen
+Dies ist eine {{ genre }}-Geschichte mit einem {{ tone }} Ton. Alle Ideen MÜSSEN den Konventionen und Erwartungen des {{ genre }}-Genres entsprechen.
+
+## Bewertungskriterien
+- Einhaltung der ursprünglichen Idee und ihrer Schlüsselelemente (Setting, Charaktere, Handlung)
+- Bewahrung der wesentlichen Natur der spezifizierten Charaktere und ihrer Rollen
+- Beibehaltung des spezifizierten Settings als primären Ort
+- Entwicklung des zentralen Konflikts wie in der ursprünglichen Idee beschrieben
+- Originalität und Überraschungsfaktor bei Respektierung des ursprünglichen Konzepts
+- Kohärenz mit den etablierten narrativen Anforderungen
+- Leserengagement und emotionale Wirkung
+- Machbarkeit innerhalb der spezifizierten Geschichtswelt
+- Einhaltung der Genre-Konventionen
+- Respekt für etablierte Einschränkungen
+- Bereicherungswert (keine Ablenkung)
+
+## BEWERTUNGSANWEISUNGEN
+{% if strict_adherence %}
+Prüfe zuerst, ob jede Idee die Konsistenz mit dem ursprünglichen Konzept wahrt und wesentliche Elemente bewahrt.
+{% endif %}
+
+Prüfe zuerst jede Idee auf Einhaltung der Einschränkungen und Genre-Anforderungen.
+
+KRITISCHE SPRACHANWEISUNG:
+Deine Bewertung MUSS VOLLSTÄNDIG auf Deutsch verfasst sein.
+ALLE Inhalte - einschließlich deiner Analyse, Bewertungen und Empfehlungen - müssen auf Deutsch sein.
+Wechsle zu KEINEM Zeitpunkt in deiner Bewertung zu einer anderen Sprache.
+
+LEHNE jede Idee AB, die:
+- Nicht vollständig auf Deutsch geschrieben ist
+- Englischen Text oder andere Sprachen enthält
+- Charakternamen oder kulturelle Referenzen verwendet, die nicht authentisch für deutschsprachige Kulturen sind
+{% if strict_adherence %}
+1. Wesentliche Elemente des ursprünglichen Konzepts erheblich verändert oder weglässt
+{% endif %}
+2. Gegen die Einschränkungen verstößt
+3. Nicht zum {{ genre }}-Genre passt
+4. Von der Haupthandlung ablenkt statt sie zu verbessern
+
+{% if strict_adherence %}
+Ideen sollten auf dem ursprünglichen Konzept aufbauen und dabei seine Kernelemente bewahren. Erhebliche Abweichungen von der etablierten Umgebung, den Charakteren oder dem zentralen Konflikt sollten vermieden werden.
+{% endif %}
+
+Bewerte dann die verbleibenden Ideen anhand der obigen Kriterien auf einer Skala von 1-10.
+Für jede Idee:
+1. Gib Punkte für jedes Kriterium
+2. Berechne eine Gesamtpunktzahl
+3. Schreibe eine kurze Begründung mit Fokus darauf, wie die Idee die Handlung verbessert
+4. Gib an, ob die Idee eingebaut werden sollte (JA/VIELLEICHT/NEIN)
+
+Ordne dann die Ideen von der besten zur schlechtesten Eignung für die Geschichte.
+Empfehle schließlich die 1-2 besten Ideen zur Einarbeitung, mit kurzer Begründung, die erklärt, wie sie die Handlung verbessern, ohne davon abzulenken.
+
+{% if strict_adherence %}
+ABSCHLUSSPRÜFUNG: Stelle sicher, dass deine empfohlenen Ideen die Konsistenz mit dem ursprünglichen Konzept wahren und gleichzeitig die Handlung verbessern.
+{% endif %}

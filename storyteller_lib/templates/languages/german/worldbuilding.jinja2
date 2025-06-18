@@ -74,3 +74,69 @@ Erschaffe eine reichhaltige, immersive Welt, die:
 - Innere Konsistenz aufweist
 - Möglichkeiten für Konflikte und Entwicklung bietet
 - Die {{ genre }}-Elemente der Geschichte verstärkt
+
+{% if category_name %}
+{% if category_name|lower == "geography" %}
+FOKUS AUF GEOGRAPHIE:
+Du MUSST ALLE diese Felder in deiner Antwort einbeziehen:
+- locations: Wichtige Orte (Städte, Länder, Planeten, etc.)
+- climate: Klima- und Wettermuster
+- landmarks: Bemerkenswerte Wahrzeichen und physische Merkmale
+- relevance: Wie die Geographie die Geschichte beeinflusst
+{% elif category_name|lower == "history" %}
+FOKUS AUF GESCHICHTE:
+Du MUSST ALLE diese Felder in deiner Antwort einbeziehen:
+- timeline: Schlüsselereignisse in chronologischer Reihenfolge
+- figures: Wichtige historische Figuren und ihre Auswirkungen
+- conflicts: Große historische Konflikte und ihre Lösungen
+- relevance: Wie die Geschichte die aktuelle Story beeinflusst
+{% elif category_name|lower == "culture" %}
+FOKUS AUF KULTUR:
+Du MUSST ALLE diese Felder in deiner Antwort einbeziehen:
+- languages: Sprachen und Kommunikationsmethoden
+- traditions: Wichtige Traditionen, Bräuche und Künste
+- values: Kulturelle Werte, Tabus und Vielfalt
+- relevance: Wie Kultur Charaktere und Handlung beeinflusst
+{% elif category_name|lower == "politics" %}
+FOKUS AUF POLITIK:
+Du MUSST ALLE diese Felder in deiner Antwort einbeziehen:
+- government: Regierungssysteme und Machtstrukturen
+- factions: Politische Fraktionen und ihre Beziehungen
+- laws: Wichtige Gesetze und Rechtssysteme
+- relevance: Wie Politik die Geschichte beeinflusst
+{% elif category_name|lower == "economics" %}
+FOKUS AUF WIRTSCHAFT:
+Du MUSST ALLE diese Felder in deiner Antwort einbeziehen:
+- resources: Schlüsselressourcen und ihre Verteilung
+- trade: Handelssysteme, Währungen und Märkte
+- classes: Wirtschaftsklassen und Ungleichheit
+- relevance: Wie Wirtschaft Konflikte oder Kooperation antreibt
+{% elif category_name|lower == "technology_magic" %}
+FOKUS AUF TECHNOLOGIE/MAGIE:
+Du MUSST ALLE diese Felder in deiner Antwort einbeziehen:
+- systems: Verfügbare Technologien oder Magiesysteme
+- limitations: Einschränkungen und Kosten von Technologie/Magie
+- impact: Auswirkungen auf Gesellschaft und tägliches Leben
+- relevance: Wie Technologie/Magie Chancen oder Herausforderungen schafft
+{% elif category_name|lower == "religion" %}
+FOKUS AUF RELIGION:
+Du MUSST ALLE diese Felder in deiner Antwort einbeziehen:
+- beliefs: Glaubenssysteme und Gottheiten
+- practices: Religiöse Praktiken und Rituale
+- organizations: Religiöse Organisationen und Führer
+- relevance: Wie Religion Gesellschaft und Charaktere beeinflusst
+{% elif category_name|lower == "daily_life" %}
+FOKUS AUF ALLTAG:
+Du MUSST ALLE diese Felder in deiner Antwort einbeziehen:
+- food: Essen und Küche
+- clothing: Kleidung und Mode
+- housing: Wohnraum und Architektur
+- relevance: Wie der Alltag Kultur und Status widerspiegelt
+{% endif %}
+
+GESCHICHTE-KONTEXT:
+Grundidee: {{ initial_idea }}
+Autorenstil: {{ author }}
+
+Konzentriere dich NUR auf {{ category_name|upper }}-Elemente. Sei detailliert und spezifisch.
+{% endif %}

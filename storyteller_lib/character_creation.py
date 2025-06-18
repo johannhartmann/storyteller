@@ -207,14 +207,7 @@ def generate_character_roles(
     Returns:
         List of CharacterRole objects
     """
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
+    # Language instruction no longer needed - prompting in target language
     
     # Prepare required characters instruction
     required_chars_instruction = ""
@@ -227,26 +220,19 @@ def generate_character_roles(
         These characters are non-negotiable and must be included in your list of roles.
         """
     
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Create the prompt
-    prompt = f"""
-    {language_instruction}
-    
-    Based on this story outline:
-    
-    {story_outline}
-    
-    Identify 4-6 key character roles needed for this {tone} {genre} story.
-    {required_chars_instruction}
-    
-    For each character role, provide:
-    1. The role in the story (protagonist, antagonist, mentor, etc.)
-    2. The importance level (primary, secondary, tertiary)
-    3. A brief description of what this character contributes to the story
-    
-    Focus on creating a balanced cast of characters that will drive the plot forward and create interesting dynamics.
-    
-    {language_instruction}
-    """
+    prompt = render_prompt(
+        'character_roles',
+        language=language,
+        language_instruction=None,  # No longer needed
+        story_outline=story_outline,
+        tone=tone,
+        genre=genre,
+        required_characters=', '.join(required_characters) if required_characters else None
+    )
     
     try:
         # Use structured output with Pydantic
@@ -301,15 +287,7 @@ def generate_basic_character(
     Returns:
         BasicCharacterInfo object with name, role, backstory, and key traits
     """
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content - including the character name, backstory, and traits - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        The character name should be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
-        """
+    # Language instruction no longer needed - prompting in target language
     
     # Prepare author style guidance
     style_guidance = ""
@@ -324,34 +302,22 @@ def generate_basic_character(
     # Import prompt template system
     from storyteller_lib.prompt_templates import render_prompt
     
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Create a simple template for basic character generation
-    # TODO: Create a specific template file for this
-    prompt = f"""
-    {language_instruction}
-    
-    Based on this story outline:
-    
-    {story_outline}
-    
-    Create a character with the following role:
-    
-    Role: {role.role}
-    Importance: {role.importance}
-    Description: {role.brief_description}
-    
-    For this {tone} {genre} story, provide:
-    
-    1. A suitable name for the character
-    2. The character's role in the story (be specific about their function)
-    3. A concise backstory (3-5 sentences) that explains their motivations
-    4. 3-5 key personality traits that define this character
-    
-    {style_guidance}
-    
-    Create a character that feels authentic and three-dimensional, with clear motivations that drive their actions in the story.
-    
-    {language_instruction}
-    """
+    prompt = render_prompt(
+        'create_character',
+        language=language,
+        language_instruction=None,  # No longer needed
+        story_outline=story_outline,
+        role=role.role,
+        importance=role.importance,
+        description=role.brief_description,
+        tone=tone,
+        genre=genre,
+        style_guidance=style_guidance if author_style_guidance else None
+    )
     
     try:
         # Use structured output with Pydantic
@@ -384,41 +350,20 @@ def generate_personality_traits(
     Returns:
         PersonalityTraits object
     """
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
     # Create the prompt
-    prompt = f"""
-    {language_instruction}
-    
-    For this character:
-    
-    Name: {character.name}
-    Role: {character.role}
-    Backstory: {character.backstory}
-    Key Traits: {', '.join(character.key_traits)}
-    
-    Generate detailed personality traits including:
-    
-    1. 3-5 defining character traits
-    2. 2-3 notable strengths that help them in the story
-    3. 2-3 significant flaws or weaknesses that create obstacles
-    4. 1-2 core fears that drive their behavior
-    5. 1-2 deep desires or goals that motivate them
-    6. 1-2 values or principles they hold dear
-    
-    Consider how these traits will influence their actions in this story:
-    
-    {story_outline}
-    
-    {language_instruction}
-    """
+    prompt = render_prompt(
+        'personality_traits',
+        language=language,
+        language_instruction=None,  # No longer needed - prompting in target language
+        name=character.name,
+        role=character.role,
+        backstory=character.backstory,
+        key_traits=', '.join(character.key_traits),
+        story_outline=story_outline
+    )
     
     try:
         # Use structured output with Pydantic
@@ -453,42 +398,24 @@ def generate_emotional_state(
     Returns:
         EmotionalState object
     """
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
     # Create the prompt
-    prompt = f"""
-    {language_instruction}
-    
-    For this character:
-    
-    Name: {character.name}
-    Role: {character.role}
-    Backstory: {character.backstory}
-    
-    Personality:
-    - Traits: {', '.join(personality.traits)}
-    - Strengths: {', '.join(personality.strengths)}
-    - Flaws: {', '.join(personality.flaws)}
-    - Fears: {', '.join(personality.fears)}
-    - Desires: {', '.join(personality.desires)}
-    - Values: {', '.join(personality.values)}
-    
-    Determine:
-    
-    1. The character's initial emotional state at the beginning of the story
-    2. Their current emotional state (same as initial for now)
-    
-    Describe each emotional state in 1-2 sentences that capture their feelings, outlook, and attitude.
-    
-    {language_instruction}
-    """
+    prompt = render_prompt(
+        'emotional_state',
+        language=language,
+        language_instruction=None,  # No longer needed - prompting in target language
+        name=character.name,
+        role=character.role,
+        backstory=character.backstory,
+        traits=', '.join(personality.traits),
+        strengths=', '.join(personality.strengths),
+        flaws=', '.join(personality.flaws),
+        fears=', '.join(personality.fears),
+        desires=', '.join(personality.desires),
+        values=', '.join(personality.values)
+    )
     
     try:
         # Use structured output with Pydantic
@@ -520,43 +447,24 @@ def generate_inner_conflicts(
     Returns:
         List of InnerConflict objects
     """
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
     # Create the prompt
-    prompt = f"""
-    {language_instruction}
-    
-    For this character:
-    
-    Name: {character.name}
-    Role: {character.role}
-    Backstory: {character.backstory}
-    
-    Personality:
-    - Traits: {', '.join(personality.traits)}
-    - Strengths: {', '.join(personality.strengths)}
-    - Flaws: {', '.join(personality.flaws)}
-    - Fears: {', '.join(personality.fears)}
-    - Desires: {', '.join(personality.desires)}
-    - Values: {', '.join(personality.values)}
-    
-    Generate 1-2 inner conflicts this character struggles with. For each conflict:
-    
-    1. Provide a description of the conflict (e.g., "Desire for revenge vs. moral code")
-    2. Set the resolution status as "unresolved" (since the story hasn't started)
-    3. Explain how this conflict impacts the character's behavior
-    
-    Focus on conflicts that create interesting tension and drive character development.
-    
-    {language_instruction}
-    """
+    prompt = render_prompt(
+        'inner_conflicts',
+        language=language,
+        language_instruction=None,  # No longer needed - prompting in target language
+        name=character.name,
+        role=character.role,
+        backstory=character.backstory,
+        traits=', '.join(personality.traits),
+        strengths=', '.join(personality.strengths),
+        flaws=', '.join(personality.flaws),
+        fears=', '.join(personality.fears),
+        desires=', '.join(personality.desires),
+        values=', '.join(personality.values)
+    )
     
     try:
         # Create a model for the response
@@ -595,36 +503,19 @@ def generate_character_arc(
     Returns:
         CharacterArc object
     """
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
     # Create the prompt
-    prompt = f"""
-    {language_instruction}
-    
-    For this character:
-    
-    Name: {character.name}
-    Role: {character.role}
-    Backstory: {character.backstory}
-    
-    Inner Conflicts:
-    {' '.join([f"- {conflict.description}" for conflict in inner_conflicts])}
-    
-    Determine:
-    
-    1. The type of character arc they will undergo (e.g., growth, fall, redemption, flat, etc.)
-    2. 3-5 potential stages in their character development journey
-    3. Their current stage at the beginning of the story
-    
-    {language_instruction}
-    """
+    prompt = render_prompt(
+        'single_character_arc',
+        language=language,
+        language_instruction=None,  # No longer needed - prompting in target language
+        name=character.name,
+        role=character.role,
+        backstory=character.backstory,
+        inner_conflicts=' '.join([f"- {conflict.description}" for conflict in inner_conflicts])
+    )
     
     try:
         # Use structured output with Pydantic
@@ -656,37 +547,19 @@ def generate_character_facts(
     Returns:
         Dictionary with known_facts, secret_facts, and evolution
     """
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
     # Create the prompt
-    prompt = f"""
-    {language_instruction}
-    
-    For this character:
-    
-    Name: {character.name}
-    Role: {character.role}
-    Backstory: {character.backstory}
-    
-    Based on this story outline:
-    
-    {story_outline}
-    
-    Generate:
-    
-    1. 2-4 known facts about the character (information that is known at the start)
-    2. 1-3 secret facts about the character (information hidden initially)
-    3. 1-2 evolution points (how the character might develop during the story)
-    
-    {language_instruction}
-    """
+    prompt = render_prompt(
+        'character_facts',
+        language=language,
+        language_instruction=None,  # No longer needed - prompting in target language
+        name=character.name,
+        role=character.role,
+        backstory=character.backstory,
+        story_outline=story_outline
+    )
     
     try:
         # Create a model for the response
@@ -739,43 +612,22 @@ def generate_single_relationship(
     Returns:
         SingleRelationship object describing their relationship
     """
-    # Prepare language instruction
-    language_instruction = ""
-    if language.lower() != DEFAULT_LANGUAGE:
-        language_instruction = f"""
-        !!!CRITICAL LANGUAGE INSTRUCTION!!!
-        Your response MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-        ALL content must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        """
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
     
     # Create the prompt for a single relationship
-    prompt = f"""
-    {language_instruction}
-    
-    Define the relationship between these two characters:
-    
-    Character 1:
-    Name: {character['name']}
-    Role: {character['role']}
-    Backstory: {character['backstory']}
-    
-    Character 2:
-    Name: {other_character['name']}
-    Role: {other_character['role']}
-    Backstory: {other_character['backstory']}
-    
-    Based on this story outline:
-    {story_outline}
-    
-    Define their relationship with:
-    
-    1. The type of relationship (friend, enemy, mentor, etc.)
-    2. The dynamics between them (power balance, emotional connection)
-    3. 1-2 potential conflicts or tensions between them
-    4. 1-2 evolution points for how their relationship might develop
-    
-    {language_instruction}
-    """
+    prompt = render_prompt(
+        'single_relationship',
+        language=language,
+        language_instruction=None,  # No longer needed - prompting in target language
+        char1_name=character['name'],
+        char1_role=character['role'],
+        char1_backstory=character['backstory'],
+        char2_name=other_character['name'],
+        char2_role=other_character['role'],
+        char2_backstory=other_character['backstory'],
+        story_outline=story_outline
+    )
     
     try:
         # Use structured output with Pydantic
@@ -890,6 +742,10 @@ def generate_characters(state: StoryState) -> Dict:
     if not db_manager or not db_manager._db:
         raise RuntimeError("Database manager not available - cannot retrieve story outline")
     
+    # Clear character ID map to avoid conflicts
+    if db_manager:
+        db_manager._character_id_map.clear()
+    
     # Get from database
     with db_manager._db._get_connection() as conn:
         cursor = conn.cursor()
@@ -941,7 +797,16 @@ def generate_characters(state: StoryState) -> Dict:
         )
         
         # Create a character ID from the name
-        char_id = basic_info.name.lower().replace(" ", "_")
+        # Remove special characters and normalize for database compatibility
+        import unicodedata
+        normalized_name = unicodedata.normalize('NFKD', basic_info.name)
+        # Keep only ASCII characters
+        ascii_name = normalized_name.encode('ascii', 'ignore').decode('ascii')
+        # Replace spaces with underscores and convert to lowercase
+        char_id = ascii_name.lower().replace(" ", "_").replace("-", "_")
+        # Ensure we have a valid ID
+        if not char_id:
+            char_id = f"character_{len(characters_dict) + 1}"
         
         # Initialize the character with basic info
         characters_dict[char_id] = {
@@ -1061,9 +926,11 @@ def generate_characters(state: StoryState) -> Dict:
         except Exception as e:
             logger.warning(f"Could not store characters in database: {e}")
     
-    # Return minimal state update - just character IDs
-    minimal_characters = {char_id: {"name": char_data.get("name", char_id)} 
-                         for char_id, char_data in characters_dict.items()}
+    # Return minimal state update - just character IDs with essential info
+    minimal_characters = {char_id: {
+        "name": char_data.get("name", char_id),
+        "role": char_data.get("role", "Unknown")
+    } for char_id, char_data in characters_dict.items()}
     
     return {
         "characters": minimal_characters,

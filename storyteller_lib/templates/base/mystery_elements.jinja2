@@ -1,0 +1,35 @@
+{# Base template for generating mystery elements - English version #}
+Analyze these world elements and identify {{ num_mysteries }} elements that would work well as mysteries in a story:
+
+{{ world_elements }}
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Identify {{ num_mysteries }} elements that would work well as mysteries in the story. For each mystery:
+1. Provide the name of the mystery element
+2. Explain why it would make a compelling mystery
+3. Suggest 3-5 clues that could gradually reveal this mystery
+
+Each clue should have a revelation level from 1 (subtle hint) to 5 (full revelation).
+
+MYSTERY SELECTION CRITERIA:
+- Elements with hidden depths or secrets
+- Contradictions or unexplained phenomena
+- Historical events with missing pieces
+- Characters with mysterious backgrounds
+- Locations with unusual properties
+- Technologies or magic with unknown origins
+- Social structures with hidden purposes
+
+CLUE DESIGN PRINCIPLES:
+- Level 1: Subtle hints that create curiosity
+- Level 2: Connections that suggest deeper meaning
+- Level 3: Partial revelations that raise more questions
+- Level 4: Major pieces of the puzzle
+- Level 5: Complete understanding of the mystery
+
+{% if make_authentic %}
+Make sure all content is authentic to {{ target_language }}-speaking cultures.
+{% endif %}

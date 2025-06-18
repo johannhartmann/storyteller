@@ -4,23 +4,30 @@ Generiere kreative Ideen für {{ topic }}:
 KONTEXT:
 - Genre: {{ genre }}
 - Ton: {{ tone }}
-{% if specific_context %}
-- Zusätzlicher Kontext: {{ specific_context }}
+- Wir erstellen eine {{ tone }} {{ genre }}-Geschichte, die der Heldenreise-Struktur folgt.
+- Die Geschichte sollte fesselnd, überraschend und emotional berührend für die Leser sein.
+{% if idea_context %}
+- {{ idea_context }}
 {% endif %}
 
-{% if constraints %}
 EINSCHRÄNKUNGEN:
-{% for constraint in constraints %}
-- {{ constraint }}
-{% endfor %}
+- Muss dem ursprünglichen Story-Konzept folgen
+- Muss Konsistenz mit Kernelementen bewahren
+{% if setting_constraint %}
+- Setting: Alle Ideen MÜSSEN in {{ setting_constraint }} stattfinden
+{% endif %}
+{% if character_constraints %}
+- Charaktere: Alle Ideen MÜSSEN diese Charaktere einbeziehen: {{ character_constraints }}
+{% endif %}
+{% if plot_constraints %}
+- Handlung: Alle Ideen MÜSSEN mit dieser Handlung übereinstimmen: {{ plot_constraints }}
 {% endif %}
 
-{% if avoid_elements %}
 ZU VERMEIDENDE ELEMENTE:
-{% for element in avoid_elements %}
-- {{ element }}
-{% endfor %}
-{% endif %}
+- Ideen, die unnötige Komplexität einführen
+- Ideen, die von der Haupthandlung ablenken
+- Ideen, die etablierten Elementen widersprechen
+- Ideen, die sich von der Kernerzählung abgekoppelt anfühlen
 
 BRAINSTORMING-ANFORDERUNGEN:
 Generiere {{ num_ideas | default(3) }} unterschiedliche kreative Ideen, die:
@@ -30,12 +37,12 @@ Generiere {{ num_ideas | default(3) }} unterschiedliche kreative Ideen, die:
 4. Frisch und unerwartet wirken
 5. Das Leserengagement steigern könnten
 
-{% if idea_types %}
 ZU GENERIERENDE IDEENTYPEN:
-{% for type in idea_types %}
-- {{ type }}
-{% endfor %}
-{% endif %}
+- Ideen, die die Charakterentwicklung vertiefen
+- Ideen, die das Setting bereichern
+- Ideen, die die Handlung sinnvoll vorantreiben
+- Ideen, die die emotionale Wirkung verstärken
+- Ideen, die thematische Elemente stärken
 
 Für jede Idee liefere:
 - Einen klaren, prägnanten Titel
@@ -44,18 +51,30 @@ Für jede Idee liefere:
 - Potenzielle Herausforderungen oder Überlegungen
 - Wie sie die Geschichte bereichert
 
-{% if evaluation_criteria %}
 BEWERTUNGSKRITERIEN:
 Berücksichtige diese Faktoren beim Generieren von Ideen:
-{% for criterion in evaluation_criteria %}
-- {{ criterion }}
-{% endfor %}
-{% endif %}
+- Einhaltung der ursprünglichen Idee und ihrer Schlüsselelemente (Setting, Charaktere, Handlung)
+- Bewahrung der wesentlichen Natur der spezifizierten Charaktere und ihrer Rollen
+- Beibehaltung des spezifizierten Settings als primären Ort
+- Entwicklung des zentralen Konflikts wie in der ursprünglichen Idee beschrieben
+- Originalität und Überraschungsfaktor bei Respektierung des ursprünglichen Konzepts
+- Kohärenz mit den etablierten narrativen Anforderungen
+- Leserengagement und emotionale Wirkung
+- Machbarkeit innerhalb der spezifizierten Geschichtswelt
+- Einhaltung der Genre-Konventionen
+- Respekt für etablierte Einschränkungen
+- Bereicherungswert (keine Ablenkung)
 
 DEUTSCHE KREATIVITÄTSTRADITION:
 - Nutze Elemente deutscher Erzählkunst und Mythologie
 - Berücksichtige kulturspezifische Motive und Symbole
 - Integriere philosophische oder tiefgründige Aspekte wo passend
 - Beachte deutsche literarische Traditionen
+
+{% if author and author_style_guidance %}
+AUTORENSTIL:
+Berücksichtige den Schreibstil von {{ author }}:
+{{ author_style_guidance }}
+{% endif %}
 
 Sei mutig und kreativ, während du die Kohärenz mit den etablierten Geschichtselementen bewahrst.

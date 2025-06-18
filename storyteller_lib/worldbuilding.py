@@ -118,14 +118,16 @@ def extract_with_model(text: str, model: Type[BaseModel], category_name: str) ->
         Dictionary containing the extracted data or error information
     """
     try:
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
+        
         structured_llm = llm.with_structured_output(model)
-        prompt = f"""
-        Extract ONLY {category_name} information from this text:
-        
-        {text}
-        
-        Focus specifically on the key aspects of {category_name} and ignore other elements.
-        """
+        prompt = render_prompt(
+            'extract_category_info',
+            "english",  # Always extract in English for consistency
+            category_name=category_name,
+            text=text
+        )
         result = structured_llm.invoke(prompt)
         return result.model_dump()
     except Exception as e:
@@ -174,19 +176,22 @@ def create_category_prompt(category_name: str, genre: str, tone: str, author: st
         except:
             pass
         
-        # Render the template
+        # Render the template with just the category name
+        # The template will handle all field descriptions in the appropriate language
         prompt = render_prompt(
             'worldbuilding',
             language=language,
             story_outline=global_story[:500] + "...",
             genre=genre,
             tone=tone,
-            existing_elements=existing_elements if existing_elements else None
+            existing_elements=existing_elements if existing_elements else None,
+            category_name=category_name,
+            initial_idea=initial_idea,
+            author=author
         )
         
-        # Add category-specific instructions
-        field_instructions = ""
-        if category_name.lower() == "geography":
+        # Remove all hardcoded field instructions - they're now in the templates
+        if False:  # Keep structure for backwards compatibility but never execute
             field_instructions = """
             
             FOCUS ON GEOGRAPHY:
@@ -266,19 +271,6 @@ def create_category_prompt(category_name: str, genre: str, tone: str, author: st
             - housing: Housing and architecture
             - relevance: How daily life reflects culture and status
             """
-        
-        # Add field instructions to the prompt
-        prompt += field_instructions
-        
-        # Add author style and initial idea
-        prompt += f"""
-        
-        STORY CONTEXT:
-        Initial idea: {initial_idea}
-        Author style: {author}
-        
-        Focus ONLY on {category_name} elements. Be detailed and specific.
-        """
         
         return prompt
         
@@ -409,6 +401,8 @@ def generate_mystery_elements(world_elements: Dict[str, Any], num_mysteries: int
     Returns:
         Dictionary containing mystery elements
     """
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Create a simplified representation of the world elements
     simplified_world = {}
     for category_name, category_data in world_elements.items():
@@ -430,23 +424,19 @@ def generate_mystery_elements(world_elements: Dict[str, Any], num_mysteries: int
             DO NOT use English or any other language at any point.
             """
         
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
+        
         # Create a prompt for identifying mystery elements
-        prompt = f"""
-        Analyze these world elements and identify {num_mysteries} elements that would work well as mysteries in a story:
-        
-        {simplified_world}
-        
-        {language_instruction}
-        
-        Identify {num_mysteries} elements that would work well as mysteries in the story. For each mystery:
-        1. Provide the name of the mystery element
-        2. Explain why it would make a compelling mystery
-        3. Suggest 3-5 clues that could gradually reveal this mystery
-        
-        Each clue should have a revelation level from 1 (subtle hint) to 5 (full revelation).
-        
-        {"Make sure all content is authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking cultures." if language.lower() != DEFAULT_LANGUAGE else ""}
-        """
+        prompt = render_prompt(
+            'mystery_elements',
+            language=language,
+            num_mysteries=num_mysteries,
+            world_elements=simplified_world,
+            language_instruction=language_instruction if language.lower() != DEFAULT_LANGUAGE else None,
+            make_authentic=language.lower() != DEFAULT_LANGUAGE,
+            target_language=SUPPORTED_LANGUAGES[language.lower()] if language.lower() != DEFAULT_LANGUAGE else None
+        )
         
         # Extract the structured data
         mystery_analysis = structured_llm.invoke(prompt)
@@ -484,6 +474,8 @@ def generate_world_summary(world_elements: Dict[str, Any], genre: str, tone: str
     Returns:
         String containing the world summary
     """
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Extract category summaries
     category_summaries = []
     for category_name, category_data in world_elements.items():
@@ -518,23 +510,20 @@ def generate_world_summary(world_elements: Dict[str, Any], genre: str, tone: str
         DO NOT use English or any other language at any point.
         """
     
+    # Use template system
+    from storyteller_lib.prompt_templates import render_prompt
+    
     # Generate the world summary
-    prompt = f"""
-    Based on these world elements:
-    
-    {chr(10) + chr(10).join(category_summaries)}
-    
-    {language_instruction}
-    
-    Create a concise summary (300-500 words) that captures the essence of this world.
-    Focus on the most distinctive and important elements that make this world unique
-    and that will most significantly impact the story.
-    
-    The summary should give a clear picture of what makes this world special and
-    how it supports the {genre} genre with a {tone} tone.
-    
-    {"Make sure the summary is culturally authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking readers." if language.lower() != DEFAULT_LANGUAGE else ""}
-    """
+    prompt = render_prompt(
+        'world_summary',
+        language=language,
+        category_summaries=chr(10) + chr(10).join(category_summaries),
+        language_instruction=language_instruction if language.lower() != DEFAULT_LANGUAGE else None,
+        genre=genre,
+        tone=tone,
+        make_authentic=language.lower() != DEFAULT_LANGUAGE,
+        target_language=SUPPORTED_LANGUAGES[language.lower()] if language.lower() != DEFAULT_LANGUAGE else None
+    )
     
     try:
         
@@ -834,19 +823,16 @@ def extract_mystery_elements(text: str, num_mysteries: int = 3) -> Dict[str, Any
         # Create a structured LLM with the MysteryAnalysis model
         structured_llm = llm.with_structured_output(MysteryAnalysis)
         
+        # Use template system
+        from storyteller_lib.prompt_templates import render_prompt
+        
         # Create a prompt for identifying mystery elements
-        prompt = f"""
-        Analyze this text and identify {num_mysteries} elements that would work well as mysteries in a story:
-        
-        {text}
-        
-        For each mystery:
-        1. Provide the name of the mystery element
-        2. Explain why it would make a compelling mystery
-        3. Suggest 3-5 clues that could gradually reveal this mystery
-        
-        Each clue should have a revelation level from 1 (subtle hint) to 5 (full revelation).
-        """
+        prompt = render_prompt(
+            'mystery_elements',
+            "english",  # Always extract in English for consistency
+            num_mysteries=num_mysteries,
+            world_elements=text
+        )
         
         # Extract the structured data
         mystery_analysis = structured_llm.invoke(prompt)

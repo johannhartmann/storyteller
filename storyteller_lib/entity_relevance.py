@@ -24,7 +24,7 @@ class RelevantEntities(BaseModel):
 def analyze_scene_entities(chapter_outline: str, scene_description: str, 
                          all_characters: Dict[str, Any],
                          world_elements: Dict[str, Any],
-                         language: str = "english") -> RelevantEntities:
+                         language: str) -> RelevantEntities:
     """Use LLM to intelligently analyze which entities are relevant to a scene.
     
     Args:

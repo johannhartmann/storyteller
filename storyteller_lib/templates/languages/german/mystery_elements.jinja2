@@ -1,0 +1,35 @@
+{# German template for generating mystery elements #}
+Analysiere diese Weltelemente und identifiziere {{ num_mysteries }} Elemente, die sich gut als Geheimnisse in einer Geschichte eignen würden:
+
+{{ world_elements }}
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Identifiziere {{ num_mysteries }} Elemente, die sich gut als Geheimnisse in der Geschichte eignen würden. Für jedes Geheimnis:
+1. Gib den Namen des Geheimniselements an
+2. Erkläre, warum es ein fesselndes Geheimnis darstellen würde
+3. Schlage 3-5 Hinweise vor, die dieses Geheimnis schrittweise enthüllen könnten
+
+Jeder Hinweis sollte eine Enthüllungsstufe von 1 (subtiler Hinweis) bis 5 (vollständige Enthüllung) haben.
+
+KRITERIEN FÜR DIE GEHEIMNISAUSWAHL:
+- Elemente mit verborgenen Tiefen oder Geheimnissen
+- Widersprüche oder unerklärliche Phänomene
+- Historische Ereignisse mit fehlenden Teilen
+- Charaktere mit mysteriösen Hintergründen
+- Orte mit ungewöhnlichen Eigenschaften
+- Technologien oder Magie mit unbekannten Ursprüngen
+- Soziale Strukturen mit verborgenen Zwecken
+
+PRINZIPIEN DER HINWEISGESTALTUNG:
+- Stufe 1: Subtile Hinweise, die Neugier wecken
+- Stufe 2: Verbindungen, die tiefere Bedeutung andeuten
+- Stufe 3: Teilenthüllungen, die weitere Fragen aufwerfen
+- Stufe 4: Wichtige Puzzleteile
+- Stufe 5: Vollständiges Verständnis des Geheimnisses
+
+{% if make_authentic %}
+Stelle sicher, dass alle Inhalte authentisch für deutschsprachige Kulturen sind.
+{% endif %}

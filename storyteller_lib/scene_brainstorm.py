@@ -5,6 +5,7 @@ including plot thread integration, character dynamics, and creative elements.
 """
 
 # Standard library imports
+import sqlite3
 from typing import Any, Dict, List
 
 # Third party imports
@@ -186,8 +187,57 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
                         previous_scenes_summary += f"Ch{scene['chapter_number']}/Sc{scene['scene_number']}: {first_para}\n"
     
     # Get scene variety requirements if available
-    from storyteller_lib.scene_variety import get_scene_variety_requirements
-    scene_variety_requirements = get_scene_variety_requirements(state)
+    from storyteller_lib.scene_variety import determine_scene_variety_requirements
+    # Get previous scenes and chapter outline for variety requirements
+    previous_scenes = []
+    chapter_outline = ""
+    current_chapter = state.get("current_chapter", "1")
+    current_scene = state.get("current_scene", "1")
+    
+    # Get chapter outline from database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    if db_manager and db_manager._db:
+        try:
+            # Get chapter outline
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                # Try with chapter_number first (correct schema)
+                try:
+                    cursor.execute(
+                        "SELECT outline FROM chapters WHERE chapter_number = ?",
+                        (int(current_chapter),)
+                    )
+                except sqlite3.OperationalError as e:
+                    if "no such column: chapter_number" in str(e):
+                        # Fallback to old schema with chapter_num
+                        cursor.execute(
+                            "SELECT outline FROM chapters WHERE chapter_num = ?",
+                            (int(current_chapter),)
+                        )
+                    else:
+                        raise
+                
+                result = cursor.fetchone()
+                if result:
+                    chapter_outline = result['outline']
+        except Exception as e:
+            from storyteller_lib.logger import get_logger
+            logger = get_logger(__name__)
+            logger.warning(f"Could not get chapter outline from database: {e}")
+        
+        # Get previous scene metadata (simplified for now)
+        # TODO: Implement proper scene metadata tracking
+        previous_scenes = []
+    
+    # Determine variety requirements
+    scene_variety_requirements = determine_scene_variety_requirements(
+        previous_scenes=previous_scenes,
+        chapter_outline=chapter_outline,
+        scene_number=int(current_scene),
+        total_scenes_in_chapter=len(state.get("chapters", {}).get(current_chapter, {}).get("scenes", {})),
+        language=state.get("language", "english")
+    )
     
     # Get forbidden elements from scene progression
     forbidden_elements = {"phrases": [], "structures": []}

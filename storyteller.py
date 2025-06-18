@@ -1145,7 +1145,7 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
         updated_chapters = state["chapters"].copy()
         updated_chapters[current_chapter]["scenes"][current_scene]["content"] = revised_scene
         
-        # Store revision information in LangMem for procedural memory
+        # Store revision information in memory for procedural tracking
         manage_memory_tool.invoke({
             "action": "create",
             "key": f"chapter_{current_chapter}_scene_{current_scene}_revision_reason",
@@ -1393,7 +1393,7 @@ def review_continuity(state: StoryState) -> Dict:
         })
     
     # Perform background memory processing for completed chapters
-    # This implements the background memory formation process from LangMem
+    # Extract and store key information from completed content
     try:
         # Collect all content from completed chapters
         all_chapter_content = []

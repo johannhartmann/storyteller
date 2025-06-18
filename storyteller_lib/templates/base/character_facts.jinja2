@@ -1,0 +1,24 @@
+{# Base template for generating character facts - English version #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+For this character:
+
+Name: {{ name }}
+Role: {{ role }}
+Backstory: {{ backstory }}
+
+Based on this story outline:
+
+{{ story_outline }}
+
+Generate:
+
+1. 2-4 known facts about the character (information that is known at the start)
+2. 1-3 secret facts about the character (information hidden initially)
+3. 1-2 evolution points (how the character might develop during the story)
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
