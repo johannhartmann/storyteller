@@ -315,3 +315,17 @@ CREATE INDEX IF NOT EXISTS idx_character_promises_character_id ON character_prom
 CREATE INDEX IF NOT EXISTS idx_story_events_chapter_scene ON story_events(chapter_number, scene_number);
 CREATE INDEX IF NOT EXISTS idx_scene_quality_scene_id ON scene_quality_metrics(scene_id);
 CREATE INDEX IF NOT EXISTS idx_narrative_patterns_type ON narrative_patterns(pattern_type);
+
+-- 23. Plot progressions table (for tracking specific plot points)
+CREATE TABLE IF NOT EXISTS plot_progressions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    progression_key TEXT UNIQUE NOT NULL, -- e.g., "felix_learns_about_mission"
+    chapter_number INTEGER NOT NULL,
+    scene_number INTEGER NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index for plot progressions
+CREATE INDEX IF NOT EXISTS idx_plot_progressions_key ON plot_progressions(progression_key);
+CREATE INDEX IF NOT EXISTS idx_plot_progressions_chapter_scene ON plot_progressions(chapter_number, scene_number);

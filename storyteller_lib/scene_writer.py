@@ -489,6 +489,25 @@ def write_scene(state: StoryState) -> Dict:
     author = state.get("author", "")
     author_style_guidance = state.get("author_style_guidance", "")
     
+    # Get scene specifications from state
+    scene_specifications = {
+        "plot_progressions": [],
+        "character_knowledge_changes": {},
+        "required_characters": [],
+        "forbidden_repetitions": [],
+        "prerequisites": []
+    }
+    
+    chapters = state.get("chapters", {})
+    if current_chapter in chapters and "scenes" in chapters[current_chapter]:
+        scene_data = chapters[current_chapter]["scenes"].get(current_scene, {})
+        if scene_data:
+            scene_specifications["plot_progressions"] = scene_data.get("plot_progressions", [])
+            scene_specifications["character_knowledge_changes"] = scene_data.get("character_knowledge_changes", {})
+            scene_specifications["required_characters"] = scene_data.get("required_characters", [])
+            scene_specifications["forbidden_repetitions"] = scene_data.get("forbidden_repetitions", [])
+            scene_specifications["prerequisites"] = scene_data.get("prerequisites", [])
+    
     # Get chapter outline from database
     from storyteller_lib.database_integration import get_db_manager
     db_manager = get_db_manager()
@@ -734,6 +753,63 @@ def write_scene(state: StoryState) -> Dict:
     # Get database context if available
     database_context = _prepare_database_context(current_chapter, current_scene)
     
+    # Check plot progressions and generate specification guidance
+    specification_guidance = ""
+    if db_manager:
+        existing_progressions = db_manager.get_plot_progressions()
+        existing_progression_keys = [p['progression_key'] for p in existing_progressions]
+        
+        # Check for required plot progressions
+        if scene_specifications["plot_progressions"]:
+            specification_guidance += "\nREQUIRED PLOT PROGRESSIONS:\n"
+            for prog in scene_specifications["plot_progressions"]:
+                if prog not in existing_progression_keys:
+                    specification_guidance += f"✓ {prog}: This MUST happen in this scene\n"
+                else:
+                    specification_guidance += f"⚠️ WARNING: '{prog}' has already occurred - DO NOT REPEAT!\n"
+        
+        # Check for forbidden repetitions
+        if scene_specifications["forbidden_repetitions"]:
+            specification_guidance += "\nFORBIDDEN CONTENT (DO NOT REPEAT):\n"
+            for forbidden in scene_specifications["forbidden_repetitions"]:
+                specification_guidance += f"❌ {forbidden}: This has already been revealed/happened earlier\n"
+        
+        # Check character knowledge
+        if scene_specifications["character_knowledge_changes"]:
+            specification_guidance += "\nCHARACTER LEARNING REQUIREMENTS:\n"
+            for char, knowledge_list in scene_specifications["character_knowledge_changes"].items():
+                specification_guidance += f"• {char} must learn: {', '.join(knowledge_list)}\n"
+                
+                # Check if character already knows this
+                if db_manager and db_manager._db:
+                    with db_manager._db._get_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            "SELECT id FROM characters WHERE identifier = ? OR name = ?",
+                            (char, char)
+                        )
+                        char_result = cursor.fetchone()
+                        if char_result:
+                            cursor.execute(
+                                """
+                                SELECT knowledge_content 
+                                FROM character_knowledge ck
+                                JOIN scenes s ON ck.scene_id = s.id
+                                JOIN chapters c ON s.chapter_id = c.id
+                                WHERE ck.character_id = ?
+                                """,
+                                (char_result['id'],)
+                            )
+                            existing_knowledge = [row['knowledge_content'] for row in cursor.fetchall()]
+                            for knowledge in knowledge_list:
+                                if knowledge in existing_knowledge:
+                                    specification_guidance += f"  ⚠️ WARNING: {char} already knows '{knowledge}'!\n"
+        
+        # Required characters
+        if scene_specifications["required_characters"]:
+            specification_guidance += f"\nREQUIRED CHARACTERS:\n"
+            specification_guidance += f"These characters MUST appear: {', '.join(scene_specifications['required_characters'])}\n"
+    
     # Import helper functions from original scenes.py
     from storyteller_lib.scene_helpers import (
         _prepare_creative_guidance,
@@ -779,7 +855,8 @@ def write_scene(state: StoryState) -> Dict:
         'forbidden_structures': forbidden_structures,
         'scene_type': variety_requirements.scene_type,
         'intelligent_variation_guidance': intelligent_variation_guidance,
-        'structural_guidance': structural_guidance
+        'structural_guidance': structural_guidance,
+        'specification_guidance': specification_guidance  # Add scene specifications
     }
     
     # Render the prompt using the template system
@@ -869,6 +946,50 @@ def write_scene(state: StoryState) -> Dict:
         logger.info(f"Tracked scene progression for Ch{current_chapter}/Sc{current_scene}")
     except Exception as e:
         logger.warning(f"Failed to track scene progression: {e}")
+    
+    # Track plot progressions that occurred in this scene
+    if db_manager and scene_specifications["plot_progressions"]:
+        for progression in scene_specifications["plot_progressions"]:
+            # Only track if it wasn't already tracked
+            if not db_manager.check_plot_progression_exists(progression):
+                db_manager.track_plot_progression(
+                    progression,
+                    int(current_chapter),
+                    int(current_scene),
+                    f"Occurred in Ch{current_chapter}/Sc{current_scene}"
+                )
+                logger.info(f"Tracked plot progression: {progression}")
+    
+    # Track character knowledge changes
+    if db_manager and scene_specifications["character_knowledge_changes"]:
+        for char_name, knowledge_list in scene_specifications["character_knowledge_changes"].items():
+            # Get character ID
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT id FROM characters WHERE identifier = ? OR name = ?",
+                    (char_name, char_name)
+                )
+                char_result = cursor.fetchone()
+                if char_result and db_manager._current_scene_id:
+                    char_id = char_result['id']
+                    for knowledge in knowledge_list:
+                        try:
+                            cursor.execute("""
+                                INSERT INTO character_knowledge 
+                                (character_id, scene_id, knowledge_type, knowledge_content, source)
+                                VALUES (?, ?, ?, ?, ?)
+                            """, (
+                                char_id,
+                                db_manager._current_scene_id,
+                                'fact',
+                                knowledge,
+                                f"Learned in Ch{current_chapter}/Sc{current_scene}"
+                            ))
+                            conn.commit()
+                            logger.info(f"Tracked character knowledge: {char_name} learned '{knowledge}'")
+                        except Exception as e:
+                            logger.warning(f"Failed to track character knowledge: {e}")
     
     # Return the updates to state
     return {

@@ -45,6 +45,10 @@ BRAINSTORMING GOALS:
    - What pacing serves this moment best?
    - Sometimes a quiet scene is exactly what's needed
 
+{% if specification_guidance %}
+{{ specification_guidance }}
+{% endif %}
+
 {% if forbidden_elements %}
 ELEMENTS TO AVOID:
 - Phrases: {{ forbidden_elements.phrases | join(', ') }}

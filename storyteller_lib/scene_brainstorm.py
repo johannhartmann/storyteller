@@ -130,8 +130,16 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             raise RuntimeError(f"Chapter {current_chapter} outline not found in database")
         chapter_outline = result['outline']
     
-    # Get scene description if available
+    # Get scene description and specifications if available
     scene_description = ""
+    scene_specifications = {
+        "plot_progressions": [],
+        "character_knowledge_changes": {},
+        "required_characters": [],
+        "forbidden_repetitions": [],
+        "prerequisites": []
+    }
+    
     chapter_id = db_manager._chapter_id_map.get(current_chapter)
     if chapter_id:
         with db_manager._db._get_connection() as conn:
@@ -144,9 +152,59 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             if result and result['outline']:
                 scene_description = result['outline']
     
+    # Try to get scene specifications from state
+    chapters = state.get("chapters", {})
+    if current_chapter in chapters and "scenes" in chapters[current_chapter]:
+        scene_data = chapters[current_chapter]["scenes"].get(current_scene, {})
+        if scene_data:
+            scene_specifications["plot_progressions"] = scene_data.get("plot_progressions", [])
+            scene_specifications["character_knowledge_changes"] = scene_data.get("character_knowledge_changes", {})
+            scene_specifications["required_characters"] = scene_data.get("required_characters", [])
+            scene_specifications["forbidden_repetitions"] = scene_data.get("forbidden_repetitions", [])
+            scene_specifications["prerequisites"] = scene_data.get("prerequisites", [])
+    
     # Use generic description if scene outline not available yet
     if not scene_description:
         scene_description = f"Scene {current_scene} of Chapter {current_chapter}"
+    
+    # Check plot progressions that have already occurred
+    existing_progressions = db_manager.get_plot_progressions()
+    existing_progression_keys = [p['progression_key'] for p in existing_progressions]
+    
+    # Check prerequisites
+    unmet_prerequisites = []
+    for prereq in scene_specifications["prerequisites"]:
+        if prereq not in existing_progression_keys:
+            unmet_prerequisites.append(prereq)
+    
+    # Prepare guidance based on specifications
+    specification_guidance = ""
+    if scene_specifications["plot_progressions"]:
+        specification_guidance += f"\nKEY PLOT PROGRESSIONS TO INCLUDE:\n"
+        for prog in scene_specifications["plot_progressions"]:
+            if prog not in existing_progression_keys:
+                specification_guidance += f"- {prog}: This MUST happen in this scene\n"
+            else:
+                specification_guidance += f"- WARNING: '{prog}' has already occurred! Do not repeat.\n"
+    
+    if scene_specifications["forbidden_repetitions"]:
+        specification_guidance += f"\nFORBIDDEN REPETITIONS (DO NOT include these):\n"
+        for forbidden in scene_specifications["forbidden_repetitions"]:
+            specification_guidance += f"- {forbidden}: This has already been revealed/happened\n"
+    
+    if scene_specifications["required_characters"]:
+        specification_guidance += f"\nREQUIRED CHARACTERS:\n"
+        specification_guidance += f"These characters MUST appear: {', '.join(scene_specifications['required_characters'])}\n"
+    
+    if scene_specifications["character_knowledge_changes"]:
+        specification_guidance += f"\nCHARACTER KNOWLEDGE CHANGES:\n"
+        for char, knowledge in scene_specifications["character_knowledge_changes"].items():
+            specification_guidance += f"- {char} learns: {', '.join(knowledge)}\n"
+    
+    if unmet_prerequisites:
+        specification_guidance += f"\nWARNING - UNMET PREREQUISITES:\n"
+        specification_guidance += f"The following should have happened already: {', '.join(unmet_prerequisites)}\n"
+        specification_guidance += f"Consider adjusting the scene or ensuring these happen first.\n"
     
     # Get active plot threads for this scene
     active_plot_threads = get_active_plot_threads_for_scene(state)
@@ -339,7 +397,8 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         scene_variety_requirements=scene_variety_requirements if scene_variety_requirements else None,
         forbidden_elements=forbidden_elements if any(forbidden_elements.values()) else None,
         sequence_analysis=sequence_analysis,
-        next_scene_suggestion=next_scene_suggestion
+        next_scene_suggestion=next_scene_suggestion,
+        specification_guidance=specification_guidance if specification_guidance else None
     )
     
     # Generate brainstorming ideas using LLM directly

@@ -1045,6 +1045,88 @@ class StoryDatabaseManager:
             logger.error(f"Failed to save scene {scene_num} of chapter {chapter_num}: {e}")
             raise
     
+    def track_plot_progression(self, progression_key: str, chapter_num: int, scene_num: int, description: str = "") -> bool:
+        """
+        Track a plot progression that has occurred.
+        
+        Args:
+            progression_key: Unique key for the plot point (e.g., "felix_learns_about_mission")
+            chapter_num: Chapter number where this occurs
+            scene_num: Scene number where this occurs
+            description: Optional description of the progression
+            
+        Returns:
+            True if successfully tracked, False if already exists
+        """
+        if not self.enabled or not self._db:
+            return False
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO plot_progressions 
+                    (progression_key, chapter_number, scene_number, description)
+                    VALUES (?, ?, ?, ?)
+                """, (progression_key, chapter_num, scene_num, description))
+                conn.commit()
+                logger.info(f"Tracked plot progression: {progression_key} at Ch{chapter_num}/Sc{scene_num}")
+                return True
+        except Exception as e:
+            if "UNIQUE constraint failed" in str(e):
+                logger.warning(f"Plot progression already exists: {progression_key}")
+                return False
+            logger.error(f"Failed to track plot progression: {e}")
+            return False
+    
+    def get_plot_progressions(self) -> List[Dict[str, Any]]:
+        """
+        Get all plot progressions that have occurred.
+        
+        Returns:
+            List of plot progression dictionaries
+        """
+        if not self.enabled or not self._db:
+            return []
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT progression_key, chapter_number, scene_number, description
+                    FROM plot_progressions
+                    ORDER BY chapter_number, scene_number
+                """)
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"Failed to get plot progressions: {e}")
+            return []
+    
+    def check_plot_progression_exists(self, progression_key: str) -> bool:
+        """
+        Check if a plot progression has already occurred.
+        
+        Args:
+            progression_key: The progression key to check
+            
+        Returns:
+            True if the progression has already occurred
+        """
+        if not self.enabled or not self._db:
+            return False
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT 1 FROM plot_progressions WHERE progression_key = ?",
+                    (progression_key,)
+                )
+                return cursor.fetchone() is not None
+        except Exception as e:
+            logger.error(f"Failed to check plot progression: {e}")
+            return False
+    
     def get_scene_content(self, chapter_num: int, scene_num: int) -> Optional[str]:
         """Retrieve scene content from database."""
         if not self.enabled or not self._db:

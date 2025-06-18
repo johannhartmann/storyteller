@@ -625,19 +625,24 @@ def generate_story_outline(state: StoryState) -> Dict:
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
-class Scene(BaseModel):
-    """Simple model for a scene in a chapter."""
+class SceneSpec(BaseModel):
+    """Detailed specification for a scene to prevent repetition."""
     description: str = Field(..., description="Brief description of what happens in this scene")
+    plot_progressions: List[str] = Field(default_factory=list, description="Key plot points that MUST happen (e.g., 'hero_learns_about_quest')")
+    character_knowledge_changes: Dict[str, List[str]] = Field(default_factory=dict, description="What each character learns in this scene")
+    required_characters: List[str] = Field(default_factory=list, description="Characters who must appear in this scene")
+    forbidden_repetitions: List[str] = Field(default_factory=list, description="Plot points that must NOT be repeated from earlier scenes")
+    prerequisites: List[str] = Field(default_factory=list, description="Plot points that must have already happened before this scene")
 
 class Chapter(BaseModel):
-    """Simple model for a chapter in the story."""
+    """Enhanced model for a chapter with detailed scene specifications."""
     number: str = Field(..., description="The chapter number (as a string)")
     title: str = Field(..., description="The title of the chapter")
     outline: str = Field(..., description="Detailed summary of the chapter (200-300 words)")
-    key_scenes: List[Scene] = Field(..., description="List of key scenes in this chapter")
+    key_scenes: List[SceneSpec] = Field(..., description="List of key scenes with detailed specifications")
 
 class ChapterPlan(BaseModel):
-    """Simple model for the entire chapter plan."""
+    """Enhanced model for the entire chapter plan with scene specifications."""
     chapters: List[Chapter] = Field(..., description="List of chapters in the story")
 
 @track_progress
@@ -766,12 +771,17 @@ def plan_chapters(state: StoryState) -> Dict:
                 "reflection_notes": []
             }
             
-            # Add scenes from the key_scenes list
+            # Add scenes from the key_scenes list with full specifications
             for i, scene in enumerate(chapter.key_scenes, 1):
                 scene_num = str(i)
                 chapter_entry["scenes"][scene_num] = {
                     "content": "",  # Content will be filled in later
-                    "description": scene.description,  # Store the scene description
+                    "description": scene.description,
+                    "plot_progressions": scene.plot_progressions if hasattr(scene, 'plot_progressions') else [],
+                    "character_knowledge_changes": scene.character_knowledge_changes if hasattr(scene, 'character_knowledge_changes') else {},
+                    "required_characters": scene.required_characters if hasattr(scene, 'required_characters') else [],
+                    "forbidden_repetitions": scene.forbidden_repetitions if hasattr(scene, 'forbidden_repetitions') else [],
+                    "prerequisites": scene.prerequisites if hasattr(scene, 'prerequisites') else [],
                     "reflection_notes": []
                 }
             
