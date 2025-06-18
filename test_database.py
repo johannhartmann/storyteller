@@ -204,9 +204,6 @@ def test_database():
                 'role': 'protagonist',
                 'backstory': 'A young farmer',
                 'evolution': [],
-                'known_facts': [],
-                'secret_facts': [],
-                'revealed_facts': [],
                 'relationships': {'mentor': 'student'}
             }
         },

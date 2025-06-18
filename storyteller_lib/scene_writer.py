@@ -492,7 +492,7 @@ def write_scene(state: StoryState) -> Dict:
     # Get scene specifications from state
     scene_specifications = {
         "plot_progressions": [],
-        "character_knowledge_changes": {},
+        "character_learns": [],
         "required_characters": [],
         "forbidden_repetitions": [],
         "prerequisites": []
@@ -503,7 +503,7 @@ def write_scene(state: StoryState) -> Dict:
         scene_data = chapters[current_chapter]["scenes"].get(current_scene, {})
         if scene_data:
             scene_specifications["plot_progressions"] = scene_data.get("plot_progressions", [])
-            scene_specifications["character_knowledge_changes"] = scene_data.get("character_knowledge_changes", {})
+            scene_specifications["character_learns"] = scene_data.get("character_learns", [])
             scene_specifications["required_characters"] = scene_data.get("required_characters", [])
             scene_specifications["forbidden_repetitions"] = scene_data.get("forbidden_repetitions", [])
             scene_specifications["prerequisites"] = scene_data.get("prerequisites", [])
@@ -775,9 +775,18 @@ def write_scene(state: StoryState) -> Dict:
                 specification_guidance += f"❌ {forbidden}: This has already been revealed/happened earlier\n"
         
         # Check character knowledge
-        if scene_specifications["character_knowledge_changes"]:
+        if scene_specifications["character_learns"]:
             specification_guidance += "\nCHARACTER LEARNING REQUIREMENTS:\n"
-            for char, knowledge_list in scene_specifications["character_knowledge_changes"].items():
+            # Parse character_learns list which contains "CharacterName: knowledge item" strings
+            character_knowledge_map = {}
+            for learning in scene_specifications["character_learns"]:
+                if ": " in learning:
+                    char_name, knowledge = learning.split(": ", 1)
+                    if char_name not in character_knowledge_map:
+                        character_knowledge_map[char_name] = []
+                    character_knowledge_map[char_name].append(knowledge)
+            
+            for char, knowledge_list in character_knowledge_map.items():
                 specification_guidance += f"• {char} must learn: {', '.join(knowledge_list)}\n"
                 
                 # Check if character already knows this
@@ -961,8 +970,17 @@ def write_scene(state: StoryState) -> Dict:
                 logger.info(f"Tracked plot progression: {progression}")
     
     # Track character knowledge changes
-    if db_manager and scene_specifications["character_knowledge_changes"]:
-        for char_name, knowledge_list in scene_specifications["character_knowledge_changes"].items():
+    if db_manager and scene_specifications["character_learns"]:
+        # Parse character_learns list which contains "CharacterName: knowledge item" strings
+        character_knowledge_map = {}
+        for learning in scene_specifications["character_learns"]:
+            if ": " in learning:
+                char_name, knowledge = learning.split(": ", 1)
+                if char_name not in character_knowledge_map:
+                    character_knowledge_map[char_name] = []
+                character_knowledge_map[char_name].append(knowledge)
+        
+        for char_name, knowledge_list in character_knowledge_map.items():
             # Get character ID
             with db_manager._db._get_connection() as conn:
                 cursor = conn.cursor()

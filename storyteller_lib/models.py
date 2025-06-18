@@ -51,58 +51,22 @@ def merge_characters(existing: CharacterProfileDict, new: CharacterProfileDict) 
             # If character exists, update fields intelligently
             result_char = result[char_id].copy()
             
-            # Special handling for list fields that should be appended
-            for list_field in ["evolution", "known_facts", "secret_facts", "revealed_facts"]:
-                # Check if the field exists in char_data and is not None
-                if list_field in char_data and char_data[list_field] is not None:
-                    # Only process if the field has a value (not empty)
-                    if char_data[list_field]:
-                        if list_field in result_char and result_char[list_field] is not None:
-                            result_char[list_field] = result_char[list_field] + char_data[list_field]
-                        else:
-                            result_char[list_field] = char_data[list_field]
+            # Special handling for evolution list field
+            if "evolution" in char_data and char_data["evolution"] is not None:
+                # Only process if the field has a value (not empty)
+                if char_data["evolution"]:
+                    if "evolution" in result_char and result_char["evolution"] is not None:
+                        result_char["evolution"] = result_char["evolution"] + char_data["evolution"]
+                    else:
+                        result_char["evolution"] = char_data["evolution"]
             
             # Special handling for relationships dict
             if "relationships" in char_data and char_data["relationships"] is not None:
-                if "relationships" in result_char and result_char["relationships"] is not None:
-                    # Check if both are dictionaries before attempting to merge
-                    if isinstance(result_char["relationships"], dict) and isinstance(char_data["relationships"], dict):
-                        result_char["relationships"] = {**result_char["relationships"], **char_data["relationships"]}
-                    elif isinstance(char_data["relationships"], dict):
-                        # If only char_data has a dict, use it
-                        result_char["relationships"] = char_data["relationships"]
-                    elif isinstance(result_char["relationships"], dict):
-                        # If only result_char has a dict, keep it
-                        pass
-                    else:
-                        # If neither is a dict, convert to dict if possible or create empty dict
-                        try:
-                            # If it's a list of key-value pairs, convert to dict
-                            if isinstance(char_data["relationships"], list) and all(isinstance(item, dict) for item in char_data["relationships"]):
-                                result_char["relationships"] = {item.get("character", f"char_{i}"): item.get("relationship", "")
-                                                              for i, item in enumerate(char_data["relationships"])}
-                            else:
-                                # Default to empty dict if conversion not possible
-                                result_char["relationships"] = {}
-                        except Exception:
-                            # Fallback to empty dict
-                            result_char["relationships"] = {}
+                if "relationships" in result_char:
+                    # Merge dictionaries
+                    result_char["relationships"] = {**result_char.get("relationships", {}), **char_data["relationships"]}
                 else:
-                    # Ensure relationships is a dict before assigning
-                    if isinstance(char_data["relationships"], dict):
-                        result_char["relationships"] = char_data["relationships"]
-                    elif isinstance(char_data["relationships"], list):
-                        # Try to convert list to dict if possible
-                        try:
-                            if all(isinstance(item, dict) for item in char_data["relationships"]):
-                                result_char["relationships"] = {item.get("character", f"char_{i}"): item.get("relationship", "")
-                                                              for i, item in enumerate(char_data["relationships"])}
-                            else:
-                                result_char["relationships"] = {}
-                        except Exception:
-                            result_char["relationships"] = {}
-                    else:
-                        result_char["relationships"] = {}
+                    result_char["relationships"] = char_data["relationships"]
             
             # Update other fields
             for field in ["name", "role", "backstory"]:
@@ -375,9 +339,6 @@ class CharacterProfile(TypedDict):
     role: str
     backstory: str
     evolution: List[str]
-    known_facts: List[str]
-    secret_facts: List[str]
-    revealed_facts: List[str]
     relationships: Dict[str, str]
 
 class SceneState(TypedDict):
@@ -420,5 +381,7 @@ class StoryState(TypedDict):
     current_scene: str  # Track which scene is being written
     current_scene_content: str  # Temporary storage for scene content between nodes
     scene_reflection: Dict[str, Any]  # Temporary storage for scene reflection results
+    scene_elements: Dict[str, Any]  # Temporary storage for brainstormed scene elements
+    active_plot_threads: List[Dict[str, Any]]  # Active plot threads for current scene
     completed: bool  # Flag to indicate if the story is complete
     last_node: str  # Track which node was last executed for routing

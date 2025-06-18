@@ -626,13 +626,12 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 class SceneSpec(BaseModel):
-    """Detailed specification for a scene to prevent repetition."""
+    """Simplified scene specification to prevent repetition."""
     description: str = Field(..., description="Brief description of what happens in this scene")
     plot_progressions: List[str] = Field(default_factory=list, description="Key plot points that MUST happen (e.g., 'hero_learns_about_quest')")
-    character_knowledge_changes: Dict[str, List[str]] = Field(default_factory=dict, description="What each character learns in this scene")
+    character_learns: List[str] = Field(default_factory=list, description="What characters learn, formatted as 'CharacterName: knowledge item'")
     required_characters: List[str] = Field(default_factory=list, description="Characters who must appear in this scene")
     forbidden_repetitions: List[str] = Field(default_factory=list, description="Plot points that must NOT be repeated from earlier scenes")
-    prerequisites: List[str] = Field(default_factory=list, description="Plot points that must have already happened before this scene")
 
 class Chapter(BaseModel):
     """Enhanced model for a chapter with detailed scene specifications."""
@@ -778,10 +777,9 @@ def plan_chapters(state: StoryState) -> Dict:
                     "content": "",  # Content will be filled in later
                     "description": scene.description,
                     "plot_progressions": scene.plot_progressions if hasattr(scene, 'plot_progressions') else [],
-                    "character_knowledge_changes": scene.character_knowledge_changes if hasattr(scene, 'character_knowledge_changes') else {},
+                    "character_learns": scene.character_learns if hasattr(scene, 'character_learns') else [],
                     "required_characters": scene.required_characters if hasattr(scene, 'required_characters') else [],
                     "forbidden_repetitions": scene.forbidden_repetitions if hasattr(scene, 'forbidden_repetitions') else [],
-                    "prerequisites": scene.prerequisites if hasattr(scene, 'prerequisites') else [],
                     "reflection_notes": []
                 }
             

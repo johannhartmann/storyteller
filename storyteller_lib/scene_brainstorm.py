@@ -5,7 +5,6 @@ including plot thread integration, character dynamics, and creative elements.
 """
 
 # Standard library imports
-import sqlite3
 from typing import Any, Dict, List
 
 # Third party imports
@@ -66,9 +65,14 @@ def _prepare_plot_thread_guidance(active_plot_threads: List[Dict]) -> str:
         
     guidance = "\nACTIVE PLOT THREADS for this scene:\n"
     for thread in active_plot_threads:
-        guidance += f"\n{thread['name']} ({thread['type']}):\n"
+        # Use importance field if type is not available
+        thread_type = thread.get('type', thread.get('importance', 'minor'))
+        guidance += f"\n{thread['name']} ({thread_type}):\n"
         guidance += f"  Status: {thread['status']}\n"
-        guidance += f"  Current Development: {thread['current_development']}\n"
+        
+        # Handle different field names for development
+        current_dev = thread.get('current_development', thread.get('last_development', 'No development yet'))
+        guidance += f"  Current Development: {current_dev}\n"
         
         if thread.get('next_steps'):
             guidance += f"  Next Steps: {thread['next_steps']}\n"
@@ -76,20 +80,18 @@ def _prepare_plot_thread_guidance(active_plot_threads: List[Dict]) -> str:
         if thread.get('tension_level'):
             guidance += f"  Tension Level: {thread['tension_level']}\n"
             
-        if thread.get('involved_characters'):
-            guidance += f"  Characters Involved: {', '.join(thread['involved_characters'])}\n"
+        if thread.get('involved_characters') or thread.get('related_characters'):
+            chars = thread.get('involved_characters', thread.get('related_characters', []))
+            if chars:
+                guidance += f"  Characters Involved: {', '.join(chars)}\n"
             
-        # Add guidance about how this thread should progress in this scene
-        if thread['type'] == 'main_plot':
-            guidance += "  >>> This is a MAIN PLOT thread. It should drive the primary narrative forward.\n"
-        elif thread['type'] == 'subplot':
-            guidance += "  >>> This subplot should complement the main narrative without overshadowing it.\n"
-        elif thread['type'] == 'character_arc':
-            guidance += "  >>> Focus on character development and emotional growth.\n"
-        elif thread['type'] == 'mystery':
-            guidance += "  >>> Reveal information carefully, maintaining suspense.\n"
-        elif thread['type'] == 'relationship':
-            guidance += "  >>> Explore the dynamics between characters.\n"
+        # Add guidance based on importance level since we don't have specific types
+        if thread_type == 'major':
+            guidance += "  >>> This is a MAJOR plot thread. It should drive the primary narrative forward.\n"
+        elif thread_type == 'minor':
+            guidance += "  >>> This minor thread should complement the main narrative without overshadowing it.\n"
+        elif thread_type == 'background':
+            guidance += "  >>> This background thread should add depth without dominating the scene.\n"
     
     return guidance
 
@@ -134,10 +136,9 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     scene_description = ""
     scene_specifications = {
         "plot_progressions": [],
-        "character_knowledge_changes": {},
+        "character_learns": [],
         "required_characters": [],
-        "forbidden_repetitions": [],
-        "prerequisites": []
+        "forbidden_repetitions": []
     }
     
     chapter_id = db_manager._chapter_id_map.get(current_chapter)
@@ -158,10 +159,9 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         scene_data = chapters[current_chapter]["scenes"].get(current_scene, {})
         if scene_data:
             scene_specifications["plot_progressions"] = scene_data.get("plot_progressions", [])
-            scene_specifications["character_knowledge_changes"] = scene_data.get("character_knowledge_changes", {})
+            scene_specifications["character_learns"] = scene_data.get("character_learns", [])
             scene_specifications["required_characters"] = scene_data.get("required_characters", [])
             scene_specifications["forbidden_repetitions"] = scene_data.get("forbidden_repetitions", [])
-            scene_specifications["prerequisites"] = scene_data.get("prerequisites", [])
     
     # Use generic description if scene outline not available yet
     if not scene_description:
@@ -170,12 +170,6 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     # Check plot progressions that have already occurred
     existing_progressions = db_manager.get_plot_progressions()
     existing_progression_keys = [p['progression_key'] for p in existing_progressions]
-    
-    # Check prerequisites
-    unmet_prerequisites = []
-    for prereq in scene_specifications["prerequisites"]:
-        if prereq not in existing_progression_keys:
-            unmet_prerequisites.append(prereq)
     
     # Prepare guidance based on specifications
     specification_guidance = ""
@@ -196,15 +190,10 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         specification_guidance += f"\nREQUIRED CHARACTERS:\n"
         specification_guidance += f"These characters MUST appear: {', '.join(scene_specifications['required_characters'])}\n"
     
-    if scene_specifications["character_knowledge_changes"]:
-        specification_guidance += f"\nCHARACTER KNOWLEDGE CHANGES:\n"
-        for char, knowledge in scene_specifications["character_knowledge_changes"].items():
-            specification_guidance += f"- {char} learns: {', '.join(knowledge)}\n"
-    
-    if unmet_prerequisites:
-        specification_guidance += f"\nWARNING - UNMET PREREQUISITES:\n"
-        specification_guidance += f"The following should have happened already: {', '.join(unmet_prerequisites)}\n"
-        specification_guidance += f"Consider adjusting the scene or ensuring these happen first.\n"
+    if scene_specifications["character_learns"]:
+        specification_guidance += f"\nCHARACTER LEARNING:\n"
+        for learning in scene_specifications["character_learns"]:
+            specification_guidance += f"- {learning}\n"
     
     # Get active plot threads for this scene
     active_plot_threads = get_active_plot_threads_for_scene(state)
@@ -263,21 +252,10 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             # Get chapter outline
             with db_manager._db._get_connection() as conn:
                 cursor = conn.cursor()
-                # Try with chapter_number first (correct schema)
-                try:
-                    cursor.execute(
-                        "SELECT outline FROM chapters WHERE chapter_number = ?",
-                        (int(current_chapter),)
-                    )
-                except sqlite3.OperationalError as e:
-                    if "no such column: chapter_number" in str(e):
-                        # Fallback to old schema with chapter_num
-                        cursor.execute(
-                            "SELECT outline FROM chapters WHERE chapter_num = ?",
-                            (int(current_chapter),)
-                        )
-                    else:
-                        raise
+                cursor.execute(
+                    "SELECT outline FROM chapters WHERE chapter_number = ?",
+                    (int(current_chapter),)
+                )
                 
                 result = cursor.fetchone()
                 if result:
@@ -325,7 +303,7 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         )
         
         # Get suggestions for the next scene type
-        remaining_goals = []  # TODO: Extract from chapter outline
+        remaining_goals = []  # Goals are managed through plot progressions system
         next_scene_suggestion = suggest_next_scene_type(
             recent_scenes=previous_scenes[:5],
             chapter_outline=chapter_outline,

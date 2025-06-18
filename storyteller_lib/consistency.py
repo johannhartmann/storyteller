@@ -78,15 +78,14 @@ def check_scene_consistency(state: StoryState, scene_content: str = None,
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT identifier, name, role, backstory, personality, 
-                       emotional_state, known_facts
+                       emotional_state
                 FROM characters
             """)
             for row in cursor.fetchall():
                 characters[row['name']] = {
                     'role': row['role'],
                     'traits': json.loads(row['personality'] or '{}').get('traits', []),
-                    'current_state': json.loads(row['emotional_state'] or '{}').get('current', 'Unknown'),
-                    'known_facts': json.loads(row['known_facts'] or '[]')
+                    'current_state': json.loads(row['emotional_state'] or '{}').get('current', 'Unknown')
                 }
     
     # Get world elements from database

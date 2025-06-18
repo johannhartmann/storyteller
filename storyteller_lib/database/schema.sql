@@ -115,8 +115,6 @@ CREATE TABLE IF NOT EXISTS character_states (
     scene_id INTEGER NOT NULL,
     emotional_state TEXT,
     physical_location_id INTEGER,
-    knowledge_state TEXT, -- JSON array of what character knows
-    revealed_secrets TEXT, -- JSON array of revealed secrets
     evolution_notes TEXT,
     FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
     FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE,

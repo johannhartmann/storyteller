@@ -183,8 +183,7 @@ class StoryDatabase:
         Args:
             character_id: The character ID
             scene_id: The scene ID
-            state: Dictionary containing state fields (emotional_state, physical_location_id,
-                   knowledge_state, revealed_secrets, evolution_notes)
+            state: Dictionary containing state fields (emotional_state, physical_location_id, evolution_notes)
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -196,19 +195,12 @@ class StoryDatabase:
             )
             existing = cursor.fetchone()
             
-            # Serialize JSON fields
-            if 'knowledge_state' in state and isinstance(state['knowledge_state'], (list, dict)):
-                state['knowledge_state'] = json.dumps(state['knowledge_state'])
-            if 'revealed_secrets' in state and isinstance(state['revealed_secrets'], (list, dict)):
-                state['revealed_secrets'] = json.dumps(state['revealed_secrets'])
-            
             if existing:
                 # Update existing state
                 update_fields = []
                 update_values = []
                 
-                for field in ['emotional_state', 'physical_location_id', 'knowledge_state',
-                             'revealed_secrets', 'evolution_notes']:
+                for field in ['emotional_state', 'physical_location_id', 'evolution_notes']:
                     if field in state:
                         update_fields.append(f"{field} = ?")
                         update_values.append(state[field])
@@ -226,8 +218,7 @@ class StoryDatabase:
                 fields = ['character_id', 'scene_id']
                 values = [character_id, scene_id]
                 
-                for field in ['emotional_state', 'physical_location_id', 'knowledge_state',
-                             'revealed_secrets', 'evolution_notes']:
+                for field in ['emotional_state', 'physical_location_id', 'evolution_notes']:
                     if field in state:
                         fields.append(field)
                         values.append(state[field])
@@ -262,22 +253,7 @@ class StoryDatabase:
             if not row:
                 return {}
             
-            state = dict(row)
-            
-            # Deserialize JSON fields
-            if state.get('knowledge_state'):
-                try:
-                    state['knowledge_state'] = json.loads(state['knowledge_state'])
-                except json.JSONDecodeError:
-                    pass
-            
-            if state.get('revealed_secrets'):
-                try:
-                    state['revealed_secrets'] = json.loads(state['revealed_secrets'])
-                except json.JSONDecodeError:
-                    pass
-            
-            return state
+            return dict(row)
     
     def add_character_knowledge(self, character_id: int, scene_id: int, knowledge: Dict[str, Any]) -> None:
         """
@@ -1649,9 +1625,6 @@ class DatabaseStateAdapter:
                     'role': char.get('role', ''),
                     'backstory': char.get('backstory', ''),
                     'evolution': [],
-                    'known_facts': [],
-                    'secret_facts': [],
-                    'revealed_facts': [],
                     'relationships': {}
                 }
                 

@@ -457,11 +457,27 @@ def update_character_profiles(state: StoryState) -> Dict:
                     # Apply the updates to the character
                     char_data = updated_characters[char_id]
                     
-                    # Add new facts
+                    # Add new knowledge using the character knowledge manager
                     if 'new_facts' in updates and updates['new_facts']:
-                        if 'known_facts' not in char_data:
-                            char_data['known_facts'] = []
-                        char_data['known_facts'].extend(updates['new_facts'][:2])  # Max 2 facts
+                        from storyteller_lib.character_knowledge_manager import CharacterKnowledgeManager
+                        knowledge_manager = CharacterKnowledgeManager()
+                        scene_id = get_db_manager().get_scene_id(int(current_chapter), int(current_scene))
+                        
+                        # Get character ID from database
+                        db_manager = get_db_manager()
+                        character_id = None
+                        if db_manager and db_manager._db:
+                            with db_manager._db._get_connection() as conn:
+                                cursor = conn.cursor()
+                                cursor.execute("SELECT id FROM characters WHERE identifier = ?", (char_name,))
+                                result = cursor.fetchone()
+                                if result:
+                                    character_id = result['id']
+                        
+                        # Add knowledge to the character
+                        if character_id and scene_id:
+                            for fact in updates['new_facts'][:2]:  # Max 2 facts
+                                knowledge_manager.add_knowledge(character_id, fact, scene_id)
                     
                     # Update emotional state
                     if 'emotional_change' in updates and updates['emotional_change']:
@@ -1028,14 +1044,33 @@ def compile_final_story(state: StoryState) -> Dict:
     # Add a title and introduction
     story_title = "Untitled Story"  # Default title
     
-    # Try to extract a title from the global story
-    title_lines = [line for line in global_story.split(chr(10)) if "title" in line.lower()]
-    if title_lines:
-        # Extract the title from the first line that mentions "title"
-        title_line = title_lines[0]
-        title_parts = title_line.split(":")
-        if len(title_parts) > 1:
-            story_title = title_parts[1].strip()
+    # Try to get title from database first
+    try:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT title FROM story_config WHERE id = 1")
+            result = cursor.fetchone()
+            if result and result['title']:
+                story_title = result['title']
+            else:
+                # Fallback to extracting from global_story
+                # Try to extract a title from the global story
+                title_lines = [line for line in global_story.split(chr(10)) if "title" in line.lower() or "titel" in line.lower()]
+                if title_lines:
+                    # Extract the title from the first line that mentions "title"
+                    title_line = title_lines[0]
+                    title_parts = title_line.split(":")
+                    if len(title_parts) > 1:
+                        story_title = title_parts[1].strip().strip('"').strip("'")
+    except Exception as e:
+        logger.warning(f"Could not get title from database: {e}")
+        # Fallback title extraction
+        title_lines = [line for line in global_story.split(chr(10)) if "title" in line.lower() or "titel" in line.lower()]
+        if title_lines:
+            title_line = title_lines[0]
+            title_parts = title_line.split(":")
+            if len(title_parts) > 1:
+                story_title = title_parts[1].strip().strip('"').strip("'")
     
     # Add the title
     story_content.append(f"# {story_title}")

@@ -17,9 +17,6 @@ DEFAULT_CHARACTERS = {
         "role": "Protagonist",
         "backstory": "Ordinary person with hidden potential",
         "evolution": ["Begins journey", "Faces first challenge"],
-        "known_facts": ["Lived in small village", "Dreams of adventure"],
-        "secret_facts": ["Has a special lineage", "Possesses latent power"],
-        "revealed_facts": [],
         "relationships": {}
     },
     "mentor": {
@@ -27,9 +24,6 @@ DEFAULT_CHARACTERS = {
         "role": "Guide",
         "backstory": "Wise figure with past experience",
         "evolution": ["Introduces hero to new world"],
-        "known_facts": ["Has many skills", "Traveled widely"],
-        "secret_facts": ["Former student of villain", "Hiding a prophecy"],
-        "revealed_facts": [],
         "relationships": {}
     },
     "villain": {
@@ -37,9 +31,6 @@ DEFAULT_CHARACTERS = {
         "role": "Antagonist",
         "backstory": "Once good, corrupted by power",
         "evolution": ["Sends minions after hero"],
-        "known_facts": ["Rules with fear", "Seeks ancient artifact"],
-        "secret_facts": ["Was once good", "Has personal connection to hero"],
-        "revealed_facts": [],
         "relationships": {}
     },
     "ally": {
@@ -47,10 +38,27 @@ DEFAULT_CHARACTERS = {
         "role": "Supporting Character",
         "backstory": "Childhood friend or chance encounter with shared goals",
         "evolution": ["Joins hero's quest", "Provides crucial support"],
-        "known_facts": ["Skilled in practical matters", "Has local connections"],
-        "secret_facts": ["Harbors insecurities", "Has hidden talent"],
-        "revealed_facts": [],
         "relationships": {}
+    }
+}
+
+# Initial character knowledge to be added via CharacterKnowledgeManager
+DEFAULT_CHARACTER_KNOWLEDGE = {
+    "hero": {
+        "public": ["Lived in small village", "Dreams of adventure"],
+        "secret": ["Has a special lineage", "Possesses latent power"]
+    },
+    "mentor": {
+        "public": ["Has many skills", "Traveled widely"],
+        "secret": ["Former student of villain", "Hiding a prophecy"]
+    },
+    "villain": {
+        "public": ["Rules with fear", "Seeks ancient artifact"],
+        "secret": ["Was once good", "Has personal connection to hero"]
+    },
+    "ally": {
+        "public": ["Skilled in practical matters", "Has local connections"],
+        "secret": ["Harbors insecurities", "Has hidden talent"]
     }
 }
 
@@ -99,9 +107,6 @@ class CharacterProfile(BaseModel):
     inner_conflicts: List[InnerConflict] = Field(default_factory=list)
     character_arc: Optional[CharacterArc] = None
     evolution: List[str] = Field(default_factory=list)
-    known_facts: List[str] = Field(default_factory=list)
-    secret_facts: List[str] = Field(default_factory=list)
-    revealed_facts: List[str] = Field(default_factory=list)
     relationships: Dict[str, RelationshipDynamics] = Field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -151,9 +156,6 @@ def create_character(name: str, role: str, backstory: str = "", **kwargs) -> Dic
         "role": role,
         "backstory": backstory,
         "evolution": kwargs.get("evolution", []),
-        "known_facts": kwargs.get("known_facts", []),
-        "secret_facts": kwargs.get("secret_facts", []),
-        "revealed_facts": kwargs.get("revealed_facts", []),
         "relationships": kwargs.get("relationships", {})
     }
     
@@ -545,7 +547,7 @@ def generate_character_facts(
         language: Target language for generation
         
     Returns:
-        Dictionary with known_facts, secret_facts, and evolution
+        Dictionary with evolution data
     """
     # Use template system
     from storyteller_lib.prompt_templates import render_prompt
@@ -563,26 +565,20 @@ def generate_character_facts(
     
     try:
         # Create a model for the response
-        class CharacterFacts(BaseModel):
-            known_facts: List[str]
-            secret_facts: List[str]
+        class CharacterEvolution(BaseModel):
             evolution: List[str]
         
         # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(CharacterFacts)
+        structured_output_llm = llm.with_structured_output(CharacterEvolution)
         result = structured_output_llm.invoke(prompt)
         return {
-            "known_facts": result.known_facts,
-            "secret_facts": result.secret_facts,
             "evolution": result.evolution
         }
     except Exception as e:
         print(f"Error generating character facts: {str(e)}")
         
-        # Fallback: Create basic facts
+        # Fallback: Create basic evolution
         return {
-            "known_facts": [f"{character.name} is a {character.role}", f"Has a background as {character.backstory.split()[0]}"],
-            "secret_facts": ["Has a hidden motivation", "Harbors a secret from the past"],
             "evolution": ["Will face a significant challenge", "May undergo a transformation"]
         }
 
@@ -814,9 +810,6 @@ def generate_characters(state: StoryState) -> Dict:
             "role": basic_info.role,
             "backstory": basic_info.backstory,
             "evolution": [],
-            "known_facts": [],
-            "secret_facts": [],
-            "revealed_facts": [],
             "relationships": {}
         }
         
@@ -863,8 +856,6 @@ def generate_characters(state: StoryState) -> Dict:
             story_outline=global_story,
             language=language
         )
-        characters_dict[char_id]["known_facts"] = facts["known_facts"]
-        characters_dict[char_id]["secret_facts"] = facts["secret_facts"]
         characters_dict[char_id]["evolution"] = facts["evolution"]
     
     # Step 4: Establish relationships between characters
@@ -923,6 +914,32 @@ def generate_characters(state: StoryState) -> Dict:
             for char_id, char_data in characters_dict.items():
                 db_manager.save_character(char_id, char_data)
             logger.info(f"Stored {len(characters_dict)} characters in database")
+            
+            # Add initial character knowledge using the new system
+            from storyteller_lib.character_knowledge_manager import CharacterKnowledgeManager
+            knowledge_manager = CharacterKnowledgeManager()
+            
+            # Get the first scene ID (where characters are introduced)
+            first_scene_id = db_manager.get_scene_id(1, 1)  # Chapter 1, Scene 1
+            if first_scene_id:
+                for char_id in characters_dict:
+                    # Check if this character has default knowledge
+                    if char_id in DEFAULT_CHARACTER_KNOWLEDGE:
+                        char_db_id = knowledge_manager.get_character_id_by_name(char_id)
+                        if char_db_id:
+                            # Add public knowledge
+                            for knowledge in DEFAULT_CHARACTER_KNOWLEDGE[char_id].get("public", []):
+                                knowledge_manager.add_knowledge(
+                                    char_db_id, knowledge, first_scene_id,
+                                    knowledge_type='fact', visibility='public'
+                                )
+                            # Add secrets
+                            for secret in DEFAULT_CHARACTER_KNOWLEDGE[char_id].get("secret", []):
+                                knowledge_manager.add_knowledge(
+                                    char_db_id, secret, first_scene_id,
+                                    knowledge_type='secret', visibility='secret'
+                                )
+                            logger.info(f"Added initial knowledge for {char_id}")
         except Exception as e:
             logger.warning(f"Could not store characters in database: {e}")
     

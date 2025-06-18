@@ -74,7 +74,7 @@ class StoryContextProvider:
                 'identifier': character_id,
                 'current_location': None,
                 'emotional_state': None,
-                'known_facts': [],
+                'known_facts': [],  # Character knowledge from database
                 'relationships': {},
                 'recent_events': []
             }
@@ -102,7 +102,6 @@ class StoryContextProvider:
                 state = self.db.get_character_state_at_scene(char_db_id, scene['id'])
                 if state:
                     context['emotional_state'] = state.get('emotional_state')
-                    context['known_facts'] = state.get('knowledge_state', [])
                     
                     # Get location name if available
                     if state.get('physical_location_id'):
@@ -114,6 +113,28 @@ class StoryContextProvider:
                         if loc:
                             context['current_location'] = loc['name']
                     break
+            
+            # Get character knowledge from character_knowledge table
+            with self.db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT ck.knowledge_content, ck.knowledge_type
+                    FROM character_knowledge ck
+                    JOIN scenes s ON ck.scene_id = s.id
+                    JOIN chapters c ON s.chapter_id = c.id
+                    WHERE ck.character_id = ?
+                    AND (c.chapter_number < ? OR 
+                         (c.chapter_number = ? AND s.scene_number <= ?))
+                    ORDER BY c.chapter_number, s.scene_number
+                    """,
+                    (char_db_id, chapter_num, chapter_num, scene_num)
+                )
+                
+                for row in cursor.fetchall():
+                    # Only include public knowledge and revealed secrets
+                    if ':secret' not in row['knowledge_type']:
+                        context['known_facts'].append(row['knowledge_content'])
             
             # Get relationships
             relationships = self.db.get_character_relationships(char_db_id)

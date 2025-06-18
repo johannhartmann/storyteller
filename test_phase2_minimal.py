@@ -151,9 +151,6 @@ def test_phase2_minimal():
                     'role': 'protagonist',
                     'backstory': 'Former cop',
                     'evolution': [],
-                    'known_facts': ['client needs help'],
-                    'secret_facts': [],
-                    'revealed_facts': [],
                     'relationships': {'client': 'hired by'}
                 }
             },

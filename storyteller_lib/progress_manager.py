@@ -247,17 +247,6 @@ class ProgressManager:
             print(f"\nStory saved to: {self.state.output_file}")
 
 
-# Singleton instance for backward compatibility
-_default_manager = ProgressManager()
-
-
-def get_progress_manager() -> ProgressManager:
-    """Get the default progress manager instance.
-    
-    Returns:
-        The singleton ProgressManager instance
-    """
-    return _default_manager
 
 
 def create_progress_manager(verbose: bool = False, 

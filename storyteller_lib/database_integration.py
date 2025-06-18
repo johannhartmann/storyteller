@@ -448,15 +448,8 @@ class StoryDatabaseManager:
                         latest_evolution = evolution[-1]
                         state_update['evolution_notes'] = latest_evolution
                     
-                    # Update known facts
-                    known_facts = char_data.get('known_facts', [])
-                    if known_facts:
-                        state_update['knowledge_state'] = known_facts
-                    
-                    # Update revealed facts
-                    revealed_facts = char_data.get('revealed_facts', [])
-                    if revealed_facts:
-                        state_update['revealed_secrets'] = revealed_facts
+                    # Note: Character knowledge is now tracked via character_knowledge table
+                    # The old fact fields have been removed from CharacterProfile
                     
                     if state_update:
                         self._db.update_character_state(
@@ -806,6 +799,9 @@ class StoryDatabaseManager:
             return
         
         try:
+            # Extract title from the global story
+            story_title = self._extract_title_from_outline(global_story)
+            
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
                 # First check if the row exists
@@ -814,22 +810,51 @@ class StoryDatabaseManager:
                 
                 if exists:
                     cursor.execute(
-                        "UPDATE story_config SET global_story = ? WHERE id = 1",
-                        (global_story,)
+                        "UPDATE story_config SET global_story = ?, title = ? WHERE id = 1",
+                        (global_story, story_title)
                     )
                 else:
                     # Create the row with minimal data
                     cursor.execute(
                         """INSERT INTO story_config (id, title, genre, tone, global_story) 
-                           VALUES (1, 'Untitled Story', 'unknown', 'unknown', ?)""",
-                        (global_story,)
+                           VALUES (1, ?, 'unknown', 'unknown', ?)""",
+                        (story_title, global_story)
                     )
                 conn.commit()
                 
-            logger.info(f"Updated global story (length: {len(global_story)} chars)")
+            logger.info(f"Updated global story (length: {len(global_story)} chars) with title: {story_title}")
         except Exception as e:
             logger.error(f"Failed to update global story: {e}")
             raise
+    
+    def _extract_title_from_outline(self, global_story: str) -> str:
+        """Extract the story title from the global story outline."""
+        if not global_story:
+            return "Untitled Story"
+        
+        # Look for lines containing "Title:" or "Titel:" (for German)
+        lines = global_story.split('\n')
+        for line in lines[:10]:  # Check first 10 lines
+            if 'title:' in line.lower() or 'titel:' in line.lower():
+                # Extract the title after the colon
+                parts = line.split(':', 1)
+                if len(parts) > 1:
+                    title = parts[1].strip()
+                    # Remove any quotes if present
+                    title = title.strip('"').strip("'")
+                    if title:
+                        return title
+        
+        # If no explicit title line, try to get the first non-empty line
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('#') and not line.startswith('*'):
+                # Take the first meaningful line as title
+                if len(line) > 100:
+                    return line[:97] + "..."
+                return line
+        
+        return "Untitled Story"
     
     # Public methods for saving specific data types
     def save_worldbuilding(self, world_elements: Dict[str, Any]) -> None:
@@ -1126,6 +1151,49 @@ class StoryDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to check plot progression: {e}")
             return False
+    
+    def get_scene_id(self, chapter_num: int, scene_num: int) -> Optional[int]:
+        """Get the database ID for a specific scene.
+        
+        Args:
+            chapter_num: Chapter number
+            scene_num: Scene number
+            
+        Returns:
+            Scene database ID or None if not found
+        """
+        if not self.enabled or not self._db:
+            return None
+        
+        try:
+            # Get chapter ID
+            chapter_id = self._chapter_id_map.get(str(chapter_num))
+            if not chapter_id:
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT id FROM chapters WHERE chapter_number = ?",
+                        (chapter_num,)
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        chapter_id = result['id']
+            
+            if chapter_id:
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT id FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                        (chapter_id, scene_num)
+                    )
+                    result = cursor.fetchone()
+                    return result['id'] if result else None
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to get scene ID: {e}")
+            return None
     
     def get_scene_content(self, chapter_num: int, scene_num: int) -> Optional[str]:
         """Retrieve scene content from database."""

@@ -163,14 +163,25 @@ class StoryAnalyzer:
                     'state': appearance['state']['emotional_state']
                 })
         
-        # Analyze knowledge progression
+        # Analyze knowledge progression using character_knowledge table
         knowledge_progression = []
-        for appearance in journey['appearances']:
-            if appearance['state'].get('knowledge_state'):
+        with self.db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT c.chapter_number, s.scene_number, ck.knowledge_content, ck.knowledge_type
+                FROM character_knowledge ck
+                JOIN scenes s ON ck.scene_id = s.id
+                JOIN chapters c ON s.chapter_id = c.id
+                WHERE ck.character_id = ?
+                ORDER BY c.chapter_number, s.scene_number
+            """, (character_id,))
+            
+            for row in cursor.fetchall():
                 knowledge_progression.append({
-                    'chapter': appearance['chapter'],
-                    'scene': appearance['scene'],
-                    'knowledge': appearance['state']['knowledge_state']
+                    'chapter': row['chapter_number'],
+                    'scene': row['scene_number'],
+                    'knowledge': row['knowledge_content'],
+                    'type': row['knowledge_type']
                 })
         
         # Get plot thread involvement
