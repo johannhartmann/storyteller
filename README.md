@@ -1,6 +1,6 @@
 # StoryCraft Agent
 
-An autonomous AI agent designed to write engaging, multi-chapter stories based on the hero's journey using LangGraph for orchestration and LangMem for memory management.
+An autonomous AI agent designed to write engaging, multi-chapter stories based on the hero's journey using LangGraph for orchestration and SQLite database for state and memory management.
 
 ## Features
 
@@ -41,8 +41,9 @@ An autonomous AI agent designed to write engaging, multi-chapter stories based o
    OPENAI_API_KEY=your_openai_api_key_here
    ANTHROPIC_API_KEY=your_anthropic_api_key_here
    
-   # Optional: Set your default model provider
+   # Optional: Set your default model provider and model
    DEFAULT_MODEL_PROVIDER=gemini
+   DEFAULT_MODEL=gemini-2.0-flash-thinking-exp-1219  # Optional: specific model
    ```
 
 ## Usage
@@ -139,7 +140,7 @@ StoryCraft uses LangGraph to orchestrate the story generation process through se
 9. **Character Updates**: Manages character evolution throughout the story
 10. **Story Compilation**: Assembles the final complete story
 
-The agent maintains state throughout the process using LangGraph's state management and uses LangMem for memory operations to ensure consistency and continuity.
+The agent maintains state throughout the process using LangGraph's state management and SQLite database for memory operations to ensure consistency and continuity.
 
 ## System Components
 
@@ -226,15 +227,15 @@ The system maintains narrative consistency through several mechanisms:
    - Updates relevant state elements to maintain consistency
 
 3. **Memory Integration**:
-   - Uses LangMem to store and retrieve important story elements
-   - Creates memory anchors for critical elements that must be preserved
+   - Uses SQLite database to store and retrieve important story elements
+   - Creates memory records for critical elements that must be preserved
 
 ## Architecture
 
 The agent is built using:
 
 - **LangGraph**: For orchestration and state management
-- **LangMem**: For memory and reflection capabilities
+- **SQLite Database**: For persistent memory storage and retrieval
 - **Multiple LLM Providers**: Support for OpenAI, Anthropic, and Google Gemini models
 - **LangChain Caching**: For improved performance and cost efficiency
 

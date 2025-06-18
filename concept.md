@@ -1,7 +1,7 @@
 # StoryCraft Agent – Autonomous Story-Writing with Dynamic Memory, State & Progress Tracking
 
 **Overview:**  
-StoryCraft Agent is an autonomous AI agent designed to write engaging, multi-chapter stories based on the hero's journey using LangGraph for orchestration and LangMem for memory management. It generates an overall storyline, divides it into chapters with multiple scenes each, and manages evolving characters with detailed profiles. The agent continuously reflects on and revises content to ensure quality and consistency while providing detailed progress tracking throughout the generation process. The implementation includes robust error handling and safety mechanisms to prevent infinite recursion and gracefully manage edge cases.
+StoryCraft Agent is an autonomous AI agent designed to write engaging, multi-chapter stories based on the hero's journey using LangGraph for orchestration and SQLite database for state and memory management. It generates an overall storyline, divides it into chapters with multiple scenes each, and manages evolving characters with detailed profiles. The agent continuously reflects on and revises content to ensure quality and consistency while providing detailed progress tracking throughout the generation process. The implementation includes robust error handling and safety mechanisms to prevent infinite recursion and gracefully manage edge cases.
 
 ---
 
@@ -95,8 +95,8 @@ StoryCraft Agent is an autonomous AI agent designed to write engaging, multi-cha
      ```
    
    - **Integrated Memory Operations:**  
-     Using LangMem tools for memory management:
-     - **Semantic Memory:** For storing story outlines, character profiles, and scene elements.
+     Using SQLite database for memory management:
+     - **Story Memory:** For storing story outlines, character profiles, and scene elements.
      - **Procedural Memory:** For tracking the creative process and revision history.
      
    - **Progress Tracking:**
@@ -227,8 +227,8 @@ The agent is implemented using a modular architecture with several key component
 - **Robust Error Handling:**
   Includes safety mechanisms to prevent common issues like infinite recursion and to gracefully handle unexpected states.
 
-- **LangMem Integration:**
-  Uses LangMem for memory operations, allowing the agent to maintain coherence across a complex narrative structure.
+- **Database Integration:**
+  Uses SQLite database for memory operations, allowing the agent to maintain coherence across a complex narrative structure.
 
 - **Modular, Extendable Design:**
   The modular implementation makes it easy to enhance or modify specific aspects of the story generation process.
