@@ -8,22 +8,22 @@ LangGraph is a low-level orchestration framework for building controllable, reli
 pip install -U langgraph
 ```
 
-## Integration with LangMem
+## Integration with Database
 
-When combined with LangMem, LangGraph enables stateful agent architectures with sophisticated memory capabilities:
+LangGraph integrates with SQLite database for persistent state and memory management:
 
-- **Persistent Memory Store**: LangGraph's state management integrates with LangMem's storage systems (PostgreSQL, SQLite, etc.)
-- **Memory Types**: Support for semantic memory (facts), episodic memory (experiences), and procedural memory (system behavior)
-- **Memory Tools**: Custom LangGraph tools for memory management (`create_manage_memory_tool`, `create_search_memory_tool`)
-- **Background Processing**: Memory managers can process conversations to extract key information
-- **Prompt Optimization**: Improve system prompts based on feedback and past performance
+- **Persistent State Storage**: LangGraph's state management integrates with SQLite for reliable data persistence
+- **Memory Management**: Custom memory manager handles key-value storage for story elements
+- **State Tracking**: Database tracks story configuration, chapters, scenes, characters, and world elements
+- **Progress Monitoring**: Real-time progress updates stored and retrieved from database
+- **Consistency Checking**: Database queries ensure narrative consistency across chapters
 
 In storytelling applications:
-- Character profiles are continuously updated and retrieved from memory
-- Continuity is maintained by storing and tracking revelations across chapters
-- Background processing extracts narrative elements from completed chapters
+- Character profiles are stored in dedicated tables and updated throughout generation
+- Continuity is maintained by tracking plot threads and revelations in the database
+- World elements are persisted for consistent reference across all scenes
 - Author style guidance is stored for consistent application throughout generation
-- Previous creative decisions inform future content development
+- Previous creative decisions are tracked to inform future content development
 
 ## Key Features
 
