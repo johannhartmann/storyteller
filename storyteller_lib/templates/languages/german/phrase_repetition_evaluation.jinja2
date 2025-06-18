@@ -1,0 +1,22 @@
+{# German template for phrase repetition evaluation #}
+Bewerte, ob diese möglicherweise wiederholten Phrasen im Kontext dieser {{ scene_type }}-Szene aus einer {{ genre }}-Geschichte mit {{ tone }} Ton problematisch sind.
+
+ZU BEWERTENDE PHRASEN:
+{% for phrase in phrases %}
+- "{{ phrase }}"
+{% endfor %}
+
+SZENENKONTEXT:
+{{ scene_content[:500] }}...
+
+Bestimme für jede Phrase:
+1. Ist die Wiederholung in diesem Kontext problematisch?
+2. Warum oder warum nicht?
+
+Berücksichtige:
+- In einer {{ scene_type }}-Szene können bestimmte Wiederholungen beabsichtigt sein
+- {{ genre }}-Genre-Konventionen bezüglich Wiederholungen
+- Ob der {{ tone }} Ton von der Wiederholung profitiert oder beeinträchtigt wird
+- Ob die Wiederholung Betonung, Rhythmus oder einen anderen Zweck erfüllt
+
+Gib deine Bewertung für jede Phrase zurück.

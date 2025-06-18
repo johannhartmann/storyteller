@@ -1,0 +1,26 @@
+{# German template for scene necessity evaluation #}
+Bewerte, ob diese vorgeschlagene Szene den Bedürfnissen einer {{ genre }}-Geschichte mit {{ tone }} Stimmung an der {{ story_position }} des Handlungsbogens dient.
+
+VORGESCHLAGENE SZENE:
+{{ proposed_scene }}
+
+KAPITELZIELE:
+{% for goal in chapter_goals %}
+- {{ goal }}
+{% endfor %}
+
+POSITION IN DER GESCHICHTE: {{ story_position }}
+
+Bewerte, ob diese Szene:
+1. Einem notwendigen Zweck in der Geschichte dient
+2. Handlung, Charakter oder Thema vorantreibt
+3. Ein angemessenes Tempo für die {{ story_position }} einer {{ genre }}-Geschichte aufrechterhält
+4. Zur {{ tone }} passt, ohne den Fluss zu stören
+
+Berücksichtige:
+- Nicht jede Szene braucht hohe Einsätze oder Action
+- Charaktermomente und Atempausen können essentiell sein
+- Einige Genres erfordern spezifisches Tempo (Krimis brauchen Ermittlung, Romantik braucht Beziehungsaufbau)
+- Die {{ story_position }} beeinflusst, welche Arten von Szenen funktionieren
+
+Falls die Szene unnötig erscheint, schlage Alternativen vor, die der Geschichte besser dienen würden.

@@ -1,0 +1,24 @@
+{# German template for scene sequence variety analysis #}
+Analysiere diese Szenenfolge aus einer {{ genre }}-Geschichte mit {{ tone }} Stimmung, um zu bestimmen, ob das Abwechslungsniveau angemessen ist.
+
+GESCHICHTE-KONTEXT:
+{{ story_context }}
+
+NEUESTE SZENENFOLGE:
+{{ scene_sequence }}
+
+Bewerte:
+1. Gibt es ein Muster in den Szenentypen/Schwerpunkten?
+2. Falls es ein Muster gibt, dient es dem {{ genre }}-Genre oder der {{ tone }} Stimmung?
+3. Ist das Abwechslungsniveau für diese Art von Geschichte angemessen?
+4. Gibt es erzählerische Gründe (wie Spannungsaufbau, Zeitschleifen, Parallelstruktur), die Wiederholungen rechtfertigen?
+
+Berücksichtige Genre-Erwartungen:
+- Action/Abenteuer: Hohe Abwechslung, schnelles Tempo
+- Krimi: Methodische Ermittlungsszenen können sich wiederholen
+- Romantik: Emotionale Szenen können ähnliche Strukturen haben
+- Literarisch: Kann absichtlich repetitive Strukturen für Effekte nutzen
+- Komödie: Setup/Pointe-Muster sind üblich
+- Horror: Grauen durch ähnliche Szenen aufbauen ist valide
+
+Bestimme, ob erkannte Muster problematisch oder zweckmäßig sind.

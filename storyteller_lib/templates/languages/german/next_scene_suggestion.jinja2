@@ -1,0 +1,24 @@
+{# German template for next scene suggestion #}
+Schlage basierend auf dem Geschichtenkontext den passendsten Typ und Fokus für die nächste Szene in dieser {{ genre }}-Geschichte mit {{ tone }} Stimmung vor.
+
+NEUESTE SZENENTYPEN:
+{% for scene_type in recent_scene_types %}
+- {{ scene_type }}
+{% endfor %}
+
+KAPITELÜBERSICHT:
+{{ chapter_outline }}
+
+VERBLEIBENDE KAPITELZIELE:
+{% for goal in remaining_goals %}
+- {{ goal }}
+{% endfor %}
+
+Berücksichtige:
+1. Welcher Szenentyp würde der Geschichte an diesem Punkt am besten dienen?
+2. Sollten wir von jüngsten Mustern abweichen oder sie fortsetzen?
+3. Was würde ein angemessenes Tempo für {{ genre }} aufrechterhalten?
+4. Was würde die {{ tone }} Stimmung bewahren?
+5. Welche Elemente sollten einbezogen oder vermieden werden?
+
+Biete einen Vorschlag, der den Bedürfnissen der Geschichte dient, anstatt starren Abwechslungsregeln zu folgen. Manchmal ist Wiederholung die richtige Wahl; manchmal ist Abwechslung essentiell.

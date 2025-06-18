@@ -1,0 +1,30 @@
+{# German template for context-aware scene analysis #}
+Analysiere diese Szene aus Kapitel {{ chapter_number }}, Szene {{ scene_number }} im Kontext einer {{ genre }}-Geschichte mit {{ tone }} Stimmung.
+
+HANDLUNGSPRÄMISSE:
+{{ story_premise }}
+
+{% if author_style != "not specified" %}
+AUTORENSTIL: {{ author_style }}
+{% endif %}
+
+NEUESTE SZENEN:
+{{ recent_scenes }}
+
+ZU ANALYSIERENDE SZENE:
+{{ scene_content[:1500] }}...
+
+Bewerte diese Szene unter Berücksichtigung von:
+1. Ist der Szenentyp und das Tempo angemessen für das {{ genre }}-Genre?
+2. Wird die {{ tone }} Stimmung effektiv aufrechterhalten?
+3. Bietet dies angesichts der jüngsten Szenen angemessene Abwechslung oder dient es durch Wiederholung einem Zweck?
+4. Was funktioniert in dieser Szene besonders gut?
+5. Welche kontextbezogenen Vorschläge würden sie verbessern, während Genre/Stimmung respektiert werden?
+
+Bedenke:
+- Einige Genres profitieren von langsamerem Tempo (literarische Fiktion, Krimis)
+- Einige Stimmungen erfordern konsistente Szenentypen (Horror erhält Grauen aufrecht)
+- Wiederholung kann beabsichtigt sein (Zeitschleifen, Betonung, Spannungsaufbau)
+- Nicht jede Szene braucht viel Action - Reflexion und Charaktermomente sind wertvoll
+
+Biete eine nuancierte Analyse, die die spezifischen Bedürfnisse der Geschichte berücksichtigt, anstatt generische Schreibregeln anzuwenden.

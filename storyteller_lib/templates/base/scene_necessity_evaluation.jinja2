@@ -1,0 +1,26 @@
+{# Base template for scene necessity evaluation - English version #}
+Evaluate whether this proposed scene serves the needs of a {{ genre }} story with {{ tone }} tone at the {{ story_position }} of the story arc.
+
+PROPOSED SCENE:
+{{ proposed_scene }}
+
+CHAPTER GOALS:
+{% for goal in chapter_goals %}
+- {{ goal }}
+{% endfor %}
+
+STORY POSITION: {{ story_position }}
+
+Evaluate whether this scene:
+1. Serves a necessary purpose in the story
+2. Advances plot, character, or theme
+3. Maintains appropriate pacing for the {{ story_position }} of a {{ genre }} story
+4. Fits the {{ tone }} without disrupting flow
+
+Consider:
+- Not every scene needs high stakes or action
+- Character moments and breathing room can be essential
+- Some genres require specific pacing (mysteries need investigation, romance needs relationship building)
+- The {{ story_position }} affects what types of scenes work
+
+If the scene seems unnecessary, suggest alternatives that would better serve the story.

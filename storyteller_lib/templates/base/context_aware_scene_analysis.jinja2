@@ -1,0 +1,30 @@
+{# Base template for context-aware scene analysis - English version #}
+Analyze this scene from Chapter {{ chapter_number }}, Scene {{ scene_number }} in the context of a {{ genre }} story with {{ tone }} tone.
+
+STORY PREMISE:
+{{ story_premise }}
+
+{% if author_style != "not specified" %}
+AUTHOR STYLE: {{ author_style }}
+{% endif %}
+
+RECENT SCENES:
+{{ recent_scenes }}
+
+SCENE TO ANALYZE:
+{{ scene_content[:1500] }}...
+
+Evaluate this scene considering:
+1. Is the scene type and pacing appropriate for {{ genre }} genre?
+2. Does it maintain the {{ tone }} tone effectively?
+3. Given the recent scenes, does this provide appropriate variety or does it serve a purpose through repetition?
+4. What works particularly well in this scene?
+5. What context-aware suggestions would improve it while respecting genre/tone?
+
+Remember:
+- Some genres benefit from slower pacing (literary fiction, mysteries)
+- Some tones require consistent scene types (horror maintaining dread)
+- Repetition can be intentional (time loops, emphasis, building tension)
+- Not every scene needs high action - reflection and character moments are valuable
+
+Provide a nuanced analysis that considers the story's specific needs rather than generic writing rules.

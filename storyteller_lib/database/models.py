@@ -1092,6 +1092,339 @@ class StoryDatabase:
                 )
             
             return [row['content_text'] for row in cursor.fetchall()]
+    
+    # LLM Evaluation Management
+    def save_llm_evaluation(self, evaluation_type: str, evaluation_result: Dict[str, Any],
+                          evaluated_content: str, scene_id: Optional[int] = None,
+                          chapter_id: Optional[int] = None, genre: Optional[str] = None,
+                          tone: Optional[str] = None) -> int:
+        """
+        Save an LLM evaluation to the database.
+        
+        Args:
+            evaluation_type: Type of evaluation (repetition, scene_quality, etc.)
+            evaluation_result: The evaluation result dictionary
+            evaluated_content: What was evaluated
+            scene_id: Optional scene ID
+            chapter_id: Optional chapter ID
+            genre: Story genre
+            tone: Story tone
+            
+        Returns:
+            The inserted evaluation ID
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO llm_evaluations 
+                (evaluation_type, scene_id, chapter_id, evaluated_content, 
+                 evaluation_result, genre, tone)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (evaluation_type, scene_id, chapter_id, evaluated_content,
+                 json.dumps(evaluation_result), genre, tone)
+            )
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_llm_evaluations(self, evaluation_type: Optional[str] = None,
+                           scene_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieve LLM evaluations from the database.
+        
+        Args:
+            evaluation_type: Optional filter by type
+            scene_id: Optional filter by scene
+            
+        Returns:
+            List of evaluation records
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM llm_evaluations WHERE 1=1"
+            params = []
+            
+            if evaluation_type:
+                query += " AND evaluation_type = ?"
+                params.append(evaluation_type)
+            
+            if scene_id:
+                query += " AND scene_id = ?"
+                params.append(scene_id)
+            
+            query += " ORDER BY created_at DESC"
+            
+            cursor.execute(query, params)
+            
+            evaluations = []
+            for row in cursor.fetchall():
+                eval_dict = dict(row)
+                try:
+                    eval_dict['evaluation_result'] = json.loads(eval_dict['evaluation_result'])
+                except json.JSONDecodeError:
+                    pass
+                evaluations.append(eval_dict)
+            
+            return evaluations
+    
+    # Character Promise Management
+    def save_character_promise(self, character_id: int, promise_type: str,
+                              promise_description: str, introduced_chapter: int,
+                              expected_resolution: str = 'ongoing') -> int:
+        """
+        Save a character promise to the database.
+        
+        Args:
+            character_id: The character ID
+            promise_type: Type of promise (growth, revelation, etc.)
+            promise_description: Description of the promise
+            introduced_chapter: Chapter where introduced
+            expected_resolution: When expected to resolve
+            
+        Returns:
+            The inserted promise ID
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO character_promises 
+                (character_id, promise_type, promise_description, 
+                 introduced_chapter, expected_resolution)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (character_id, promise_type, promise_description,
+                 introduced_chapter, expected_resolution)
+            )
+            conn.commit()
+            return cursor.lastrowid
+    
+    def mark_promise_fulfilled(self, promise_id: int, scene_id: int) -> None:
+        """
+        Mark a character promise as fulfilled.
+        
+        Args:
+            promise_id: The promise ID
+            scene_id: Scene where fulfilled
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE character_promises 
+                SET fulfilled = TRUE, fulfilled_scene_id = ?
+                WHERE id = ?
+                """,
+                (scene_id, promise_id)
+            )
+            conn.commit()
+    
+    def get_character_promises(self, character_id: int,
+                              fulfilled: Optional[bool] = None) -> List[Dict[str, Any]]:
+        """
+        Get promises for a character.
+        
+        Args:
+            character_id: The character ID
+            fulfilled: Optional filter by fulfillment status
+            
+        Returns:
+            List of promises
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM character_promises WHERE character_id = ?"
+            params = [character_id]
+            
+            if fulfilled is not None:
+                query += " AND fulfilled = ?"
+                params.append(fulfilled)
+            
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+    
+    # Story Event Management
+    def save_story_event(self, chapter_number: int, scene_number: int,
+                        event_type: str, event_description: str,
+                        participants: List[int] = None, location_id: Optional[int] = None,
+                        plot_threads_affected: List[int] = None) -> int:
+        """
+        Save a story event to the database.
+        
+        Args:
+            chapter_number: Chapter number
+            scene_number: Scene number
+            event_type: Type of event
+            event_description: Event description
+            participants: List of character IDs
+            location_id: Optional location ID
+            plot_threads_affected: List of plot thread IDs
+            
+        Returns:
+            The inserted event ID
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO story_events 
+                (chapter_number, scene_number, event_type, event_description,
+                 participants, location_id, plot_threads_affected)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (chapter_number, scene_number, event_type, event_description,
+                 json.dumps(participants or []), location_id,
+                 json.dumps(plot_threads_affected or []))
+            )
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_story_events(self, chapter_number: Optional[int] = None,
+                        event_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get story events.
+        
+        Args:
+            chapter_number: Optional filter by chapter
+            event_type: Optional filter by type
+            
+        Returns:
+            List of events
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM story_events WHERE 1=1"
+            params = []
+            
+            if chapter_number:
+                query += " AND chapter_number = ?"
+                params.append(chapter_number)
+            
+            if event_type:
+                query += " AND event_type = ?"
+                params.append(event_type)
+            
+            query += " ORDER BY chapter_number, scene_number"
+            
+            cursor.execute(query, params)
+            
+            events = []
+            for row in cursor.fetchall():
+                event = dict(row)
+                try:
+                    event['participants'] = json.loads(event['participants'])
+                    event['plot_threads_affected'] = json.loads(event['plot_threads_affected'])
+                except json.JSONDecodeError:
+                    pass
+                events.append(event)
+            
+            return events
+    
+    # Scene Quality Metrics
+    def save_scene_quality_metrics(self, scene_id: int, metrics: Dict[str, float],
+                                  evaluation_notes: Dict[str, Any]) -> None:
+        """
+        Save scene quality metrics.
+        
+        Args:
+            scene_id: The scene ID
+            metrics: Dictionary of metric scores
+            evaluation_notes: Detailed evaluation notes
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT OR REPLACE INTO scene_quality_metrics 
+                (scene_id, prose_quality_score, pacing_appropriateness,
+                 character_consistency, genre_alignment, reader_engagement_estimate,
+                 evaluation_notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (scene_id, 
+                 metrics.get('prose_quality', 0.5),
+                 metrics.get('pacing_appropriateness', 0.5),
+                 metrics.get('character_consistency', 0.5),
+                 metrics.get('genre_alignment', 0.5),
+                 metrics.get('reader_engagement', 0.5),
+                 json.dumps(evaluation_notes))
+            )
+            conn.commit()
+    
+    # Narrative Pattern Management
+    def save_narrative_pattern(self, pattern_type: str, pattern_description: str,
+                              occurrences: List[int], is_intentional: bool = False,
+                              narrative_purpose: Optional[str] = None) -> int:
+        """
+        Save a detected narrative pattern.
+        
+        Args:
+            pattern_type: Type of pattern
+            pattern_description: Description of the pattern
+            occurrences: List of scene IDs where it occurs
+            is_intentional: Whether pattern is intentional
+            narrative_purpose: Purpose if intentional
+            
+        Returns:
+            The inserted pattern ID
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO narrative_patterns 
+                (pattern_type, pattern_description, occurrences,
+                 is_intentional, narrative_purpose)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (pattern_type, pattern_description, json.dumps(occurrences),
+                 is_intentional, narrative_purpose)
+            )
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_narrative_patterns(self, pattern_type: Optional[str] = None,
+                              is_intentional: Optional[bool] = None) -> List[Dict[str, Any]]:
+        """
+        Get narrative patterns.
+        
+        Args:
+            pattern_type: Optional filter by type
+            is_intentional: Optional filter by intentionality
+            
+        Returns:
+            List of patterns
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            query = "SELECT * FROM narrative_patterns WHERE 1=1"
+            params = []
+            
+            if pattern_type:
+                query += " AND pattern_type = ?"
+                params.append(pattern_type)
+            
+            if is_intentional is not None:
+                query += " AND is_intentional = ?"
+                params.append(is_intentional)
+            
+            cursor.execute(query, params)
+            
+            patterns = []
+            for row in cursor.fetchall():
+                pattern = dict(row)
+                try:
+                    pattern['occurrences'] = json.loads(pattern['occurrences'])
+                except json.JSONDecodeError:
+                    pass
+                patterns.append(pattern)
+            
+            return patterns
 
 
 class DatabaseStateAdapter:

@@ -1,0 +1,22 @@
+{# Base template for phrase repetition evaluation - English version #}
+Evaluate whether these potentially repeated phrases are problematic in the context of this {{ scene_type }} scene from a {{ genre }} story with {{ tone }} tone.
+
+PHRASES TO EVALUATE:
+{% for phrase in phrases %}
+- "{{ phrase }}"
+{% endfor %}
+
+SCENE CONTEXT:
+{{ scene_content[:500] }}...
+
+For each phrase, determine:
+1. Is the repetition problematic in this context?
+2. Why or why not?
+
+Consider:
+- In a {{ scene_type }} scene, certain repetitions may be intentional
+- {{ genre }} genre conventions regarding repetition
+- Whether the {{ tone }} tone benefits from or is harmed by the repetition
+- If the repetition creates emphasis, rhythm, or serves another purpose
+
+Return your evaluation for each phrase.

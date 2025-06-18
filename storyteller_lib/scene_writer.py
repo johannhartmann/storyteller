@@ -534,6 +534,16 @@ def write_scene(state: StoryState) -> Dict:
         get_overused_elements
     )
     
+    # Import intelligent repetition analysis
+    from storyteller_lib.intelligent_repetition import (
+        analyze_repetition_in_context, generate_intelligent_variation_guidance
+    )
+    
+    # Import scene structure analysis
+    from storyteller_lib.scene_structure_analysis import (
+        analyze_scene_structures, generate_structural_guidance
+    )
+    
     # Import story summary for comprehensive context
     from storyteller_lib.story_summary import get_story_summary_for_context
     
@@ -571,6 +581,73 @@ def write_scene(state: StoryState) -> Dict:
     
     # Get overused elements to avoid
     overused_elements = get_overused_elements(progression_tracker)
+    
+    # We need to identify scene characters early for structural analysis
+    # This is a simple placeholder - the actual scene characters will be determined later
+    preliminary_scene_characters = []
+    
+    # Perform intelligent repetition analysis on recent content
+    recent_content = ""
+    intelligent_variation_guidance = ""
+    structural_guidance = ""
+    structural_analysis_result = None
+    
+    if db_manager and db_manager._db:
+        # Get last 5 scenes for context and structure analysis
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT s.content, s.scene_number, c.chapter_number
+                FROM scenes s
+                JOIN chapters c ON s.chapter_id = c.id
+                WHERE (c.chapter_number < ? OR (c.chapter_number = ? AND s.scene_number < ?))
+                ORDER BY c.chapter_number DESC, s.scene_number DESC
+                LIMIT 5
+            """, (int(current_chapter), int(current_chapter), int(current_scene)))
+            
+            recent_scenes_data = cursor.fetchall()
+            if recent_scenes_data:
+                # Format for structure analysis
+                scenes_for_structure = []
+                for scene_data in recent_scenes_data:
+                    scenes_for_structure.append({
+                        'chapter': scene_data['chapter_number'],
+                        'scene': scene_data['scene_number'],
+                        'content': scene_data['content'],
+                        'characters': preliminary_scene_characters  # Empty for now, just for structure
+                    })
+                
+                # Analyze scene structures
+                structural_analysis = analyze_scene_structures(
+                    recent_scenes=scenes_for_structure,
+                    genre=genre,
+                    tone=tone,
+                    language=language
+                )
+                
+                # Store structural analysis for later use
+                structural_analysis_result = structural_analysis
+                
+                # For repetition analysis, use just the content
+                recent_content = "\n\n---\n\n".join([s['content'] for s in recent_scenes_data[:3]])
+                
+                # Analyze repetition intelligently
+                intelligent_analysis = analyze_repetition_in_context(
+                    text=recent_content,
+                    genre=genre,
+                    tone=tone,
+                    author_style=author,
+                    story_context=story_premise,
+                    language=language
+                )
+                
+                # Generate intelligent variation guidance
+                intelligent_variation_guidance = generate_intelligent_variation_guidance(
+                    analysis=intelligent_analysis,
+                    scene_type=variety_requirements.scene_type,
+                    genre=genre,
+                    tone=tone
+                )
     
     # Get characters from database
     all_characters = {}
@@ -637,6 +714,14 @@ def write_scene(state: StoryState) -> Dict:
     # Identify which characters are in this scene
     scene_characters = list(relevant_characters.keys())
     
+    # Now that we have scene_characters, generate structural guidance if we have analysis
+    if structural_analysis_result is not None:
+        structural_guidance = generate_structural_guidance(
+            analysis=structural_analysis_result,
+            upcoming_scene_type=variety_requirements.scene_type,
+            characters_involved=scene_characters
+        )
+    
     # Prepare various guidance sections
     author_guidance = _prepare_author_style_guidance(author, author_style_guidance)
     language_guidance = _prepare_language_guidance(language)
@@ -692,7 +777,9 @@ def write_scene(state: StoryState) -> Dict:
         'variety_guidance': generate_scene_variety_guidance(variety_requirements),
         'forbidden_phrases': forbidden_phrases,
         'forbidden_structures': forbidden_structures,
-        'scene_type': variety_requirements.scene_type
+        'scene_type': variety_requirements.scene_type,
+        'intelligent_variation_guidance': intelligent_variation_guidance,
+        'structural_guidance': structural_guidance
     }
     
     # Render the prompt using the template system

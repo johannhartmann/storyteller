@@ -1,0 +1,31 @@
+{# Base template for assessing character development - English version #}
+Assess whether {{ character_name }}'s development is appropriate for a {{ genre }} story with {{ tone }} tone at {{ story_progress_percentage }}% completion.
+
+CHARACTER HISTORY:
+{{ character_history }}
+
+PROMISES MADE ABOUT THIS CHARACTER:
+{% for promise in promises %}
+- {{ promise.promise_type }}: {{ promise.promise_description }} (introduced chapter {{ promise.introduced_chapter }})
+{% endfor %}
+
+STORY PROGRESS: Chapter {{ current_chapter }} of {{ total_chapters }}
+
+Evaluate:
+1. Is the character's development pace appropriate for where we are in the story?
+2. Are promises being addressed at suitable times?
+3. Does the development align with {{ genre }} genre expectations?
+4. Is the character changing too fast, too slow, or just right?
+
+Consider:
+- In {{ genre }}, reader expectations for character change
+- The {{ tone }} tone's impact on development pace
+- Whether static periods serve a purpose (building tension, showing resistance)
+- Whether changes feel earned based on experiences
+
+For each promise, assess:
+- Has it been fulfilled?
+- If not, is the timing still appropriate?
+- Are we seeing progress toward fulfillment?
+
+Provide specific, actionable recommendations that respect the story's style.

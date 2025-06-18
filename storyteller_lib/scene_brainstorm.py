@@ -18,6 +18,9 @@ from storyteller_lib.constants import NodeNames, SceneElements
 from storyteller_lib.creative_tools import creative_brainstorm
 from storyteller_lib.models import StoryState
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
+from storyteller_lib.context_aware_scene_analysis import (
+    analyze_scene_sequence_variety, suggest_next_scene_type
+)
 
 
 def _prepare_creative_guidance(creative_elements: Dict, current_chapter: str, current_scene: str) -> str:
@@ -176,10 +179,10 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
                 LIMIT 20
             """, (int(current_chapter), int(current_chapter), int(current_scene)))
             
-            previous_scenes = cursor.fetchall()
-            if previous_scenes:
+            previous_content_scenes = cursor.fetchall()
+            if previous_content_scenes:
                 previous_scenes_summary = "\n\nPREVIOUS SCENES (DO NOT REPEAT):\n"
-                for scene in previous_scenes:
+                for scene in previous_content_scenes:
                     # Get first paragraph of each scene
                     content = scene['content']
                     if content:
@@ -226,11 +229,55 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
             logger = get_logger(__name__)
             logger.warning(f"Could not get chapter outline from database: {e}")
         
-        # Get previous scene metadata (simplified for now)
-        # TODO: Implement proper scene metadata tracking
+        # Get previous scene metadata for analysis
         previous_scenes = []
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT c.chapter_number, s.scene_number, se.event_type, se.event_description
+                FROM scenes s
+                JOIN chapters c ON s.chapter_id = c.id
+                LEFT JOIN story_events se ON se.chapter_number = c.chapter_number 
+                    AND se.scene_number = s.scene_number
+                WHERE c.chapter_number <= ?
+                ORDER BY c.chapter_number DESC, s.scene_number DESC
+                LIMIT 10
+            """, (int(current_chapter),))
+            
+            for row in cursor.fetchall():
+                previous_scenes.append({
+                    'chapter': row['chapter_number'],
+                    'scene': row['scene_number'],
+                    'type': row['event_type'] or 'unknown',
+                    'summary': row['event_description'] or 'No summary available'
+                })
     
-    # Determine variety requirements
+    # Analyze scene sequence for variety appropriateness
+    sequence_analysis = None
+    next_scene_suggestion = None
+    
+    if previous_scenes:
+        # Analyze if the scene sequence has appropriate variety
+        sequence_analysis = analyze_scene_sequence_variety(
+            recent_scenes=previous_scenes[:5],  # Last 5 scenes
+            genre=genre,
+            tone=tone,
+            story_context=story_context,
+            language=state.get("language", "english")
+        )
+        
+        # Get suggestions for the next scene type
+        remaining_goals = []  # TODO: Extract from chapter outline
+        next_scene_suggestion = suggest_next_scene_type(
+            recent_scenes=previous_scenes[:5],
+            chapter_outline=chapter_outline,
+            remaining_chapter_goals=remaining_goals,
+            genre=genre,
+            tone=tone,
+            language=state.get("language", "english")
+        )
+    
+    # Determine variety requirements with context awareness
     scene_variety_requirements = determine_scene_variety_requirements(
         previous_scenes=previous_scenes,
         chapter_outline=chapter_outline,
@@ -238,6 +285,19 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         total_scenes_in_chapter=len(state.get("chapters", {}).get(current_chapter, {}).get("scenes", {})),
         language=state.get("language", "english")
     )
+    
+    # Override variety requirements if sequence analysis suggests it
+    if sequence_analysis and next_scene_suggestion:
+        if sequence_analysis.intentional_pattern:
+            # If pattern is intentional, allow it to continue
+            scene_variety_requirements.scene_type = next_scene_suggestion.get('suggested_type', scene_variety_requirements.scene_type)
+        elif not sequence_analysis.variety_appropriate:
+            # If variety is lacking, enforce the suggestion
+            scene_variety_requirements.scene_type = next_scene_suggestion.get('suggested_type', scene_variety_requirements.scene_type)
+            # Add elements to avoid from the suggestion
+            elements_to_avoid = next_scene_suggestion.get('elements_to_avoid', [])
+            if elements_to_avoid:
+                scene_variety_requirements.forbidden_elements.extend(elements_to_avoid)
     
     # Get forbidden elements from scene progression
     forbidden_elements = {"phrases": [], "structures": []}
@@ -254,12 +314,11 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
     previous_scenes_data = []
     if previous_scenes:
         for scene in previous_scenes[:5]:  # Limit to 5 most recent
-            content = scene['content']
-            if content:
-                first_para = content.strip().split('\n\n')[0]
-                previous_scenes_data.append({
-                    "summary": f"Ch{scene['chapter_number']}/Sc{scene['scene_number']}: {first_para[:200]}..."
-                })
+            # Use the summary field from the previous_scenes data structure
+            summary = scene.get('summary', 'No summary available')
+            previous_scenes_data.append({
+                "summary": f"Ch{scene['chapter']}/Sc{scene['scene']}: {summary[:200]}..."
+            })
     
     # Get language from state
     language = state.get("language", "english")
@@ -278,7 +337,9 @@ def brainstorm_scene_elements(state: StoryState) -> Dict:
         story_premise=story_context,
         previous_scenes=previous_scenes_data if previous_scenes_data else None,
         scene_variety_requirements=scene_variety_requirements if scene_variety_requirements else None,
-        forbidden_elements=forbidden_elements if any(forbidden_elements.values()) else None
+        forbidden_elements=forbidden_elements if any(forbidden_elements.values()) else None,
+        sequence_analysis=sequence_analysis,
+        next_scene_suggestion=next_scene_suggestion
     )
     
     # Generate brainstorming ideas using LLM directly

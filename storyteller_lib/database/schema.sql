@@ -237,3 +237,81 @@ AFTER UPDATE ON memories
 BEGIN
     UPDATE memories SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
+
+-- 18. LLM Evaluations table (for intelligent analysis)
+CREATE TABLE IF NOT EXISTS llm_evaluations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    evaluation_type TEXT NOT NULL, -- repetition, scene_quality, character_development, pacing, etc.
+    scene_id INTEGER,
+    chapter_id INTEGER,
+    evaluated_content TEXT, -- what was evaluated
+    evaluation_result TEXT, -- JSON result from LLM
+    genre TEXT,
+    tone TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE,
+    FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+);
+
+-- 19. Character promises table
+CREATE TABLE IF NOT EXISTS character_promises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    character_id INTEGER NOT NULL,
+    promise_type TEXT NOT NULL, -- growth, revelation, relationship, skill, conflict
+    promise_description TEXT NOT NULL,
+    introduced_chapter INTEGER,
+    expected_resolution TEXT, -- early, middle, late, ongoing
+    fulfilled BOOLEAN DEFAULT FALSE,
+    fulfilled_scene_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+    FOREIGN KEY (fulfilled_scene_id) REFERENCES scenes(id) ON DELETE SET NULL
+);
+
+-- 20. Story events table (for tracking what happens)
+CREATE TABLE IF NOT EXISTS story_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chapter_number INTEGER NOT NULL,
+    scene_number INTEGER NOT NULL,
+    event_type TEXT NOT NULL, -- action, dialogue, reflection, revelation, etc.
+    event_description TEXT,
+    participants TEXT, -- JSON array of character IDs
+    location_id INTEGER,
+    plot_threads_affected TEXT, -- JSON array of plot thread IDs
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL
+);
+
+-- 21. Scene quality metrics table
+CREATE TABLE IF NOT EXISTS scene_quality_metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scene_id INTEGER NOT NULL,
+    prose_quality_score REAL, -- 0-1 score
+    pacing_appropriateness REAL, -- 0-1 score
+    character_consistency REAL, -- 0-1 score
+    genre_alignment REAL, -- 0-1 score
+    reader_engagement_estimate REAL, -- 0-1 score
+    evaluation_notes TEXT, -- JSON with detailed feedback
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE,
+    UNIQUE(scene_id)
+);
+
+-- 22. Narrative patterns table
+CREATE TABLE IF NOT EXISTS narrative_patterns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern_type TEXT NOT NULL, -- recurring_theme, character_catchphrase, stylistic_element, structural_pattern
+    pattern_description TEXT,
+    occurrences TEXT, -- JSON array of scene IDs where it appears
+    is_intentional BOOLEAN DEFAULT FALSE,
+    narrative_purpose TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_llm_evaluations_type ON llm_evaluations(evaluation_type);
+CREATE INDEX IF NOT EXISTS idx_llm_evaluations_scene_id ON llm_evaluations(scene_id);
+CREATE INDEX IF NOT EXISTS idx_character_promises_character_id ON character_promises(character_id);
+CREATE INDEX IF NOT EXISTS idx_story_events_chapter_scene ON story_events(chapter_number, scene_number);
+CREATE INDEX IF NOT EXISTS idx_scene_quality_scene_id ON scene_quality_metrics(scene_id);
+CREATE INDEX IF NOT EXISTS idx_narrative_patterns_type ON narrative_patterns(pattern_type);

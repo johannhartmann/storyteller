@@ -1,0 +1,33 @@
+{# Base template for intelligent repetition analysis - English version #}
+Analyze the following text for repetition, considering the story's genre ({{ genre }}), tone ({{ tone }}), and author style ({{ author_style }}).
+
+TEXT TO ANALYZE:
+{{ text }}
+
+{% if story_context %}
+STORY CONTEXT:
+{{ story_context }}
+{% endif %}
+
+Your task is to distinguish between:
+1. INTENTIONAL REPETITION that serves a narrative purpose (emphasis, rhythm, comedy callbacks, thematic reinforcement, character voice)
+2. UNINTENTIONAL REPETITION that feels accidental or detracts from the reading experience
+
+For each repeated element you identify, evaluate:
+- Is this repetition appropriate for a {{ genre }} story with {{ tone }} tone?
+- Does it match the author's style?
+- Does it enhance or detract from the narrative?
+- Would varying it improve the text, or should it be preserved?
+
+Consider that:
+- Comedy often uses repetition for callbacks and running gags
+- Literary fiction may use repetition for rhythm or emphasis
+- Children's stories often repeat for memorability
+- Thrillers might repeat for urgency
+- Poetry and lyrical prose use repetition as a device
+
+Provide:
+1. A list of intentional repetitions with their narrative purpose
+2. A list of unintentional repetitions that should be varied
+3. An overall assessment of whether the repetition level suits the genre/tone
+4. Specific, actionable suggestions that respect the story's style

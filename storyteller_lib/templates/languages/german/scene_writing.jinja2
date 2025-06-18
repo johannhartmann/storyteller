@@ -48,16 +48,21 @@ Szene {{ current_scene }}: {{ scene_description }}
 {{ variety_guidance }}
 {% endif %}
 
-WICHTIGE ANTI-WIEDERHOLUNGS-RICHTLINIEN:
-1. NICHT Ereignisse, Beschreibungen oder Dialoge aus der obigen Zusammenfassung wiederholen
-2. NICHT Charaktereinführungen wiederverwenden - gehe davon aus, dass Leser die Charaktere kennen
-3. VERBOTENE PHRASEN, die überstrapaziert wurden: {{ forbidden_phrases | join(', ') }}
-4. NICHT diese Szenenstrukturen erneut verwenden: {{ forbidden_structures | join(', ') }}
-5. Jede Szene muss NEUE Entwicklungen zeigen, NICHT Variationen vorheriger Ereignisse
-6. Charakterwissen: Charaktere sollten basierend auf dem handeln, was sie gelernt haben
-7. Variiere deine Satzstrukturen - vermeide es, mehrere Absätze gleich zu beginnen
-8. NICHT diese spezifischen Elemente wiederholen: Visionen anderer Welten, Systemanomalien, Symptome als Stress abtun
-9. Diese Szene MUSS {{ scene_type }}-fokussiert sein, NICHT eine weitere Wartungs-/Visionsszene
+{% if intelligent_variation_guidance %}
+{{ intelligent_variation_guidance }}
+{% endif %}
+
+{% if structural_guidance %}
+{{ structural_guidance }}
+{% endif %}
+
+SANFTE SCHREIBERINNERUNGEN:
+1. Lass die Szene atmen - nicht jeder Moment muss dramatisch sein
+2. Baue natürlich auf dem Vorherigen auf, ohne exakte Ereignisse zu wiederholen
+3. Falls du bestimmte Phrasen häufig verwendet hast ({{ forbidden_phrases[:3] | join(', ') if forbidden_phrases else 'keine bemerkt' }}), erwäge Alternativen
+4. Erlaube Charakteren, natürlich auf Ereignisse zu reagieren und diese zu verarbeiten
+5. Dies ist primär eine {{ scene_type }}-Szene - lass das das Tempo leiten
+6. Vertraue auf Subtilität statt explizite Aussagen
 
 SCHREIBRICHTLINIEN:
 1. Beginne die Szene sofort mit Aktion, Dialog oder lebendiger Beschreibung

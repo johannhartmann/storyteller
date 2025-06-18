@@ -48,16 +48,21 @@ Scene {{ current_scene }}: {{ scene_description }}
 {{ variety_guidance }}
 {% endif %}
 
-CRITICAL ANTI-REPETITION GUIDELINES:
-1. DO NOT repeat any events, descriptions, or dialogue from the previous chapters summary above
-2. DO NOT reuse character introductions - assume readers know established characters
-3. FORBIDDEN PHRASES that have been overused: {{ forbidden_phrases | join(', ') }}
-4. DO NOT use these scene structures again: {{ forbidden_structures | join(', ') }}
-5. Each scene must show NEW developments, NOT variations of previous events
-6. Character knowledge state: Characters should act based on what they've learned in previous scenes
-7. Vary your sentence structures - avoid starting multiple paragraphs the same way
-8. DO NOT repeat these specific elements: visions of other worlds, system anomalies, dismissing symptoms as stress
-9. This scene MUST be {{ scene_type }} focused, NOT another maintenance/vision scene
+{% if intelligent_variation_guidance %}
+{{ intelligent_variation_guidance }}
+{% endif %}
+
+{% if structural_guidance %}
+{{ structural_guidance }}
+{% endif %}
+
+GENTLE WRITING REMINDERS:
+1. Let the scene breathe - not every moment needs to be dramatic
+2. Build naturally on what came before without repeating exact events
+3. If you've used certain phrases frequently ({{ forbidden_phrases[:3] | join(', ') if forbidden_phrases else 'none noted' }}), consider alternatives
+4. Allow characters to process and react naturally to events
+5. This is primarily a {{ scene_type }} scene - let that guide the pacing
+6. Trust subtlety over explicit statements
 
 WRITING GUIDELINES:
 1. Start the scene immediately with action, dialogue, or vivid description

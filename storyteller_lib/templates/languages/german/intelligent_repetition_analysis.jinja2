@@ -1,0 +1,33 @@
+{# German template for intelligent repetition analysis #}
+Analysiere den folgenden Text auf Wiederholungen unter Berücksichtigung des Genres ({{ genre }}), des Tons ({{ tone }}) und des Autorenstils ({{ author_style }}).
+
+ZU ANALYSIERENDER TEXT:
+{{ text }}
+
+{% if story_context %}
+GESCHICHTE-KONTEXT:
+{{ story_context }}
+{% endif %}
+
+Deine Aufgabe ist es zu unterscheiden zwischen:
+1. BEABSICHTIGTEN WIEDERHOLUNGEN, die einem narrativen Zweck dienen (Betonung, Rhythmus, komödiantische Rückverweise, thematische Verstärkung, Charakterstimme)
+2. UNBEABSICHTIGTEN WIEDERHOLUNGEN, die zufällig wirken oder das Leseerlebnis beeinträchtigen
+
+Bewerte für jedes wiederholte Element:
+- Ist diese Wiederholung angemessen für eine {{ genre }}-Geschichte mit {{ tone }} Ton?
+- Passt sie zum Stil des Autors?
+- Verbessert oder verschlechtert sie die Erzählung?
+- Würde Variation den Text verbessern, oder sollte sie erhalten bleiben?
+
+Bedenke:
+- Komödien nutzen oft Wiederholungen für Rückverweise und Running Gags
+- Literarische Fiktion kann Wiederholungen für Rhythmus oder Betonung nutzen
+- Kindergeschichten wiederholen oft für Einprägsamkeit
+- Thriller könnten für Dringlichkeit wiederholen
+- Poesie und lyrische Prosa nutzen Wiederholung als Stilmittel
+
+Liefere:
+1. Eine Liste beabsichtigter Wiederholungen mit ihrem narrativen Zweck
+2. Eine Liste unbeabsichtigter Wiederholungen, die variiert werden sollten
+3. Eine Gesamtbewertung, ob das Wiederholungsniveau zum Genre/Ton passt
+4. Spezifische, umsetzbare Vorschläge, die den Stil der Geschichte respektieren

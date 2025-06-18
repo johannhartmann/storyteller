@@ -1,0 +1,24 @@
+{# Base template for next scene suggestion - English version #}
+Based on the story context, suggest the most appropriate type and focus for the next scene in this {{ genre }} story with {{ tone }} tone.
+
+RECENT SCENE TYPES:
+{% for scene_type in recent_scene_types %}
+- {{ scene_type }}
+{% endfor %}
+
+CHAPTER OUTLINE:
+{{ chapter_outline }}
+
+REMAINING CHAPTER GOALS:
+{% for goal in remaining_goals %}
+- {{ goal }}
+{% endfor %}
+
+Consider:
+1. What scene type would best serve the story at this point?
+2. Should we vary from recent patterns or continue them?
+3. What would maintain appropriate pacing for {{ genre }}?
+4. What would preserve the {{ tone }} tone?
+5. What elements should be included or avoided?
+
+Provide a suggestion that serves the story's needs rather than following rigid variety rules. Sometimes repetition is the right choice; sometimes variety is essential.

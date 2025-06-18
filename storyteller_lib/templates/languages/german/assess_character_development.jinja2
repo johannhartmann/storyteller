@@ -1,0 +1,31 @@
+{# German template for assessing character development #}
+Bewerte, ob {{ character_name }}s Entwicklung für eine {{ genre }}-Geschichte mit {{ tone }} Stimmung bei {{ story_progress_percentage }}% Fertigstellung angemessen ist.
+
+CHARAKTERGESCHICHTE:
+{{ character_history }}
+
+VERSPRECHEN ÜBER DIESEN CHARAKTER:
+{% for promise in promises %}
+- {{ promise.promise_type }}: {{ promise.promise_description }} (eingeführt in Kapitel {{ promise.introduced_chapter }})
+{% endfor %}
+
+GESCHICHTSFORTSCHRITT: Kapitel {{ current_chapter }} von {{ total_chapters }}
+
+Bewerte:
+1. Ist das Entwicklungstempo des Charakters angemessen für unsere Position in der Geschichte?
+2. Werden Versprechen zu geeigneten Zeiten angesprochen?
+3. Stimmt die Entwicklung mit {{ genre }}-Genre-Erwartungen überein?
+4. Ändert sich der Charakter zu schnell, zu langsam oder genau richtig?
+
+Berücksichtige:
+- Im {{ genre }}-Genre die Lesererwartungen für Charakterveränderungen
+- Den Einfluss der {{ tone }} Stimmung auf das Entwicklungstempo
+- Ob statische Perioden einem Zweck dienen (Spannung aufbauen, Widerstand zeigen)
+- Ob Veränderungen aufgrund von Erfahrungen verdient wirken
+
+Bewerte für jedes Versprechen:
+- Wurde es erfüllt?
+- Falls nicht, ist das Timing noch angemessen?
+- Sehen wir Fortschritte zur Erfüllung?
+
+Gib spezifische, umsetzbare Empfehlungen, die den Stil der Geschichte respektieren.
