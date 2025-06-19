@@ -5,7 +5,7 @@ This is a refactored version optimized for LangGraph's native edge system,
 removing router-specific code that could cause infinite loops.
 """
 
-from typing import Dict
+from typing import Dict, List
 import json
 
 from storyteller_lib.config import llm, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage

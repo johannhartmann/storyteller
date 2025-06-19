@@ -93,6 +93,7 @@ class CharacterArc(BaseModel):
 
 class RelationshipDynamics(BaseModel):
     """Relationship dynamics between characters."""
+    target_character: str = Field(description="Name of the other character in this relationship")
     type: str
     dynamics: str
     evolution: List[str] = Field(default_factory=list)
@@ -108,11 +109,21 @@ class CharacterProfile(BaseModel):
     inner_conflicts: List[InnerConflict] = Field(default_factory=list)
     character_arc: Optional[CharacterArc] = None
     evolution: List[str] = Field(default_factory=list)
-    relationships: Dict[str, RelationshipDynamics] = Field(default_factory=dict)
+    # Changed from Dict[str, RelationshipDynamics] to List to avoid nested dict issues with Gemini
+    relationships: List[RelationshipDynamics] = Field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format compatible with the existing system."""
-        return self.dict(exclude_none=True)
+        data = self.dict(exclude_none=True)
+        # Convert relationships list back to dict format for compatibility
+        if 'relationships' in data and isinstance(data['relationships'], list):
+            relationships_dict = {}
+            for rel in data['relationships']:
+                # Use target_character as the key
+                key = rel.get('target_character', rel.get('type', 'unknown'))
+                relationships_dict[key] = rel
+            data['relationships'] = relationships_dict
+        return data
 
 class CharacterRole(BaseModel):
     """Basic character role information for initial planning."""

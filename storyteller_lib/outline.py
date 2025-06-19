@@ -13,6 +13,27 @@ from storyteller_lib import track_progress
 from storyteller_lib.plot_threads import PlotThread, THREAD_IMPORTANCE, THREAD_STATUS
 
 
+# Pydantic models for structured story outline
+class StoryCharacter(BaseModel):
+    """A main character in the story."""
+    name: str = Field(description="Character's name")
+    description: str = Field(description="Brief character description including role and key traits")
+    
+class HeroJourneyPhase(BaseModel):
+    """A phase of the hero's journey."""
+    phase_name: str = Field(description="Name of the hero's journey phase")
+    description: str = Field(description="What happens in this phase of the story")
+    
+class StoryOutlineStructured(BaseModel):
+    """Structured story outline following the hero's journey."""
+    title: str = Field(description="A captivating title for the story")
+    main_characters: List[StoryCharacter] = Field(description="3-5 main characters with descriptions")
+    central_conflict: str = Field(description="The central conflict or challenge of the story")
+    world_setting: str = Field(description="The world/setting where the story takes place")
+    key_themes: List[str] = Field(description="Key themes or messages of the story")
+    hero_journey_phases: List[HeroJourneyPhase] = Field(description="The 12 phases of the hero's journey with descriptions")
+
+
 def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str, initial_idea: str, language: str = "english") -> Dict[str, Dict]:
     """Generate initial plot threads from the story outline."""
     # Use template system
@@ -108,7 +129,18 @@ def generate_story_outline(state: StoryState) -> Dict:
             # Update state with the generated guidance
             state["author_style_guidance"] = author_style_guidance
         
-        style_guidance = f"""
+        # Format style guidance based on language
+        if language.lower() == 'german':
+            style_guidance = f"""
+        AUTORSTIL-ANLEITUNG:
+        Sie werden den Schreibstil von {author} nachahmen. Hier ist eine Anleitung zu diesem Autorstil:
+        
+        {author_style_guidance}
+        
+        Integrieren Sie diese stilistischen Elemente in Ihre Geschichte, während Sie die Struktur der Heldenreise beibehalten.
+        """
+        else:
+            style_guidance = f"""
         AUTHOR STYLE GUIDANCE:
         You will be emulating the writing style of {author}. Here's guidance on this author's style:
         
@@ -136,7 +168,23 @@ def generate_story_outline(state: StoryState) -> Dict:
             conflict = creative_elements["central_conflicts"]["recommended_ideas"]
         
         # Compile creative guidance
-        creative_guidance = f"""
+        if language.lower() == 'german':
+            creative_guidance = f"""
+        KREATIVE ELEMENTE AUS DEM BRAINSTORMING:
+        
+        Empfohlenes Storykonzept:
+        {story_concept}
+        
+        Empfohlene Weltbau-Elemente:
+        {world_building}
+        
+        Empfohlener zentraler Konflikt:
+        {conflict}
+        
+        Integrieren Sie diese erarbeiteten Elemente in Ihre Geschichte und passen Sie sie nach Bedarf an die Struktur der Heldenreise an.
+        """
+        else:
+            creative_guidance = f"""
         BRAINSTORMED CREATIVE ELEMENTS:
         
         Recommended Story Concept:
@@ -199,29 +247,36 @@ def generate_story_outline(state: StoryState) -> Dict:
     # Render the prompt using the template system
     prompt = render_prompt('story_outline', language=language, **template_vars)
     
-    # Generate the story outline
+    # Generate the story outline using structured output
     print(f"[DEBUG] About to generate story outline. Prompt length: {len(prompt)}")
     logger.info("Generating story outline with LLM...")
     logger.debug(f"Prompt length: {len(prompt)}")
-    try:
-        print("[DEBUG] Calling LLM...")
-        response = llm.invoke([HumanMessage(content=prompt)])
-        print(f"[DEBUG] LLM response type: {type(response)}")
-        story_outline = response.content
-        print(f"[DEBUG] Story outline length: {len(story_outline) if story_outline else 0}")
-        print(f"[DEBUG] Story outline preview: {story_outline[:100] if story_outline else 'EMPTY'}")
-        logger.info(f"LLM response type: {type(response)}")
-        logger.info(f"LLM response content type: {type(response.content)}")
-        logger.info(f"Generated story outline with length: {len(story_outline)}")
-        if not story_outline:
-            logger.error("LLM returned empty content!")
-            logger.debug(f"Full LLM response: {response}")
-    except Exception as e:
-        print(f"[DEBUG] Exception during LLM call: {e}")
-        logger.error(f"Failed to generate story outline: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        story_outline = ""
+    
+    # Use structured output only - no fallback
+    print("[DEBUG] Calling LLM with structured output...")
+    structured_llm = llm.with_structured_output(StoryOutlineStructured)
+    outline_structured = structured_llm.invoke(prompt)
+    
+    # Convert structured output to text format
+    story_outline = f"Title: {outline_structured.title}\n\n"
+    
+    story_outline += "Main Characters:\n"
+    for char in outline_structured.main_characters:
+        story_outline += f"- {char.name}: {char.description}\n"
+    
+    story_outline += f"\nCentral Conflict: {outline_structured.central_conflict}\n"
+    story_outline += f"\nWorld/Setting: {outline_structured.world_setting}\n"
+    
+    story_outline += "\nKey Themes:\n"
+    for theme in outline_structured.key_themes:
+        story_outline += f"- {theme}\n"
+    
+    story_outline += "\nHero's Journey Phases:\n"
+    for i, phase in enumerate(outline_structured.hero_journey_phases, 1):
+        story_outline += f"\n{i}. {phase.phase_name}\n{phase.description}\n"
+    
+    print(f"[DEBUG] Story outline length: {len(story_outline)}")
+    logger.info(f"Generated structured story outline with length: {len(story_outline)}")
     # Perform multiple validation checks on the story outline
     print(f"[DEBUG] Before validation, story_outline length: {len(story_outline)}")
     validation_results = {}

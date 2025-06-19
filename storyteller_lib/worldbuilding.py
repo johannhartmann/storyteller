@@ -172,7 +172,7 @@ def create_category_prompt(category_name: str, genre: str, tone: str, author: st
         prompt = render_prompt(
             'worldbuilding',
             language=language,
-            story_outline=global_story[:500] + "...",
+            story_outline=global_story,  # Pass full story outline, not truncated
             genre=genre,
             tone=tone,
             existing_elements=existing_elements if existing_elements else None,
@@ -299,7 +299,7 @@ def create_category_prompt(category_name: str, genre: str, tone: str, author: st
         
         And this story outline:
         
-        {global_story[:500]}...
+        {global_story}
         
         {language_instruction}
         {language_guidance}
@@ -338,47 +338,14 @@ def generate_category(category_name: str, model: Type[BaseModel], genre: str, to
     Returns:
         Dictionary containing the generated category data
     """
-    try:
-        structured_llm = llm.with_structured_output(model)
-        prompt = create_category_prompt(
-            category_name, genre, tone, author, initial_idea, global_story, language, language_guidance
-        )
-        
-        
-        result = structured_llm.invoke(prompt)
-                
-        return result.model_dump()
-
-    except Exception as e:
-        print(f"Error generating {category_name}: {str(e)}")
-        
-        # Fallback to unstructured generation and parsing
-        try:
-            response = llm.invoke([HumanMessage(content=prompt)]).content
-            
-            # Try to parse the response using the model
-            retry_prompt = f"""
-            Based on this information about {category_name}:
-            
-            {response}
-            
-            Extract the key elements in a structured format.
-            """
-            
-            retry_llm = llm.with_structured_output(model)
-            retry_result = retry_llm.invoke(retry_prompt)
-            return retry_result.model_dump()
-        except Exception as e2:
-            print(f"Fallback also failed for {category_name}: {str(e2)}")
-            
-            # Create minimal structure with default values for all fields
-            default_values = {}
-            for field_name in model.__fields__:
-                if field_name == "relevance":
-                    default_values[field_name] = f"Error generating {category_name}: {str(e)}, {str(e2)}"
-                else:
-                    default_values[field_name] = f"Default {field_name} (generation failed)"
-            return default_values
+    # Use structured output only - no fallback
+    structured_llm = llm.with_structured_output(model)
+    prompt = create_category_prompt(
+        category_name, genre, tone, author, initial_idea, global_story, language, language_guidance
+    )
+    
+    result = structured_llm.invoke(prompt)
+    return result.model_dump()
 
 def generate_mystery_elements(world_elements: Dict[str, Any], num_mysteries: int = 3, language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
