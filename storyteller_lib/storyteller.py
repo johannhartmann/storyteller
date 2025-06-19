@@ -9,10 +9,10 @@ import os
 from typing import Dict, List, Any
 from langchain_core.messages import HumanMessage
 from storyteller_lib.config import llm
-from storyteller_lib.memory_manager import manage_memory, search_memory
+# Memory manager imports removed - using state and database instead
 
 # Import the graph builder
-from storyteller_lib.config import search_memory_tool, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.graph import build_story_graph
 
 def get_genre_key_elements(genre: str, language: str = "english") -> List[str]:
@@ -59,13 +59,7 @@ def get_genre_key_elements(genre: str, language: str = "english") -> List[str]:
             ]
             elements.extend(generic_elements[:(5 - len(elements))])
         
-        # Store the generated elements in memory for reuse
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": f"genre_elements_{genre.lower().replace(' ', '_')}",
-            "value": elements,
-            "namespace": MEMORY_NAMESPACE
-        })
+        # Genre elements are generated fresh each time
         
         return elements
         
@@ -172,17 +166,7 @@ def parse_initial_idea(initial_idea: str, language: str = DEFAULT_LANGUAGE) -> D
             if idea_elements_dict['genre_elements']:
                 must_include.append(f"The story MUST include these genre elements: {', '.join(idea_elements_dict['genre_elements'])}")
             
-            manage_memory_tool.invoke({
-                "action": "create",
-                "key": "initial_idea_elements",
-                "value": {
-                    "original_idea": initial_idea,
-                    "extracted_elements": idea_elements_dict,
-                    "must_include": must_include
-                },
-                "namespace": MEMORY_NAMESPACE
-            })
-            # Store initial idea elements in memory with must-include constraints
+            # Initial idea elements are stored in state and passed through the workflow
         
         return idea_elements_dict
     except Exception as e:
@@ -225,230 +209,60 @@ def extract_partial_story(
     return_state: bool = False
 ):
     """
-    Attempt to extract a partial story from memory when normal generation fails.
+    Attempt to extract a partial story from database when normal generation fails.
     This function tries to recover whatever content has been generated so far,
     even if the full story generation process didn't complete.
     
-    Args:
-        genre: The genre of the story (e.g., fantasy, sci-fi, mystery)
-        tone: The tone of the story (e.g., epic, dark, humorous)
-        author: Optional author whose style to emulate (e.g., Tolkien, Rowling, Martin)
-        initial_idea: Optional initial story idea to use as a starting point
-        language: Optional target language for the story
-        model_provider: Optional model provider to use (openai, anthropic, gemini)
-        model: Optional specific model to use
-        return_state: Whether to return the state along with the story
-        
     Returns:
         If return_state is False, returns the partial story as a string, or None if nothing could be recovered.
         If return_state is True, returns a tuple of (partial_story, state), where state may be incomplete.
     """
+    # This is a recovery function - return minimal content
     story_parts = []
+    story_parts.append(f"# Partial {tone.capitalize()} {genre.capitalize()} Story\n\n")
+    story_parts.append("Story generation was interrupted. Please try running the generator again.\n")
     
-    # Try to get the title and global story from memory
+    # Try to get any content from database
     try:
-        title = ""
-        global_story = search_memory(query="global story outline or plot summary", namespace=MEMORY_NAMESPACE)
-        
-        if global_story:
-            # Extract a title
-            title_lines = [line for line in global_story.split('\n') 
-                           if line.strip() and not line.lower().startswith("outline") 
-                           and not line.lower().startswith("summary")]
-            if title_lines:
-                title = title_lines[0].strip()
-                # Clean up title if needed (remove any "Title: " prefix)
-                if ":" in title and len(title.split(":")) > 1:
-                    title = title.split(":", 1)[1].strip()
-        
-        if title:
-            story_parts.append(f"# {title}\n\n")
-        else:
-            story_parts.append(f"# Partial {tone.capitalize()} {genre.capitalize()} Story\n\n")
-    except Exception:
-        story_parts.append(f"# Partial {tone.capitalize()} {genre.capitalize()} Story\n\n")
-    
-    # No note about incomplete status needed
-    
-    # Try to retrieve chapters and scenes from memory
-    try:
-        # Get all chapters and scenes from memory
-        # Use search_memory_tool to list all chapters
-        chapter_data = search_memory(query="chapter_")
-        
-        if chapter_data and "keys" in chapter_data:
-            chapter_keys = chapter_data["keys"]
-            
-            # Extract chapter numbers
-            chapter_dict = {}
-            for key in chapter_keys:
-                # Extract chapter number from key like "chapter_1", "chapter_2", etc.
-                if "_" in key:
-                    try:
-                        ch_num = key.split("_")[1]
-                        # Get chapter content
-                        ch_data = search_memory_tool.invoke({
-                            "query": f"chapter_{ch_num}"
-                        })
-                        
-                        # Extract the chapter data from the results
-                        ch_data_result = None
-                        if ch_data and len(ch_data) > 0:
-                            for item in ch_data:
-                                if hasattr(item, 'key') and item.key == key:
-                                    ch_data_result = {"key": item.key, "value": item.value}
-                                    break
-                        ch_data = ch_data_result
-                        
-                        if ch_data and "value" in ch_data:
-                            chapter_dict[ch_num] = ch_data["value"]
-                    except Exception:
-                        pass
-            
-            # Get scene data
-            # Use search_memory_tool to list all scenes
-            scene_data = search_memory(query="scene_")
-            
-            scene_dict = {}
-            if scene_data and "keys" in scene_data:
-                scene_keys = scene_data["keys"]
+        from storyteller_lib.database_integration import get_db_manager
+        db_manager = get_db_manager()
+        if db_manager and db_manager._db:
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                # Get any scenes that were written
+                cursor.execute("""
+                    SELECT c.chapter_number, c.title, s.scene_number, s.content
+                    FROM chapters c
+                    LEFT JOIN scenes s ON c.id = s.chapter_id
+                    WHERE s.content IS NOT NULL AND s.content != ''
+                    ORDER BY c.chapter_number, s.scene_number
+                """)
+                results = cursor.fetchall()
                 
-                for key in scene_keys:
-                    # Extract chapter and scene numbers from keys like "scene_1_2"
-                    parts = key.split("_")
-                    if len(parts) >= 3:
-                        try:
-                            ch_num = parts[1]
-                            sc_num = parts[2]
-                            
-                            # Get scene content
-                            sc_data = search_memory_tool.invoke({
-                                "query": f"scene_{ch_num}_{sc_num}"
-                            })
-                            
-                            # Extract the scene data from the results
-                            sc_data_result = None
-                            if sc_data and len(sc_data) > 0:
-                                for item in sc_data:
-                                    if hasattr(item, 'key') and item.key == key:
-                                        sc_data_result = {"key": item.key, "value": item.value}
-                                        break
-                            sc_data = sc_data_result
-                            
-                            if sc_data and "value" in sc_data:
-                                if ch_num not in scene_dict:
-                                    scene_dict[ch_num] = {}
-                                scene_dict[ch_num][sc_num] = sc_data["value"]
-                        except Exception:
-                            pass
-            
-            # Assemble the partial story
-            for ch_num in sorted(chapter_dict.keys(), key=lambda x: int(x) if x.isdigit() else float('inf')):
-                chapter = chapter_dict[ch_num]
-                
-                # Add chapter heading
-                if isinstance(chapter, dict) and "title" in chapter:
-                    story_parts.append(f"\n## Chapter {ch_num}: {chapter['title']}\n\n")
-                else:
-                    story_parts.append(f"\n## Chapter {ch_num}\n\n")
-                
-                # Add scenes for this chapter if available
-                if ch_num in scene_dict:
-                    for sc_num in sorted(scene_dict[ch_num].keys(), key=lambda x: int(x) if x.isdigit() else float('inf')):
-                        scene = scene_dict[ch_num][sc_num]
-                        
-                        # Add scene content without scene headlines
-                        if isinstance(scene, dict) and "content" in scene:
-                            story_parts.append(f"{scene['content']}\n\n")
+                if results:
+                    story_parts.append("\n## Recovered Content:\n\n")
+                    current_chapter = None
+                    for ch_num, ch_title, sc_num, content in results:
+                        if ch_num != current_chapter:
+                            story_parts.append(f"\n### Chapter {ch_num}: {ch_title or 'Untitled'}\n\n")
+                            current_chapter = ch_num
+                        story_parts.append(f"{content}\n\n")
     except Exception as e:
-        story_parts.append(f"\n*Error recovering chapter content: {str(e)}*\n\n")
+        story_parts.append(f"\n*Could not recover content from database: {str(e)}*\n")
     
-    # Assemble the partial story
-    partial_story = "".join(story_parts) if len(story_parts) > 1 else None
+    partial_story = "".join(story_parts)
     
-    # If return_state is requested, create a basic state structure
     if return_state:
-        # Create a minimal state with available information
+        # Return minimal state
         state = {
             "genre": genre,
             "tone": tone,
             "author": author,
             "language": language,
-            "initial_idea": initial_idea,
-            "chapters": {},
-            "characters": {},
-            "world_elements": {},
-            "plot_threads": {},
-            "revelations": {},
-            "creative_elements": {}
+            "initial_idea": initial_idea
         }
-        
-        # Try to populate the state with recovered data
-        try:
-            # Recover chapters and scenes
-            chapter_data = search_memory(query="chapter_")
-            
-            if chapter_data and "keys" in chapter_data:
-                for key in chapter_data["keys"]:
-                    if "_" in key:
-                        ch_num = key.split("_")[1]
-                        ch_data = search_memory_tool.invoke({
-                            "query": f"chapter_{ch_num}"
-                        })
-                        
-                        # Extract the chapter data
-                        ch_data_result = None
-                        if ch_data and len(ch_data) > 0:
-                            for item in ch_data:
-                                if hasattr(item, 'key') and item.key == key:
-                                    ch_data_result = {"key": item.key, "value": item.value}
-                                    break
-                        
-                        if ch_data_result and "value" in ch_data_result:
-                            state["chapters"][ch_num] = ch_data_result["value"]
-            
-            # Recover characters
-            character_data = search_memory(query="character_")
-            
-            if character_data and "keys" in character_data:
-                for key in character_data["keys"]:
-                    if key.startswith("character_") and not key.startswith("character_arc_"):
-                        char_name = key[10:]  # Remove "character_" prefix
-                        char_data = search_memory(query=key)
-                        
-                        # Extract the character data
-                        char_data_result = None
-                        if char_data and len(char_data) > 0:
-                            for item in char_data:
-                                if hasattr(item, 'key') and item.key == key:
-                                    char_data_result = {"key": item.key, "value": item.value}
-                                    break
-                        
-                        if char_data_result and "value" in char_data_result:
-                            state["characters"][char_name] = char_data_result["value"]
-            
-            # Recover world elements
-            world_data = search_memory(query="world_elements")
-            
-            if world_data:
-                # Extract the world elements data
-                world_data_result = None
-                if isinstance(world_data, list):
-                    for item in world_data:
-                        if hasattr(item, 'key') and item.key == "world_elements":
-                            world_data_result = {"key": item.key, "value": item.value}
-                            break
-                
-                if world_data_result and "value" in world_data_result:
-                    state["world_elements"] = world_data_result["value"]
-        
-        except Exception:
-            # If recovery fails, we'll just return the basic state
-            pass
-        
         return partial_story, state
     
-    # Otherwise just return the partial story
     return partial_story
 
 
@@ -501,32 +315,13 @@ def generate_story(
         # Let the LLM determine the appropriate genre based on the initial idea
         # instead of hardcoding specific genre rules
         
-        # Create a memory anchor for the initial idea to ensure it's followed
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "initial_idea_instruction",
-            "value": f"This story MUST follow the initial idea: '{initial_idea}'. The key elements MUST be preserved exactly as specified.",
-            "namespace": MEMORY_NAMESPACE
-        })
+        # The initial idea is already stored in the state and will be passed through the graph
     
     # Get the graph
     graph = build_story_graph()
     
-    # Get author style guidance if an author is specified
+    # Author style guidance will be generated in the graph if needed
     author_style_guidance = ""
-    if author:
-        # Try to retrieve from memory first
-        try:
-            author_guidance = search_memory_tool.invoke({
-                "query": f"writing style of {author}",
-                "namespace": MEMORY_NAMESPACE
-            })
-            
-            if author_guidance:
-                author_style_guidance = author_guidance
-        except:
-            # We'll generate it in the graph if needed
-            pass
     
     # Run the graph with proper progress tracking
     idea_text = f" based on this idea: '{initial_idea}'" if initial_idea else ""
@@ -543,113 +338,53 @@ def generate_story(
     # Add language mention to the message if not English
     language_mention = f" in {SUPPORTED_LANGUAGES[language.lower()]}" if language.lower() != DEFAULT_LANGUAGE else ""
     
-    # Create memory anchors for key elements to ensure persistence throughout generation
-    # These will be available to all nodes in the graph
+    # Save story configuration to database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    if db_manager:
+        # Parse initial idea to extract key elements if provided
+        idea_elements = {}
+        if initial_idea:
+            idea_elements = parse_initial_idea(initial_idea, language)
+            
+        # Save configuration to story_config table
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            # Insert or update story_config (single row with id=1)
+            cursor.execute("""
+                INSERT OR REPLACE INTO story_config 
+                (id, genre, tone, language, author, initial_idea, created_at, updated_at)
+                VALUES (1, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, (genre, tone, language, author, initial_idea))
+            
+            # If we have idea elements, store them as JSON in a new column or memory
+            if idea_elements:
+                import json
+                cursor.execute("""
+                    INSERT OR REPLACE INTO memories (key, value, namespace)
+                    VALUES ('initial_idea_elements', ?, 'storyteller')
+                """, (json.dumps(idea_elements),))
+            
+            conn.commit()
     
-    # Store genre requirements
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "genre_requirements",
-        "value": {
-            "genre": genre,
-            "tone": tone,
-            "key_elements": get_genre_key_elements(genre, language)
-        },
-        "namespace": MEMORY_NAMESPACE
-    })
-    
-    # Store language requirements if not English
-    if language.lower() != DEFAULT_LANGUAGE:
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "language_requirements",
-            "value": {
-                "language": language,
-                "language_name": SUPPORTED_LANGUAGES[language.lower()],
-                "requirement": f"This story must be written entirely in {SUPPORTED_LANGUAGES[language.lower()]} with culturally appropriate names, places, and references."
-            },
-            "namespace": MEMORY_NAMESPACE
-        })
-        
-        # Create a strong language consistency anchor
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "language_consistency_anchor",
-            "value": {
-                "language": language,
-                "importance": "critical",
-                "must_be_followed": True,
-                "instruction": f"""
-                CRITICAL LANGUAGE INSTRUCTION:
-                
-                This story MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-                ALL content - including outlines, character descriptions, scene elements, reflections, and revisions - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-                DO NOT switch to any other language at ANY point in the story generation process.
-                
-                This applies to ALL stages of story creation:
-                - Story outline and planning
-                - Character development
-                - Chapter planning
-                - Scene writing
-                - Scene reflection and revision
-                - Continuity reviews
-                
-                CRITICAL: Maintain {SUPPORTED_LANGUAGES[language.lower()]} throughout ALL parts of the story and ALL stages of the generation process without ANY exceptions.
-                """
-            },
-            "namespace": MEMORY_NAMESPACE
-        })
-    
-    # Store initial idea as a memory anchor
-    if initial_idea:
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "initial_idea_anchor",
-            "value": {
-                "idea": initial_idea,
-                "importance": "critical",
-                "must_be_followed": True
-            },
-            "namespace": MEMORY_NAMESPACE
-        })
-        
-        # Parse initial idea to extract key elements
-        idea_elements = parse_initial_idea(initial_idea, language)
-        
-        # Store each key element as a separate memory anchor
-        for key, value in idea_elements.items():
-            if value:
-                manage_memory_tool.invoke({
-                    "action": "create",
-                    "key": f"initial_idea_{key}_anchor",
-                    "value": value,
-                    "namespace": MEMORY_NAMESPACE
-                })
-    
-    # Initial state with all fields from StoryState schema
+    # Initial state with only workflow fields
     print(f"[DEBUG] generate_story: language parameter = '{language}'")
     print(f"[DEBUG] generate_story: DEFAULT_LANGUAGE = '{DEFAULT_LANGUAGE}'")
     initial_state = {
         "messages": [HumanMessage(content=f"Please write a {tone} {genre} story{' in the style of '+author if author else ''}{language_mention}{idea_text} for me.")],
-        "genre": genre,
-        "tone": tone,
-        "author": author,
-        "author_style_guidance": author_style_guidance,
-        "language": language,
-        "initial_idea": initial_idea,
-        "initial_idea_elements": idea_elements,  # Include parsed elements in initial state
-        "global_story": "",
         "chapters": {},
         "characters": {},
-        "plot_threads": {},  # Initialize plot threads
+        "world_elements": {},
+        "plot_threads": {},
         "revelations": {},
-        "creative_elements": {},
         "current_chapter": "",
         "current_scene": "",
         "current_scene_content": "",
         "scene_reflection": {},
+        "scene_elements": {},
+        "active_plot_threads": [],
         "completed": False,
-        "last_node": ""  # Include this for schema compatibility
+        "last_node": ""
     }
         
     # Configure higher recursion limit to handle longer stories
@@ -683,32 +418,7 @@ def generate_story(
     except Exception:
         pass
     
-    # Fall back to memory search if database not available
-    try:
-        complete_story = search_memory(query="complete final story with all chapters and scenes")
-        
-        if complete_story:
-            return complete_story
-    except Exception:
-        pass
-    
-    # If search fails, try direct key lookup
-    try:
-        complete_story_obj = search_memory(query="final_story")
-        
-        # Extract the complete story from the results
-        complete_story_result = None
-        if complete_story_obj and len(complete_story_obj) > 0:
-            for item in complete_story_obj:
-                if hasattr(item, 'key') and (item.key == "complete_story" or item.key == "final_story"):
-                    complete_story_result = {"key": item.key, "value": item.value}
-                    break
-        complete_story_obj = complete_story_result
-        
-        if complete_story_obj and "value" in complete_story_obj:
-            return complete_story_obj["value"]
-    except Exception:
-        pass
+    # No fallback needed - if database is not available, just return empty
         
     # If we can't find the compiled story, manually assemble from chapters
     story = []

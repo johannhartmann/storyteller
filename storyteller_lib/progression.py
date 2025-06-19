@@ -8,9 +8,9 @@ removing router-specific code that could cause infinite loops.
 from typing import Dict
 import json
 
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage
+from storyteller_lib.config import llm, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage
 from storyteller_lib.models import StoryState
-from storyteller_lib.memory_manager import manage_memory, search_memory
+# Memory manager imports removed - using state and database instead
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib import track_progress
 from storyteller_lib.constants import NodeNames
@@ -211,7 +211,24 @@ def update_world_elements(state: StoryState) -> Dict:
     # Get language from state
     language = state.get("language", "english")
     
-    # Render the world element updates prompt
+    # Get structured world updates directly
+    from storyteller_lib.config import get_llm_with_structured_output
+    from pydantic import BaseModel, Field
+    from typing import Dict, Any, Optional
+    
+    class WorldElementUpdate(BaseModel):
+        """A single world element update."""
+        category: str = Field(description="Category of the world element (e.g., GEOGRAPHY, CULTURE)")
+        element: str = Field(description="Specific element being updated")
+        old_value: Optional[str] = Field(None, description="Previous value if updating existing element")
+        new_value: str = Field(description="New or updated value")
+        reason: str = Field(description="Why this update is needed based on the scene")
+    
+    class WorldUpdatesResponse(BaseModel):
+        """World updates from a scene."""
+        updates: List[WorldElementUpdate] = Field(description="List of world element updates")
+        
+    # Create prompt for structured world updates
     prompt = render_prompt(
         'world_element_updates',
         language=language,
@@ -220,46 +237,23 @@ def update_world_elements(state: StoryState) -> Dict:
         current_scene=current_scene
     )
     
-    # Generate world updates
-    world_updates_text = llm.invoke([HumanMessage(content=prompt)]).content
+    structured_llm = get_llm_with_structured_output(WorldUpdatesResponse)
+    world_updates_response = structured_llm.invoke(prompt)
     
-    # Render the structured world updates prompt
-    world_update_prompt = render_prompt(
-        'world_updates_structured',
-        language=language,
-        world_updates_text=world_updates_text,
-        world_elements=world_elements
-    )
-    
-    # Get structured world updates
-    world_updates_structured = llm.invoke([HumanMessage(content=world_update_prompt)]).content
-    
-    # Process updates for world elements
+    # Convert to the expected dictionary format
     world_updates = {}
+    if world_updates_response and world_updates_response.updates:
+        for update in world_updates_response.updates:
+            if update.category not in world_updates:
+                world_updates[update.category] = {}
+            world_updates[update.category][update.element] = update.new_value
     
-    # Try to parse the structured updates from the LLM
+    # World updates are stored in the database world_elements table
+    
+    # World state is tracked through the database world_elements table
+    # No need for separate memory-based world state tracker
     try:
-        from storyteller_lib.creative_tools import parse_json_with_langchain
-        structured_updates = parse_json_with_langchain(world_updates_structured, "world updates")
-        
-        if structured_updates and isinstance(structured_updates, dict):
-            # Apply the structured updates
-            world_updates = structured_updates
-    except Exception as e:
-        print(f"Error parsing world updates: {str(e)}")
-    
-    # Store the world updates in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": f"world_updates_ch{current_chapter}_sc{current_scene}",
-        "value": world_updates,
-        "namespace": MEMORY_NAMESPACE
-    })
-    
-    # Update the world state tracker in memory
-    try:
-        # Use search_memory_tool to retrieve the world state tracker
-        results = search_memory(query="world_state_tracker")
+        results = []
         
         # Extract the world state tracker from the results
         world_state_tracker = None
@@ -301,8 +295,7 @@ def update_world_elements(state: StoryState) -> Dict:
             }
             
             # Store the updated tracker
-            manage_memory(action="create", key="world_state_tracker", value=updated_tracker,
-                namespace=MEMORY_NAMESPACE)
+            # World state is tracked through database world_elements table
     except Exception as e:
         print(f"Error updating world state tracker: {str(e)}")
     
@@ -354,7 +347,7 @@ def update_character_profiles(state: StoryState) -> Dict:
     # Import optimization utilities
     from storyteller_lib.logger import get_logger
     from storyteller_lib.prompt_optimization import (
-        truncate_scene_content, summarize_character, log_prompt_size
+        summarize_character, log_prompt_size
     )
     logger = get_logger(__name__)
     
@@ -363,8 +356,8 @@ def update_character_profiles(state: StoryState) -> Dict:
         analyze_scene_entities, filter_characters_for_scene
     )
     
-    # Truncate scene content smartly
-    truncated_scene = truncate_scene_content(scene_content, keep_start=300, keep_end=200)
+    # Use full scene content for character analysis - NO TRUNCATION
+    # Character development can happen anywhere in the scene
     
     # Use LLM to identify relevant characters
     chapter_outline = ""  # We don't have chapter outline here, use scene content
@@ -388,11 +381,26 @@ def update_character_profiles(state: StoryState) -> Dict:
     
     logger.info(f"Characters found in scene: {[name for _, name in scene_characters]}")
     
-    # Render the character updates prompt
+    # Get structured character updates directly
+    from pydantic import BaseModel, Field
+    from typing import List, Optional
+    
+    class CharacterUpdate(BaseModel):
+        """Updates for a single character."""
+        character_name: str = Field(description="Name of the character")
+        new_facts: List[str] = Field(default_factory=list, description="New facts learned about the character (max 2)")
+        emotional_change: Optional[str] = Field(None, description="Change in emotional state")
+        relationship_changes: Dict[str, str] = Field(default_factory=dict, description="Changes in relationships with other characters")
+    
+    class CharacterUpdatesResponse(BaseModel):
+        """All character updates from a scene."""
+        updates: List[CharacterUpdate] = Field(description="List of character updates")
+    
+    # Create prompt for structured character updates
     prompt = render_prompt(
         'character_updates',
         language=language,
-        scene_content=truncated_scene,
+        scene_content=scene_content,  # Use full scene content, not truncated
         current_chapter=current_chapter,
         current_scene=current_scene,
         characters=[name for _, name in scene_characters]
@@ -401,109 +409,76 @@ def update_character_profiles(state: StoryState) -> Dict:
     # Log prompt size
     log_prompt_size(prompt, "character update analysis")
     
-    # Generate character updates
-    character_updates_text = llm.invoke([HumanMessage(content=prompt)]).content
-    
-    # For each character, check if there are updates and apply them
-    updated_characters = state["characters"].copy()
-    
-    # Create optimized character summaries using utility function
-    character_summaries = {}
-    for char_id, char_name in scene_characters[:3]:  # Limit to 3 characters max
-        char_data = relevant_characters.get(char_id, {})
-        char_summary = summarize_character(char_data, max_words=50)
-        character_summaries[char_name] = char_summary
-    
-    # Render the structured character updates prompt
-    character_update_prompt = render_prompt(
-        'character_updates_structured',
-        language=language,
-        character_updates_text=character_updates_text[:400],  # Further limit the updates text
-        character_summaries=json.dumps(character_summaries, indent=2)
-    )
-    
-    # Log prompt size
-    log_prompt_size(character_update_prompt, "character updates structured")
-    
-    # Get structured character updates
-    character_updates_structured = llm.invoke([HumanMessage(content=character_update_prompt)]).content
+    structured_llm = get_llm_with_structured_output(CharacterUpdatesResponse)
+    character_updates_response = structured_llm.invoke(prompt)
     
     # Import the character arc tracking module
     from storyteller_lib.character_arcs import update_character_arc, evaluate_arc_consistency
     
-    # Process updates for each character
+    # For each character, check if there are updates and apply them
+    updated_characters = state["characters"].copy()
     character_updates = {}
     
-    # First, try to parse the structured updates from the LLM
-    try:
-        from storyteller_lib.creative_tools import parse_json_with_langchain
-        structured_updates = parse_json_with_langchain(character_updates_structured, "character updates")
-        
-        if structured_updates and isinstance(structured_updates, dict):
-            # Process the simpler update structure
-            for char_name, updates in structured_updates.items():
-                # Skip if updates is None
-                if updates is None:
-                    continue
+    # Process the structured updates
+    if character_updates_response and character_updates_response.updates:
+        for update in character_updates_response.updates:
+            # Find the character in our character dictionary
+            char_id = None
+            for cid, cdata in characters.items():
+                if cdata.get('name', '') == update.character_name:
+                    char_id = cid
+                    break
+            
+            if char_id and char_id in updated_characters:
+                # Apply the updates to the character
+                char_data = updated_characters[char_id]
                 
-                # Find the character in our character dictionary
-                char_id = None
-                for cid, cdata in characters.items():
-                    if cdata.get('name', '') == char_name:
-                        char_id = cid
-                        break
+                # Add new knowledge using the character knowledge manager
+                if update.new_facts:
+                    from storyteller_lib.character_knowledge_manager import CharacterKnowledgeManager
+                    from storyteller_lib.database_integration import get_db_manager
+                    knowledge_manager = CharacterKnowledgeManager()
+                    db_manager = get_db_manager()
+                    scene_id = db_manager.get_scene_id(int(current_chapter), int(current_scene))
+                    
+                    # Get character ID from database
+                    character_id = None
+                    if db_manager and db_manager._db:
+                        with db_manager._db._get_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("SELECT id FROM characters WHERE identifier = ?", (update.character_name,))
+                            result = cursor.fetchone()
+                            if result:
+                                character_id = result['id']
+                    
+                    # Add knowledge to the character
+                    if character_id and scene_id:
+                        for fact in update.new_facts[:2]:  # Max 2 facts
+                            knowledge_manager.add_knowledge(character_id, fact, scene_id)
                 
-                if char_id and char_id in updated_characters:
-                    # Apply the updates to the character
-                    char_data = updated_characters[char_id]
-                    
-                    # Add new knowledge using the character knowledge manager
-                    if 'new_facts' in updates and updates['new_facts']:
-                        from storyteller_lib.character_knowledge_manager import CharacterKnowledgeManager
-                        knowledge_manager = CharacterKnowledgeManager()
-                        scene_id = get_db_manager().get_scene_id(int(current_chapter), int(current_scene))
-                        
-                        # Get character ID from database
-                        db_manager = get_db_manager()
-                        character_id = None
-                        if db_manager and db_manager._db:
-                            with db_manager._db._get_connection() as conn:
-                                cursor = conn.cursor()
-                                cursor.execute("SELECT id FROM characters WHERE identifier = ?", (char_name,))
-                                result = cursor.fetchone()
-                                if result:
-                                    character_id = result['id']
-                        
-                        # Add knowledge to the character
-                        if character_id and scene_id:
-                            for fact in updates['new_facts'][:2]:  # Max 2 facts
-                                knowledge_manager.add_knowledge(character_id, fact, scene_id)
-                    
-                    # Update emotional state
-                    if 'emotional_change' in updates and updates['emotional_change']:
-                        if 'emotional_state' not in char_data:
-                            char_data['emotional_state'] = {}
-                        char_data['emotional_state']['current'] = updates['emotional_change']
-                    
-                    # Update relationships
-                    if 'relationship_changes' in updates and updates['relationship_changes']:
-                        if 'relationships' not in char_data:
-                            char_data['relationships'] = {}
-                        for other_char, rel_change in updates['relationship_changes'].items():
-                            if other_char in char_data['relationships']:
-                                # Update existing relationship
-                                if isinstance(char_data['relationships'][other_char], dict):
-                                    char_data['relationships'][other_char]['dynamics'] = rel_change
-                            else:
-                                # Create new relationship
-                                char_data['relationships'][other_char] = {
-                                    'type': 'evolved',
-                                    'dynamics': rel_change
-                                }
-                    
-                    character_updates[char_id] = char_data
-    except Exception as e:
-        logger.error(f"Error parsing character updates: {str(e)}")
+                # Update emotional state
+                if update.emotional_change:
+                    if 'emotional_state' not in char_data:
+                        char_data['emotional_state'] = {}
+                    char_data['emotional_state']['current'] = update.emotional_change
+                
+                # Update relationships
+                if update.relationship_changes:
+                    if 'relationships' not in char_data:
+                        char_data['relationships'] = {}
+                    for other_char, rel_change in update.relationship_changes.items():
+                        if other_char in char_data['relationships']:
+                            # Update existing relationship
+                            if isinstance(char_data['relationships'][other_char], dict):
+                                char_data['relationships'][other_char]['dynamics'] = rel_change
+                        else:
+                            # Create new relationship
+                            char_data['relationships'][other_char] = {
+                                'type': 'evolved',
+                                'dynamics': rel_change
+                            }
+                
+                character_updates[char_id] = char_data
     
     # Then, use the character arc tracking module for each character that appears in the scene
     for char_name, char_data in characters.items():
@@ -528,12 +503,7 @@ def update_character_profiles(state: StoryState) -> Dict:
             except Exception as e:
                 print(f"Error updating character arc for {char_name}: {str(e)}")
             
-            # Store the character's updated profile in memory
-            manage_memory_tool.invoke({
-                "action": "create",
-                "key": f"character_{char_name}_updated_ch{current_chapter}_sc{current_scene}",
-                "value": f"Character updated for Ch {current_chapter}, Scene {current_scene}"
-            })
+            # Character updates are stored in the database characters table
     
     # Update state - return the full updated characters dictionary if there were changes
     if character_updates:
@@ -697,8 +667,7 @@ def review_continuity(state: StoryState) -> Dict:
     review_result = llm.invoke([HumanMessage(content=prompt)]).content
     
     # Store the review in memory
-    manage_memory(action="create", key=review_key, value=review_result,
-        namespace=MEMORY_NAMESPACE)
+    # Review results are temporary and included in state
     
     # Check if there are issues that need resolution
     needs_resolution = "needs resolution" in review_result.lower() or "critical issue" in review_result.lower()
@@ -737,13 +706,7 @@ def review_continuity(state: StoryState) -> Dict:
     else:
         # No issues that need resolution
         
-        # Mark the chapter as complete in memory
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": f"chapter_{current_chapter}_complete",
-            "value": True,
-            "namespace": MEMORY_NAMESPACE
-        })
+        # Chapter completion is tracked through state
         
         # Log that the chapter is complete
         print(f"{chr(10)}==== CHAPTER {current_chapter} COMPLETED ====")
@@ -864,13 +827,7 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
     # Generate the resolution plan
     resolution_plan = llm.invoke([HumanMessage(content=prompt)]).content
     
-    # Store the resolution plan in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": f"resolution_plan_{review_key}_{resolution_index}",
-        "value": resolution_plan,
-        "namespace": MEMORY_NAMESPACE
-    })
+    # Resolution plan is temporary and included in the state
     
     # Increment the resolution index for the next issue
     next_resolution_index = resolution_index + 1
@@ -1114,8 +1071,7 @@ def compile_final_story(state: StoryState) -> Dict:
     final_story = chr(10).join(story_content)
     
     # Store the final story in memory
-    manage_memory(action="create", key="final_story", value=final_story,
-        namespace=MEMORY_NAMESPACE)
+    # Final story is stored in database and written to output file
     
     # Import optimization utility
     from storyteller_lib.prompt_optimization import log_prompt_size
@@ -1145,8 +1101,7 @@ def compile_final_story(state: StoryState) -> Dict:
     story_summary = llm.invoke([HumanMessage(content=summary_prompt)]).content
     
     # Store the summary in memory
-    manage_memory(action="create", key="story_summary", value=story_summary,
-        namespace=MEMORY_NAMESPACE)
+    # Story summary is included in the final output
     
     # Story completion statistics are calculated for the return value
     total_chapters = len(chapters)

@@ -32,7 +32,6 @@ from storyteller_lib.progression import (
     update_world_elements
 )
 from storyteller_lib.scenes import (
-    brainstorm_scene_elements,
     reflect_on_scene,
     revise_scene_if_needed,
     write_scene
@@ -172,7 +171,7 @@ def decide_after_advancing(state: StoryState) -> str:
     if is_story_completed(state):
         return "compile_final_story"
     else:
-        return "brainstorm_scene_elements"
+        return "write_scene"
 
 # Build the graph with native LangGraph edges
 def build_story_graph() -> StateGraph:
@@ -196,7 +195,7 @@ def build_story_graph() -> StateGraph:
     graph_builder.add_node("generate_worldbuilding", generate_worldbuilding)
     graph_builder.add_node("generate_characters", generate_characters)
     graph_builder.add_node("plan_chapters", plan_chapters)
-    graph_builder.add_node("brainstorm_scene_elements", brainstorm_scene_elements)
+    # Brainstorming is now integrated into write_scene
     graph_builder.add_node("write_scene", write_scene)
     graph_builder.add_node("reflect_on_scene", reflect_on_scene)
     graph_builder.add_node("revise_scene_if_needed", revise_scene_if_needed)
@@ -226,11 +225,8 @@ def build_story_graph() -> StateGraph:
     # Always go from characters to chapter planning
     graph_builder.add_edge("generate_characters", "plan_chapters")
     
-    # From plan_chapters to the scene iteration phase
-    graph_builder.add_edge("plan_chapters", "brainstorm_scene_elements")
-    # Scene iteration phase
-    # Simplified: Always go from brainstorming to writing
-    graph_builder.add_edge("brainstorm_scene_elements", "write_scene")
+    # From plan_chapters directly to scene writing
+    graph_builder.add_edge("plan_chapters", "write_scene")
     
     # Add edge from writing directly to reflection
     graph_builder.add_edge("write_scene", "reflect_on_scene")
@@ -279,7 +275,7 @@ def build_story_graph() -> StateGraph:
         "advance_to_next_scene_or_chapter",
         decide_after_advancing,
         {
-            "brainstorm_scene_elements": "brainstorm_scene_elements",
+            "write_scene": "write_scene",
             "compile_final_story": "compile_final_story"
         }
     )

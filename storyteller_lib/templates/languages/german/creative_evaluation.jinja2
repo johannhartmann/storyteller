@@ -11,6 +11,38 @@ Die Geschichte sollte fesselnd, überraschend und emotional berührend für die 
 {{ idea_context }}
 {% endif %}
 
+{% if scene_specifications %}
+## Szenenanforderungen
+- Kapitel {{ scene_specifications.chapter_number }}, Szene {{ scene_specifications.scene_number }}
+- Szenentyp: {{ scene_specifications.scene_type }}
+- Dramatischer Zweck: {{ scene_specifications.dramatic_purpose }}
+- Spannungslevel: {{ scene_specifications.tension_level }}/10
+
+Szenenbeschreibung: {{ scene_specifications.scene_description }}
+
+### Muss enthalten:
+{% if scene_specifications.plot_progressions %}
+Handlungsfortschritte:
+{% for progression in scene_specifications.plot_progressions %}
+- {{ progression }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.required_characters %}
+Erforderliche Charaktere:
+{% for character in scene_specifications.required_characters %}
+- {{ character }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.character_learns %}
+Charakterentwicklungen:
+{% for learning in scene_specifications.character_learns %}
+- {{ learning }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
 ## Einschränkungen
 {% if setting_constraint or character_constraints or plot_constraints %}
 KRITISCHE EINSCHRÄNKUNGEN (MÜSSEN BEFOLGT WERDEN):
@@ -64,6 +96,12 @@ LEHNE jede Idee AB, die:
 2. Gegen die Einschränkungen verstößt
 3. Nicht zum {{ genre }}-Genre passt
 4. Von der Haupthandlung ablenkt statt sie zu verbessern
+{% if scene_specifications %}
+5. Die erforderlichen Handlungsfortschritte nicht erreicht
+6. Nicht alle erforderlichen Charaktere natürlich einbezieht
+7. Den spezifizierten dramatischen Zweck oder das Spannungslevel ignoriert
+8. Verbotene Elemente aus vorherigen Szenen wiederholt
+{% endif %}
 
 {% if strict_adherence %}
 Ideen sollten auf dem ursprünglichen Konzept aufbauen und dabei seine Kernelemente bewahren. Erhebliche Abweichungen von der etablierten Umgebung, den Charakteren oder dem zentralen Konflikt sollten vermieden werden.
@@ -75,10 +113,16 @@ Für jede Idee:
 2. Berechne eine Gesamtpunktzahl
 3. Schreibe eine kurze Begründung mit Fokus darauf, wie die Idee die Handlung verbessert
 4. Gib an, ob die Idee eingebaut werden sollte (JA/VIELLEICHT/NEIN)
+{% if scene_specifications %}
+5. Überprüfe, dass die Idee alle Szenenanforderungen erfüllt
+{% endif %}
 
 Ordne dann die Ideen von der besten zur schlechtesten Eignung für die Geschichte.
-Empfehle schließlich die 1-2 besten Ideen zur Einarbeitung, mit kurzer Begründung, die erklärt, wie sie die Handlung verbessern, ohne davon abzulenken.
+Empfehle schließlich die 1-2 besten Ideen zur Einarbeitung, mit kurzer Begründung, die erklärt, wie sie die Handlung verbessern, ohne davon abzulenken{% if scene_specifications %} und wie sie alle Szenenanforderungen erfüllen{% endif %}.
 
 {% if strict_adherence %}
 ABSCHLUSSPRÜFUNG: Stelle sicher, dass deine empfohlenen Ideen die Konsistenz mit dem ursprünglichen Konzept wahren und gleichzeitig die Handlung verbessern.
+{% endif %}
+{% if scene_specifications %}
+SZENENANFORDERUNGSPRÜFUNG: Bestätige, dass deine empfohlenen Ideen alle erforderlichen Handlungsfortschritte erreichen, alle erforderlichen Charaktere einbeziehen und den spezifizierten dramatischen Zweck erfüllen.
 {% endif %}

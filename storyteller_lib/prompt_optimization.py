@@ -101,52 +101,33 @@ def summarize_world_elements(world_elements: Dict[str, Any],
 
 def truncate_scene_content(scene_content: str, 
                          keep_start: int = 300, 
-                         keep_end: int = 200) -> str:
-    """Smart truncation of scene content preserving key elements.
+                         keep_end: int = 200,
+                         preserve_dialogue: bool = True,
+                         preserve_character_moments: bool = True) -> str:
+    """Return full scene content - truncation removed for character development.
+    
+    IMPORTANT: This function now returns the full scene content without truncation.
+    Character development, consistency checking, and story analysis require the 
+    complete scene text. Truncation was removing critical middle sections where
+    most character development occurs.
     
     Args:
         scene_content: Full scene text
-        keep_start: Number of words to keep from start
-        keep_end: Number of words to keep from end
+        keep_start: DEPRECATED - ignored
+        keep_end: DEPRECATED - ignored
+        preserve_dialogue: DEPRECATED - ignored
+        preserve_character_moments: DEPRECATED - ignored
         
     Returns:
-        Truncated scene with key dialogue and action preserved
+        Full scene content without any truncation
     """
     if not scene_content:
         return ""
     
-    words = scene_content.split()
-    total_words = len(words)
-    
-    # If already short enough, return as is
-    if total_words <= (keep_start + keep_end):
-        return scene_content
-    
-    # Extract key dialogue snippets from middle
-    middle_start = keep_start
-    middle_end = total_words - keep_end
-    middle_text = ' '.join(words[middle_start:middle_end])
-    
-    # Find dialogue in the middle section
-    dialogue_pattern = r'"[^"]{20,100}"'  # Dialogue between 20-100 chars
-    dialogues = re.findall(dialogue_pattern, middle_text)
-    
-    # Take up to 2 key dialogue snippets
-    key_dialogue = ""
-    if dialogues:
-        key_dialogue = "\n[...]\n" + "\n".join(dialogues[:2]) + "\n[...]\n"
-    
-    # Construct truncated version
-    start_text = ' '.join(words[:keep_start])
-    end_text = ' '.join(words[-keep_end:])
-    
-    if key_dialogue:
-        truncated = f"{start_text}\n\n[... middle section with key dialogue ...]{key_dialogue}{end_text}"
-    else:
-        truncated = f"{start_text}\n\n[... middle section omitted for brevity ...]\n\n{end_text}"
-    
-    logger.info(f"Truncated scene from {total_words} to ~{keep_start + keep_end} words")
-    return truncated
+    # Always return full content - truncation makes no sense for story analysis
+    total_words = len(scene_content.split())
+    logger.info(f"Returning full scene content ({total_words} words) - truncation disabled")
+    return scene_content
 
 
 def get_relevant_characters(all_characters: Dict[str, Any], 

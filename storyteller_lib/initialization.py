@@ -4,9 +4,9 @@ StoryCraft Agent - Initialization nodes.
 
 from typing import Dict
 
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
-from storyteller_lib.memory_manager import manage_memory, search_memory
+# Memory manager imports removed - using state and database instead
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.messages.modifier import RemoveMessage
 from storyteller_lib import track_progress
@@ -16,62 +16,72 @@ def initialize_state(state: StoryState) -> Dict:
     """Initialize the story state with user input."""
     messages = state["messages"]
     
-    # Use the genre, tone, author, language, and initial idea values already passed in the state
-    # If not provided, use defaults
-    genre = state.get("genre") or "fantasy"
-    tone = state.get("tone") or "epic"
-    author = state.get("author") or ""
-    initial_idea = state.get("initial_idea") or ""
-    author_style_guidance = state.get("author_style_guidance", "")
-    language = state.get("language") or DEFAULT_LANGUAGE
+    # Load configuration from database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
     
-    print(f"[DEBUG] initialize_state: language from state = '{state.get('language')}', using language = '{language}'")
+    # Default values
+    genre = "fantasy"
+    tone = "epic"
+    author = ""
+    initial_idea = ""
+    author_style_guidance = ""
+    language = DEFAULT_LANGUAGE
+    
+    if db_manager:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT genre, tone, language, author, initial_idea 
+                FROM story_config WHERE id = 1
+            """)
+            result = cursor.fetchone()
+            if result:
+                genre = result['genre'] or genre
+                tone = result['tone'] or tone
+                language = result['language'] or language
+                author = result['author'] or ""
+                initial_idea = result['initial_idea'] or ""
+    
+    print(f"[DEBUG] initialize_state: language from DB = '{language}'")
     print(f"[DEBUG] initialize_state: DEFAULT_LANGUAGE = '{DEFAULT_LANGUAGE}'")
     
     # Validate language and default to English if not supported
     if language.lower() not in SUPPORTED_LANGUAGES:
         language = DEFAULT_LANGUAGE
     
-    # Get initial idea elements from state or extract them if needed
-    idea_elements = state.get("initial_idea_elements", {})
-    
-    # If we have an initial idea but no elements, parse it
-    if initial_idea and not idea_elements:
-        # Import the parsing function from storyteller.py
-        from storyteller_lib.storyteller import parse_initial_idea
-        idea_elements = parse_initial_idea(initial_idea, state.get("language", DEFAULT_LANGUAGE))
-    
-    # Ensure the idea elements are stored in memory for consistency checks
-    if initial_idea:
-        # Store the structured idea elements in memory for reference
-        manage_memory(action="create", key="initial_idea_elements", value=idea_elements,
-            namespace=MEMORY_NAMESPACE)
+    # Get initial idea elements from database or extract them if needed
+    idea_elements = {}
+    if db_manager and initial_idea:
+        with db_manager._db._get_connection() as conn2:
+            cursor2 = conn2.cursor()
+            # Check if we have stored idea elements
+            cursor2.execute("""
+                SELECT value FROM memories 
+                WHERE key = 'initial_idea_elements' AND namespace = 'storyteller'
+            """)
+            result = cursor2.fetchone()
+            if result:
+                import json
+                try:
+                    idea_elements = json.loads(result['value'])
+                except:
+                    pass
         
-        # Also store the raw initial idea for reference
-        manage_memory(action="create", key="initial_idea_raw", value=initial_idea,
-            namespace=MEMORY_NAMESPACE)
-        
-        # Create a strong memory anchor for the initial idea to ensure it's preserved
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "initial_idea_anchor",
-            "value": {
-                "idea": initial_idea,
-                "importance": "critical",
-                "must_be_followed": True,
-                "elements": idea_elements  # Include elements in the anchor
-            },
-            "namespace": MEMORY_NAMESPACE
-        })
+        # If we don't have elements yet, parse them
+        if not idea_elements:
+            from storyteller_lib.storyteller import parse_initial_idea
+            idea_elements = parse_initial_idea(initial_idea, language)
+    
+    # Initial idea is already stored in story_config table by database_integration
+    # No need to duplicate in memory
     
     # If author guidance wasn't provided in the initial state, but we have an author, get it now
     if author and not author_style_guidance:
         # See if we have cached guidance
         try:
-            # Use search_memory_tool to retrieve the author style
-            results = search_memory_tool.invoke({
-                "query": f"author_style_{author.lower().replace(' ', '_')}"
-            })
+            # Author style caching removed - will generate fresh each time
+            results = []
             
             # Extract the author style from the results
             author_style_object = None
@@ -114,24 +124,28 @@ def initialize_state(state: StoryState) -> Dict:
             target_language=SUPPORTED_LANGUAGES[language.lower()]
         )
         
-        try:
-            # Generate language-specific elements
-            language_elements_response = llm.invoke([HumanMessage(content=language_elements_prompt)]).content
+        # Get structured language elements directly
+        from storyteller_lib.config import get_llm_with_structured_output
+        from pydantic import BaseModel, Field
+        from typing import Dict, List
+        
+        class LanguageElements(BaseModel):
+            """Language-specific cultural elements."""
+            common_names: List[str] = Field(description="Common character names for this culture")
+            places: List[str] = Field(description="Typical place names")
+            cultural_items: List[str] = Field(description="Cultural items and concepts")
+            expressions: List[str] = Field(description="Common expressions and idioms")
             
-            # Parse the response into structured data
-            from storyteller_lib.creative_tools import parse_json_with_langchain
-            language_elements = parse_json_with_langchain(language_elements_response, "language elements", language)
-            
-            # Store language elements in memory for reference throughout story generation
-            manage_memory_tool.invoke({
-                "action": "create",
-                "key": f"language_elements_{language.lower()}",
-                "value": language_elements,
-                "namespace": MEMORY_NAMESPACE
-            })
-            
-            # Create a specific instruction to ensure language consistency
-            language_consistency_instruction = f"""
+        structured_llm = get_llm_with_structured_output(LanguageElements)
+        language_elements_response = structured_llm.invoke(language_elements_prompt)
+        
+        # Convert to dictionary format
+        language_elements = language_elements_response.dict() if language_elements_response else {}
+        
+        # Language elements will be passed through state instead of memory storage
+        
+        # Create a specific instruction to ensure language consistency
+        language_consistency_instruction = f"""
             CRITICAL LANGUAGE CONSISTENCY INSTRUCTION:
             
             This story MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
@@ -151,36 +165,22 @@ def initialize_state(state: StoryState) -> Dict:
             REMINDER: Even if you are analyzing, planning, or reflecting on the story, you MUST do so in {SUPPORTED_LANGUAGES[language.lower()]}.
             """
             
-            manage_memory(action="create", key="language_consistency_instruction", value=language_consistency_instruction,
-                namespace=MEMORY_NAMESPACE)
-        except Exception as e:
-            print(f"Error generating language elements: {str(e)}")
-            # If there's an error, we'll proceed without the language elements
+            # Language consistency instruction is temporary - no need to store
     
-    # Initialize the state
+    # Return only the workflow state updates
+    # Configuration is already stored in database by storyteller.py
     result_state = {
-        "genre": genre,
-        "tone": tone,
-        "author": author,
-        "initial_idea": initial_idea,
-        "initial_idea_elements": idea_elements,  # Add structured idea elements
-        "author_style_guidance": author_style_guidance,
-        "language": language,
-        "global_story": "",
-        "chapters": {},
-        "characters": {},
-        "plot_threads": {},  # Initialize plot threads
-        "revelations": {"reader": [], "characters": []},
-        "current_chapter": "",
-        "current_scene": "",
-        "current_scene_content": "",
-        "scene_reflection": {},
-        "completed": False,
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],
             AIMessage(content=response_message)
         ]
     }
+    
+    # Add temporary fields if we have them
+    if idea_elements:
+        result_state["initial_idea_elements"] = idea_elements
+    if author_style_guidance:
+        result_state["author_style_guidance"] = author_style_guidance
     
     return result_state
 
@@ -190,57 +190,42 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     from storyteller_lib.creative_tools import creative_brainstorm
     from storyteller_lib.story_progress_logger import log_progress
     
-    # Try to recover from memory if initial_idea is not in state
-    if "initial_idea" not in state:
-        try:
-            initial_idea_obj = memory_store.get("initial_idea_raw", MEMORY_NAMESPACE)
-        except Exception:
-            pass
+    # Load configuration from database
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
     
-    genre = state["genre"]
-    tone = state["tone"]
-    author = state["author"]
-    # Get initial_idea from state, with memory as fallback
-    initial_idea = state.get("initial_idea", "")
-    if not initial_idea:
-        try:
-            # Use search_memory_tool to retrieve the initial idea
-            results = search_memory(query="initial_idea_raw")
-            
-            # Extract the initial idea from the results
-            initial_idea_obj = None
-            if results and len(results) > 0:
-                for item in results:
-                    if hasattr(item, 'key') and item.key == "initial_idea_raw":
-                        initial_idea_obj = {"key": item.key, "value": item.value}
-                        break
-            if initial_idea_obj and "value" in initial_idea_obj:
-                initial_idea = initial_idea_obj["value"]
-        except Exception:
-            pass
+    # Default values
+    genre = "fantasy"
+    tone = "epic"
+    author = ""
+    initial_idea = ""
+    language = DEFAULT_LANGUAGE
     
-    # Get initial_idea_elements from state, with memory as fallback
+    if db_manager:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT genre, tone, language, author, initial_idea 
+                FROM story_config WHERE id = 1
+            """)
+            result = cursor.fetchone()
+            if result:
+                genre = result['genre'] or genre
+                tone = result['tone'] or tone
+                language = result['language'] or language
+                author = result['author'] or ""
+                initial_idea = result['initial_idea'] or ""
+    
+    # Get initial_idea_elements from state (was set by initialize_state)
     initial_idea_elements = state.get("initial_idea_elements", {})
     
-    # If we have an initial idea but no elements, try to get them from memory
-    if not initial_idea_elements and initial_idea:
-        try:
-            elements_obj = search_memory(query="initial_idea_elements", namespace=MEMORY_NAMESPACE)
-            if elements_obj and "value" in elements_obj:
-                if "extracted_elements" in elements_obj["value"]:
-                    initial_idea_elements = elements_obj["value"]["extracted_elements"]
-                else:
-                    initial_idea_elements = elements_obj["value"]
-        except Exception:
-            pass
-            
     # If we still don't have elements but have an initial idea, parse it now
     if not initial_idea_elements and initial_idea:
         from storyteller_lib.storyteller import parse_initial_idea
         initial_idea_elements = parse_initial_idea(initial_idea, language)
     
-    author_style_guidance = state["author_style_guidance"]
-    language = state.get("language", DEFAULT_LANGUAGE)
+    # Get author_style_guidance from state (was set by initialize_state)
+    author_style_guidance = state.get("author_style_guidance", "")
     
     # Generate enhanced context based on genre, tone, language, and initial idea
     
@@ -257,23 +242,64 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
         # Just pass the initial idea - let templates handle formatting
         idea_context = initial_idea
         
-        # Store the elements in memory again to ensure consistency
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "brainstorm_context_elements",
-            "value": {
-                "initial_idea": initial_idea,
-                "setting": setting,
-                "characters": characters,
-                "plot": plot,
-                "themes": themes,
-                "genre_elements": genre_elements
-            },
-            "namespace": MEMORY_NAMESPACE
-        })
+        # Brainstorm context elements are already in state and passed to next nodes
     else:
-        print(f"[STORYTELLER] WARNING: No idea_context created - story will be generated without specific initial idea guidance")
-        print(f"[STORYTELLER] Story will only use genre '{genre}' and tone '{tone}' as guidance, which may result in generic output")
+        # When no initial idea is provided, we need to generate and select one
+        print(f"[STORYTELLER] No initial idea provided - generating unique story concepts for {tone} {genre}...")
+        
+        # First, brainstorm several potential story ideas
+        from storyteller_lib.creative_tools import creative_brainstorm as generate_ideas
+        
+        # Create genre-specific context to guide idea generation
+        genre_context = f"We need unique and compelling story ideas for a {tone} {genre} story. The ideas should avoid clichés and bring fresh perspectives to the {genre} genre."
+        
+        if author:
+            genre_context += f" The story will be written in the style of {author}."
+        
+        # Generate multiple story concept ideas
+        initial_concepts = generate_ideas(
+            topic="Unique Story Premises",
+            genre=genre,
+            tone=tone,
+            context=genre_context,
+            author=author,
+            author_style_guidance=author_style_guidance,
+            language=language,
+            num_ideas=5,
+            evaluation_criteria=[
+                "Originality and uniqueness within the genre",
+                "Potential for rich character development",
+                "Opportunities for compelling conflict",
+                "Avoidance of overused tropes",
+                "Strong narrative hook"
+            ]
+        )
+        
+        # Extract the recommended idea and use it as our initial concept
+        if initial_concepts and "recommended_ideas" in initial_concepts:
+            selected_concept = initial_concepts["recommended_ideas"]
+            print(f"[STORYTELLER] Selected story concept: {selected_concept[:200]}...")
+            
+            # Parse the selected concept to extract elements
+            from storyteller_lib.storyteller import parse_initial_idea
+            initial_idea = selected_concept
+            initial_idea_elements = parse_initial_idea(initial_idea, language)
+            
+            # Update the context with the selected idea
+            idea_context = initial_idea
+            
+            # Store the selected concept in database
+            if db_manager:
+                with db_manager._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE story_config SET initial_idea = ? WHERE id = 1
+                    """, (initial_idea,))
+                    conn.commit()
+        else:
+            # Fallback if idea generation fails
+            print(f"[STORYTELLER] WARNING: Could not generate initial concepts - proceeding with generic {genre} story")
+            idea_context = ""
     
     # Just pass the idea context directly, let the template handle the formatting
     context = idea_context if idea_context else ""
@@ -281,6 +307,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     # Create constraints dictionary from initial idea elements
     constraints = {}
     
+    # Now we always have initial_idea_elements, either from user input or generated
     if initial_idea_elements:
         constraints = {
             "setting": initial_idea_elements.get("setting", ""),
@@ -288,53 +315,11 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
             "plot": initial_idea_elements.get("plot", "")
         }
         
-        # Create memory anchors for key elements to ensure persistence throughout generation
-        for key, value in constraints.items():
-            if value:
-                manage_memory_tool.invoke({
-                    "action": "create",
-                    "key": f"constraint_{key}",
-                    "value": value,
-                    "namespace": MEMORY_NAMESPACE
-                })
+        # Update state with the idea elements (whether user-provided or generated)
+        state["initial_idea_elements"] = initial_idea_elements
         
-        # Create a genre validation memory anchor
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "genre_requirement",
-            "value": {
-                "genre": genre,
-                "tone": tone,
-                "required_elements": f"This story must adhere to {genre} genre conventions with a {tone} tone"
-            },
-            "namespace": MEMORY_NAMESPACE
-        })
-        
-        # Create a strong initial idea constraint
-        must_include = [
-            f"Setting: {initial_idea_elements.get('setting', '')}",
-            f"Characters: {', '.join(initial_idea_elements.get('characters', []))}",
-            f"Plot: {initial_idea_elements.get('plot', '')}"
-        ]
-        
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "initial_idea_constraint",
-            "value": {
-                "original_idea": initial_idea,
-                "must_include": must_include,
-                "importance": "These elements are the foundation of the story and must be preserved throughout generation."
-            },
-            "namespace": MEMORY_NAMESPACE
-        })
-        
-        # Add a direct instruction to ensure the initial idea is followed
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "story_directive",
-            "value": f"This story must be based on the initial idea: '{initial_idea}'. The key elements (setting, characters, plot) must be preserved.",
-            "namespace": MEMORY_NAMESPACE
-        })
+        # Constraints are already in state and passed through the workflow
+        # Genre requirement is enforced through prompts and state
     
     # Brainstorm different high-level story concepts
     brainstorm_results = creative_brainstorm(
@@ -397,9 +382,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
             
         validation_result = llm.invoke([HumanMessage(content=validation_prompt)]).content
         
-        # Store the validation result in memory
-        manage_memory(action="create", key="brainstorm_validation", value=validation_result,
-            namespace=MEMORY_NAMESPACE)
+        # Validation result is temporary and included in state
     
     # Store all creative elements
     creative_elements = {

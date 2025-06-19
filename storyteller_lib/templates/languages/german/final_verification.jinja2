@@ -1,0 +1,41 @@
+{# Base template for final verification - German version #}
+VERIFIZIERUNGSPRÜFUNG: Bewerten Sie, ob diese überarbeitete Handlungsskizze alle Anforderungen erfüllt.
+
+Ursprüngliche Idee: "{{ initial_idea }}"
+
+Schlüsselelemente:
+- Schauplatz: {{ setting }}
+- Charaktere: {{ characters | join(', ') }}
+- Handlung: {{ plot }}
+
+Überarbeitete Handlungsskizze:
+{{ story_outline }}
+
+Prüfen Sie Folgendes:
+1. Integriert die Skizze die ursprüngliche Idee effektiv? (JA/NEIN)
+2. Entspricht die Skizze dem Genre {{ genre }} mit einem {{ tone }} Ton? (JA/NEIN)
+{% if check_language %}
+3. Ist die Skizze VOLLSTÄNDIG auf {{ target_language }} verfasst ohne englischen Text? (JA/NEIN)
+{% endif %}
+
+Geben Sie für jede Frage eine JA/NEIN-Entscheidung an.
+Falls eine Antwort NEIN ist, spezifizieren Sie, was noch verbessert werden muss.
+
+VERIFIZIERUNGSSTANDARDS:
+- Die Integration der ursprünglichen Idee muss klar und vollständig sein
+- Genre-Konventionen müssen ordnungsgemäß befolgt werden
+- Der Ton muss durchgehend konsistent sein
+{% if check_language %}
+- Die Sprache muss zu 100% in der Zielsprache sein
+{% endif %}
+- Alle Schlüsselelemente müssen vorhanden und erkennbar sein
+
+FORMATIEREN SIE IHRE ANTWORT:
+1. [JA/NEIN] - [Kurze Erklärung]
+2. [JA/NEIN] - [Kurze Erklärung]
+{% if check_language %}
+3. [JA/NEIN] - [Kurze Erklärung]
+{% endif %}
+
+Gesamtbewertung: [BESTANDEN/NICHT BESTANDEN]
+Falls NICHT BESTANDEN, priorisieren Sie, was korrigiert werden muss.

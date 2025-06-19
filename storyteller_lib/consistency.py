@@ -9,7 +9,8 @@ from typing import Dict, List, Any, Optional
 import json
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+# Memory manager imports removed - using state and database instead
 from storyteller_lib.models import StoryState
 from storyteller_lib.plot_threads import get_active_plot_threads_for_scene
 
@@ -231,17 +232,17 @@ def check_character_consistency(character_data: Dict, scene_content: str,
     current_emotion = emotional_state.get("current", "")
     
     # Import optimization utility
-    from storyteller_lib.prompt_optimization import truncate_scene_content, log_prompt_size
+    from storyteller_lib.prompt_optimization import log_prompt_size
     
     # Prepare context from previous scenes if available
     previous_context = ""
     if previous_scenes and len(previous_scenes) > 0:
-        # Only use the most recent scene, truncated
-        recent_scene = truncate_scene_content(previous_scenes[-1], keep_start=150, keep_end=100)
-        previous_context = f"Previous scene excerpt:\n{recent_scene}"
+        # Use full recent scene for character consistency check
+        recent_scene = previous_scenes[-1]
+        previous_context = f"Previous scene:\n{recent_scene}"
     
-    # Truncate scene content
-    truncated_scene = truncate_scene_content(scene_content, keep_start=300, keep_end=200)
+    # Use full scene content for character consistency check
+    # Character development and consistency cannot be properly checked with truncated content
     
     # Prepare optimized character summary
     from storyteller_lib.prompt_optimization import summarize_character
@@ -257,7 +258,7 @@ def check_character_consistency(character_data: Dict, scene_content: str,
     {previous_context}
     
     CURRENT SCENE:
-    {truncated_scene}
+    {scene_content}
     
     Evaluate:
     1. Are {character_name}'s actions consistent with established traits?
@@ -692,19 +693,8 @@ def track_character_consistency(state: StoryState) -> Dict:
                 motivations = _extract_character_motivations(char_data.get("name", char_name), scene_content, language)
                 if motivations:
                     character_motivations[char_name] = motivations
-                    
-                    # Store in memory using existing memory tool
-                    manage_memory_tool.invoke({
-                        "action": "create",
-                        "key": f"character_motivations_{char_name}",
-                        "value": {
-                            "motivations": motivations,
-                            "chapter": current_chapter,
-                            "scene": current_scene,
-                            "timestamp": "now"
-                        },
-                        "namespace": MEMORY_NAMESPACE
-                    })
+                    # Character motivations are temporary processing data
+                    # They're already tracked in character_motivations dict for this scene
                 
                 # If there are significant inconsistencies, fix them
                 if consistency_analysis["consistency_score"] < 7 and consistency_analysis["issues"]:

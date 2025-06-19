@@ -1,13 +1,20 @@
 {# Base template for next scene suggestion - English version #}
 Based on the story context, suggest the most appropriate type and focus for the next scene in this {{ genre }} story with {{ tone }} tone.
 
-RECENT SCENE TYPES:
+CHAPTER OUTLINE:
+{{ chapter_outline }}
+
+{% if scene_description %}
+CURRENT SCENE TO WRITE:
+{{ scene_description }}
+
+IMPORTANT: Your suggestions must serve THIS SPECIFIC SCENE. The scene description tells you what needs to happen - suggest HOW it should happen for maximum impact and variety.
+{% endif %}
+
+RECENT SCENE TYPES (for variety context):
 {% for scene_type in recent_scene_types %}
 - {{ scene_type }}
 {% endfor %}
-
-CHAPTER OUTLINE:
-{{ chapter_outline }}
 
 REMAINING CHAPTER GOALS:
 {% for goal in remaining_goals %}
@@ -15,10 +22,19 @@ REMAINING CHAPTER GOALS:
 {% endfor %}
 
 Consider:
+{% if scene_description %}
+1. What scene type would best implement the specific requirements of THIS scene?
+2. How can we fulfill the scene description while maximizing variety?
+{% else %}
 1. What scene type would best serve the story at this point?
+{% endif %}
 2. Should we vary from recent patterns or continue them?
 3. What would maintain appropriate pacing for {{ genre }}?
 4. What would preserve the {{ tone }} tone?
 5. What elements should be included or avoided?
 
+{% if scene_description %}
+Provide a suggestion that serves THIS SCENE'S specific needs while creating variety. Focus on HOW to implement what the scene description requires.
+{% else %}
 Provide a suggestion that serves the story's needs rather than following rigid variety rules. Sometimes repetition is the right choice; sometimes variety is essential.
+{% endif %}

@@ -1,13 +1,20 @@
 {# German template for next scene suggestion #}
 Schlage basierend auf dem Geschichtenkontext den passendsten Typ und Fokus für die nächste Szene in dieser {{ genre }}-Geschichte mit {{ tone }} Stimmung vor.
 
-NEUESTE SZENENTYPEN:
+KAPITELÜBERSICHT:
+{{ chapter_outline }}
+
+{% if scene_description %}
+AKTUELLE ZU SCHREIBENDE SZENE:
+{{ scene_description }}
+
+WICHTIG: Deine Vorschläge müssen DIESER SPEZIFISCHEN SZENE dienen. Die Szenenbeschreibung sagt dir, was passieren muss - schlage vor, WIE es für maximale Wirkung und Abwechslung passieren soll.
+{% endif %}
+
+NEUESTE SZENENTYPEN (für Abwechslungskontext):
 {% for scene_type in recent_scene_types %}
 - {{ scene_type }}
 {% endfor %}
-
-KAPITELÜBERSICHT:
-{{ chapter_outline }}
 
 VERBLEIBENDE KAPITELZIELE:
 {% for goal in remaining_goals %}
@@ -15,10 +22,19 @@ VERBLEIBENDE KAPITELZIELE:
 {% endfor %}
 
 Berücksichtige:
+{% if scene_description %}
+1. Welcher Szenentyp würde die spezifischen Anforderungen DIESER Szene am besten umsetzen?
+2. Wie können wir die Szenenbeschreibung erfüllen und dabei maximale Abwechslung erreichen?
+{% else %}
 1. Welcher Szenentyp würde der Geschichte an diesem Punkt am besten dienen?
+{% endif %}
 2. Sollten wir von jüngsten Mustern abweichen oder sie fortsetzen?
 3. Was würde ein angemessenes Tempo für {{ genre }} aufrechterhalten?
 4. Was würde die {{ tone }} Stimmung bewahren?
 5. Welche Elemente sollten einbezogen oder vermieden werden?
 
+{% if scene_description %}
+Biete einen Vorschlag, der den spezifischen Bedürfnissen DIESER SZENE dient und dabei Abwechslung schafft. Konzentriere dich darauf, WIE die Anforderungen der Szenenbeschreibung umgesetzt werden sollen.
+{% else %}
 Biete einen Vorschlag, der den Bedürfnissen der Geschichte dient, anstatt starren Abwechslungsregeln zu folgen. Manchmal ist Wiederholung die richtige Wahl; manchmal ist Abwechslung essentiell.
+{% endif %}

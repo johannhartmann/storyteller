@@ -9,8 +9,32 @@ Stimmung: {{ tone }}
 KAPITEL-FOKUS:
 {{ chapter_outline }}
 
+{% if previous_scene_summary %}
+⚠️ VORHERIGE SZENE (Szene {{ previous_scene_summary.scene_number }}):
+{{ previous_scene_summary.description }}
+{% if previous_scene_summary.plot_progressions %}
+Bereits behandelte Handlungsfortschritte: {{ previous_scene_summary.plot_progressions | join(', ') }}
+{% endif %}
+{% if previous_scene_summary.character_learns %}
+Figuren haben bereits gelernt: {{ previous_scene_summary.character_learns | join(', ') }}
+{% endif %}
+❌ NICHT WIEDERHOLEN: Ereignisse, Enthüllungen oder Figurenentwicklungen aus der vorherigen Szene. Die Geschichte muss VORANSCHREITEN.
+{% endif %}
+
 AKTUELLE SZENE:
 Szene {{ current_scene }}: {{ scene_description }}
+
+{% if next_scene_summary %}
+⚠️ NÄCHSTE SZENE (Szene {{ next_scene_summary.scene_number }}):
+{{ next_scene_summary.description }}
+{% if next_scene_summary.plot_progressions %}
+Wird Handlungsfortschritte behandeln: {{ next_scene_summary.plot_progressions | join(', ') }}
+{% endif %}
+{% if next_scene_summary.character_learns %}
+Figuren werden lernen: {{ next_scene_summary.character_learns | join(', ') }}
+{% endif %}
+❌ NICHT EINBEZIEHEN: Ereignisse, Enthüllungen oder Entwicklungen, die für die nächste Szene reserviert sind. Bewahre diese für später auf.
+{% endif %}
 
 {% if story_summary %}
 {{ story_summary }}

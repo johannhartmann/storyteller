@@ -25,7 +25,7 @@ def get_info_filename(book_filename: str) -> str:
 
 def extract_story_info(state: StoryState) -> Dict[str, Any]:
     """
-    Extract story information from the state.
+    Extract story information from the state and database.
     
     Args:
         state: The current story state
@@ -33,15 +33,32 @@ def extract_story_info(state: StoryState) -> Dict[str, Any]:
     Returns:
         A dictionary containing the extracted story information
     """
+    # Load configuration from database
+    from storyteller_lib.config import get_story_config
+    config = get_story_config()
+    
+    # Get title from database
+    title = ""
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT title, global_story FROM story_config WHERE id = 1")
+            result = cursor.fetchone()
+            if result:
+                title = result['title'] or ""
+                global_story = result['global_story'] or ""
+    
     info = {
         "story_info": {
-            "title": state.get("title", ""),
-            "genre": state.get("genre", ""),
-            "tone": state.get("tone", ""),
-            "author_style": state.get("author", ""),
-            "language": state.get("language", ""),
-            "initial_idea": state.get("initial_idea", ""),
-            "global_story": state.get("global_story", "")
+            "title": title,
+            "genre": config["genre"],
+            "tone": config["tone"],
+            "author_style": config["author"],
+            "language": config["language"],
+            "initial_idea": config["initial_idea"],
+            "global_story": global_story
         },
         "characters": state.get("characters", {}),
         "world_elements": state.get("world_elements", {}),
@@ -106,7 +123,10 @@ def load_story_info(info_filename: str) -> Dict[str, Any]:
 
 def update_state_from_info(state: StoryState, info: Dict[str, Any]) -> StoryState:
     """
-    Update the state with information from the info dictionary.
+    Update the state and database with information from the info dictionary.
+    
+    NOTE: Configuration fields (genre, tone, etc.) are now stored in database only.
+    This function updates the database for config and state for workflow data.
     
     Args:
         state: The current story state
@@ -115,47 +135,48 @@ def update_state_from_info(state: StoryState, info: Dict[str, Any]) -> StoryStat
     Returns:
         The updated story state
     """
-    # Update basic story information
-    if "story_info" in info:
-        story_info = info["story_info"]
-        if "title" in story_info:
-            state["title"] = story_info["title"]
-        if "genre" in story_info:
-            state["genre"] = story_info["genre"]
-        if "tone" in story_info:
-            state["tone"] = story_info["tone"]
-        if "author_style" in story_info:
-            state["author"] = story_info["author_style"]
-        if "language" in story_info:
-            state["language"] = story_info["language"]
-        if "initial_idea" in story_info:
-            state["initial_idea"] = story_info["initial_idea"]
-        if "global_story" in story_info:
-            state["global_story"] = story_info["global_story"]
+    from storyteller_lib.database_integration import get_db_manager
+    db_manager = get_db_manager()
     
-    # Update characters
+    # Update story configuration in database
+    if "story_info" in info and db_manager and db_manager._db:
+        story_info = info["story_info"]
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            # Update relevant fields
+            if "title" in story_info:
+                cursor.execute("UPDATE story_config SET title = ? WHERE id = 1", (story_info["title"],))
+            if "genre" in story_info:
+                cursor.execute("UPDATE story_config SET genre = ? WHERE id = 1", (story_info["genre"],))
+            if "tone" in story_info:
+                cursor.execute("UPDATE story_config SET tone = ? WHERE id = 1", (story_info["tone"],))
+            if "author_style" in story_info:
+                cursor.execute("UPDATE story_config SET author = ? WHERE id = 1", (story_info["author_style"],))
+            if "language" in story_info:
+                cursor.execute("UPDATE story_config SET language = ? WHERE id = 1", (story_info["language"],))
+            if "initial_idea" in story_info:
+                cursor.execute("UPDATE story_config SET initial_idea = ? WHERE id = 1", (story_info["initial_idea"],))
+            if "global_story" in story_info:
+                cursor.execute("UPDATE story_config SET global_story = ? WHERE id = 1", (story_info["global_story"],))
+            conn.commit()
+    
+    # Update workflow data in state
     if "characters" in info:
         state["characters"] = info["characters"]
     
-    # Update world elements
     if "world_elements" in info:
         state["world_elements"] = info["world_elements"]
     
-    # Update mystery elements
     if "mystery_elements" in info and "world_elements" in state:
         state["world_elements"]["mystery_elements"] = info["mystery_elements"]
     
-    # Update plot threads
     if "plot_threads" in info:
         state["plot_threads"] = info["plot_threads"]
     
-    # Update revelations
     if "revelations" in info:
         state["revelations"] = info["revelations"]
     
-    # Update creative elements
-    if "creative_elements" in info:
-        state["creative_elements"] = info["creative_elements"]
+    # Note: creative_elements was removed from state in cleanup
     
     return state
 

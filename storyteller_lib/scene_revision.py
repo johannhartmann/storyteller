@@ -15,7 +15,7 @@ from langchain_core.messages import HumanMessage
 from storyteller_lib import track_progress
 from storyteller_lib.config import (
     DEFAULT_LANGUAGE, MEMORY_NAMESPACE, SUPPORTED_LANGUAGES,
-    llm, manage_memory_tool, search_memory_tool
+    llm
 )
 from storyteller_lib.constants import NodeNames, RevisionTypes
 from storyteller_lib.models import StoryState
@@ -352,18 +352,7 @@ def revise_scene_if_needed(state: StoryState) -> Dict:
     existing_addressed = scene_data.get("issues_addressed", [])
     scene_data["issues_addressed"] = existing_addressed + addressed_issues
     
-    # Store revision in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": f"scene_revision_ch{current_chapter}_sc{current_scene}_r{scene_data['revision_count']}",
-        "value": {
-            "original": current_content,
-            "revised": revised_content,
-            "issues_addressed": addressed_issues,
-            "revision_type": revision_type
-        },
-        "namespace": MEMORY_NAMESPACE
-    })
+    # Revision history is tracked in state through the scene data
     
     # Update state
     state["last_node"] = NodeNames.REVISE_SCENE

@@ -7,60 +7,10 @@ This module contains utility functions used by both scene writing and reflection
 from typing import Any, Dict, List
 
 # Local imports
-from storyteller_lib.scene_brainstorm import _prepare_creative_guidance, _prepare_plot_thread_guidance
 from storyteller_lib.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-def _identify_relevant_world_categories(chapter_outline: str, world_elements: Dict, language: str) -> List[str]:
-    """Identify which world categories are most relevant for the current scene using LLM.
-    
-    Args:
-        chapter_outline: The chapter outline text
-        world_elements: Dictionary of world building elements
-        language: The language for analysis
-        
-    Returns:
-        List of relevant category names
-    """
-    from storyteller_lib.config import llm
-    from langchain_core.messages import HumanMessage
-    from pydantic import BaseModel, Field
-    from storyteller_lib.prompt_templates import render_prompt
-    
-    class RelevantCategories(BaseModel):
-        """World categories relevant to the scene."""
-        categories: List[str] = Field(
-            description="List of world element categories that are directly relevant"
-        )
-        
-    available_categories = list(world_elements.keys())
-    
-    # Render the identify world categories prompt
-    prompt = render_prompt(
-        'identify_world_categories',
-        language=language,
-        chapter_outline=chapter_outline,
-        available_categories=available_categories
-    )
-
-    try:
-        structured_llm = llm.with_structured_output(RelevantCategories)
-        result = structured_llm.invoke(prompt)
-        
-        relevant_categories = [cat for cat in result.categories if cat in available_categories]
-        
-        # Ensure geography is included if we have any location-based content
-        if "geography" in world_elements and "geography" not in relevant_categories:
-            relevant_categories.insert(0, "geography")
-            
-        return relevant_categories[:3]  # Limit to 3 most relevant
-        
-    except Exception as e:
-        logger.error(f"Failed to identify relevant categories: {e}")
-        # Minimal fallback - just geography
-        return ["geography"] if "geography" in world_elements else []
 
 
 def _get_previously_established_elements(world_elements: Dict) -> str:
@@ -100,7 +50,7 @@ def _prepare_worldbuilding_guidance(world_elements: Dict, chapter_outline: str, 
     """Prepare worldbuilding guidance for scene writing.
     
     Args:
-        world_elements: Dictionary of world building elements
+        world_elements: Dictionary of world building elements (already filtered for scene relevance)
         chapter_outline: The chapter outline
         mystery_relevance: Whether mystery elements are relevant
         language: The language for the guidance
@@ -114,14 +64,9 @@ def _prepare_worldbuilding_guidance(world_elements: Dict, chapter_outline: str, 
     # Import optimization utility
     from storyteller_lib.prompt_optimization import summarize_world_elements
     
-    # Identify which categories are most relevant for this chapter
-    relevant_categories = _identify_relevant_world_categories(chapter_outline, world_elements, language)
-    
-    if not relevant_categories:
-        return ""
-    
-    # Limit to at most 3 most relevant categories
-    selected_categories = relevant_categories[:3]
+    # The world_elements passed in are already filtered for scene relevance
+    # by analyze_scene_entities, so we just use all of them
+    selected_categories = list(world_elements.keys())[:3]  # Still limit to 3 for brevity
     
     # Use the optimization utility to create concise summaries
     world_summary = summarize_world_elements(

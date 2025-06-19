@@ -444,59 +444,6 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                 sys.stdout.write("\n")
             sys.stdout.write("--------------------------\n\n")
             
-    elif node_name == "brainstorm_scene_elements":
-        current_chapter = state.get("current_chapter", "")
-        current_scene = state.get("current_scene", "")
-        scene_info = f"Ch:{current_chapter}/Sc:{current_scene}"
-        progress_message = f"[{elapsed_str}] Brainstormed creative elements for Scene {current_scene} of Chapter {current_chapter} [{scene_info}]"
-        
-        # Always show scene elements
-        if "creative_elements" in state:
-            creative = state["creative_elements"]
-            scene_elements_key = f"scene_elements_ch{current_chapter}_sc{current_scene}"
-            scene_surprises_key = f"scene_surprises_ch{current_chapter}_sc{current_scene}"
-            
-            sys.stdout.write(f"\n------ UPCOMING SCENE {scene_info} ------\n")
-            
-            # Show chapter context
-            if current_chapter in state.get("chapters", {}):
-                chapter = state["chapters"][current_chapter]
-                chapter_title = chapter.get("title", f"Chapter {current_chapter}")
-                sys.stdout.write(f"Chapter: {chapter_title}\n")
-            
-            # Show scene elements in a condensed format
-            if scene_elements_key in creative and "recommended_ideas" in creative[scene_elements_key]:
-                # Extract just the key points
-                ideas = creative[scene_elements_key]["recommended_ideas"]
-                
-                # Try to extract the title/headline
-                title = ""
-                if ":" in ideas:
-                    title_parts = ideas.split(":", 1)
-                    title = title_parts[0].strip()
-                    
-                # Show a condensed version
-                sys.stdout.write(f"Scene focus: {title if title else 'Key scene elements'}\n")
-                
-                # Extract first paragraph or sentence for a brief preview
-                content = ideas.split("\n\n")[0] if "\n\n" in ideas else ideas
-                first_sentence = content.split(".")[0] + "." if "." in content else content
-                if len(first_sentence) > 100:
-                    first_sentence = first_sentence[:100] + "..."
-                sys.stdout.write(f"Elements: {first_sentence}\n")
-            
-            # Show surprise elements if available
-            if scene_surprises_key in creative and "recommended_ideas" in creative[scene_surprises_key]:
-                surprises = creative[scene_surprises_key]["recommended_ideas"]
-                # Extract just the first line or sentence
-                first_line = surprises.split("\n")[0] if "\n" in surprises else surprises
-                first_sentence = first_line.split(".")[0] + "." if "." in first_line else first_line
-                if len(first_sentence) > 80:
-                    first_sentence = first_sentence[:80] + "..."
-                sys.stdout.write(f"Twist: {first_sentence}\n")
-            
-            sys.stdout.write("------------------------------\n\n")
-            
     elif node_name == "write_scene":
         current_chapter = state.get("current_chapter", "")
         current_scene = state.get("current_scene", "")

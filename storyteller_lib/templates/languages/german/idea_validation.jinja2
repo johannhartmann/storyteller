@@ -1,0 +1,40 @@
+{# Base template for idea validation - German version #}
+VALIDIERUNG: Bewerten Sie, ob diese Handlungsskizze die ursprüngliche Geschichtsidee effektiv einbezieht:
+
+Ursprüngliche Idee: "{{ initial_idea }}"
+
+Zu prüfende Schlüsselelemente:
+- Schauplatz: {{ setting }}
+- Charaktere: {{ characters | join(', ') }}
+- Handlung: {{ plot }}
+{% if themes %}
+- Themen: {{ themes | join(', ') }}
+{% endif %}
+{% if genre_elements %}
+- Genre-Elemente: {{ genre_elements | join(', ') }}
+{% endif %}
+
+Handlungsskizze:
+{{ story_outline }}
+
+Bewerten Sie:
+1. Bezieht die Skizze den angegebenen Schauplatz ordnungsgemäß ein?
+2. Sind alle erwähnten Charaktere mit ihren spezifizierten Rollen enthalten?
+3. Folgt die Haupthandlung der ursprünglichen Idee?
+4. Sind die Themen (falls vorhanden) in die Erzählung eingewoben?
+5. Behält sie die spezifizierten Genre-Elemente bei?
+
+Bitte angeben:
+- Eine Bewertung von 1-10 für die Treue zur ursprünglichen Idee
+- Spezifische Beispiele erfolgreicher Einbindung
+- Alle Elemente, die ausgelassen oder geändert wurden
+- Empfehlungen für bessere Ausrichtung, falls erforderlich
+
+KRITISCH: Die ursprüngliche Idee ist das Fundament - Abweichungen sollten nur verbessern, nicht Kernelemente ersetzen.
+
+VALIDIERUNGSFOKUS:
+- Schauplatz muss exakt übereinstimmen (keine Ersetzungen)
+- Charaktere müssen ihre spezifizierten Rollen behalten
+- Kernhandlung muss intakt bleiben
+- Erweiterungen sind willkommen, aber nicht auf Kosten des Originals
+- Genre-Konsistenz durchgehend

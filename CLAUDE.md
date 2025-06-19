@@ -112,3 +112,5 @@ No formal test suite currently exists. Testing is done through running the story
 - You can directly look into the database in ~/.storyteller/story_database.db
 - Use this command to run the storyteller for testing to reuse llm caching: `nix develop -c python run_storyteller.py --genre sci-fi --tone adventurous`
 - Never evaluate texts based on keywords, since they are not reliable. Use LLM based evaluations instead.
+- NEVER share state in LangGraph and the database. Never invent your own state management.
+- We do not need any migrations. All data is temporary per run.

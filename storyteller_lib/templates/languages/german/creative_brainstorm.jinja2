@@ -10,6 +10,56 @@ KONTEXT:
 - {{ idea_context }}
 {% endif %}
 
+{% if scene_specifications %}
+SZENENANFORDERUNGEN:
+- Kapitel {{ scene_specifications.chapter_number }}, Szene {{ scene_specifications.scene_number }}
+- Szenentyp: {{ scene_specifications.scene_type }}
+- Dramatischer Zweck: {{ scene_specifications.dramatic_purpose }}
+- Spannungslevel: {{ scene_specifications.tension_level }}/10
+
+Szenenbeschreibung: {{ scene_specifications.scene_description }}
+
+{% if scene_specifications.plot_progressions %}
+HANDLUNGSPUNKTE, DIE AUFTRETEN MÜSSEN:
+{% for progression in scene_specifications.plot_progressions %}
+- {{ progression }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.required_characters %}
+CHARAKTERE, DIE AUFTRETEN MÜSSEN:
+{% for character in scene_specifications.required_characters %}
+- {{ character }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.character_learns %}
+CHARAKTERENTWICKLUNGEN:
+{% for learning in scene_specifications.character_learns %}
+- {{ learning }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.forbidden_repetitions %}
+VERMEIDEN SIE WIEDERHOLUNGEN VON:
+{% for repetition in scene_specifications.forbidden_repetitions %}
+- {{ repetition }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.active_plot_threads %}
+AKTIVE HANDLUNGSSTRÄNGE:
+{% for thread in scene_specifications.active_plot_threads[:3] %}
+- {{ thread.name }}: {{ thread.get('last_development', thread.get('description', 'Noch keine Entwicklung')) }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+{% if chapter_outline %}
+KAPITELKONTEXT:
+{{ chapter_outline }}
+{% endif %}
+
 EINSCHRÄNKUNGEN:
 - Muss dem ursprünglichen Story-Konzept folgen
 - Muss Konsistenz mit Kernelementen bewahren
@@ -36,6 +86,11 @@ Generiere {{ num_ideas | default(3) }} unterschiedliche kreative Ideen, die:
 3. Dem {{ tone }}-Ton entsprechen
 4. Frisch und unerwartet wirken
 5. Das Leserengagement steigern könnten
+{% if scene_specifications %}
+6. Alle erforderlichen Handlungsfortschritte erreichen
+7. Alle erforderlichen Charaktere natürlich einbeziehen
+8. Den spezifischen dramatischen Zweck dieser Szene vorantreiben
+{% endif %}
 
 ZU GENERIERENDE IDEENTYPEN:
 - Ideen, die die Charakterentwicklung vertiefen
@@ -50,6 +105,10 @@ Für jede Idee liefere:
 - Warum sie in diesem Kontext gut funktionieren würde
 - Potenzielle Herausforderungen oder Überlegungen
 - Wie sie die Geschichte bereichert
+{% if scene_specifications %}
+- Wie sie die erforderlichen Handlungsfortschritte erreicht
+- Wie sie die erforderlichen Charaktere natürlich einbezieht
+{% endif %}
 
 BEWERTUNGSKRITERIEN:
 Berücksichtige diese Faktoren beim Generieren von Ideen:
@@ -77,4 +136,4 @@ Berücksichtige den Schreibstil von {{ author }}:
 {{ author_style_guidance }}
 {% endif %}
 
-Sei mutig und kreativ, während du die Kohärenz mit den etablierten Geschichtselementen bewahrst.
+Sei mutig und kreativ, während du die Kohärenz mit den etablierten Geschichtselementen bewahrst{% if scene_specifications %} und sicherstellst, dass alle Szenenanforderungen erfüllt werden{% endif %}.

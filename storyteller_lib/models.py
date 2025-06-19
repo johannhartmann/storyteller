@@ -214,13 +214,6 @@ def merge_revelations(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str
             result[key] = value
             
     return result
-def merge_creative_elements(existing: Dict[str, Dict], new: Dict[str, Dict]) -> Dict[str, Dict]:
-    """Merge creative elements dictionaries."""
-    result = existing.copy()
-    for key, value in new.items():
-        result[key] = value  # Simply replace since these are typically not incrementally updated
-    return result
-
 def merge_plot_threads(existing: Dict[str, Dict[str, Any]], new: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """
     Merge plot thread dictionaries, preserving thread history and development.
@@ -354,34 +347,29 @@ class ChapterState(TypedDict):
     reflection_notes: List[str]
 
 class StoryState(TypedDict):
-    """Main state schema for the story generation graph, with reducer annotations."""
+    """Main state schema for the story generation graph, with reducer annotations.
+    
+    This represents only the working memory for story generation workflow.
+    All persistent story data (genre, tone, characters, etc.) is stored in the database.
+    """
     # Use built-in add_messages for chat messages
     messages: Annotated[List[Union[HumanMessage, AIMessage]], add_messages]
     
-    # Simple fields where standard replacement is fine
-    genre: str
-    tone: str
-    author: str  # Author whose style to emulate
-    author_style_guidance: str  # Specific notes on author's style
-    language: str  # Target language for story generation
-    initial_idea: str  # Initial story idea provided by the user
-    initial_idea_elements: Dict[str, Any]  # Structured elements extracted from the initial idea
-    global_story: str  # Overall storyline and hero's journey phases
-    
-    # Complex fields that need custom reducers
+    # Working data that gets updated during generation
     chapters: Annotated[Dict[str, ChapterState], merge_chapters]  # Custom reducer for nested chapters
     characters: Annotated[Dict[str, CharacterProfile], merge_characters]  # Custom reducer for characters
-    revelations: Annotated[Dict[str, Any], merge_revelations]  # Custom reducer for revelations with continuity_issues
-    creative_elements: Annotated[Dict[str, Dict], merge_creative_elements]  # Custom reducer for creative elements
     world_elements: Annotated[Dict[str, Dict], merge_world_elements]  # Custom reducer for worldbuilding elements
     plot_threads: Annotated[Dict[str, Dict[str, Any]], merge_plot_threads]  # Custom reducer for plot threads
+    revelations: Annotated[Dict[str, Any], merge_revelations]  # Custom reducer for revelations with continuity_issues
     
-    # Tracking fields
+    # Temporary processing fields
     current_chapter: str  # Track which chapter is being written
     current_scene: str  # Track which scene is being written
     current_scene_content: str  # Temporary storage for scene content between nodes
     scene_reflection: Dict[str, Any]  # Temporary storage for scene reflection results
     scene_elements: Dict[str, Any]  # Temporary storage for brainstormed scene elements
     active_plot_threads: List[Dict[str, Any]]  # Active plot threads for current scene
+    
+    # Workflow control
     completed: bool  # Flag to indicate if the story is complete
     last_node: str  # Track which node was last executed for routing
