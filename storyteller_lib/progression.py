@@ -8,7 +8,7 @@ removing router-specific code that could cause infinite loops.
 from typing import Dict, List
 import json
 
-from storyteller_lib.config import llm, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage
+from storyteller_lib.config import llm, MEMORY_NAMESPACE, cleanup_old_state, log_memory_usage, get_llm_with_structured_output
 from storyteller_lib.models import StoryState
 # Memory manager imports removed - using state and database instead
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
@@ -383,14 +383,19 @@ def update_character_profiles(state: StoryState) -> Dict:
     
     # Get structured character updates directly
     from pydantic import BaseModel, Field
-    from typing import List, Optional
+    from typing import List, Optional, Dict
+    
+    class RelationshipChange(BaseModel):
+        """A change in relationship between two characters."""
+        other_character: str = Field(description="Name of the other character")
+        change_description: str = Field(description="Description of how the relationship changed")
     
     class CharacterUpdate(BaseModel):
         """Updates for a single character."""
         character_name: str = Field(description="Name of the character")
         new_facts: List[str] = Field(default_factory=list, description="New facts learned about the character (max 2)")
-        emotional_change: Optional[str] = Field(None, description="Change in emotional state")
-        relationship_changes: Dict[str, str] = Field(default_factory=dict, description="Changes in relationships with other characters")
+        emotional_change: Optional[str] = Field(default=None, description="Change in emotional state")
+        relationship_changes: List[RelationshipChange] = Field(default_factory=list, description="Changes in relationships with other characters")
     
     class CharacterUpdatesResponse(BaseModel):
         """All character updates from a scene."""
@@ -466,16 +471,18 @@ def update_character_profiles(state: StoryState) -> Dict:
                 if update.relationship_changes:
                     if 'relationships' not in char_data:
                         char_data['relationships'] = {}
-                    for other_char, rel_change in update.relationship_changes.items():
+                    for rel_change in update.relationship_changes:
+                        other_char = rel_change.other_character
+                        change_desc = rel_change.change_description
                         if other_char in char_data['relationships']:
                             # Update existing relationship
                             if isinstance(char_data['relationships'][other_char], dict):
-                                char_data['relationships'][other_char]['dynamics'] = rel_change
+                                char_data['relationships'][other_char]['dynamics'] = change_desc
                         else:
                             # Create new relationship
                             char_data['relationships'][other_char] = {
                                 'type': 'evolved',
-                                'dynamics': rel_change
+                                'dynamics': change_desc
                             }
                 
                 character_updates[char_id] = char_data
@@ -786,19 +793,9 @@ def resolve_continuity_issues(state: StoryState) -> Dict:
     
     if review_key:
         try:
-            # Use search_memory_tool to retrieve the review
-            results = search_memory(query=review_key)
-            
-            # Extract the review from the results
-            review_obj = None
-            if results and len(results) > 0:
-                for item in results:
-                    if hasattr(item, 'key') and item.key == review_key:
-                        review_obj = {"key": item.key, "value": item.value}
-                        break
-            
-            if review_obj and "value" in review_obj:
-                full_review = review_obj["value"]
+            # Reviews are now stored in database
+            # TODO: Implement database retrieval for reviews if needed
+            full_review = None
         except Exception as e:
             print(f"Error retrieving full review: {str(e)}")
     
