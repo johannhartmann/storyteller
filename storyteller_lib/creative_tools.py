@@ -10,6 +10,9 @@ from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field, create_model
+from storyteller_lib.logger import get_logger
+
+logger = get_logger(__name__)
 
 T = TypeVar('T', bound=BaseModel)
 
@@ -92,16 +95,8 @@ def creative_brainstorm(
     # Extract the idea context if available
     idea_context = ""
     if context:
-        # Extract just the idea-specific part if it exists
-        if "Initial idea:" in context:
-            idea_context = context.split("Initial idea:")[1].strip()
-        elif idea_context == "":
-            # If no initial idea marker, check for other context
-            lines = context.strip().split('\n')
-            for line in lines:
-                if line.strip() and not line.strip().startswith("We're creating"):
-                    idea_context = line.strip()
-                    break
+        # The context IS the idea - it's passed directly from initialization.py
+        idea_context = context.strip()
     
     # Render the brainstorming prompt
     # Use special template for generating initial story premises
@@ -135,55 +130,26 @@ def creative_brainstorm(
     
     # Author style will be handled in the template if needed
     
-    # Generate ideas
-    ideas_response = llm.invoke([HumanMessage(content=brainstorm_prompt)]).content
+    # Generate ideas using structured output only
+    # Use structured output for brainstorming
+    structured_llm = llm.with_structured_output(CreativeBrainstormResult)
+    brainstorm_result = structured_llm.invoke(brainstorm_prompt)
     
-    # Use template system
-    from storyteller_lib.prompt_templates import render_prompt
+    # Extract the recommended idea
+    recommended_idea = brainstorm_result.recommended_idea
+    recommended_ideas = f"{recommended_idea.title}: {recommended_idea.description} (Score: {recommended_idea.fit_score}/10)"
     
-    # Evaluation prompt - let template handle all the text
-    eval_prompt = render_prompt(
-        'creative_evaluation',
-        language=language,
-        topic=topic,
-        ideas_response=ideas_response,
-        idea_context=idea_context,
-        setting_constraint=setting_constraint,
-        character_constraints=character_constraints,
-        plot_constraints=plot_constraints,
-        genre=genre,
-        tone=tone,
-        strict_adherence=strict_adherence,
-        scene_specifications=scene_specifications,
-        chapter_outline=chapter_outline
-    )
+    # Format all ideas for display
+    ideas_response = "\n\n".join([
+        f"{i+1}. {idea.title}\n   {idea.description}\n   Enhancement: {idea.enhancement_value}\n   Challenges: {idea.challenges}\n   Fit Score: {idea.fit_score}/10"
+        for i, idea in enumerate(brainstorm_result.ideas)
+    ])
     
-    # Evaluate ideas
-    evaluation = llm.invoke([HumanMessage(content=eval_prompt)]).content
+    # Include rationale
+    evaluation = f"Recommendation: {brainstorm_result.rationale}"
     
     # Brainstorming results are temporary and returned directly
     # No need to store in memory/database
-    # Return results
-    # Extract recommended ideas from evaluation, with fallback to the best idea from ideas_response
-    recommended_ideas = None
-    if "recommend" in evaluation.lower():
-        recommended_ideas = evaluation.split("recommend")[-1].strip()
-    else:
-        # Try to extract the first idea as a fallback
-        idea_sections = ideas_response.split("\n\n")
-        for section in idea_sections:
-            if section.strip().startswith("1.") or section.strip().startswith("1)") or "Idea 1:" in section:
-                recommended_ideas = section.strip()
-                break
-        
-        # If still no recommended ideas, use the first paragraph of the evaluation
-        if not recommended_ideas and evaluation:
-            recommended_ideas = evaluation.split("\n\n")[0] if "\n\n" in evaluation else evaluation
-    
-    # Ensure we always have some content
-    if not recommended_ideas:
-        recommended_ideas = f"Best idea for {topic}: " + (ideas_response.split("\n")[0] if "\n" in ideas_response else ideas_response[:100])
-    
     return {
         "ideas": ideas_response,
         "evaluation": evaluation,

@@ -256,11 +256,17 @@ def track_narrative_patterns(
             recent_content = "\n\n".join([scene['content'] for scene in recent_scenes])
             
             # Use LLM to identify patterns
+            class CharacterCatchphrase(BaseModel):
+                """Character catchphrase mapping."""
+                character_name: str = Field(description="Name of the character")
+                catchphrases: List[str] = Field(description="List of catchphrases for this character")
+            
             class NarrativePatterns(BaseModel):
                 """Identified narrative patterns."""
                 recurring_themes: List[str] = Field(description="Themes that recur meaningfully")
-                character_catchphrases: Dict[str, List[str]] = Field(
-                    description="Character-specific repeated phrases"
+                character_catchphrases: List[CharacterCatchphrase] = Field(
+                    description="Character-specific repeated phrases",
+                    default_factory=list
                 )
                 stylistic_patterns: List[str] = Field(
                     description="Recurring stylistic elements"

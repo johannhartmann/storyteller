@@ -4,8 +4,8 @@ Generate creative ideas for {{ topic }}:
 CONTEXT:
 - Genre: {{ genre }}
 - Tone: {{ tone }}
-{% if specific_context %}
-- Additional context: {{ specific_context }}
+{% if idea_context %}
+- Initial idea: {{ idea_context }}
 {% endif %}
 
 {% if scene_specifications %}
@@ -93,15 +93,18 @@ TYPES OF IDEAS TO GENERATE:
 {% endif %}
 
 For each idea, provide:
-- A clear, concise title
-- A detailed description (2-3 sentences)
-- Why it would work well in this context
-- Potential challenges or considerations
-- How it enhances the story
+- title: A clear, concise title for the idea
+- description: A detailed description (2-3 sentences)
+- enhancement_value: How this enhances the story
+- challenges: Potential challenges or considerations  
+- fit_score: A score from 1-10 for how well it fits the context
 {% if scene_specifications %}
+Additionally explain:
 - How it accomplishes the required plot progressions
 - How it naturally includes the required characters
 {% endif %}
+
+Then select the best idea as your recommended_idea and provide a rationale for why it's the best choice.
 
 {% if evaluation_criteria %}
 EVALUATION CRITERIA:

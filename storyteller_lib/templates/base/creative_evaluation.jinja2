@@ -5,7 +5,9 @@
 {{ ideas_response }}
 
 ## Story Context
-{{ context }}
+{% if idea_context %}
+Initial idea: {{ idea_context }}
+{% endif %}
 
 {% if scene_specifications %}
 ## Scene Requirements
