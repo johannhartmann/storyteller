@@ -601,11 +601,30 @@ def plan_chapters(state: StoryState) -> Dict:
     """Divide the story into chapters with detailed outlines."""
     from storyteller_lib.prompt_templates import render_prompt
     
-    global_story = state["global_story"]
+    # Load configuration from database
+    from storyteller_lib.config import get_story_config
+    from storyteller_lib.database_integration import get_db_manager
+    
+    config = get_story_config()
+    genre = config["genre"]
+    tone = config["tone"]
+    language = config["language"]
+    
+    # Get global_story from database
+    global_story = ""
+    db_manager = get_db_manager()
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT global_story FROM story_config WHERE id = 1")
+            result = cursor.fetchone()
+            if result:
+                global_story = result['global_story'] or ""
+    
+    if not global_story:
+        raise ValueError("No story outline found in database")
+    
     characters = state["characters"]
-    genre = state["genre"]
-    tone = state["tone"]
-    language = state.get("language", DEFAULT_LANGUAGE)
     # Prepare language instruction and guidance
     language_instruction = ""
     language_guidance = ""
