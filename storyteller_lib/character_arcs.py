@@ -137,6 +137,14 @@ def plan_character_arcs(characters: Dict[str, Any], story_outline: str, genre: s
         return arc_plans
 
 
+# Pydantic model for arc type identification
+class ArcTypeIdentification(BaseModel):
+    """Result of character arc type identification."""
+    arc_type: str = Field(description="The identified arc type: redemption, fall, growth, flat, transformation, disillusionment, or education")
+    reasoning: str = Field(description="Brief explanation for why this arc type fits the character")
+    confidence: int = Field(ge=1, le=10, description="Confidence level in the identification (1-10)")
+
+
 def identify_character_arc_type(character_data: Dict[str, Any]) -> str:
     """
     Identify the most appropriate character arc type based on character data.
@@ -181,13 +189,24 @@ def identify_character_arc_type(character_data: Dict[str, Any]) -> str:
     )
     
     try:
-        response = llm.invoke([HumanMessage(content=prompt)]).content.strip()
-        # Extract just the arc type name if there's additional text
-        for arc_type in ["Redemption", "Fall", "Growth", "Flat", "Transformation", "Disillusionment", "Education"]:
-            if arc_type.lower() in response.lower():
-                return arc_type.lower()
-        return "growth"  # Default to growth if no match found
-    except Exception:
+        # Use structured output
+        structured_llm = llm.with_structured_output(ArcTypeIdentification)
+        result = structured_llm.invoke(prompt)
+        
+        # Validate arc type is one of the expected values
+        valid_arc_types = ["redemption", "fall", "growth", "flat", "transformation", "disillusionment", "education"]
+        arc_type = result.arc_type.lower()
+        
+        if arc_type in valid_arc_types:
+            return arc_type
+        else:
+            # Try to match partial string
+            for valid_type in valid_arc_types:
+                if valid_type in arc_type:
+                    return valid_type
+            return "growth"  # Default to growth if no match found
+    except Exception as e:
+        print(f"Error identifying arc type: {e}")
         # Default to growth arc if LLM fails
         return "growth"
 

@@ -33,6 +33,27 @@ class StoryOutlineStructured(BaseModel):
     key_themes: List[str] = Field(description="Key themes or messages of the story")
     hero_journey_phases: List[HeroJourneyPhase] = Field(description="The 12 phases of the hero's journey with descriptions")
 
+# Pydantic models for validation responses
+class ValidationResult(BaseModel):
+    """Result of a validation check."""
+    is_valid: bool = Field(description="Whether the validation passed (YES) or failed (NO)")
+    score: int = Field(ge=1, le=10, description="Validation score from 1-10")
+    issues: List[str] = Field(default_factory=list, description="List of specific issues found")
+    suggestions: str = Field(default="", description="Suggestions for improvement")
+
+
+# Pydantic model for author style analysis
+class AuthorStyleAnalysis(BaseModel):
+    """Analysis of an author's writing style."""
+    narrative_style: str = Field(description="Description of the author's narrative style and techniques")
+    character_development: str = Field(description="How the author typically develops characters")
+    dialogue_patterns: str = Field(description="The author's approach to dialogue and character voice")
+    thematic_elements: str = Field(description="Common themes and motifs in the author's work")
+    pacing_rhythm: str = Field(description="The author's typical pacing and story rhythm")
+    descriptive_approach: str = Field(description="How the author handles descriptions and world-building")
+    unique_elements: str = Field(description="Unique or signature elements of the author's style")
+    emotional_tone: str = Field(description="The emotional tone and atmosphere the author typically creates")
+
 
 def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str, initial_idea: str, language: str = "english") -> Dict[str, Dict]:
     """Generate initial plot threads from the story outline."""
@@ -124,7 +145,28 @@ def generate_story_outline(state: StoryState) -> Dict:
                 author=author
             )
             
-            author_style_guidance = llm.invoke([HumanMessage(content=author_prompt)]).content
+            # Use structured output for author style analysis
+            structured_llm = llm.with_structured_output(AuthorStyleAnalysis)
+            style_analysis = structured_llm.invoke(author_prompt)
+            
+            # Format the analysis into guidance text
+            author_style_guidance = f"""
+Narrative Style: {style_analysis.narrative_style}
+
+Character Development: {style_analysis.character_development}
+
+Dialogue Patterns: {style_analysis.dialogue_patterns}
+
+Thematic Elements: {style_analysis.thematic_elements}
+
+Pacing and Rhythm: {style_analysis.pacing_rhythm}
+
+Descriptive Approach: {style_analysis.descriptive_approach}
+
+Unique Elements: {style_analysis.unique_elements}
+
+Emotional Tone: {style_analysis.emotional_tone}
+"""
             
             # Update state with the generated guidance
             state["author_style_guidance"] = author_style_guidance
@@ -294,7 +336,9 @@ def generate_story_outline(state: StoryState) -> Dict:
             text_to_validate=story_outline
         )
         
-        language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
+        # Use structured output for validation
+        structured_llm = llm.with_structured_output(ValidationResult)
+        language_validation_result = structured_llm.invoke(language_validation_prompt)
         validation_results["language"] = language_validation_result
         
         # Store the validation result in memory
@@ -315,7 +359,9 @@ def generate_story_outline(state: StoryState) -> Dict:
             story_outline=story_outline
         )
         
-        idea_validation_result = llm.invoke([HumanMessage(content=idea_validation_prompt)]).content
+        # Use structured output for validation
+        structured_llm = llm.with_structured_output(ValidationResult)
+        idea_validation_result = structured_llm.invoke(idea_validation_prompt)
         validation_results["initial_idea"] = idea_validation_result
         
         # Store the validation result in memory
@@ -335,7 +381,9 @@ def generate_story_outline(state: StoryState) -> Dict:
         genre_elements=genre_elements
     )
     
-    genre_validation_result = llm.invoke([HumanMessage(content=genre_validation_prompt)]).content
+    # Use structured output for validation
+    structured_llm = llm.with_structured_output(ValidationResult)
+    genre_validation_result = structured_llm.invoke(genre_validation_prompt)
     validation_results["genre"] = genre_validation_result
     
     # Store the validation result in memory
@@ -352,7 +400,9 @@ def generate_story_outline(state: StoryState) -> Dict:
             story_outline=story_outline
         )
         
-        setting_validation_result = llm.invoke([HumanMessage(content=setting_validation_prompt)]).content
+        # Use structured output for validation
+        structured_llm = llm.with_structured_output(ValidationResult)
+        setting_validation_result = structured_llm.invoke(setting_validation_prompt)
         validation_results["setting"] = setting_validation_result
         
         # Store the validation result in memory
@@ -364,42 +414,52 @@ def generate_story_outline(state: StoryState) -> Dict:
     # Check language validation first if not English
     if language.lower() != DEFAULT_LANGUAGE and "language" in validation_results:
         result = validation_results["language"]
-        if "NO" in result:
+        if not result.is_valid or result.score < 8:
             needs_regeneration = True
             improvement_guidance += "LANGUAGE ISSUES:\n"
             improvement_guidance += "The outline must be written ENTIRELY in " + SUPPORTED_LANGUAGES[language.lower()] + ".\n"
-            if "parts are not in" in result:
-                parts_section = result.split("parts are not in")[1].strip() if "parts are not in" in result else ""
-                improvement_guidance += "The following parts were not in the correct language: " + parts_section + "\n"
-            improvement_guidance += "\n\n"
+            if result.issues:
+                improvement_guidance += "Issues found:\n"
+                for issue in result.issues:
+                    improvement_guidance += f"- {issue}\n"
+            improvement_guidance += f"\nSuggestions: {result.suggestions}\n\n"
     
     # Check initial idea validation
     if "initial_idea" in validation_results:
         result = validation_results["initial_idea"]
-        # Regenerate if score is below 8 or NO determination
-        if "NO" in result or any(f"score: {i}" in result.lower() for i in range(1, 8)):
+        # Regenerate if validation failed or score is below 8
+        if not result.is_valid or result.score < 8:
             needs_regeneration = True
             improvement_guidance += "INITIAL IDEA INTEGRATION ISSUES:\n"
-            improvement_guidance += result.split("guidance on how to improve it")[-1].strip() if "guidance on how to improve it" in result else result
-            improvement_guidance += "\n\n"
+            if result.issues:
+                improvement_guidance += "Issues found:\n"
+                for issue in result.issues:
+                    improvement_guidance += f"- {issue}\n"
+            improvement_guidance += f"\nSuggestions: {result.suggestions}\n\n"
     
     # Check genre validation
     if "genre" in validation_results:
         result = validation_results["genre"]
-        if "NO" in result or any(f"score: {i}" in result.lower() for i in range(1, 8)):
+        if not result.is_valid or result.score < 8:
             needs_regeneration = True
             improvement_guidance += f"GENRE ({genre}) ISSUES:\n"
-            improvement_guidance += result.split("guidance on how to improve it:")[-1].strip() if "guidance on how to improve it:" in result else result
-            improvement_guidance += "\n\n"
+            if result.issues:
+                improvement_guidance += "Issues found:\n"
+                for issue in result.issues:
+                    improvement_guidance += f"- {issue}\n"
+            improvement_guidance += f"\nSuggestions: {result.suggestions}\n\n"
     
     # Check setting validation
     if "setting" in validation_results:
         result = validation_results["setting"]
-        if "NO" in result or any(f"score: {i}" in result.lower() for i in range(1, 8)):
+        if not result.is_valid or result.score < 8:
             needs_regeneration = True
             improvement_guidance += "SETTING ISSUES:\n"
-            improvement_guidance += result.split("guidance on how to improve it:")[-1].strip() if "guidance on how to improve it:" in result else result
-            improvement_guidance += "\n\n"
+            if result.issues:
+                improvement_guidance += "Issues found:\n"
+                for issue in result.issues:
+                    improvement_guidance += f"- {issue}\n"
+            improvement_guidance += f"\nSuggestions: {result.suggestions}\n\n"
     
     # Initialize final_verification_result for later use
     final_verification_result = None
@@ -474,11 +534,13 @@ def generate_story_outline(state: StoryState) -> Dict:
             target_language=SUPPORTED_LANGUAGES[language.lower()] if language.lower() != DEFAULT_LANGUAGE else None
         )
         
-        final_verification_result = llm.invoke([HumanMessage(content=final_verification_prompt)]).content
-        print(f"[DEBUG] Final verification result: {final_verification_result[:200]}")
+        # Use structured output for final verification
+        structured_llm = llm.with_structured_output(ValidationResult)
+        final_verification_result = structured_llm.invoke(final_verification_prompt)
+        print(f"[DEBUG] Final verification result: is_valid={final_verification_result.is_valid}, score={final_verification_result.score}")
         # If the outline still doesn't meet requirements, try one more time with additional guidance
-        print(f"[DEBUG] Checking if 'NO' in final_verification_result: {'NO' in final_verification_result}")
-        if "NO" in final_verification_result:
+        print(f"[DEBUG] Checking if validation failed: {not final_verification_result.is_valid or final_verification_result.score < 8}")
+        if not final_verification_result.is_valid or final_verification_result.score < 8:
             language_instruction = ""
             if language.lower() != DEFAULT_LANGUAGE:
                 language_instruction = f"""
@@ -500,7 +562,11 @@ def generate_story_outline(state: StoryState) -> Dict:
             Initial Idea: "{initial_idea}"
             
             What still needs improvement:
-            {final_verification_result}
+            Score: {final_verification_result.score}/10
+            Issues:
+{chr(10).join(f'            - {issue}' for issue in final_verification_result.issues) if final_verification_result.issues else '            No specific issues listed'}
+            
+            Suggestions: {final_verification_result.suggestions}
             
             Please create an outline that:
             1. Uses "{initial_idea_elements.get('setting', 'Unknown')}" as the primary setting

@@ -857,12 +857,13 @@ def write_scene(state: StoryState) -> Dict:
                 # Format for structure analysis
                 scenes_for_structure = []
                 for scene_data in recent_scenes_data:
-                    scenes_for_structure.append({
-                        'chapter': scene_data['chapter_number'],
-                        'scene': scene_data['scene_number'],
-                        'content': scene_data['content'],
-                        'characters': preliminary_scene_characters  # Empty for now, just for structure
-                    })
+                    if scene_data.get('content'):  # Only include scenes with content
+                        scenes_for_structure.append({
+                            'chapter': scene_data['chapter_number'],
+                            'scene': scene_data['scene_number'],
+                            'content': scene_data['content'],
+                            'characters': preliminary_scene_characters  # Empty for now, just for structure
+                        })
                 
                 # Analyze scene structures
                 structural_analysis = analyze_scene_structures(
@@ -875,8 +876,8 @@ def write_scene(state: StoryState) -> Dict:
                 # Store structural analysis for later use
                 structural_analysis_result = structural_analysis
                 
-                # For repetition analysis, use just the content
-                recent_content = "\n\n---\n\n".join([s['content'] for s in recent_scenes_data[:3]])
+                # For repetition analysis, use just the content (filter out None values)
+                recent_content = "\n\n---\n\n".join([s['content'] for s in recent_scenes_data[:3] if s.get('content')])
                 
                 # Analyze repetition intelligently
                 intelligent_analysis = analyze_repetition_in_context(
