@@ -5,7 +5,7 @@ StoryCraft Agent - Creative tools and utilities.
 from typing import Dict, List, Any, Optional, Union, Type, TypeVar
 import json
 
-from storyteller_lib.config import llm, manage_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
@@ -42,7 +42,9 @@ def creative_brainstorm(
     num_ideas: int = 5,
     evaluation_criteria: List[str] = None,
     constraints: Dict[str, str] = None,
-    strict_adherence: bool = True
+    strict_adherence: bool = True,
+    scene_specifications: Optional[Dict[str, Any]] = None,
+    chapter_outline: Optional[str] = None
 ) -> Dict:
     """
     Generate and evaluate multiple creative ideas for a given story element.
@@ -58,6 +60,8 @@ def creative_brainstorm(
         num_ideas: Number of ideas to generate
         evaluation_criteria: List of criteria to evaluate ideas against
         constraints: Dictionary of specific constraints to enforce (e.g., setting, characters)
+        scene_specifications: Optional scene-specific requirements and constraints
+        chapter_outline: Optional chapter outline for context
         
     Returns:
         Dictionary with generated ideas and evaluations
@@ -100,20 +104,34 @@ def creative_brainstorm(
                     break
     
     # Render the brainstorming prompt
-    brainstorm_prompt = render_prompt(
-        'creative_brainstorm',
-        language=language,
-        topic=topic,
-        genre=genre,
-        tone=tone,
-        idea_context=idea_context,
-        setting_constraint=setting_constraint,
-        character_constraints=character_constraints,
-        plot_constraints=plot_constraints,
-        num_ideas=num_ideas,
-        author=author,
-        author_style_guidance=author_style_guidance
-    )
+    # Use special template for generating initial story premises
+    if topic == "Unique Story Premises":
+        brainstorm_prompt = render_prompt(
+            'unique_story_premises',
+            language=language,
+            genre=genre,
+            tone=tone,
+            num_ideas=num_ideas,
+            author=author,
+            author_style_guidance=author_style_guidance
+        )
+    else:
+        brainstorm_prompt = render_prompt(
+            'creative_brainstorm',
+            language=language,
+            topic=topic,
+            genre=genre,
+            tone=tone,
+            idea_context=idea_context,
+            setting_constraint=setting_constraint,
+            character_constraints=character_constraints,
+            plot_constraints=plot_constraints,
+            num_ideas=num_ideas,
+            author=author,
+            author_style_guidance=author_style_guidance,
+            scene_specifications=scene_specifications,
+            chapter_outline=chapter_outline
+        )
     
     # Author style will be handled in the template if needed
     
@@ -135,24 +153,16 @@ def creative_brainstorm(
         plot_constraints=plot_constraints,
         genre=genre,
         tone=tone,
-        strict_adherence=strict_adherence
+        strict_adherence=strict_adherence,
+        scene_specifications=scene_specifications,
+        chapter_outline=chapter_outline
     )
     
     # Evaluate ideas
     evaluation = llm.invoke([HumanMessage(content=eval_prompt)]).content
     
-    # Store brainstorming results in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": f"brainstorm_{topic.lower().replace(' ', '_')}",
-        "value": {
-            "ideas": ideas_response,
-            "evaluation": evaluation,
-            "timestamp": "now",
-            "topic": topic
-        },
-        "namespace": MEMORY_NAMESPACE
-    })
+    # Brainstorming results are temporary and returned directly
+    # No need to store in memory/database
     # Return results
     # Extract recommended ideas from evaluation, with fallback to the best idea from ideas_response
     recommended_ideas = None
@@ -323,57 +333,6 @@ class WorldElements(BaseModel):
     RELIGION: Optional[ReligionElements] = Field(None, description="Religion elements")
     DAILY_LIFE: Optional[DailyLifeElements] = Field(None, description="Daily life elements")
 
-def parse_json_with_langchain(text: str, description: str = "world elements", language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
-    """
-    Parse world elements from text using structured output.
-    
-    Args:
-        text: Text containing world elements to parse
-        description: Description of what we're parsing (for error messages)
-        
-    Returns:
-        Parsed world elements as a dictionary
-    """
-    from storyteller_lib.config import get_llm_with_structured_output
-    
-    # Use structured output to parse the world elements
-    try:
-        # Use template system
-        from storyteller_lib.prompt_templates import render_prompt
-        
-        prompt = render_prompt(
-            'world_extraction',
-            language=language,
-            text=text
-        )
-        
-        structured_llm = get_llm_with_structured_output(WorldElements)
-        response = structured_llm.invoke(prompt)
-        
-        if isinstance(response, WorldElements):
-            # Convert to dict and handle the TECHNOLOGY/MAGIC key
-            result = response.dict(by_alias=True, exclude_none=True)
-            # Ensure we have the expected structure
-            return result
-        else:
-            print(f"Unexpected response type: {type(response)}")
-            return _get_default_world_structure()
-    except Exception as e:
-        print(f"Structured output parsing failed: {str(e)}")
-        return _get_default_world_structure()
-
-def _get_default_world_structure() -> Dict[str, Any]:
-    """Return a default world structure."""
-    return {
-        "GEOGRAPHY": {},
-        "HISTORY": {},
-        "CULTURE": {},
-        "POLITICS": {},
-        "ECONOMICS": {},
-        "TECHNOLOGY/MAGIC": {},
-        "RELIGION": {},
-        "DAILY_LIFE": {}
-    }
 
 def generate_structured_json(text_content: str, schema: str, description: str) -> Dict[str, Any]:
     """

@@ -66,6 +66,10 @@ CACHE_LOCATION = os.environ.get("CACHE_LOCATION", str(Path.home() / ".storytelle
 # Define the path for the SQLite memory database
 MEMORY_DB_PATH = os.environ.get("MEMORY_DB_PATH", str(Path.home() / ".storyteller" / "memory.sqlite"))
 
+# Language Configuration (moved before database init to avoid circular import)
+DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "english")  # Default language from .env or fallback to english
+print(f"[CONFIG] DEFAULT_LANGUAGE set to: {DEFAULT_LANGUAGE}")
+
 # Database Configuration
 DATABASE_PATH = os.environ.get("STORY_DATABASE_PATH", str(Path.home() / ".storyteller" / "story_database.db"))
 
@@ -75,10 +79,6 @@ memory_manager = MemoryManager(db_manager)
 # Set the global memory manager instance
 from storyteller_lib import memory_manager as mm_module
 mm_module.memory_manager = memory_manager
-
-# Language Configuration
-DEFAULT_LANGUAGE = os.environ.get("DEFAULT_LANGUAGE", "english")  # Default language from .env or fallback to english
-print(f"[CONFIG] DEFAULT_LANGUAGE set to: {DEFAULT_LANGUAGE}")
 # Dictionary mapping language codes to their full names
 SUPPORTED_LANGUAGES = {
     "english": "English",
@@ -225,30 +225,12 @@ def get_llm_with_structured_output(
     base_llm = get_llm(provider, model, temperature, max_tokens)
     
     # Use LangChain's with_structured_output method
-    try:
-        return base_llm.with_structured_output(response_schema)
-    except Exception as e:
-        logger.warning(f"Failed to create structured output LLM: {e}")
-        logger.warning("Falling back to regular LLM with prompt engineering")
-        return base_llm
+    return base_llm.with_structured_output(response_schema)
 
 
 # Define the memory namespace consistently
 MEMORY_NAMESPACE = "storyteller"
 
-# Import memory functions for compatibility
-from storyteller_lib.memory_manager import manage_memory, search_memory
-
-# Create tool-like wrappers for backward compatibility
-class MemoryToolWrapper:
-    def __init__(self, func):
-        self.func = func
-    
-    def invoke(self, params):
-        return self.func(**params)
-
-manage_memory_tool = MemoryToolWrapper(manage_memory)
-search_memory_tool = MemoryToolWrapper(search_memory)
 # Memory profiling utility
 def log_memory_usage(label: str) -> Dict[str, Any]:
     """
@@ -426,6 +408,46 @@ def translate_guidance(guidance_text: str, target_language: str) -> str:
     except Exception as e:
         logger.error(f"Translation failed: {str(e)}")
         return guidance_text  # Fallback to original text if translation fails
+
+def get_story_config() -> Dict[str, Any]:
+    """
+    Load story configuration from database.
+    This is a helper function to be used by nodes that need access to configuration.
+    
+    Returns:
+        Dictionary with genre, tone, language, author, initial_idea
+    """
+    from storyteller_lib.database_integration import get_db_manager
+    
+    # Default values
+    config = {
+        "genre": "fantasy",
+        "tone": "epic", 
+        "language": DEFAULT_LANGUAGE,
+        "author": "",
+        "initial_idea": ""
+    }
+    
+    db_manager = get_db_manager()
+    if db_manager:
+        try:
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT genre, tone, language, author, initial_idea 
+                    FROM story_config WHERE id = 1
+                """)
+                result = cursor.fetchone()
+                if result:
+                    config["genre"] = result['genre'] or config["genre"]
+                    config["tone"] = result['tone'] or config["tone"]
+                    config["language"] = result['language'] or config["language"]
+                    config["author"] = result['author'] or ""
+                    config["initial_idea"] = result['initial_idea'] or ""
+        except Exception as e:
+            logger.error(f"Failed to load story config: {e}")
+    
+    return config
 
 # Final garbage collection
 gc.collect()

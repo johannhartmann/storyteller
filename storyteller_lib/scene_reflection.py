@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from storyteller_lib import track_progress
 from storyteller_lib.config import (
     DEFAULT_LANGUAGE, MEMORY_NAMESPACE, SUPPORTED_LANGUAGES,
-    llm, manage_memory_tool, search_memory_tool, get_llm_with_structured_output
+    llm, get_llm_with_structured_output
 )
 from storyteller_lib.constants import NodeNames, QualityThresholds, RevisionTypes
 from storyteller_lib.logger import scene_logger as logger
@@ -462,13 +462,7 @@ IMPORTANT: All quality scores MUST be integers between 1 and 10 (inclusive). Do 
     state["scene_needs_revision"] = needs_revision
     state["scene_reflection"] = reflection
     
-    # Store reflection in memory for future reference
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": f"scene_reflection_ch{current_chapter}_sc{current_scene}",
-        "value": reflection,
-        "namespace": MEMORY_NAMESPACE
-    })
+    # Reflection is stored in state and used immediately for revision
     
     # Log the reflection
     from storyteller_lib.story_progress_logger import get_progress_logger

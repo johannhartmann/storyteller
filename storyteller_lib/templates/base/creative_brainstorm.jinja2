@@ -8,6 +8,56 @@ CONTEXT:
 - Additional context: {{ specific_context }}
 {% endif %}
 
+{% if scene_specifications %}
+SCENE REQUIREMENTS:
+- Chapter {{ scene_specifications.chapter_number }}, Scene {{ scene_specifications.scene_number }}
+- Scene Type: {{ scene_specifications.scene_type }}
+- Dramatic Purpose: {{ scene_specifications.dramatic_purpose }}
+- Tension Level: {{ scene_specifications.tension_level }}/10
+
+Scene Description: {{ scene_specifications.scene_description }}
+
+{% if scene_specifications.plot_progressions %}
+PLOT POINTS THAT MUST OCCUR:
+{% for progression in scene_specifications.plot_progressions %}
+- {{ progression }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.required_characters %}
+CHARACTERS WHO MUST APPEAR:
+{% for character in scene_specifications.required_characters %}
+- {{ character }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.character_learns %}
+CHARACTER DEVELOPMENTS:
+{% for learning in scene_specifications.character_learns %}
+- {{ learning }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.forbidden_repetitions %}
+AVOID REPEATING:
+{% for repetition in scene_specifications.forbidden_repetitions %}
+- {{ repetition }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.active_plot_threads %}
+ACTIVE PLOT THREADS:
+{% for thread in scene_specifications.active_plot_threads[:3] %}
+- {{ thread.name }}: {{ thread.get('last_development', thread.get('description', 'No development yet')) }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+{% if chapter_outline %}
+CHAPTER CONTEXT:
+{{ chapter_outline }}
+{% endif %}
+
 {% if constraints %}
 CONSTRAINTS:
 {% for constraint in constraints %}
@@ -29,6 +79,11 @@ Generate {{ num_ideas | default(3) }} distinct creative ideas that:
 3. Match the {{ tone }} tone
 4. Feel fresh and unexpected
 5. Could enhance reader engagement
+{% if scene_specifications %}
+6. Accomplish all required plot progressions
+7. Include all required characters naturally
+8. Advance the specific dramatic purpose of this scene
+{% endif %}
 
 {% if idea_types %}
 TYPES OF IDEAS TO GENERATE:
@@ -43,6 +98,10 @@ For each idea, provide:
 - Why it would work well in this context
 - Potential challenges or considerations
 - How it enhances the story
+{% if scene_specifications %}
+- How it accomplishes the required plot progressions
+- How it naturally includes the required characters
+{% endif %}
 
 {% if evaluation_criteria %}
 EVALUATION CRITERIA:
@@ -52,4 +111,4 @@ Consider these factors when generating ideas:
 {% endfor %}
 {% endif %}
 
-Be bold and creative while maintaining coherence with the established story elements.
+Be bold and creative while maintaining coherence with the established story elements{% if scene_specifications %} and ensuring all scene requirements are met{% endif %}.

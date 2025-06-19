@@ -1,0 +1,66 @@
+{# Template for generating unique story premises when no initial idea is provided #}
+Generate {{ num_ideas | default(5) }} unique and compelling story premises for a {{ tone }} {{ genre }} story.
+
+REQUIREMENTS:
+1. Each premise should be original and avoid common {{ genre }} clichés
+2. Include a clear protagonist, conflict, and setting
+3. The premise should naturally fit the {{ tone }} tone
+4. Each idea should offer rich potential for character development
+5. Focus on fresh perspectives and unexpected combinations
+
+{% if author %}
+AUTHOR STYLE:
+Consider how {{ author }} might approach a {{ genre }} story - their unique voice, themes, and storytelling techniques.
+{% if author_style_guidance %}
+{{ author_style_guidance }}
+{% endif %}
+{% endif %}
+
+AVOID THESE COMMON {{ genre | upper }} TROPES:
+{% if genre == "fantasy" %}
+- The chosen one prophecy
+- Farm boy becomes king
+- Ancient evil awakens
+- Magical school settings
+- Quest for magical artifacts (unless with a unique twist)
+{% elif genre == "sci-fi" %}
+- AI becomes sentient and evil
+- Time travel paradoxes
+- Alien invasion of Earth
+- Dystopian government control
+- Space marines fighting bugs
+{% elif genre == "mystery" %}
+- Butler did it
+- Amnesia detective
+- Locked room with secret passage
+- Twin reveals
+- Insurance money motive
+{% elif genre == "romance" %}
+- Billionaire CEO love interest
+- Fake relationship becomes real
+- Love triangle drama
+- Miscommunication breakup
+- Small town returns
+{% elif genre == "thriller" %}
+- Government conspiracy
+- Retired agent pulled back
+- Serial killer taunting police
+- Witness protection
+- Double agent reveal
+{% elif genre == "horror" %}
+- Indian burial ground
+- Creepy doll possession
+- Group splits up
+- Car won't start
+- Mirror/basement scares
+{% endif %}
+
+For each premise, provide:
+1. **TITLE**: A working title that captures the essence
+2. **PREMISE**: The core story concept in 2-3 sentences
+3. **PROTAGONIST**: Who they are and what makes them interesting
+4. **CENTRAL CONFLICT**: The main challenge or opposition
+5. **UNIQUE ELEMENT**: What makes this story fresh for the {{ genre }} genre
+6. **TONE FIT**: How this premise supports the {{ tone }} tone
+
+Format each idea clearly with these sections.

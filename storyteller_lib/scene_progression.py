@@ -41,7 +41,7 @@ class SceneProgressionTracker:
                 )
             """)
             
-            # Table for tracking scene structures
+            # Table for tracking scene structures with comprehensive data
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS scene_structures (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +49,12 @@ class SceneProgressionTracker:
                     scene_number INTEGER NOT NULL,
                     structure_pattern TEXT NOT NULL,  -- e.g., 'maintenance->anomaly->vision->dismissal'
                     scene_type TEXT NOT NULL,  -- 'action', 'dialogue', 'exploration', 'revelation'
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    opening_type TEXT,  -- How scene opens: action, dialogue, description, internal_thought
+                    main_events TEXT,  -- JSON array of main events
+                    climax_type TEXT,  -- Type of climax: revelation, action, emotional, cliffhanger
+                    resolution TEXT,  -- How scene resolves: complete, partial, cliffhanger
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(chapter_number, scene_number)
                 )
             """)
             
@@ -144,8 +149,57 @@ class SceneProgressionTracker:
             cursor.execute("SELECT structure_pattern FROM scene_structures ORDER BY id")
             return [row['structure_pattern'] for row in cursor.fetchall()]
     
+    def get_scene_structures_detailed(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get detailed scene structure data for recent scenes.
+        
+        Args:
+            limit: Maximum number of scenes to return
+            
+        Returns:
+            List of scene structure dictionaries with full analysis data
+        """
+        if not self.db_manager or not self.db_manager._db:
+            return []
+            
+        import json
+        
+        with self.db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT chapter_number, scene_number, structure_pattern, scene_type,
+                       opening_type, main_events, climax_type, resolution
+                FROM scene_structures 
+                ORDER BY chapter_number DESC, scene_number DESC
+                LIMIT ?
+            """, (limit,))
+            
+            results = []
+            for row in cursor.fetchall():
+                scene_data = {
+                    'chapter': row['chapter_number'],
+                    'scene': row['scene_number'],
+                    'structure_pattern': row['structure_pattern'],
+                    'scene_type': row['scene_type'],
+                    'opening_type': row['opening_type'],
+                    'climax_type': row['climax_type'],
+                    'resolution': row['resolution']
+                }
+                
+                # Parse JSON main_events if available
+                if row['main_events']:
+                    try:
+                        scene_data['main_events'] = json.loads(row['main_events'])
+                    except:
+                        scene_data['main_events'] = []
+                else:
+                    scene_data['main_events'] = []
+                
+                results.append(scene_data)
+            
+            return results
+    
     def add_scene_structure(self, chapter: int, scene: int, pattern: str, scene_type: str):
-        """Record a scene's structure pattern.
+        """Record a scene's structure pattern (legacy method for compatibility).
         
         Args:
             chapter: Chapter number
@@ -159,9 +213,41 @@ class SceneProgressionTracker:
         with self.db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO scene_structures (chapter_number, scene_number, structure_pattern, scene_type)
+                INSERT OR REPLACE INTO scene_structures (chapter_number, scene_number, structure_pattern, scene_type)
                 VALUES (?, ?, ?, ?)
             """, (chapter, scene, pattern, scene_type))
+            conn.commit()
+    
+    def add_scene_structure_analysis(self, chapter: int, scene: int, analysis):
+        """Record complete scene structure analysis.
+        
+        Args:
+            chapter: Chapter number
+            scene: Scene number
+            analysis: SceneStructureAnalysis object with full structure data
+        """
+        if not self.db_manager or not self.db_manager._db:
+            return
+            
+        import json
+        
+        with self.db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO scene_structures 
+                (chapter_number, scene_number, structure_pattern, scene_type, 
+                 opening_type, main_events, climax_type, resolution)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                chapter, 
+                scene, 
+                analysis.structure_pattern,
+                'unknown',  # We'll update this separately if needed
+                analysis.opening_type,
+                json.dumps(analysis.main_events),
+                analysis.climax_type,
+                analysis.resolution
+            ))
             conn.commit()
     
     def get_character_knowledge(self, character_name: str) -> Set[str]:
@@ -329,14 +415,14 @@ class SceneProgressionTracker:
                 description="Specific character actions or gestures"
             )
             
-        # Only analyze first 1000 chars to save tokens
-        content_sample = content[:1000] if len(content) > 1000 else content
+        # Use full scene content for comprehensive phrase extraction
+        # This ensures we catch repetitive phrases throughout the entire scene
         
         # Render the phrase extraction prompt
         prompt = render_prompt(
             'phrase_extraction',
             language=language,
-            content_sample=content_sample
+            content_sample=content  # Using full content, not just a sample
         )
 
         try:

@@ -12,9 +12,9 @@ from typing import Dict, List, Optional, Any
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
-from storyteller_lib.config import get_llm, get_llm_with_structured_output, MEMORY_NAMESPACE, manage_memory_tool
+from storyteller_lib.config import get_llm, get_llm_with_structured_output, MEMORY_NAMESPACE
 from storyteller_lib.database_integration import get_db_manager
-from storyteller_lib.memory_manager import manage_memory, search_memory
+# Memory manager imports removed - using state and database instead
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,15 @@
 {# German template for determining scene variety requirements #}
-Basierend auf den vorherigen Szenen und der Kapitelübersicht, bestimme Abwechslungsanforderungen für die nächste Szene:
+Basierend auf dem Kapitelkontext und den Szenenanforderungen, bestimme Abwechslungsanforderungen, die DIESER SPEZIFISCHEN SZENE dienen:
 
-VORHERIGE SZENEN:
+KAPITELÜBERSICHT:
+{{ chapter_outline }}
+
+{% if scene_description %}
+AKTUELLE ZU SCHREIBENDE SZENE:
+{{ scene_description }}
+{% endif %}
+
+VORHERIGE SZENEN (für Abwechslungskontext):
 {% for scene in scene_history %}
 Szene {{ loop.index }}:
 - Typ: {{ scene.scene_type }}
@@ -10,17 +18,18 @@ Szene {{ loop.index }}:
 - Ereignisse: {{ scene.events | join(', ') }}
 {% endfor %}
 
-KAPITELÜBERSICHT:
-{{ chapter_outline }}
-
 AKTUELLE POSITION:
 - Szene {{ scene_number }} von {{ total_scenes_in_chapter }}
 - Kapitelfortschritt: {{ ((scene_number - 1) / total_scenes_in_chapter * 100) | round }}%
 
 ABWECHSLUNGSANALYSE:
 
+{% if scene_description %}
+WICHTIG: Basiere deine Anforderungen primär auf der AKTUELLEN SZENENBESCHREIBUNG oben. Die Szenenbeschreibung sagt dir, was passieren muss - deine Aufgabe ist zu bestimmen, WIE es passieren soll, um maximale Abwechslung zu erreichen.
+{% endif %}
+
 1. SZENENTYP-ANFORDERUNG:
-Betrachte die letzten Szenentypen und bestimme, welcher Typ maximale Abwechslung bieten würde:
+Betrachte die aktuellen Szenenanforderungen und die letzten Szenentypen, um zu bestimmen, welcher Typ DIESER Szene am besten dient:
 - action: Physischer Konflikt, Verfolgung oder Kampf
 - dialogue: Figurengespräch und -interaktion
 - exploration: Entdeckung, Untersuchung oder Weltenbau
@@ -73,7 +82,11 @@ DEUTSCHE ERZÄHLTRADITION:
 
 ANFORDERUNGEN:
 Generiere spezifische Anforderungen, die:
-- Wiederholende Muster verhindern
-- Fesselnde Abwechslung schaffen
+{% if scene_description %}
+- Die spezifischen Bedürfnisse DIESER Szene erfüllen (wie oben beschrieben)
+- Die Szenenbeschreibung mit maximaler Abwechslung umsetzen
+{% endif %}
+- Wiederholende Muster verhindern, während sie dem Zweck der Szene dienen
+- Fesselnde Abwechslung innerhalb der Szenenbeschränkungen schaffen
 - Geschichtskohärenz bewahren
 - Die Handlung effektiv vorantreiben

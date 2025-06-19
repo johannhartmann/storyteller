@@ -12,8 +12,8 @@ import os
 from typing import Any, Dict, List, Optional, Set
 
 # Local imports
-from storyteller_lib.constants import NodeNames
-from storyteller_lib.database import DatabaseStateAdapter, StoryDatabase
+from storyteller_lib.constants import NodeNames, ConfigDefaults
+from storyteller_lib.database import StoryDatabase
 from storyteller_lib.exceptions import DatabaseError
 from storyteller_lib.logger import get_logger
 from storyteller_lib.models import StoryState
@@ -39,7 +39,6 @@ class StoryDatabaseManager:
         """
         self.enabled = enabled
         self._db: Optional[StoryDatabase] = None
-        self._adapter: Optional[DatabaseStateAdapter] = None
         self._db_path = db_path or os.environ.get('STORY_DATABASE_PATH', 'story_database.db')
         self._modified_entities: Set[str] = set()
         self._current_chapter_id: Optional[int] = None
@@ -50,47 +49,9 @@ class StoryDatabaseManager:
             self._initialize_database()
     
     def _initialize_database(self) -> None:
-        """Initialize database connection and adapter."""
+        """Initialize database connection."""
         self._db = StoryDatabase(self._db_path)
-        self._adapter = DatabaseStateAdapter(self._db)
         logger.info(f"Database initialized at {self._db_path}")
-    
-    def initialize_story_config(self, state: StoryState) -> None:
-        """
-        Initialize or update the story configuration.
-        
-        Args:
-            state: Initial story state
-        """
-        if not self.enabled or not self._db:
-            return
-        
-        try:
-            with self._db._get_connection() as conn:
-                cursor = conn.cursor()
-                # Insert or replace the single story config row
-                cursor.execute("""
-                    INSERT OR REPLACE INTO story_config 
-                    (id, title, genre, tone, author, language, initial_idea, global_story)
-                    VALUES (1, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    f"{state.get('tone', 'unknown').capitalize()} {state.get('genre', 'unknown').capitalize()} Story",
-                    state.get('genre', 'unknown'),
-                    state.get('tone', 'unknown'),
-                    state.get('author', ''),
-                    state.get('language', 'english'),
-                    state.get('initial_idea', ''),
-                    state.get('global_story', '')
-                ))
-                conn.commit()
-            logger.info("Initialized story configuration")
-            
-            # Initialize context provider
-            from storyteller_lib.story_context import initialize_context_provider
-            initialize_context_provider()
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize story config: {e}")
     
     def save_node_state(self, node_name: str, state: StoryState) -> None:
         """
@@ -133,9 +94,9 @@ class StoryDatabaseManager:
             logger.error(f"Failed to save state after {node_name}: {e}")
     
     def _save_initial_state(self, state: StoryState) -> None:
-        """Save initial story setup."""
-        self.initialize_story_config(state)
-        # Ensure context provider is initialized
+        """Initialize context provider for story generation."""
+        # Story configuration is already saved by storyteller.py
+        # Just ensure context provider is initialized
         from storyteller_lib.story_context import get_context_provider, initialize_context_provider
         if not get_context_provider():
             initialize_context_provider()
@@ -522,21 +483,6 @@ class StoryDatabaseManager:
         
         return {}
     
-    def load_story(self) -> Optional[StoryState]:
-        """
-        Load the story from the database.
-        
-        Returns:
-            Story state if successful, None otherwise
-        """
-        if not self._adapter:
-            return None
-        
-        try:
-            return self._adapter.load_from_database()
-        except Exception as e:
-            logger.error(f"Failed to load story: {e}")
-            return None
     
     def update_character(self, character_id: str, changes: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
@@ -1313,105 +1259,11 @@ class StoryDatabaseManager:
             logger.error(f"Failed to get scene {scene_num} of chapter {chapter_num}: {e}")
             return None
     
-    def create_memory(self, key: str, value: str, namespace: str = "storyteller") -> None:
-        """Create a new memory entry."""
-        if not self.enabled or not self._db:
-            return
-            
-        try:
-            with self._db._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """INSERT OR REPLACE INTO memories (key, value, namespace) 
-                       VALUES (?, ?, ?)""",
-                    (key, value, namespace)
-                )
-                conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to create memory {key}: {e}")
-            raise
-    
-    def update_memory(self, key: str, value: str, namespace: str = "storyteller") -> None:
-        """Update an existing memory entry."""
-        if not self.enabled or not self._db:
-            return
-            
-        try:
-            with self._db._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """UPDATE memories SET value = ?, updated_at = CURRENT_TIMESTAMP 
-                       WHERE key = ? AND namespace = ?""",
-                    (value, key, namespace)
-                )
-                conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to update memory {key}: {e}")
-            raise
-    
-    def delete_memory(self, key: str, namespace: str = "storyteller") -> None:
-        """Delete a memory entry."""
-        if not self.enabled or not self._db:
-            return
-            
-        try:
-            with self._db._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "DELETE FROM memories WHERE key = ? AND namespace = ?",
-                    (key, namespace)
-                )
-                conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to delete memory {key}: {e}")
-            raise
-    
-    def get_memory(self, key: str, namespace: str = "storyteller") -> Optional[Dict[str, Any]]:
-        """Get a specific memory by key."""
-        if not self.enabled or not self._db:
-            return None
-            
-        try:
-            with self._db._get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT key, value, namespace FROM memories WHERE key = ? AND namespace = ?",
-                    (key, namespace)
-                )
-                result = cursor.fetchone()
-                if result:
-                    return dict(result)
-                return None
-        except Exception as e:
-            logger.error(f"Failed to get memory {key}: {e}")
-            return None
-    
-    def search_memories(self, query: str, namespace: str = "storyteller") -> List[Dict[str, Any]]:
-        """Search for memories containing the query string."""
-        if not self.enabled or not self._db:
-            return []
-            
-        try:
-            with self._db._get_connection() as conn:
-                cursor = conn.cursor()
-                # Simple text search - checks if query is in key or value
-                cursor.execute(
-                    """SELECT key, value, namespace FROM memories 
-                       WHERE namespace = ? AND (key LIKE ? OR value LIKE ?)
-                       ORDER BY updated_at DESC""",
-                    (namespace, f'%{query}%', f'%{query}%')
-                )
-                results = cursor.fetchall()
-                return [dict(row) for row in results]
-        except Exception as e:
-            logger.error(f"Failed to search memories for '{query}': {e}")
-            return []
     
     def close(self) -> None:
         """Close database connections."""
         # SQLite connections are closed automatically
         self._db = None
-        self._adapter = None
         logger.debug("Database manager closed")
 
 

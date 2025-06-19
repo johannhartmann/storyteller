@@ -138,7 +138,7 @@ class PromptTemplateManager:
             
             # Log if we're getting the base template instead of language-specific
             template_path = getattr(template, 'filename', '')
-            if self.language != DEFAULT_LANGUAGE and '/base/' in template_path:
+            if self.language != DEFAULT_LANGUAGE and self.language != 'english' and '/base/' in template_path:
                 logger.warning(f"Using base template for '{template_name}' instead of {self.language}-specific template")
             
             rendered = template.render(**kwargs)

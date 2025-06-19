@@ -83,24 +83,12 @@ def analyze_repetition_in_context(
         story_context=story_context or "not provided"
     )
     
-    try:
-        structured_llm = llm.with_structured_output(IntelligentRepetitionAnalysis)
-        analysis = structured_llm.invoke(prompt)
-        
-        logger.info(f"Intelligent repetition analysis complete - {len(analysis.intentional_repetitions)} intentional, {len(analysis.unintentional_repetitions)} unintentional")
-        
-        return analysis
-        
-    except Exception as e:
-        logger.error(f"Error in intelligent repetition analysis: {e}")
-        # Return a safe default
-        return IntelligentRepetitionAnalysis(
-            intentional_repetitions=[],
-            unintentional_repetitions=[],
-            overall_assessment="Analysis failed",
-            genre_appropriate=True,
-            suggestions=[]
-        )
+    structured_llm = llm.with_structured_output(IntelligentRepetitionAnalysis)
+    analysis = structured_llm.invoke(prompt)
+    
+    logger.info(f"Intelligent repetition analysis complete - {len(analysis.intentional_repetitions)} intentional, {len(analysis.unintentional_repetitions)} unintentional")
+    
+    return analysis
 
 
 def evaluate_phrase_repetition(

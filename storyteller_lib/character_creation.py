@@ -5,7 +5,8 @@ StoryCraft Agent - Character creation and management.
 from typing import Dict, List, Any, Optional, Union, Set
 from pydantic import BaseModel, Field, validator
 
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+# Memory manager imports removed - using state and database instead
 from storyteller_lib.models import StoryState, CharacterProfile as CharacterProfileDict
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from storyteller_lib import track_progress
@@ -236,36 +237,10 @@ def generate_character_roles(
         required_characters=', '.join(required_characters) if required_characters else None
     )
     
-    try:
-        # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(CharacterRoles)
-        result = structured_output_llm.invoke(prompt)
-        return result.roles
-    except Exception as e:
-        print(f"Error generating character roles: {str(e)}")
-        
-        # Fallback: Generate basic roles
-        fallback_roles = [
-            CharacterRole(role="Protagonist", importance="primary", brief_description="Main character who drives the story"),
-            CharacterRole(role="Antagonist", importance="primary", brief_description="Character who opposes the protagonist"),
-            CharacterRole(role="Mentor", importance="secondary", brief_description="Character who guides the protagonist"),
-            CharacterRole(role="Ally", importance="secondary", brief_description="Character who helps the protagonist")
-        ]
-        
-        # Add required characters if they're not already covered
-        if required_characters:
-            existing_roles = {role.role.lower() for role in fallback_roles}
-            for char in required_characters:
-                if not any(char.lower() in role.lower() for role in existing_roles):
-                    fallback_roles.append(
-                        CharacterRole(
-                            role=char, 
-                            importance="primary", 
-                            brief_description=f"Required character from initial story concept"
-                        )
-                    )
-        
-        return fallback_roles
+    # Use structured output with Pydantic
+    structured_output_llm = llm.with_structured_output(CharacterRoles)
+    result = structured_output_llm.invoke(prompt)
+    return result.roles
 
 def generate_basic_character(
     role: CharacterRole, 
@@ -321,20 +296,9 @@ def generate_basic_character(
         style_guidance=style_guidance if author_style_guidance else None
     )
     
-    try:
-        # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(BasicCharacterInfo)
-        return structured_output_llm.invoke(prompt)
-    except Exception as e:
-        print(f"Error generating basic character info: {str(e)}")
-        
-        # Fallback: Create a basic character
-        return BasicCharacterInfo(
-            name=role.role,
-            role=role.role,
-            backstory=role.brief_description,
-            key_traits=["Determined", "Resourceful", "Complex"]
-        )
+    # Use structured output with Pydantic
+    structured_output_llm = llm.with_structured_output(BasicCharacterInfo)
+    return structured_output_llm.invoke(prompt)
 
 def generate_personality_traits(
     character: BasicCharacterInfo, 
@@ -367,22 +331,9 @@ def generate_personality_traits(
         story_outline=story_outline
     )
     
-    try:
-        # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(PersonalityTraits)
-        return structured_output_llm.invoke(prompt)
-    except Exception as e:
-        print(f"Error generating personality traits: {str(e)}")
-        
-        # Fallback: Create basic personality traits based on key_traits
-        return PersonalityTraits(
-            traits=character.key_traits,
-            strengths=["Adaptable", "Resourceful"],
-            flaws=["Stubborn", "Impulsive"],
-            fears=["Failure"],
-            desires=["Success"],
-            values=["Loyalty"]
-        )
+    # Use structured output with Pydantic
+    structured_output_llm = llm.with_structured_output(PersonalityTraits)
+    return structured_output_llm.invoke(prompt)
 
 def generate_emotional_state(
     character: BasicCharacterInfo, 
@@ -419,19 +370,9 @@ def generate_emotional_state(
         values=', '.join(personality.values)
     )
     
-    try:
-        # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(EmotionalState)
-        return structured_output_llm.invoke(prompt)
-    except Exception as e:
-        print(f"Error generating emotional state: {str(e)}")
-        
-        # Fallback: Create a basic emotional state
-        return EmotionalState(
-            initial="Neutral with hints of anticipation",
-            current="Neutral with hints of anticipation",
-            journey=[]
-        )
+    # Use structured output with Pydantic
+    structured_output_llm = llm.with_structured_output(EmotionalState)
+    return structured_output_llm.invoke(prompt)
 
 def generate_inner_conflicts(
     character: BasicCharacterInfo, 
@@ -468,26 +409,14 @@ def generate_inner_conflicts(
         values=', '.join(personality.values)
     )
     
-    try:
-        # Create a model for the response
-        class InnerConflicts(BaseModel):
-            conflicts: List[InnerConflict]
-        
-        # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(InnerConflicts)
-        result = structured_output_llm.invoke(prompt)
-        return result.conflicts
-    except Exception as e:
-        print(f"Error generating inner conflicts: {str(e)}")
-        
-        # Fallback: Create a basic inner conflict
-        return [
-            InnerConflict(
-                description=f"Desire for {personality.desires[0] if personality.desires else 'success'} vs. fear of {personality.fears[0] if personality.fears else 'failure'}",
-                resolution_status="unresolved",
-                impact="Causes hesitation at critical moments"
-            )
-        ]
+    # Create a model for the response
+    class InnerConflicts(BaseModel):
+        conflicts: List[InnerConflict]
+    
+    # Use structured output with Pydantic
+    structured_output_llm = llm.with_structured_output(InnerConflicts)
+    result = structured_output_llm.invoke(prompt)
+    return result.conflicts
 
 def generate_character_arc(
     character: BasicCharacterInfo, 
@@ -519,19 +448,9 @@ def generate_character_arc(
         inner_conflicts=' '.join([f"- {conflict.description}" for conflict in inner_conflicts])
     )
     
-    try:
-        # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(CharacterArc)
-        return structured_output_llm.invoke(prompt)
-    except Exception as e:
-        print(f"Error generating character arc: {str(e)}")
-        
-        # Fallback: Create a basic character arc
-        return CharacterArc(
-            type="growth",
-            stages=["Beginning", "Challenge", "Change", "Resolution"],
-            current_stage="Beginning"
-        )
+    # Use structured output with Pydantic
+    structured_output_llm = llm.with_structured_output(CharacterArc)
+    return structured_output_llm.invoke(prompt)
 
 def generate_character_facts(
     character: BasicCharacterInfo, 
@@ -563,24 +482,16 @@ def generate_character_facts(
         story_outline=story_outline
     )
     
-    try:
-        # Create a model for the response
-        class CharacterEvolution(BaseModel):
-            evolution: List[str]
-        
-        # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(CharacterEvolution)
-        result = structured_output_llm.invoke(prompt)
-        return {
-            "evolution": result.evolution
-        }
-    except Exception as e:
-        print(f"Error generating character facts: {str(e)}")
-        
-        # Fallback: Create basic evolution
-        return {
-            "evolution": ["Will face a significant challenge", "May undergo a transformation"]
-        }
+    # Create a model for the response
+    class CharacterEvolution(BaseModel):
+        evolution: List[str]
+    
+    # Use structured output with Pydantic
+    structured_output_llm = llm.with_structured_output(CharacterEvolution)
+    result = structured_output_llm.invoke(prompt)
+    return {
+        "evolution": result.evolution
+    }
 
 # Simplified model for a single character relationship
 class SingleRelationship(BaseModel):
@@ -625,42 +536,9 @@ def generate_single_relationship(
         story_outline=story_outline
     )
     
-    try:
-        # Use structured output with Pydantic
-        structured_output_llm = llm.with_structured_output(SingleRelationship)
-        return structured_output_llm.invoke(prompt)
-    except Exception as e:
-        print(f"Error generating relationship between {character['name']} and {other_character['name']}: {str(e)}")
-        
-        # Create a basic relationship based on roles
-        if character['role'] == 'Protagonist' and other_character['role'] == 'Antagonist':
-            return SingleRelationship(
-                relationship_type="enemy",
-                dynamics="Conflict and opposition",
-                evolution=["Initial confrontation", "Escalating conflict"],
-                conflicts=["Opposing goals", "Ideological differences"]
-            )
-        elif character['role'] == 'Protagonist' and other_character['role'] == 'Mentor':
-            return SingleRelationship(
-                relationship_type="student",
-                dynamics="Learning and guidance",
-                evolution=["Initial meeting", "Growing trust"],
-                conflicts=["Resistance to advice", "Different approaches"]
-            )
-        elif character['role'] == 'Protagonist' and other_character['role'] == 'Ally':
-            return SingleRelationship(
-                relationship_type="friend",
-                dynamics="Mutual support and trust",
-                evolution=["Initial meeting", "Developing friendship"],
-                conflicts=["Occasional disagreements", "Different priorities"]
-            )
-        else:
-            return SingleRelationship(
-                relationship_type="acquaintance",
-                dynamics="Neutral interaction",
-                evolution=["Initial meeting", "Developing relationship"],
-                conflicts=["Potential misunderstandings", "Different backgrounds"]
-            )
+    # Use structured output with Pydantic
+    structured_output_llm = llm.with_structured_output(SingleRelationship)
+    return structured_output_llm.invoke(prompt)
 
 def establish_character_relationships(
     characters: Dict[str, Dict[str, Any]],
@@ -752,13 +630,19 @@ def generate_characters(state: StoryState) -> Dict:
         if not result:
             raise RuntimeError("Story outline not found in database")
         global_story = result['global_story']
-    genre = state["genre"]
-    tone = state["tone"]
-    author = state["author"]
-    initial_idea = state.get("initial_idea", "")
+    # Load configuration from database
+    from storyteller_lib.config import get_story_config
+    config = get_story_config()
+    
+    genre = config["genre"]
+    tone = config["tone"]
+    author = config["author"]
+    initial_idea = config["initial_idea"]
+    language = config["language"]
+    
+    # Get temporary workflow data from state
     initial_idea_elements = state.get("initial_idea_elements", {})
-    author_style_guidance = state["author_style_guidance"]
-    language = state.get("language", DEFAULT_LANGUAGE)
+    author_style_guidance = state.get("author_style_guidance", "")
     
     # Extract required characters from initial idea if available
     required_characters = []
@@ -879,16 +763,8 @@ def generate_characters(state: StoryState) -> Dict:
     
     # Character profiles are now stored in database via database_integration
     # Only store character creation metadata in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "character_creation_metadata",
-        "value": {
-            "character_count": len(characters_dict),
-            "character_roles": {name: char.get("role", "") for name, char in characters_dict.items()},
-            "creation_notes": "Characters created and stored in database"
-        },
-        "namespace": MEMORY_NAMESPACE
-    })
+    # Character creation metadata - this is just logging info, doesn't need persistence
+    # Characters are already stored in the database via database_integration
     
     # Update state
     # Get existing message IDs to delete
@@ -941,7 +817,8 @@ def generate_characters(state: StoryState) -> Dict:
                                 )
                             logger.info(f"Added initial knowledge for {char_id}")
         except Exception as e:
-            logger.warning(f"Could not store characters in database: {e}")
+            logger.error(f"Could not store characters in database: {e}")
+            raise
     
     # Return minimal state update - just character IDs with essential info
     minimal_characters = {char_id: {

@@ -1,7 +1,15 @@
 {# Base template for determining scene variety requirements - English version #}
-Based on the previous scenes and chapter outline, determine variety requirements for the next scene:
+Based on the chapter context and scene requirements, determine variety requirements that serve THIS SPECIFIC SCENE:
 
-PREVIOUS SCENES:
+CHAPTER OUTLINE:
+{{ chapter_outline }}
+
+{% if scene_description %}
+CURRENT SCENE TO WRITE:
+{{ scene_description }}
+{% endif %}
+
+PREVIOUS SCENES (for variety context):
 {% for scene in scene_history %}
 Scene {{ loop.index }}:
 - Type: {{ scene.scene_type }}
@@ -10,17 +18,18 @@ Scene {{ loop.index }}:
 - Events: {{ scene.events | join(', ') }}
 {% endfor %}
 
-CHAPTER OUTLINE:
-{{ chapter_outline }}
-
 CURRENT POSITION:
 - Scene {{ scene_number }} of {{ total_scenes_in_chapter }}
 - Chapter progress: {{ ((scene_number - 1) / total_scenes_in_chapter * 100) | round }}%
 
 VARIETY ANALYSIS:
 
+{% if scene_description %}
+IMPORTANT: Base your requirements primarily on the CURRENT SCENE DESCRIPTION above. The scene description tells you what needs to happen - your job is to determine HOW it should happen to maximize variety.
+{% endif %}
+
 1. SCENE TYPE REQUIREMENT:
-Looking at recent scene types, determine what type would provide maximum variety:
+Looking at the current scene requirements and recent scene types, determine what type best serves THIS scene:
 - action: Physical conflict, chase, or combat
 - dialogue: Character conversation and interaction  
 - exploration: Discovery, investigation, or world-building
@@ -68,7 +77,11 @@ What emotional tone would create contrast?
 
 REQUIREMENTS:
 Generate specific requirements that will:
-- Prevent repetitive patterns
-- Create engaging variety
+{% if scene_description %}
+- Fulfill the specific needs of THIS scene (as described above)
+- Implement the scene description with maximum variety
+{% endif %}
+- Prevent repetitive patterns while serving the scene's purpose
+- Create engaging variety within the scene's constraints
 - Maintain story coherence
 - Advance the plot effectively

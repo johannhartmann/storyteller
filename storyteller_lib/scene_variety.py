@@ -47,10 +47,11 @@ def analyze_scene_structure(scene_content: str, language: str = "english") -> Sc
     # Use template system
     from storyteller_lib.prompt_templates import render_prompt
     
+    # Use full scene content for comprehensive structure analysis
     prompt = render_prompt(
         'scene_structure_analysis',
         language=language,
-        scene_excerpt=scene_content[:1500]
+        scene_excerpt=scene_content  # Using full content, not just first 1500 chars
     )
 
     try:
@@ -75,7 +76,8 @@ def determine_scene_variety_requirements(
     chapter_outline: str,
     scene_number: int,
     total_scenes_in_chapter: int,
-    language: str
+    language: str,
+    scene_description: str = ""
 ) -> SceneVarietyRequirements:
     """Determine requirements for the next scene to ensure variety.
     
@@ -84,6 +86,8 @@ def determine_scene_variety_requirements(
         chapter_outline: The chapter outline
         scene_number: Current scene number
         total_scenes_in_chapter: Total number of scenes planned
+        language: Language for the prompt
+        scene_description: The actual description of the current scene
         
     Returns:
         SceneVarietyRequirements object
@@ -110,7 +114,8 @@ def determine_scene_variety_requirements(
         scene_history=scene_history,
         chapter_outline=chapter_outline,
         scene_number=scene_number,
-        total_scenes_in_chapter=total_scenes_in_chapter
+        total_scenes_in_chapter=total_scenes_in_chapter,
+        scene_description=scene_description
     )
 
     try:

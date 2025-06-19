@@ -5,11 +5,10 @@ StoryCraft Agent - Story outline and planning nodes.
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
-from storyteller_lib.memory_manager import manage_memory, search_memory
+# Memory manager imports removed - using state and database instead
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
-from storyteller_lib.creative_tools import parse_json_with_langchain
 from storyteller_lib import track_progress
 from storyteller_lib.plot_threads import PlotThread, THREAD_IMPORTANCE, THREAD_STATUS
 
@@ -29,54 +28,35 @@ def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str
         initial_idea=initial_idea
     )
     
-    try:
-        # Define the structured output
-        class PlotThreadDefinition(BaseModel):
-            name: str = Field(description="A concise, memorable name for the thread")
-            description: str = Field(description="What this thread is about (2-3 sentences)")
-            importance: str = Field(description="Thread importance: major, minor, or background")
-            related_characters: List[str] = Field(description="Character roles involved in this thread")
-        
-        class PlotThreadsContainer(BaseModel):
-            threads: List[PlotThreadDefinition] = Field(description="List of plot threads")
-        
-        # Get structured output
-        structured_llm = llm.with_structured_output(PlotThreadsContainer)
-        result = structured_llm.invoke(prompt)
-        
-        # Convert to plot thread objects
-        plot_threads = {}
-        for thread_def in result.threads:
-            thread = PlotThread(
-                name=thread_def.name,
-                description=thread_def.description,
-                importance=thread_def.importance,
-                status=THREAD_STATUS["INTRODUCED"],
-                first_chapter="",  # Will be set when first used
-                first_scene="",
-                related_characters=thread_def.related_characters
-            )
-            plot_threads[thread_def.name] = thread.to_dict()
-        
-        return plot_threads
-        
-    except Exception as e:
-        print(f"Error generating plot threads: {e}")
-        # Return minimal plot threads as fallback
-        return {
-            "Main Quest": {
-                "name": "Main Quest",
-                "description": "The hero's primary journey and mission",
-                "importance": THREAD_IMPORTANCE["MAJOR"],
-                "status": THREAD_STATUS["INTRODUCED"],
-                "first_chapter": "",
-                "first_scene": "",
-                "last_chapter": "",
-                "last_scene": "",
-                "related_characters": ["hero"],
-                "development_history": []
-            }
-        }
+    # Define the structured output
+    class PlotThreadDefinition(BaseModel):
+        name: str = Field(description="A concise, memorable name for the thread")
+        description: str = Field(description="What this thread is about (2-3 sentences)")
+        importance: str = Field(description="Thread importance: major, minor, or background")
+        related_characters: List[str] = Field(description="Character roles involved in this thread")
+    
+    class PlotThreadsContainer(BaseModel):
+        threads: List[PlotThreadDefinition] = Field(description="List of plot threads")
+    
+    # Get structured output
+    structured_llm = llm.with_structured_output(PlotThreadsContainer)
+    result = structured_llm.invoke(prompt)
+    
+    # Convert to plot thread objects
+    plot_threads = {}
+    for thread_def in result.threads:
+        thread = PlotThread(
+            name=thread_def.name,
+            description=thread_def.description,
+            importance=thread_def.importance,
+            status=THREAD_STATUS["INTRODUCED"],
+            first_chapter="",  # Will be set when first used
+            first_scene="",
+            related_characters=thread_def.related_characters
+        )
+        plot_threads[thread_def.name] = thread.to_dict()
+    
+    return plot_threads
 
 
 @track_progress
@@ -90,16 +70,23 @@ def generate_story_outline(state: StoryState) -> Dict:
     
     logger = get_logger(__name__)
     
-    genre = state["genre"]
-    tone = state["tone"]
-    author = state["author"]
-    initial_idea = state.get("initial_idea", "")
+    # Load configuration from database
+    from storyteller_lib.config import get_story_config
+    config = get_story_config()
+    
+    genre = config["genre"]
+    tone = config["tone"]
+    author = config["author"]
+    initial_idea = config["initial_idea"]
+    language = config["language"]
+    
+    # Get temporary workflow data from state
     initial_idea_elements = state.get("initial_idea_elements", {})
-    author_style_guidance = state["author_style_guidance"]
-    language = state.get("language", DEFAULT_LANGUAGE)
-    print(f"[DEBUG] generate_story_outline: language from state = '{state.get('language')}', using language = '{language}'")
-    print(f"[DEBUG] generate_story_outline: DEFAULT_LANGUAGE = '{DEFAULT_LANGUAGE}'")
+    author_style_guidance = state.get("author_style_guidance", "")
     creative_elements = state.get("creative_elements", {})
+    
+    print(f"[DEBUG] generate_story_outline: language from config = '{language}'")
+    print(f"[DEBUG] generate_story_outline: DEFAULT_LANGUAGE = '{DEFAULT_LANGUAGE}'")
     
     # Prepare author style guidance
     style_guidance = ""
@@ -118,13 +105,8 @@ def generate_story_outline(state: StoryState) -> Dict:
             
             author_style_guidance = llm.invoke([HumanMessage(content=author_prompt)]).content
             
-            # Store this for future use
-            manage_memory_tool.invoke({
-                "action": "create",
-                "key": f"author_style_{author.lower().replace(' ', '_')}",
-                "value": author_style_guidance,
-                "namespace": MEMORY_NAMESPACE
-            })
+            # Update state with the generated guidance
+            state["author_style_guidance"] = author_style_guidance
         
         style_guidance = f"""
         AUTHOR STYLE GUIDANCE:
@@ -261,8 +243,7 @@ def generate_story_outline(state: StoryState) -> Dict:
         validation_results["language"] = language_validation_result
         
         # Store the validation result in memory
-        manage_memory(action="create", key="outline_language_validation", value=language_validation_result,
-            namespace=MEMORY_NAMESPACE)
+        # Language validation is temporary and used immediately
     
     # 1. Validate that the outline adheres to the initial idea if one was provided
     if initial_idea and initial_idea_elements:
@@ -283,8 +264,7 @@ def generate_story_outline(state: StoryState) -> Dict:
         validation_results["initial_idea"] = idea_validation_result
         
         # Store the validation result in memory
-        manage_memory(action="create", key="outline_idea_validation", value=idea_validation_result,
-            namespace=MEMORY_NAMESPACE)
+        # Idea validation is temporary and used immediately
     
     # 2. Validate that the outline adheres to the specified genre
     # Genre validation will be done directly with the genre parameter
@@ -304,8 +284,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     validation_results["genre"] = genre_validation_result
     
     # Store the validation result in memory
-    manage_memory(action="create", key="outline_genre_validation", value=genre_validation_result,
-        namespace=MEMORY_NAMESPACE)
+    # Genre validation is temporary and used immediately
     
     # 3. Validate that the outline adheres to the specified setting if one was provided
     if initial_idea_elements and initial_idea_elements.get('setting'):
@@ -322,8 +301,7 @@ def generate_story_outline(state: StoryState) -> Dict:
         validation_results["setting"] = setting_validation_result
         
         # Store the validation result in memory
-        manage_memory(action="create", key="outline_setting_validation", value=setting_validation_result,
-            namespace=MEMORY_NAMESPACE)
+        # Setting validation is temporary and used immediately
     # Determine if we need to regenerate the outline based on validation results
     needs_regeneration = False
     improvement_guidance = ""
@@ -498,22 +476,7 @@ def generate_story_outline(state: StoryState) -> Dict:
                 print(f"[DEBUG] Exception in final regeneration: {e}")
                 # Keep the previous outline on error
         
-        # Store the revised outline
-        manage_memory(action="create", key="story_outline_revised", value=story_outline,
-            namespace=MEMORY_NAMESPACE)
-        
-        # Store the combined validation results
-        manage_memory_tool.invoke({
-            "action": "create",
-            "key": "outline_validation_combined",
-            "value": {
-                "initial_validation": validation_results,
-                "improvement_guidance": improvement_guidance,
-                "final_verification": final_verification_result if final_verification_result else "Not performed",
-                "regenerated": True
-            },
-            "namespace": MEMORY_NAMESPACE
-        })
+        # Revised outline is stored in state, validation results are temporary
         
     # Ensure we have a story outline to store
     print(f"[DEBUG] Final check - story_outline length: {len(story_outline) if story_outline else 0}")
@@ -521,23 +484,15 @@ def generate_story_outline(state: StoryState) -> Dict:
     if not story_outline:
         logger.error("CRITICAL: story_outline is empty after all generation attempts!")
         print("[DEBUG] story_outline is empty or None!")
-        # Try to recover from memory if possible
-        try:
-            memory_result = search_memory(query="story_outline_revised", namespace=MEMORY_NAMESPACE)
-            if memory_result and len(memory_result) > 0:
-                story_outline = memory_result[0].get('value', '')
-                logger.info(f"Recovered story outline from memory with length: {len(story_outline)}")
-        except:
-            pass
-            
+        # Outline should always be in state at this point
+        # If missing, there's a critical error in the workflow
         if not story_outline:
             # Generate a minimal outline as last resort
             logger.error("Generating emergency fallback outline...")
             story_outline = f"Emergency outline for {genre} story with {tone} tone. This should not happen."
     
-    # Store in memory
-    logger.info(f"About to store story outline in memory. Length: {len(story_outline)}")
-    manage_memory(action="create", key="story_outline", value=story_outline)
+    # Story outline is stored in database via db_manager.update_global_story()
+    logger.info(f"Story outline ready for database storage. Length: {len(story_outline)}")
     
     # Log the story outline
     log_progress("story_outline", outline=story_outline)
@@ -561,17 +516,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     except Exception as e:
         logger.error(f"Failed to save plot threads to database: {e}")
     
-    # Store in procedural memory that this was a result of initial generation
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "procedural_memory_outline_generation",
-        "value": {
-            "timestamp": "initial_creation",
-            "method": "hero's_journey_structure",
-            "initial_idea_used": bool(initial_idea),
-            "validation_performed": bool(initial_idea and initial_idea_elements)
-        }
-    })
+    # Outline generation metadata is tracked through the state and database
     
     # Update the state
     
@@ -714,8 +659,7 @@ def plan_chapters(state: StoryState) -> Dict:
         language_validation_result = llm.invoke([HumanMessage(content=language_validation_prompt)]).content
         
         # Store the validation result in memory
-        manage_memory(action="create", key="chapter_plan_language_validation", value=language_validation_result,
-            namespace=MEMORY_NAMESPACE)
+        # Language validation is temporary and used immediately
         
         # If language validation fails, regenerate with stronger language instruction
         if "NO" in language_validation_result:
@@ -894,17 +838,7 @@ def plan_chapters(state: StoryState) -> Dict:
                 scene["reflection_notes"] = []
     
     # Chapter plans are now stored in database via database_integration
-    # Only store outline metadata in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "outline_metadata",
-        "value": {
-            "chapter_count": len(chapters),
-            "total_scenes": sum(len(ch.get("scenes", [])) for ch in chapters.values()),
-            "creation_notes": "Chapter outlines created and stored in database"
-        },
-        "namespace": MEMORY_NAMESPACE
-    })
+    # Outline metadata is tracked through state
     
     # Log each chapter plan
     from storyteller_lib.story_progress_logger import log_progress

@@ -172,7 +172,8 @@ def suggest_next_scene_type(
     remaining_chapter_goals: List[str],
     genre: str,
     tone: str,
-    language: str = "english"
+    language: str = "english",
+    scene_description: str = ""
 ) -> Dict[str, Any]:
     """
     Suggest appropriate scene type and focus for the next scene.
@@ -184,6 +185,7 @@ def suggest_next_scene_type(
         genre: Story genre
         tone: Story tone
         language: Language for suggestions
+        scene_description: The actual description of the scene to write
         
     Returns:
         Suggestions for next scene
@@ -207,7 +209,8 @@ def suggest_next_scene_type(
         chapter_outline=chapter_outline,
         remaining_goals=remaining_chapter_goals,
         genre=genre,
-        tone=tone
+        tone=tone,
+        scene_description=scene_description
     )
     
     try:

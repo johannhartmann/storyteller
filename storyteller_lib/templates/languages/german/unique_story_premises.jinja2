@@ -1,0 +1,66 @@
+{# Template für die Generierung einzigartiger Story-Prämissen ohne initiale Idee #}
+Generiere {{ num_ideas | default(5) }} einzigartige und fesselnde Story-Prämissen für eine {{ tone }} {{ genre }}-Geschichte.
+
+ANFORDERUNGEN:
+1. Jede Prämisse sollte originell sein und gängige {{ genre }}-Klischees vermeiden
+2. Einen klaren Protagonisten, Konflikt und Schauplatz beinhalten
+3. Die Prämisse sollte natürlich zum {{ tone }}-Ton passen
+4. Jede Idee sollte reiches Potenzial für Charakterentwicklung bieten
+5. Fokus auf frische Perspektiven und unerwartete Kombinationen
+
+{% if author %}
+AUTORENSTIL:
+Überlege, wie {{ author }} eine {{ genre }}-Geschichte angehen würde - die einzigartige Stimme, Themen und Erzähltechniken.
+{% if author_style_guidance %}
+{{ author_style_guidance }}
+{% endif %}
+{% endif %}
+
+VERMEIDE DIESE HÄUFIGEN {{ genre | upper }}-KLISCHEES:
+{% if genre == "fantasy" %}
+- Die Prophezeiung des Auserwählten
+- Bauernjunge wird König
+- Uraltes Böses erwacht
+- Magische Schul-Settings
+- Suche nach magischen Artefakten (außer mit einzigartigem Twist)
+{% elif genre == "sci-fi" %}
+- KI wird empfindungsfähig und böse
+- Zeitreise-Paradoxa
+- Alien-Invasion der Erde
+- Dystopische Regierungskontrolle
+- Space Marines kämpfen gegen Käfer
+{% elif genre == "mystery" %}
+- Der Butler war's
+- Detektiv mit Amnesie
+- Verschlossener Raum mit Geheimgang
+- Zwillings-Enthüllung
+- Versicherungsgeld-Motiv
+{% elif genre == "romance" %}
+- Milliardär CEO als Liebesinteresse
+- Scheinbeziehung wird echt
+- Liebesdreieck-Drama
+- Trennung durch Missverständnis
+- Rückkehr in die Kleinstadt
+{% elif genre == "thriller" %}
+- Regierungsverschwörung
+- Pensionierter Agent wird zurückgeholt
+- Serienkiller verspottet Polizei
+- Zeugenschutz
+- Doppelagenten-Enthüllung
+{% elif genre == "horror" %}
+- Indianerfriedhof
+- Gruselige Puppenbesessenheit
+- Gruppe trennt sich
+- Auto springt nicht an
+- Spiegel-/Kellerschreck
+{% endif %}
+
+Für jede Prämisse biete:
+1. **TITEL**: Ein Arbeitstitel, der die Essenz einfängt
+2. **PRÄMISSE**: Das Kernkonzept der Geschichte in 2-3 Sätzen
+3. **PROTAGONIST**: Wer sie sind und was sie interessant macht
+4. **ZENTRALER KONFLIKT**: Die Hauptherausforderung oder Opposition
+5. **EINZIGARTIGES ELEMENT**: Was diese Geschichte für das {{ genre }}-Genre frisch macht
+6. **TON-PASSUNG**: Wie diese Prämisse den {{ tone }}-Ton unterstützt
+
+Formatiere jede Idee klar mit diesen Abschnitten.

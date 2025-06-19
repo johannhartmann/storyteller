@@ -52,20 +52,54 @@ def analyze_scene_structures(
         Structural analysis with patterns and recommendations
     """
     from storyteller_lib.prompt_templates import render_prompt
+    from storyteller_lib.scene_progression import SceneProgressionTracker
     
-    # Format scenes for analysis
-    scene_summaries = []
-    for scene in recent_scenes:
-        summary = f"Chapter {scene['chapter']}, Scene {scene['scene']}:\n{scene.get('content', '')[:500]}..."
-        scene_summaries.append(summary)
+    # First try to get stored scene structures from database
+    tracker = SceneProgressionTracker()
+    stored_structures = tracker.get_scene_structures_detailed(limit=10)
     
-    prompt = render_prompt(
-        'scene_structure_pattern_analysis',
-        language=language,
-        scenes="\n---\n".join(scene_summaries),
-        genre=genre,
-        tone=tone
-    )
+    if stored_structures and len(stored_structures) >= 3:
+        # Use stored structures for analysis
+        logger.info(f"Using {len(stored_structures)} stored scene structures for pattern analysis")
+        
+        # Format stored structures for the prompt
+        scene_summaries = []
+        for structure in stored_structures:
+            summary = f"Chapter {structure['chapter']}, Scene {structure['scene']}:\n"
+            summary += f"Type: {structure['scene_type']}\n"
+            summary += f"Opening: {structure.get('opening_type', 'unknown')}\n"
+            summary += f"Structure: {structure['structure_pattern']}\n"
+            if structure.get('main_events'):
+                summary += f"Events: {', '.join(structure['main_events'][:3])}\n"
+            summary += f"Climax: {structure.get('climax_type', 'unknown')}\n"
+            summary += f"Resolution: {structure.get('resolution', 'unknown')}"
+            scene_summaries.append(summary)
+        
+        prompt = render_prompt(
+            'scene_structure_pattern_analysis',
+            language=language,
+            scenes="\n---\n".join(scene_summaries),
+            genre=genre,
+            tone=tone
+        )
+    else:
+        # Fall back to content analysis if not enough stored structures
+        logger.info("Not enough stored structures, falling back to content analysis")
+        
+        # Format scenes for analysis - use full content for accurate pattern detection
+        scene_summaries = []
+        for scene in recent_scenes:
+            content = scene.get('content', '')
+            summary = f"Chapter {scene['chapter']}, Scene {scene['scene']}:\n{content}"
+            scene_summaries.append(summary)
+        
+        prompt = render_prompt(
+            'scene_structure_pattern_analysis',
+            language=language,
+            scenes="\n---\n".join(scene_summaries),
+            genre=genre,
+            tone=tone
+        )
     
     try:
         structured_llm = llm.with_structured_output(StructuralAnalysis)

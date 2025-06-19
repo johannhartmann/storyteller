@@ -9,8 +9,32 @@ Tone: {{ tone }}
 CHAPTER FOCUS:
 {{ chapter_outline }}
 
+{% if previous_scene_summary %}
+⚠️ PREVIOUS SCENE (Scene {{ previous_scene_summary.scene_number }}):
+{{ previous_scene_summary.description }}
+{% if previous_scene_summary.plot_progressions %}
+Already covered plot progressions: {{ previous_scene_summary.plot_progressions | join(', ') }}
+{% endif %}
+{% if previous_scene_summary.character_learns %}
+Characters already learned: {{ previous_scene_summary.character_learns | join(', ') }}
+{% endif %}
+❌ DO NOT REPEAT: Events, revelations, or character developments from the previous scene. The story must move FORWARD.
+{% endif %}
+
 CURRENT SCENE:
 Scene {{ current_scene }}: {{ scene_description }}
+
+{% if next_scene_summary %}
+⚠️ NEXT SCENE (Scene {{ next_scene_summary.scene_number }}):
+{{ next_scene_summary.description }}
+{% if next_scene_summary.plot_progressions %}
+Will cover plot progressions: {{ next_scene_summary.plot_progressions | join(', ') }}
+{% endif %}
+{% if next_scene_summary.character_learns %}
+Characters will learn: {{ next_scene_summary.character_learns | join(', ') }}
+{% endif %}
+❌ DO NOT INCLUDE: Events, revelations, or developments reserved for the next scene. Save these for later.
+{% endif %}
 
 {% if story_summary %}
 {{ story_summary }}

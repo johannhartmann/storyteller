@@ -9,11 +9,10 @@ It uses Pydantic models for structured data extraction and validation.
 from typing import Dict, Any, List, Optional, Union, Type
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage, AIMessage, RemoveMessage
-from storyteller_lib.config import llm, manage_memory_tool, search_memory_tool, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.config import llm, MEMORY_NAMESPACE, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.models import StoryState
-from storyteller_lib.memory_manager import manage_memory, search_memory
+# Memory manager imports removed - using state and database instead
 from storyteller_lib import track_progress
-from storyteller_lib.creative_tools import parse_json_with_langchain
 from storyteller_lib.logger import get_logger
 
 logger = get_logger(__name__)
@@ -165,16 +164,8 @@ def create_category_prompt(category_name: str, genre: str, tone: str, author: st
     
     # Check if we have a worldbuilding template
     try:
-        # Prepare existing elements if available
+        # Worldbuilding elements are stored in database world_elements table
         existing_elements = ""
-        try:
-            # Try to get existing worldbuilding from memory/database
-            from storyteller_lib.memory_manager import search_memory
-            existing_wb = search_memory(f"worldbuilding_{category_name}", MEMORY_NAMESPACE)
-            if existing_wb and isinstance(existing_wb, dict) and "value" in existing_wb:
-                existing_elements = str(existing_wb["value"])
-        except:
-            pass
         
         # Render the template with just the category name
         # The template will handle all field descriptions in the appropriate language
@@ -552,11 +543,14 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     
     The elements are tailored to the genre, tone, and initial story idea.
     """
-    # Extract relevant parameters from state
-    genre = state["genre"]
-    tone = state["tone"]
-    author = state["author"]
-    initial_idea = state.get("initial_idea", "")
+    # Load configuration from database
+    from storyteller_lib.config import get_story_config
+    config = get_story_config()
+    
+    genre = config["genre"]
+    tone = config["tone"]
+    author = config["author"]
+    initial_idea = config["initial_idea"]
     # Get full story outline from database
     from storyteller_lib.database_integration import get_db_manager
     db_manager = get_db_manager()
@@ -603,12 +597,9 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     language_guidance = ""
     
     if language.lower() != DEFAULT_LANGUAGE:
-        # Try to retrieve language elements from memory
+        # Language elements are generated fresh during initialization
         try:
-            language_elements_result = search_memory_tool.invoke({
-                "query": f"language_elements_{language.lower()}",
-                "namespace": MEMORY_NAMESPACE
-            })
+            language_elements_result = None
             
             # Process language elements if found
             language_elements = None
@@ -676,17 +667,7 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         world_elements[category_name] = category_data
     
     # World elements are now stored in database via database_integration
-    # Only store worldbuilding metadata in memory
-    manage_memory_tool.invoke({
-        "action": "create",
-        "key": "worldbuilding_metadata",
-        "value": {
-            "categories": list(world_elements.keys()),
-            "element_count": sum(len(elements) for elements in world_elements.values()),
-            "creation_notes": "World elements created and stored in database"
-        },
-        "namespace": MEMORY_NAMESPACE
-    })
+    # Memory tool has been removed - metadata is tracked in the database
     
     # Generate mystery elements
     mystery_elements = generate_mystery_elements(world_elements, 3, language)
@@ -705,16 +686,13 @@ def generate_worldbuilding(state: StoryState) -> Dict:
         }
     }
     
-    # Store the world state tracker in memory
-    manage_memory(action="create", key="world_state_tracker", value=world_state_tracker,
-        namespace=MEMORY_NAMESPACE)
+    # World state tracker is now managed through database tables
+    # No need to store separately
     
     # Generate a summary of the world
     world_summary = generate_world_summary(world_elements, genre, tone, language)
     
-    # Store the world summary in memory
-    manage_memory(action="create", key="world_summary", value=world_summary,
-        namespace=MEMORY_NAMESPACE)
+    # World summary is generated on demand, not stored separately
     
     # Log world elements
     from storyteller_lib.story_progress_logger import log_progress

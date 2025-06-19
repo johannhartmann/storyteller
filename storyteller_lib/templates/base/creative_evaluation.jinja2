@@ -7,6 +7,38 @@
 ## Story Context
 {{ context }}
 
+{% if scene_specifications %}
+## Scene Requirements
+- Chapter {{ scene_specifications.chapter_number }}, Scene {{ scene_specifications.scene_number }}
+- Scene Type: {{ scene_specifications.scene_type }}
+- Dramatic Purpose: {{ scene_specifications.dramatic_purpose }}
+- Tension Level: {{ scene_specifications.tension_level }}/10
+
+Scene Description: {{ scene_specifications.scene_description }}
+
+### Must Include:
+{% if scene_specifications.plot_progressions %}
+Plot Progressions:
+{% for progression in scene_specifications.plot_progressions %}
+- {{ progression }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.required_characters %}
+Required Characters:
+{% for character in scene_specifications.required_characters %}
+- {{ character }}
+{% endfor %}
+{% endif %}
+
+{% if scene_specifications.character_learns %}
+Character Developments:
+{% for learning in scene_specifications.character_learns %}
+- {{ learning }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
 ## Constraints
 {{ constraints_section }}
 
@@ -41,6 +73,12 @@ This is a STRICT requirement. Your ENTIRE evaluation must be written ONLY in {{ 
 2. Violates the constraints
 3. Doesn't fit the {{ genre }} genre
 4. Distracts from rather than enhances the main storyline
+{% if scene_specifications %}
+5. Fails to accomplish the required plot progressions
+6. Doesn't include all required characters naturally
+7. Ignores the specified dramatic purpose or tension level
+8. Repeats forbidden elements from previous scenes
+{% endif %}
 
 {% if strict_adherence %}
 Ideas should build upon the initial concept while preserving its core elements. Significant deviations from the established setting, characters, or central conflict should be avoided.
@@ -52,10 +90,16 @@ For each idea:
 2. Calculate a total score
 3. Write a brief justification focusing on how the idea enhances the storyline
 4. Indicate if the idea should be incorporated (YES/MAYBE/NO)
+{% if scene_specifications %}
+5. Verify that the idea accomplishes all scene requirements
+{% endif %}
 
 Then rank the ideas from best to worst fit for the story.
-Finally, recommend the top 1-2 ideas to incorporate, with brief reasoning that explains how they enhance the storyline without distracting from it.
+Finally, recommend the top 1-2 ideas to incorporate, with brief reasoning that explains how they enhance the storyline without distracting from it{% if scene_specifications %} and how they fulfill all scene requirements{% endif %}.
 
 {% if strict_adherence %}
 FINAL CHECK: Verify that your recommended ideas maintain consistency with the initial concept while enhancing the storyline.
+{% endif %}
+{% if scene_specifications %}
+SCENE REQUIREMENTS CHECK: Confirm that your recommended ideas will accomplish all required plot progressions, include all required characters, and achieve the specified dramatic purpose.
 {% endif %}
