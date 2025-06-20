@@ -103,9 +103,9 @@ def build_scene_context(chapter: int, scene: int, state: StoryState) -> SceneCon
         cursor = conn.cursor()
         cursor.execute("""
             SELECT pt.name, pt.description, pt.importance, pt.status,
-                   ptd.development_note as last_development
+                   ptd.description as last_development
             FROM plot_threads pt
-            LEFT JOIN plot_thread_developments ptd ON pt.id = ptd.thread_id
+            LEFT JOIN plot_thread_developments ptd ON pt.id = ptd.plot_thread_id
             WHERE pt.status IN ('introduced', 'developing')
             AND pt.importance IN ('major', 'minor')
             ORDER BY 

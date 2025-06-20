@@ -1259,6 +1259,54 @@ class StoryDatabaseManager:
             logger.error(f"Failed to get scene {scene_num} of chapter {chapter_num}: {e}")
             return None
     
+    def compile_story(self) -> str:
+        """Compile the full story from the database."""
+        if not self.enabled or not self._db:
+            return ""
+        
+        try:
+            story_parts = []
+            
+            # Get story title and metadata
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT title, genre, tone FROM story_config WHERE id = 1")
+                story_info = cursor.fetchone()
+                if story_info and story_info['title']:
+                    story_parts.append(f"# {story_info['title']}\n")
+                else:
+                    story_parts.append(f"# Generated {story_info['tone'].title()} {story_info['genre'].title()} Story\n")
+            
+            # Get all chapters and scenes
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT c.chapter_number, c.title as chapter_title, 
+                           s.scene_number, s.content
+                    FROM chapters c
+                    LEFT JOIN scenes s ON c.id = s.chapter_id
+                    ORDER BY c.chapter_number, s.scene_number
+                """)
+                
+                current_chapter = None
+                for row in cursor.fetchall():
+                    # Add chapter header if new chapter
+                    if row['chapter_number'] != current_chapter:
+                        current_chapter = row['chapter_number']
+                        chapter_title = row['chapter_title'] or f"Chapter {current_chapter}"
+                        story_parts.append(f"\n## Chapter {current_chapter}: {chapter_title}\n")
+                    
+                    # Add scene content
+                    if row['content']:
+                        story_parts.append(f"\n### Scene {row['scene_number']}\n")
+                        story_parts.append(row['content'])
+                        story_parts.append("\n")
+            
+            return "\n".join(story_parts)
+            
+        except Exception as e:
+            logger.error(f"Failed to compile story: {e}")
+            return ""
     
     def close(self) -> None:
         """Close database connections."""
