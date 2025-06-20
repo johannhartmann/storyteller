@@ -92,6 +92,27 @@ class StoryDatabase:
             cursor.execute("ALTER TABLE chapters ADD COLUMN summary TEXT")
             conn.commit()
         
+        # Check if narrative structure columns exist
+        cursor.execute("PRAGMA table_info(story_config)")
+        config_columns = [col[1] for col in cursor.fetchall()]
+        
+        if 'narrative_structure' not in config_columns:
+            logger.info("Adding narrative structure columns to story_config table")
+            cursor.execute("ALTER TABLE story_config ADD COLUMN narrative_structure TEXT DEFAULT 'auto'")
+            cursor.execute("ALTER TABLE story_config ADD COLUMN story_length TEXT DEFAULT 'auto'")
+            cursor.execute("ALTER TABLE story_config ADD COLUMN target_chapters INTEGER")
+            cursor.execute("ALTER TABLE story_config ADD COLUMN target_scenes_per_chapter INTEGER")
+            cursor.execute("ALTER TABLE story_config ADD COLUMN target_words_per_scene INTEGER")
+            cursor.execute("ALTER TABLE story_config ADD COLUMN structure_metadata TEXT")
+            cursor.execute("ALTER TABLE story_config ADD COLUMN book_level_instructions TEXT")
+            conn.commit()
+        
+        # Check if target_pages column exists
+        if 'target_pages' not in config_columns:
+            logger.info("Adding target_pages column to story_config table")
+            cursor.execute("ALTER TABLE story_config ADD COLUMN target_pages INTEGER")
+            conn.commit()
+        
         # Rename outline to description for consistency
         if 'outline' in columns and 'description' not in columns:
             logger.info("Renaming 'outline' column to 'description' in scenes table")
@@ -166,7 +187,10 @@ class StoryDatabase:
                 update_fields = ['title = ?', 'genre = ?', 'tone = ?']
                 update_values = [title, genre, tone]
                 
-                for field in ['author', 'language', 'initial_idea', 'global_story']:
+                for field in ['author', 'language', 'initial_idea', 'global_story', 
+                            'narrative_structure', 'story_length', 'target_chapters', 
+                            'target_scenes_per_chapter', 'target_words_per_scene', 
+                            'target_pages', 'structure_metadata', 'book_level_instructions']:
                     if field in kwargs:
                         update_fields.append(f"{field} = ?")
                         update_values.append(kwargs[field])
@@ -178,7 +202,10 @@ class StoryDatabase:
                 fields = ['id', 'title', 'genre', 'tone']
                 values = [1, title, genre, tone]
                 
-                for field in ['author', 'language', 'initial_idea', 'global_story']:
+                for field in ['author', 'language', 'initial_idea', 'global_story',
+                            'narrative_structure', 'story_length', 'target_chapters', 
+                            'target_scenes_per_chapter', 'target_words_per_scene', 
+                            'target_pages', 'structure_metadata', 'book_level_instructions']:
                     if field in kwargs:
                         fields.append(field)
                         values.append(kwargs[field])

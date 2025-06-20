@@ -1,0 +1,69 @@
+{# Template zur Auswahl der besten Erzählstruktur für eine Geschichte #}
+Sie sind ein Experte für Erzählstrukturen und Geschichtenerzählen. Analysieren Sie das folgende Geschichtskonzept und empfehlen Sie die beste Erzählstruktur.
+
+Geschichtsdetails:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+- Sprache/Kultureller Kontext: {{ story_language }}
+- Ursprüngliche Idee: {{ initial_idea }}
+{% if idea_elements %}
+- Schauplatz: {{ idea_elements.setting }}
+- Hauptfiguren: {{ idea_elements.characters | join(', ') }}
+- Zentraler Plot: {{ idea_elements.plot }}
+- Themen: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+Verfügbare Erzählstrukturen:
+
+1. **Heldenreise** - Klassischer Monomythos mit Aufbruch, Initiation und Rückkehr
+   - Am besten für: Fantasy, Abenteuer, Coming-of-Age-Geschichten
+   - Merkmale: Mentorfiguren, Schwellenhüter, Transformationsbogen
+   
+2. **Drei-Akt-Struktur** - Exposition (25%), Konfrontation (50%), Auflösung (25%)
+   - Am besten für: Krimi, Thriller, Romanze, Drama
+   - Merkmale: Klare Konflikteskalation, Wendepunkt in der Mitte, klimaktische Auflösung
+   
+3. **Kishōtenketsu** - Vier-Akt-Struktur ohne Konflikt (Ki-Shō-Ten-Ketsu)
+   - Am besten für: Literarische Fiktion, Alltagsgeschichten, östliche Erzählungen
+   - Merkmale: Einführung, Entwicklung, Wendung (konfliktfrei), Schluss
+   
+4. **In Medias Res** - Beginn in der Handlung, dann Rückblende für Kontext
+   - Am besten für: Action, Thriller, Noir, Geschichten mit hohen Einsätzen
+   - Merkmale: Sofortiges Engagement, Geheimnis der Vergangenheit, nicht-lineare Enthüllung
+   
+5. **Zirkulär/Zyklisch** - Ende spiegelt Anfang mit Transformation
+   - Am besten für: Philosophische, literarische, zeitbasierte Erzählungen
+   - Merkmale: Thematische Resonanz, Charaktertransformation, Neukontextualisierung
+   
+6. **Nichtlinear/Mosaik** - Miteinander verbundene Vignetten oder Zeitsprünge
+   - Am besten für: Literarische Fiktion, Krimi, psychologische Erzählungen
+   - Merkmale: Puzzleartige Struktur, multiple Perspektiven, Musterenthüllung
+
+Basierend auf dem Geschichtskonzept, analysieren Sie:
+
+1. **Primäre Strukturempfehlung**: Welche Struktur dient dieser Geschichte am besten und warum?
+
+2. **Geschichtskomplexität**: Bewerten Sie die narrative Komplexität:
+   - Einfach: Einzelne Handlungslinie, wenige Charaktere, geradliniger Konflikt
+   - Moderat: Haupthandlung mit Nebenhandlung, mehrere Charaktere, vielschichtiger Konflikt
+   - Komplex: Multiple Handlungsstränge, viele Charaktere, komplizierte Beziehungen
+   - Sehr komplex: Multigenerational, multiple Perspektiven, verwobene Handlungen
+
+3. **Ideale Geschichtslänge**: Basierend auf Struktur und Komplexität:
+   - Kurz (5-10 Kapitel): Schnelle Lektüre, einzelner Konflikt
+   - Mittel (12-18 Kapitel): Standard-Romanlänge
+   - Lang (20-28 Kapitel): Komplexe Erzählungen
+   - Episch (30+ Kapitel): Geschichten von großem Ausmaß
+
+4. **Strukturanpassung**: Wie sollte die gewählte Struktur für diese spezifische Geschichte angepasst werden?
+
+5. **Kapitel- und Szenenverteilung**: Empfehlen Sie:
+   - Gesamtzahl der Kapitel
+   - Durchschnittliche Szenen pro Kapitel
+   - Zielwortanzahl pro Szene
+
+Geben Sie Ihre Analyse unter Berücksichtigung folgender Punkte:
+- Wie die Genre-Konventionen mit verschiedenen Strukturen übereinstimmen
+- Ob der Ton spezifische Tempo- oder Spannungsmuster erfordert
+- Ob die Themen von bestimmten narrativen Ansätzen profitieren
+- Kulturelle Erzähltraditionen, die die Strukturwahl beeinflussen könnten

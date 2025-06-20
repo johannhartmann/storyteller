@@ -200,6 +200,16 @@ def get_llm(
 # Initialize the default LLM instance
 llm = get_llm()
 
+# Track the current provider for Gemini-specific handling
+_current_provider = None
+
+def get_current_provider() -> str:
+    """Get the current LLM provider being used."""
+    global _current_provider
+    if _current_provider is None:
+        _current_provider = os.environ.get("MODEL_PROVIDER") or DEFAULT_MODEL_PROVIDER
+    return _current_provider
+
 
 def get_llm_with_structured_output(
     response_schema: Dict[str, Any],

@@ -1,0 +1,57 @@
+{# Base template for all story outlines - shared components #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Create a compelling story outline for a {{ tone }} {{ genre }} narrative.
+{% if initial_idea %}This story should be based on this initial idea: '{{ initial_idea }}'{% endif %}
+
+Your outline should include:
+- Title: [A captivating title for the story that reflects the initial idea]
+- {{ character_count | default("3-5") }} main characters with brief descriptions (include those specified in the initial idea)
+- A central conflict or challenge (aligned with the plot from the initial idea)
+- The world/setting of the story (consistent with the setting from the initial idea)
+- Key themes or messages (should include those from the initial idea)
+
+Format your response as a structured outline with clear sections.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+{% if idea_elements %}
+KEY ELEMENTS TO INCORPORATE:
+- Setting: {{ idea_elements.setting }}
+  * This setting should be the primary location of the story
+  * Ensure the setting is well-integrated throughout the narrative
+
+- Characters: {{ idea_elements.characters | join(', ') }}
+  * These characters should be central to the story
+  * Maintain their essential nature and roles as described
+
+- Plot: {{ idea_elements.plot }}
+  * This plot should be the central conflict
+  * Ensure the story revolves around this core conflict
+
+- Themes: {{ idea_elements.themes | join(', ') }}
+- Genre Elements: {{ idea_elements.genre_elements | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+VERIFICATION STEP: After completing the outline, review it to ensure that:
+1. The narrative structure is clearly implemented
+2. The setting from the initial idea is well-integrated throughout
+3. The characters from the initial idea are included with appropriate roles
+4. The plot/conflict from the initial idea is central to the story
+5. The key elements from the initial idea are preserved and developed

@@ -11,8 +11,9 @@ And these characters:
 
 {{ characters }}
 
-Create a plan for 8-15 chapters that cover the entire hero's journey for this {{ tone }} {{ genre }} story.
-IMPORTANT: THERE SHOULD NEVER BE LESS THAN 8 CHAPTERS. A COMPLETE STORY REQUIRES AT LEAST 8 CHAPTERS TO PROPERLY DEVELOP.
+Create a plan for {{ target_chapters }} chapters ({% if flexibility %}with flexibility of ±{{ flexibility }} chapters if needed{% endif %}) that cover the entire story arc for this {{ tone }} {{ genre }} story.
+The narrative structure is: {{ narrative_structure | replace('_', ' ') | title }}
+{% if min_chapters %}IMPORTANT: THERE SHOULD NEVER BE LESS THAN {{ min_chapters }} CHAPTERS to properly develop the story.{% endif %}
 
 For each chapter, provide:
 1. Chapter number and title
@@ -61,12 +62,9 @@ DRAMATIC FLOW GUIDELINES:
 - Cliffhangers should appear at strategic points, not every scene
 - Consider merging scenes that share the same dramatic purpose and tension level
 
-HERO'S JOURNEY DISTRIBUTION:
-- Chapters 1-2: Ordinary World & Call to Adventure
-- Chapters 3-4: Refusal & Meeting the Mentor
-- Chapters 5-6: Crossing Threshold & Tests
-- Chapters 7-9: Approach & Ordeal
-- Chapters 10-12: Reward & Road Back
-- Chapters 13-15: Resurrection & Return
+{% if structure_guidance %}
+STRUCTURE-SPECIFIC GUIDANCE:
+{{ structure_guidance }}
+{% endif %}
 
-Adapt this structure to fit your specific story needs while maintaining the journey arc.
+Adapt the chapter distribution to best serve your story while maintaining proper pacing and development.

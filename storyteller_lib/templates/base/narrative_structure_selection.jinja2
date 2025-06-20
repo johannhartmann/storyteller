@@ -1,0 +1,69 @@
+{# Template for selecting the best narrative structure for a story #}
+You are an expert in narrative structures and storytelling. Analyze the following story concept and recommend the best narrative structure.
+
+Story Details:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+- Language/Cultural Context: {{ story_language }}
+- Initial Idea: {{ initial_idea }}
+{% if idea_elements %}
+- Setting: {{ idea_elements.setting }}
+- Main Characters: {{ idea_elements.characters | join(', ') }}
+- Central Plot: {{ idea_elements.plot }}
+- Themes: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+Available Narrative Structures:
+
+1. **Hero's Journey** - Classic monomyth with departure, initiation, and return
+   - Best for: Fantasy, Adventure, Coming-of-age stories
+   - Features: Mentor figures, threshold guardians, transformation arc
+   
+2. **Three-Act Structure** - Setup (25%), Confrontation (50%), Resolution (25%)
+   - Best for: Mystery, Thriller, Romance, Drama
+   - Features: Clear conflict escalation, midpoint twist, climactic resolution
+   
+3. **Kishōtenketsu** - Four-act structure without conflict (Ki-Shō-Ten-Ketsu)
+   - Best for: Literary fiction, Slice of life, Eastern narratives
+   - Features: Introduction, Development, Twist (non-conflict), Conclusion
+   
+4. **In Medias Res** - Start in action, then flashback for context
+   - Best for: Action, Thriller, Noir, High-stakes narratives
+   - Features: Immediate engagement, mystery about past, non-linear revelation
+   
+5. **Circular/Cyclical** - Ending mirrors beginning with transformation
+   - Best for: Philosophical, Literary, Time-based narratives
+   - Features: Thematic resonance, character transformation, recontextualization
+   
+6. **Nonlinear/Mosaic** - Interconnected vignettes or time jumps
+   - Best for: Literary fiction, Mystery, Psychological narratives
+   - Features: Puzzle-like structure, multiple perspectives, pattern revelation
+
+Based on the story concept, analyze:
+
+1. **Primary Structure Recommendation**: Which structure best serves this story and why?
+
+2. **Story Complexity**: Assess the narrative complexity:
+   - Simple: Single plotline, few characters, straightforward conflict
+   - Moderate: Main plot with subplot, several characters, layered conflict
+   - Complex: Multiple plotlines, many characters, intricate relationships
+   - Very Complex: Multi-generational, multiple POVs, interconnected plots
+
+3. **Ideal Story Length**: Based on the structure and complexity:
+   - Short (5-10 chapters): Quick reads, single conflict
+   - Medium (12-18 chapters): Standard novel length
+   - Long (20-28 chapters): Complex narratives
+   - Epic (30+ chapters): Grand scale stories
+
+4. **Structure Customization**: How should the chosen structure be adapted for this specific story?
+
+5. **Chapter and Scene Distribution**: Recommend:
+   - Total chapter count
+   - Average scenes per chapter
+   - Words per scene target
+
+Provide your analysis considering:
+- How the genre conventions align with different structures
+- Whether the tone requires specific pacing or tension patterns
+- If the themes benefit from particular narrative approaches
+- Cultural storytelling traditions that might influence structure choice

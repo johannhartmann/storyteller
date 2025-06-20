@@ -22,7 +22,12 @@ def generate_story_simplified(
     author: Optional[str] = None,
     language: str = "english",
     initial_idea: Optional[str] = None,
-    progress_log_path: Optional[str] = None
+    progress_log_path: Optional[str] = None,
+    narrative_structure: str = "auto",
+    story_length: str = "auto",
+    target_chapters: Optional[int] = None,
+    target_words_per_scene: Optional[int] = None,
+    target_pages: Optional[int] = None
 ) -> Tuple[str, StoryState]:
     """
     Generate a story using the simplified workflow.
@@ -30,11 +35,16 @@ def generate_story_simplified(
     Args:
         genre: Story genre (fantasy, sci-fi, mystery, etc.)
         tone: Story tone (adventurous, dark, humorous, etc.)
-        num_chapters: Number of chapters to generate (default: 10)
+        num_chapters: Number of chapters to generate (default: 10) - deprecated, use target_chapters
         author: Optional author style to emulate
         language: Language for the story (default: english)
         initial_idea: Optional initial story idea
         progress_log_path: Optional path for progress log file
+        narrative_structure: Narrative structure to use or "auto" (default: auto)
+        story_length: Story length category or "auto" (default: auto) - deprecated, use target_pages
+        target_chapters: Override number of chapters (None = auto-determine) - deprecated, use target_pages
+        target_words_per_scene: Override words per scene (None = auto-determine) - deprecated, use target_pages
+        target_pages: Target number of pages for the story (None = auto-determine based on complexity)
         
     Returns:
         Tuple of (compiled story markdown, final state)
@@ -81,7 +91,12 @@ def generate_story_simplified(
             tone=tone,
             author=author,
             language=language,
-            initial_idea=initial_idea or ""
+            initial_idea=initial_idea or "",
+            narrative_structure=narrative_structure,
+            story_length=story_length,
+            target_chapters=target_chapters,
+            target_words_per_scene=target_words_per_scene,
+            target_pages=target_pages
         )
         logger.info("Initialized story configuration in database")
     

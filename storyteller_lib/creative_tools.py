@@ -18,19 +18,18 @@ T = TypeVar('T', bound=BaseModel)
 
 
 # Pydantic models for structured creative brainstorming
-class CreativeIdea(BaseModel):
-    """A single creative idea."""
-    title: str = Field(description="Clear, concise title for the idea")
-    description: str = Field(description="Detailed description (2-3 sentences)")
-    enhancement_value: str = Field(description="How this enhances the story")
-    challenges: str = Field(description="Potential challenges or considerations")
-    fit_score: int = Field(ge=1, le=10, description="How well it fits the context (1-10)")
-
-
-class CreativeBrainstormResult(BaseModel):
-    """Result of creative brainstorming."""
-    ideas: List[CreativeIdea] = Field(description="List of creative ideas")
-    recommended_idea: CreativeIdea = Field(description="The best idea to use")
+class CreativeBrainstormResultFlat(BaseModel):
+    """Flattened result of creative brainstorming to avoid nested dictionaries."""
+    ideas_titles: str = Field(description="Pipe-separated list of clear, concise titles for ideas")
+    ideas_descriptions: str = Field(description="Pipe-separated list of detailed descriptions (2-3 sentences each)")
+    ideas_enhancement_values: str = Field(description="Pipe-separated list of how each idea enhances the story")
+    ideas_challenges: str = Field(description="Pipe-separated list of potential challenges for each idea")
+    ideas_fit_scores: str = Field(description="Comma-separated list of fit scores (1-10) for each idea")
+    recommended_title: str = Field(description="Title of the best idea to use")
+    recommended_description: str = Field(description="Description of the best idea")
+    recommended_enhancement_value: str = Field(description="How the recommended idea enhances the story")
+    recommended_challenges: str = Field(description="Challenges for the recommended idea")
+    recommended_fit_score: int = Field(ge=1, le=10, description="Fit score for the recommended idea")
     rationale: str = Field(description="Why this idea is recommended")
 
 
@@ -132,18 +131,26 @@ def creative_brainstorm(
     
     # Generate ideas using structured output only
     # Use structured output for brainstorming
-    structured_llm = llm.with_structured_output(CreativeBrainstormResult)
+    structured_llm = llm.with_structured_output(CreativeBrainstormResultFlat)
     brainstorm_result = structured_llm.invoke(brainstorm_prompt)
     
     # Extract the recommended idea
-    recommended_idea = brainstorm_result.recommended_idea
-    recommended_ideas = f"{recommended_idea.title}: {recommended_idea.description} (Score: {recommended_idea.fit_score}/10)"
+    recommended_ideas = f"{brainstorm_result.recommended_title}: {brainstorm_result.recommended_description} (Score: {brainstorm_result.recommended_fit_score}/10)"
+    
+    # Parse the flattened lists
+    titles = [t.strip() for t in brainstorm_result.ideas_titles.split("|")]
+    descriptions = [d.strip() for d in brainstorm_result.ideas_descriptions.split("|")]
+    enhancements = [e.strip() for e in brainstorm_result.ideas_enhancement_values.split("|")]
+    challenges = [c.strip() for c in brainstorm_result.ideas_challenges.split("|")]
+    scores = [int(s.strip()) for s in brainstorm_result.ideas_fit_scores.split(",")]
     
     # Format all ideas for display
-    ideas_response = "\n\n".join([
-        f"{i+1}. {idea.title}\n   {idea.description}\n   Enhancement: {idea.enhancement_value}\n   Challenges: {idea.challenges}\n   Fit Score: {idea.fit_score}/10"
-        for i, idea in enumerate(brainstorm_result.ideas)
-    ])
+    ideas_entries = []
+    for i, (title, desc, enhance, challenge, score) in enumerate(zip(titles, descriptions, enhancements, challenges, scores)):
+        ideas_entries.append(
+            f"{i+1}. {title}\n   {desc}\n   Enhancement: {enhance}\n   Challenges: {challenge}\n   Fit Score: {score}/10"
+        )
+    ideas_response = "\n\n".join(ideas_entries)
     
     # Include rationale
     evaluation = f"Recommendation: {brainstorm_result.rationale}"

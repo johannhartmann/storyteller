@@ -1,0 +1,80 @@
+{# Hero's Journey story outline template #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Create a compelling story outline for a {{ tone }} {{ genre }} narrative following the hero's journey structure.
+{% if initial_idea %}This story should be based on this initial idea: '{{ initial_idea }}'{% endif %}
+
+Include all major phases of the hero's journey, adapted to fit the initial idea:
+
+1. **The Ordinary World** - Establish the protagonist's normal life and world
+2. **The Call to Adventure** - The inciting incident that disrupts the ordinary world
+3. **Refusal of the Call** - Initial hesitation or fear about the journey
+4. **Meeting the Mentor** - Encounter with a guide who provides wisdom/tools
+5. **Crossing the Threshold** - Commitment to the adventure, entering the special world
+6. **Tests, Allies, and Enemies** - Challenges faced and relationships formed
+7. **Approach to the Inmost Cave** - Preparation for the major challenge
+8. **The Ordeal** - The climactic crisis, facing greatest fear
+9. **Reward (Seizing the Sword)** - Victory and claiming the prize
+10. **The Road Back** - Journey back to the ordinary world begins
+11. **Resurrection** - Final test, using everything learned
+12. **Return with the Elixir** - Return transformed, with wisdom to share
+
+For each phase, provide a brief description (2-3 sentences) of what happens, ensuring it:
+- Advances the central plot from the initial idea
+- Develops the specified characters
+- Utilizes the given setting
+- Reflects the {{ tone }} tone and {{ genre }} genre conventions
+
+The hero's journey should feel organic to your story, not forced. Adapt the structure as needed while maintaining its essential arc of departure, initiation, and return.
+
+Also include:
+- Title: [A captivating title for the story that reflects the initial idea]
+- 3-5 main characters with brief descriptions (include those specified in the initial idea)
+- A central conflict or challenge (aligned with the plot from the initial idea)
+- The world/setting of the story (consistent with the setting from the initial idea)
+- Key themes or messages (should include those from the initial idea)
+
+Format your response as a structured outline with clear sections.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+{% if idea_elements %}
+KEY ELEMENTS TO INCORPORATE:
+- Setting: {{ idea_elements.setting }}
+  * This setting should be the primary location of the story
+  * Ensure the setting is well-integrated throughout the narrative
+
+- Characters: {{ idea_elements.characters | join(', ') }}
+  * These characters should be central to the story
+  * Maintain their essential nature and roles as described
+
+- Plot: {{ idea_elements.plot }}
+  * This plot should be the central conflict
+  * Ensure the story revolves around this core conflict
+
+- Themes: {{ idea_elements.themes | join(', ') }}
+- Genre Elements: {{ idea_elements.genre_elements | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+VERIFICATION STEP: After completing the outline, review it to ensure that:
+1. The hero's journey structure is clearly implemented
+2. The setting from the initial idea is well-integrated throughout
+3. The characters from the initial idea are included with appropriate roles
+4. The plot/conflict from the initial idea is central to the story
+5. The key elements from the initial idea are preserved and developed

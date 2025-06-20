@@ -99,6 +99,40 @@ class RelationshipDynamics(BaseModel):
     evolution: List[str] = Field(default_factory=list)
     conflicts: List[str] = Field(default_factory=list)
 
+# Flattened model to avoid nested dictionaries
+class CharacterProfileFlat(BaseModel):
+    """Flattened character profile for structured output without nested dictionaries."""
+    name: str = Field(description="Character's name")
+    role: str = Field(description="Character's role in the story")
+    backstory: str = Field(description="Character's backstory")
+    # Personality traits flattened
+    personality_traits: str = Field(default="", description="Comma-separated list of personality traits")
+    personality_strengths: str = Field(default="", description="Comma-separated list of strengths")
+    personality_flaws: str = Field(default="", description="Comma-separated list of flaws")
+    personality_fears: str = Field(default="", description="Comma-separated list of fears")
+    personality_desires: str = Field(default="", description="Comma-separated list of desires")
+    personality_values: str = Field(default="", description="Comma-separated list of values")
+    # Emotional state flattened
+    emotional_initial: str = Field(default="", description="Initial emotional state")
+    emotional_current: str = Field(default="", description="Current emotional state")
+    emotional_journey: str = Field(default="", description="Pipe-separated list of emotional journey stages")
+    # Inner conflicts flattened
+    inner_conflict_descriptions: str = Field(default="", description="Pipe-separated list of inner conflict descriptions")
+    inner_conflict_resolutions: str = Field(default="", description="Pipe-separated list of resolution statuses")
+    inner_conflict_impacts: str = Field(default="", description="Pipe-separated list of conflict impacts")
+    # Character arc flattened
+    arc_type: str = Field(default="", description="Type of character arc")
+    arc_stages: str = Field(default="", description="Pipe-separated list of arc stages")
+    arc_current_stage: str = Field(default="", description="Current stage in the arc")
+    # Evolution
+    evolution: str = Field(default="", description="Pipe-separated list of evolution points")
+    # Relationships flattened
+    relationship_targets: str = Field(default="", description="Pipe-separated list of character names")
+    relationship_types: str = Field(default="", description="Pipe-separated list of relationship types")
+    relationship_dynamics: str = Field(default="", description="Pipe-separated list of relationship dynamics")
+    relationship_evolutions: str = Field(default="", description="Double-pipe-separated list of pipe-separated evolution lists")
+    relationship_conflicts: str = Field(default="", description="Double-pipe-separated list of pipe-separated conflict lists")
+
 class CharacterProfile(BaseModel):
     """Complete character profile model."""
     name: str

@@ -13,25 +13,17 @@ from storyteller_lib import track_progress
 from storyteller_lib.plot_threads import PlotThread, THREAD_IMPORTANCE, THREAD_STATUS
 
 
-# Pydantic models for structured story outline
-class StoryCharacter(BaseModel):
-    """A main character in the story."""
-    name: str = Field(description="Character's name")
-    description: str = Field(description="Brief character description including role and key traits")
-    
-class HeroJourneyPhase(BaseModel):
-    """A phase of the hero's journey."""
-    phase_name: str = Field(description="Name of the hero's journey phase")
-    description: str = Field(description="What happens in this phase of the story")
-    
-class StoryOutlineStructured(BaseModel):
-    """Structured story outline following the hero's journey."""
+# Flattened model to avoid nested dictionaries
+class StoryOutlineFlat(BaseModel):
+    """Flattened story outline for structured output without nested dictionaries."""
     title: str = Field(description="A captivating title for the story")
-    main_characters: List[StoryCharacter] = Field(description="3-5 main characters with descriptions")
-    central_conflict: str = Field(description="The central conflict or challenge of the story")
+    main_character_names: str = Field(description="Comma-separated list of 3-5 main character names")
+    main_character_descriptions: str = Field(description="Pipe-separated list of character descriptions matching the order of names")
+    central_conflict: str = Field(description="The central conflict or challenge of the story (or central question for non-conflict structures)")
     world_setting: str = Field(description="The world/setting where the story takes place")
-    key_themes: List[str] = Field(description="Key themes or messages of the story")
-    hero_journey_phases: List[HeroJourneyPhase] = Field(description="The 12 phases of the hero's journey with descriptions")
+    key_themes_csv: str = Field(description="Comma-separated list of key themes or messages")
+    story_phase_names: str = Field(description="Pipe-separated list of story phase/section names")
+    story_phase_descriptions: str = Field(description="Pipe-separated list of phase descriptions matching the order of phase names")
 
 # Pydantic models for validation responses
 class ValidationResult(BaseModel):
@@ -103,7 +95,7 @@ def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str
 
 @track_progress
 def generate_story_outline(state: StoryState) -> Dict:
-    """Generate the overall story outline using the hero's journey structure."""
+    """Generate the overall story outline using the selected narrative structure."""
     # Import dependencies at the start
     from storyteller_lib.logger import get_logger
     from storyteller_lib.database_integration import get_db_manager
@@ -121,6 +113,19 @@ def generate_story_outline(state: StoryState) -> Dict:
     author = config["author"]
     initial_idea = config["initial_idea"]
     language = config["language"]
+    
+    # Get narrative structure from state or database
+    narrative_structure = state.get("narrative_structure", "hero_journey")
+    db_manager = get_db_manager()
+    if db_manager and not narrative_structure:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT narrative_structure FROM story_config WHERE id = 1")
+            result = cursor.fetchone()
+            if result and result['narrative_structure']:
+                narrative_structure = result['narrative_structure']
+    
+    logger.info(f"Generating story outline using {narrative_structure} structure")
     
     # Get temporary workflow data from state
     initial_idea_elements = state.get("initial_idea_elements", {})
@@ -270,7 +275,7 @@ Emotional Tone: {style_analysis.emotional_tone}
         !!!CRITICAL LANGUAGE INSTRUCTION!!!
         This outline MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
         ALL content - including the title, character descriptions, plot elements, and setting details - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
-        DO NOT translate the hero's journey structure - create the outline directly in {SUPPORTED_LANGUAGES[language.lower()]}.
+        DO NOT translate the narrative structure - create the outline directly in {SUPPORTED_LANGUAGES[language.lower()]}.
         
         I will verify that your response is completely in {SUPPORTED_LANGUAGES[language.lower()]} and reject any outline that contains English.
         """
@@ -283,11 +288,15 @@ Emotional Tone: {style_analysis.emotional_tone}
         'idea_elements': idea_elements,  # Pass structured elements instead of formatted guidance
         'creative_guidance': creative_guidance,
         'style_guidance': style_guidance,
-        'language_guidance': language_guidance
+        'language_guidance': language_guidance,
+        'language_instruction': language_instruction
     }
     
-    # Render the prompt using the template system
-    prompt = render_prompt('story_outline', language=language, **template_vars)
+    # Determine which template to use based on narrative structure
+    template_name = f'story_outline_{narrative_structure}'
+    
+    # Render the prompt using the structure-specific template
+    prompt = render_prompt(template_name, language=language, **template_vars)
     
     # Generate the story outline using structured output
     print(f"[DEBUG] About to generate story outline. Prompt length: {len(prompt)}")
@@ -296,26 +305,33 @@ Emotional Tone: {style_analysis.emotional_tone}
     
     # Use structured output only - no fallback
     print("[DEBUG] Calling LLM with structured output...")
-    structured_llm = llm.with_structured_output(StoryOutlineStructured)
-    outline_structured = structured_llm.invoke(prompt)
     
-    # Convert structured output to text format
-    story_outline = f"Title: {outline_structured.title}\n\n"
+    # Always use flattened model to avoid nested dictionaries
+    structured_llm = llm.with_structured_output(StoryOutlineFlat)
+    outline_flat = structured_llm.invoke(prompt)
+    
+    # Convert flattened output to text format
+    story_outline = f"Title: {outline_flat.title}\n\n"
     
     story_outline += "Main Characters:\n"
-    for char in outline_structured.main_characters:
-        story_outline += f"- {char.name}: {char.description}\n"
+    names = [n.strip() for n in outline_flat.main_character_names.split(",")]
+    descriptions = [d.strip() for d in outline_flat.main_character_descriptions.split("|")]
+    for name, desc in zip(names, descriptions):
+        story_outline += f"- {name}: {desc}\n"
     
-    story_outline += f"\nCentral Conflict: {outline_structured.central_conflict}\n"
-    story_outline += f"\nWorld/Setting: {outline_structured.world_setting}\n"
+    story_outline += f"\nCentral Conflict: {outline_flat.central_conflict}\n"
+    story_outline += f"\nWorld/Setting: {outline_flat.world_setting}\n"
     
     story_outline += "\nKey Themes:\n"
-    for theme in outline_structured.key_themes:
+    themes = [t.strip() for t in outline_flat.key_themes_csv.split(",") if t.strip()]
+    for theme in themes:
         story_outline += f"- {theme}\n"
     
-    story_outline += "\nHero's Journey Phases:\n"
-    for i, phase in enumerate(outline_structured.hero_journey_phases, 1):
-        story_outline += f"\n{i}. {phase.phase_name}\n{phase.description}\n"
+    story_outline += f"\nStory Structure ({narrative_structure.replace('_', ' ').title()}):\n"
+    phase_names = [n.strip() for n in outline_flat.story_phase_names.split("|")]
+    phase_descriptions = [d.strip() for d in outline_flat.story_phase_descriptions.split("|")]
+    for i, (name, desc) in enumerate(zip(phase_names, phase_descriptions), 1):
+        story_outline += f"\n{i}. {name}\n{desc}\n"
     
     print(f"[DEBUG] Story outline length: {len(story_outline)}")
     logger.info(f"Generated structured story outline with length: {len(story_outline)}")
@@ -706,45 +722,56 @@ Emotional Tone: {style_analysis.emotional_tone}
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
-class SceneSpec(BaseModel):
-    """Scene specification with dramatic structure to ensure meaningful transitions."""
+# Flattened models to avoid nested dictionaries
+class FlatSceneSpec(BaseModel):
+    """Flattened scene specification for structured output without nested dictionaries."""
+    chapter_number: str = Field(..., description="The chapter number this scene belongs to")
+    scene_number: int = Field(..., description="The scene number within the chapter")
     description: str = Field(..., description="Brief description of what happens in this scene")
     scene_type: str = Field(..., description="Type of scene: action, dialogue, exploration, revelation, character_moment, transition, conflict, resolution")
-    plot_progressions: List[str] = Field(default_factory=list, description="Key plot points that MUST happen (e.g., 'hero_learns_about_quest')")
-    character_learns: List[str] = Field(default_factory=list, description="What characters learn, formatted as 'CharacterName: knowledge item'")
-    required_characters: List[str] = Field(default_factory=list, description="Characters who must appear in this scene")
-    forbidden_repetitions: List[str] = Field(default_factory=list, description="Plot points that must NOT be repeated from earlier scenes")
-    
-    # Dramatic arc fields
+    plot_progressions_csv: str = Field(default="", description="Comma-separated list of plot points that MUST happen")
+    character_learns_csv: str = Field(default="", description="Comma-separated list of what characters learn")
+    required_characters_csv: str = Field(default="", description="Comma-separated list of characters who must appear")
+    forbidden_repetitions_csv: str = Field(default="", description="Comma-separated list of plot points that must NOT be repeated")
     dramatic_purpose: str = Field(default="development", description="Primary dramatic purpose: setup, rising_action, climax, falling_action, resolution")
     tension_level: int = Field(default=5, ge=1, le=10, description="Tension level from 1 (calm) to 10 (maximum tension)")
     ends_with: str = Field(default="transition", description="How scene should end: cliffhanger, resolution, soft_transition, hard_break")
     connects_to_next: str = Field(default="", description="How this scene connects to the next one narratively")
 
-class Chapter(BaseModel):
-    """Enhanced model for a chapter with detailed scene specifications."""
+class FlatChapter(BaseModel):
+    """Flattened chapter model for structured output without nested dictionaries."""
     number: str = Field(..., description="The chapter number (as a string)")
     title: str = Field(..., description="The title of the chapter")
     outline: str = Field(..., description="Detailed summary of the chapter (200-300 words)")
-    key_scenes: List[SceneSpec] = Field(..., description="List of key scenes with detailed specifications")
+    scene_count: int = Field(..., description="Number of scenes in this chapter")
 
-class ChapterPlan(BaseModel):
-    """Enhanced model for the entire chapter plan with scene specifications."""
-    chapters: List[Chapter] = Field(..., description="List of chapters in the story")
+class FlatChapterPlan(BaseModel):
+    """Flattened chapter plan for structured output without nested dictionaries."""
+    chapters: List[FlatChapter] = Field(..., description="List of chapters without nested scenes")
+    total_scenes: List[FlatSceneSpec] = Field(..., description="All scenes in the story, flattened")
 
 @track_progress
 def plan_chapters(state: StoryState) -> Dict:
     """Divide the story into chapters with detailed outlines."""
     from storyteller_lib.prompt_templates import render_prompt
+    from storyteller_lib.narrative_structures import get_structure_by_name
     
     # Load configuration from database
     from storyteller_lib.config import get_story_config
     from storyteller_lib.database_integration import get_db_manager
+    from storyteller_lib.logger import get_logger
+    
+    logger = get_logger(__name__)
     
     config = get_story_config()
     genre = config["genre"]
     tone = config["tone"]
     language = config["language"]
+    
+    # Get narrative structure and targets from state
+    narrative_structure = state.get("narrative_structure", "hero_journey")
+    target_chapters = state.get("target_chapters", 12)
+    target_scenes_per_chapter = state.get("target_scenes_per_chapter", 5)
     
     # Get global_story from database
     global_story = ""
@@ -761,6 +788,37 @@ def plan_chapters(state: StoryState) -> Dict:
         raise ValueError("No story outline found in database")
     
     characters = state["characters"]
+    
+    # Get the narrative structure object for guidance
+    structure = get_structure_by_name(narrative_structure)
+    structure_guidance = ""
+    
+    if structure:
+        # Get chapter distribution for this structure
+        distribution = structure.get_chapter_distribution()
+        chapter_counts = distribution.get_chapter_counts(target_chapters)
+        
+        # Create structure-specific guidance
+        guidance_parts = []
+        for section, count in chapter_counts.items():
+            guidance_parts.append(f"- {section}: {count} chapters")
+        
+        structure_guidance = "Distribute chapters according to this structure:\n" + "\n".join(guidance_parts)
+        
+        # Add any structure-specific notes
+        if narrative_structure == "hero_journey":
+            structure_guidance += "\n\nEnsure each phase of the hero's journey is properly represented."
+        elif narrative_structure == "three_act":
+            structure_guidance += "\n\nMaintain proper pacing with setup, confrontation, and resolution."
+        elif narrative_structure == "kishotenketsu":
+            structure_guidance += "\n\nRemember: the 'ten' (twist) should recontextualize, not create conflict."
+        elif narrative_structure == "in_medias_res":
+            structure_guidance += "\n\nClearly mark flashback chapters vs. present action chapters."
+        elif narrative_structure == "circular":
+            structure_guidance += "\n\nEnsure the final chapters mirror the opening with transformation."
+        
+        logger.info(f"Using {narrative_structure} structure with {target_chapters} chapters")
+    
     # Prepare language instruction and guidance
     language_instruction = ""
     language_guidance = ""
@@ -795,6 +853,11 @@ def plan_chapters(state: StoryState) -> Dict:
         characters=characters,
         tone=tone,
         genre=genre,
+        narrative_structure=narrative_structure,
+        target_chapters=target_chapters,
+        min_chapters=max(5, target_chapters - 3),  # Allow some flexibility
+        flexibility=2,  # Allow ±2 chapters
+        structure_guidance=structure_guidance,
         language_instruction=language_instruction if language.lower() != DEFAULT_LANGUAGE else None,
         language_guidance=language_guidance
     )
@@ -854,58 +917,57 @@ def plan_chapters(state: StoryState) -> Dict:
             chapter_plan_text=chapter_plan_text
         )
         
-        # Use LLM with structured output directly
-        structured_output_llm = llm.with_structured_output(ChapterPlan)
+        # Always use flattened model to avoid nested dictionaries
+        structured_output_llm = llm.with_structured_output(FlatChapterPlan)
         
         # Get structured output
         result = structured_output_llm.invoke(structured_prompt)
         
-        # Convert the list of chapters to a dictionary with chapter numbers as keys
+        # Convert from flattened structure
         chapters_dict = {}
+        
+        # Convert from flattened structure
+        # First, create chapters
         for chapter in result.chapters:
             chapter_num = chapter.number
-            # Ensure chapter number is a string
             if not isinstance(chapter_num, str):
                 chapter_num = str(chapter_num)
                 
-            # Create a complete chapter entry with scenes from the key_scenes list
-            chapter_entry = {
+            chapters_dict[chapter_num] = {
                 "title": chapter.title,
                 "outline": chapter.outline,
                 "scenes": {},
                 "reflection_notes": []
             }
+        
+        # Then add scenes to their respective chapters
+        for scene in result.total_scenes:
+            chapter_num = scene.chapter_number
+            scene_num = str(scene.scene_number)
             
-            # Add scenes from the key_scenes list with full specifications
-            for i, scene in enumerate(chapter.key_scenes, 1):
-                scene_num = str(i)
-                chapter_entry["scenes"][scene_num] = {
-                    "content": "",  # Content will be filled in later
+            if chapter_num in chapters_dict:
+                chapters_dict[chapter_num]["scenes"][scene_num] = {
+                    "content": "",
                     "description": scene.description,
-                    "scene_type": scene.scene_type if hasattr(scene, 'scene_type') else "exploration",  # Include scene_type
-                    "plot_progressions": scene.plot_progressions if hasattr(scene, 'plot_progressions') else [],
-                    "character_learns": scene.character_learns if hasattr(scene, 'character_learns') else [],
-                    "required_characters": scene.required_characters if hasattr(scene, 'required_characters') else [],
-                    "forbidden_repetitions": scene.forbidden_repetitions if hasattr(scene, 'forbidden_repetitions') else [],
-                    "dramatic_purpose": scene.dramatic_purpose if hasattr(scene, 'dramatic_purpose') else "development",
-                    "tension_level": scene.tension_level if hasattr(scene, 'tension_level') else 5,
-                    "ends_with": scene.ends_with if hasattr(scene, 'ends_with') else "transition",
-                    "connects_to_next": scene.connects_to_next if hasattr(scene, 'connects_to_next') else "",
+                    "scene_type": scene.scene_type,
+                    "plot_progressions": [s.strip() for s in scene.plot_progressions_csv.split(",") if s.strip()] if scene.plot_progressions_csv else [],
+                    "character_learns": [s.strip() for s in scene.character_learns_csv.split(",") if s.strip()] if scene.character_learns_csv else [],
+                    "required_characters": [s.strip() for s in scene.required_characters_csv.split(",") if s.strip()] if scene.required_characters_csv else [],
+                    "forbidden_repetitions": [s.strip() for s in scene.forbidden_repetitions_csv.split(",") if s.strip()] if scene.forbidden_repetitions_csv else [],
+                    "dramatic_purpose": scene.dramatic_purpose,
+                    "tension_level": scene.tension_level,
+                    "ends_with": scene.ends_with,
+                    "connects_to_next": scene.connects_to_next,
                     "reflection_notes": []
                 }
-            
-            # Fail if no scenes at all
-            if len(chapter.key_scenes) < 1:
-                raise RuntimeError(f"Chapter {chapter_num} has no scenes. At least 1 scene is required.")
-            
-            chapters_dict[chapter_num] = chapter_entry
         
         # Use the dictionary as our chapters
         chapters = chapters_dict
         
         # Fail if we don't have enough chapters
-        if len(chapters) < 8:
-            raise RuntimeError(f"Only {len(chapters)} chapters were generated. At least 8 chapters are required for a complete story.")
+        min_chapters = max(5, target_chapters - 3)
+        if len(chapters) < min_chapters:
+            raise RuntimeError(f"Only {len(chapters)} chapters were generated. At least {min_chapters} chapters are required for this story structure.")
     except Exception as e:
         print(f"Error generating chapter data with Pydantic: {str(e)}")
         
@@ -965,8 +1027,9 @@ def plan_chapters(state: StoryState) -> Dict:
                 raise RuntimeError(f"Chapter planning failed: No scene descriptions were generated for chapter {chapter_num}. Structured output is required.")
             
             # Fail if we still don't have enough chapters
-            if len(chapters) < 8:
-                raise RuntimeError(f"Chapter planning failed: Only {len(chapters)} chapters were extracted. At least 8 chapters are required.")
+            min_chapters = max(5, target_chapters - 3)
+            if len(chapters) < min_chapters:
+                raise RuntimeError(f"Chapter planning failed: Only {len(chapters)} chapters were extracted. At least {min_chapters} chapters are required.")
         except Exception as e2:
             print(f"Error parsing chapter data directly: {str(e2)}")
             # Re-raise the error - no fallback allowed
