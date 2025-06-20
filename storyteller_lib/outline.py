@@ -791,32 +791,12 @@ def plan_chapters(state: StoryState) -> Dict:
     
     # Get the narrative structure object for guidance
     structure = get_structure_by_name(narrative_structure)
-    structure_guidance = ""
+    chapter_distribution = {}
     
     if structure:
         # Get chapter distribution for this structure
         distribution = structure.get_chapter_distribution()
-        chapter_counts = distribution.get_chapter_counts(target_chapters)
-        
-        # Create structure-specific guidance
-        guidance_parts = []
-        for section, count in chapter_counts.items():
-            guidance_parts.append(f"- {section}: {count} chapters")
-        
-        structure_guidance = "Distribute chapters according to this structure:\n" + "\n".join(guidance_parts)
-        
-        # Add any structure-specific notes
-        if narrative_structure == "hero_journey":
-            structure_guidance += "\n\nEnsure each phase of the hero's journey is properly represented."
-        elif narrative_structure == "three_act":
-            structure_guidance += "\n\nMaintain proper pacing with setup, confrontation, and resolution."
-        elif narrative_structure == "kishotenketsu":
-            structure_guidance += "\n\nRemember: the 'ten' (twist) should recontextualize, not create conflict."
-        elif narrative_structure == "in_medias_res":
-            structure_guidance += "\n\nClearly mark flashback chapters vs. present action chapters."
-        elif narrative_structure == "circular":
-            structure_guidance += "\n\nEnsure the final chapters mirror the opening with transformation."
-        
+        chapter_distribution = distribution.get_chapter_counts(target_chapters)
         logger.info(f"Using {narrative_structure} structure with {target_chapters} chapters")
     
     # Prepare language instruction and guidance
@@ -857,7 +837,7 @@ def plan_chapters(state: StoryState) -> Dict:
         target_chapters=target_chapters,
         min_chapters=max(5, target_chapters - 3),  # Allow some flexibility
         flexibility=2,  # Allow ±2 chapters
-        structure_guidance=structure_guidance,
+        chapter_distribution=chapter_distribution,  # Pass the raw data to template
         language_instruction=language_instruction if language.lower() != DEFAULT_LANGUAGE else None,
         language_guidance=language_guidance
     )
