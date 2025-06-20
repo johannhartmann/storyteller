@@ -1,0 +1,113 @@
+{# Nonlinear/Mosaic story outline template #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Create a compelling story outline for a {{ tone }} {{ genre }} narrative using a nonlinear/mosaic structure.
+{% if initial_idea %}This story should be based on this initial idea: '{{ initial_idea }}'{% endif %}
+
+Structure your outline as interconnected vignettes that reveal the full story through patterns:
+
+## VIGNETTE GROUPS
+Organize your story into 4-6 thematic groupings, each containing multiple vignettes:
+
+### GROUP 1: INTRODUCTION FRAGMENTS (20% of story)
+**Purpose:** Establish mystery, introduce perspectives, create questions
+
+Vignettes should:
+- Present different viewpoints of the same world/situation
+- Introduce characters without full context
+- Create compelling mysteries that demand answers
+- Establish tone and atmosphere
+- Plant seeds that will bloom in later vignettes
+
+### GROUP 2: DEEPENING CONNECTIONS (30% of story)
+**Purpose:** Begin revealing how vignettes connect
+
+Vignettes should:
+- Show same events from different angles
+- Reveal hidden connections between characters
+- Deepen mysteries while answering some questions
+- Introduce temporal jumps or perspective shifts
+- Build thematic resonance between seemingly unrelated events
+
+### GROUP 3: REVELATION PATTERNS (30% of story)
+**Purpose:** Major connections become clear
+
+Vignettes should:
+- Reveal the true chronology or relationship structure
+- Show how individual stories form a larger narrative
+- Provide "aha" moments that recontextualize earlier vignettes
+- Accelerate the pace of revelations
+- Build toward the unified understanding
+
+### GROUP 4: SYNTHESIS (20% of story)
+**Purpose:** All pieces come together
+
+Vignettes should:
+- Complete the mosaic picture
+- Resolve the central mystery/question
+- Show the full impact of interconnections
+- Provide emotional/thematic resolution
+- Leave some ambiguity for reader interpretation
+
+## VIGNETTE SPECIFICATIONS
+For each vignette, specify:
+1. **Title/Timestamp**: When/where this piece occurs
+2. **POV Character**: Whose perspective we follow
+3. **Content**: What happens in this fragment
+4. **Connections**: How it relates to other vignettes
+5. **Reveals**: What new information it provides
+6. **Questions**: What mysteries it creates or deepens
+
+## CONNECTING ELEMENTS
+Identify the threads that weave through all vignettes:
+- **Central Mystery/Question**: What puzzle are we solving?
+- **Recurring Symbols/Objects**: Items that appear across vignettes
+- **Thematic Echoes**: Ideas that resonate between fragments
+- **Temporal Structure**: How time works in your mosaic
+- **Spatial Connections**: Locations that link vignettes
+
+Also include:
+- Title: [Something that hints at the mosaic nature]
+- POV Characters: 4-6 perspectives that offer different pieces
+- Central Question: What the mosaic reveals when complete
+- Setting: Location(s) that can support multiple viewpoints
+- Themes: Ideas best explored through fragmentation
+- Mood: How {{ tone }} atmosphere enhances the mosaic
+
+{% if idea_elements %}
+KEY ELEMENTS TO INCORPORATE:
+- Setting: {{ idea_elements.setting }}
+  * Use as a hub where different perspectives intersect
+  * Show how the same space means different things to different people
+
+- Characters: {{ idea_elements.characters | join(', ') }}
+  * Give each a unique perspective on events
+  * Show how their stories interconnect in surprising ways
+
+- Plot: {{ idea_elements.plot }}
+  * Fragment across multiple timelines or viewpoints
+  * Reveal different aspects through each vignette
+
+- Themes: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+CRITICAL FOR MOSAIC STRUCTURE:
+- Each vignette must be compelling on its own
+- The pattern must emerge gradually, not be forced
+- Readers should experience discovery, not confusion
+- The complete picture must be worth the journey
+- Some connections should be subtle, requiring reader participation

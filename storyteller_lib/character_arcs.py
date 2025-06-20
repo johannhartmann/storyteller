@@ -9,7 +9,40 @@ from storyteller_lib.config import llm, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from pydantic import BaseModel, Field
 
 
-# Pydantic models for character arc planning
+# Flattened models to avoid nested dictionaries
+class CharacterArcPlanFlat(BaseModel):
+    """Flattened character arc plan for structured output without nested dictionaries."""
+    character_name: str = Field(description="Name of the character")
+    arc_type: str = Field(description="Type of arc (positive change, negative change, flat, circular)")
+    # Arc stages flattened
+    arc_stage_names: str = Field(description="Pipe-separated list of arc stage names")
+    arc_stage_descriptions: str = Field(description="Pipe-separated list of what happens in each stage")
+    arc_stage_emotional_states: str = Field(description="Pipe-separated list of emotional states for each stage")
+    arc_stage_turning_points: str = Field(description="Pipe-separated list of key moments or realizations")
+    # Relationship dynamics flattened
+    relationship_characters: str = Field(description="Pipe-separated list of character names")
+    relationship_evolutions: str = Field(description="Pipe-separated list of how each relationship evolves")
+    thematic_connection: str = Field(description="How the arc reflects story themes")
+    emotional_journey_summary: str = Field(description="Summary of emotional progression")
+
+
+class CharacterArcPlansFlat(BaseModel):
+    """Flattened collection of character arc plans for structured output without nested dictionaries."""
+    character_names: str = Field(description="Pipe-separated list of character names")
+    arc_types: str = Field(description="Pipe-separated list of arc types")
+    # All arc stages flattened (double-pipe separated for each character)
+    all_arc_stage_names: str = Field(description="Double-pipe-separated groups of pipe-separated stage names")
+    all_arc_stage_descriptions: str = Field(description="Double-pipe-separated groups of pipe-separated descriptions")
+    all_arc_stage_emotional_states: str = Field(description="Double-pipe-separated groups of pipe-separated emotional states")
+    all_arc_stage_turning_points: str = Field(description="Double-pipe-separated groups of pipe-separated turning points")
+    # All relationship dynamics flattened
+    all_relationship_characters: str = Field(description="Double-pipe-separated groups of pipe-separated character names")
+    all_relationship_evolutions: str = Field(description="Double-pipe-separated groups of pipe-separated relationship evolutions")
+    thematic_connections: str = Field(description="Pipe-separated list of thematic connections")
+    emotional_journey_summaries: str = Field(description="Pipe-separated list of emotional journey summaries")
+
+
+# Original models kept for internal use only
 class CharacterArcStage(BaseModel):
     """A single stage in a character's arc."""
     stage_name: str = Field(description="Name of the arc stage")
@@ -84,19 +117,56 @@ def plan_character_arcs(characters: Dict[str, Any], story_outline: str, genre: s
     )
     
     try:
-        # Use structured output for comprehensive arc planning
-        structured_llm = llm.with_structured_output(CharacterArcPlans)
+        # Use structured output with flattened model to avoid nested dictionaries
+        structured_llm = llm.with_structured_output(CharacterArcPlansFlat)
         result = structured_llm.invoke(prompt)
         
-        # Convert to dictionary format
+        # Convert flattened data to dictionary format
         arc_plans = {}
-        for arc_plan in result.character_arcs:
-            arc_plans[arc_plan.character_name] = {
-                "arc_type": arc_plan.arc_type,
-                "stages": [stage.dict() for stage in arc_plan.arc_stages],
-                "relationship_dynamics": arc_plan.relationship_dynamics,
-                "thematic_connection": arc_plan.thematic_connection,
-                "emotional_journey_summary": arc_plan.emotional_journey_summary
+        
+        # Parse the flattened lists
+        names = [n.strip() for n in result.character_names.split("|")]
+        arc_types = [t.strip() for t in result.arc_types.split("|")]
+        all_stage_names = [g.strip() for g in result.all_arc_stage_names.split("||")]
+        all_stage_descriptions = [g.strip() for g in result.all_arc_stage_descriptions.split("||")]
+        all_stage_emotional = [g.strip() for g in result.all_arc_stage_emotional_states.split("||")]
+        all_stage_turning = [g.strip() for g in result.all_arc_stage_turning_points.split("||")]
+        all_rel_chars = [g.strip() for g in result.all_relationship_characters.split("||")]
+        all_rel_evolutions = [g.strip() for g in result.all_relationship_evolutions.split("||")]
+        thematic_connections = [t.strip() for t in result.thematic_connections.split("|")]
+        emotional_summaries = [s.strip() for s in result.emotional_journey_summaries.split("|")]
+        
+        for i, name in enumerate(names):
+            # Parse stages for this character
+            stages = []
+            stage_names = [s.strip() for s in all_stage_names[i].split("|") if s.strip()]
+            stage_descs = [s.strip() for s in all_stage_descriptions[i].split("|") if s.strip()]
+            stage_emotions = [s.strip() for s in all_stage_emotional[i].split("|") if s.strip()]
+            stage_turnings = [s.strip() for s in all_stage_turning[i].split("|") if s.strip()]
+            
+            for j, stage_name in enumerate(stage_names):
+                stages.append({
+                    "stage_name": stage_name,
+                    "description": stage_descs[j] if j < len(stage_descs) else "",
+                    "emotional_state": stage_emotions[j] if j < len(stage_emotions) else "",
+                    "turning_point": stage_turnings[j] if j < len(stage_turnings) else ""
+                })
+            
+            # Parse relationships for this character
+            relationship_dynamics = {}
+            rel_chars = [r.strip() for r in all_rel_chars[i].split("|") if r.strip()]
+            rel_evolutions = [r.strip() for r in all_rel_evolutions[i].split("|") if r.strip()]
+            
+            for j, rel_char in enumerate(rel_chars):
+                if j < len(rel_evolutions):
+                    relationship_dynamics[rel_char] = rel_evolutions[j]
+            
+            arc_plans[name] = {
+                "arc_type": arc_types[i] if i < len(arc_types) else "unknown",
+                "stages": stages,
+                "relationship_dynamics": relationship_dynamics,
+                "thematic_connection": thematic_connections[i] if i < len(thematic_connections) else "",
+                "emotional_journey_summary": emotional_summaries[i] if i < len(emotional_summaries) else ""
             }
         
         return arc_plans

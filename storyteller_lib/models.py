@@ -367,6 +367,11 @@ class StoryState(TypedDict):
     current_scene: str  # Track which scene is being written
     current_scene_content: str  # Temporary storage for scene content between nodes
     scene_reflection: Dict[str, Any]  # Temporary storage for scene reflection results
+    
+    # Narrative structure fields
+    narrative_structure: str  # Selected narrative structure (hero_journey, three_act, etc.)
+    target_chapters: int  # Target number of chapters based on structure and length
+    target_scenes_per_chapter: int  # Target scenes per chapter
     scene_elements: Dict[str, Any]  # Temporary storage for brainstormed scene elements
     active_plot_threads: List[Dict[str, Any]]  # Active plot threads for current scene
     

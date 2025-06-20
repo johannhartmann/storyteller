@@ -324,7 +324,10 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
             sys.stdout.write("------------------------------\n\n")
             
     elif node_name == "generate_story_outline":
-        progress_message = f"[{elapsed_str}] Generated story outline following hero's journey structure"
+        # Get narrative structure from state
+        narrative_structure = state.get("narrative_structure", "hero_journey")
+        structure_name = narrative_structure.replace('_', ' ').title()
+        progress_message = f"[{elapsed_str}] Generated story outline following {structure_name} structure"
         
         # Always show a preview of the story outline
         if "global_story" in state:
@@ -741,6 +744,12 @@ def main() -> None:
                         help=f"LLM provider to use (default: {DEFAULT_MODEL_PROVIDER})")
     parser.add_argument("--model", type=str,
                         help="Specific model to use (defaults to provider's default model)")
+    # Add narrative structure options
+    parser.add_argument("--structure", type=str, default="auto",
+                        choices=["auto", "hero_journey", "three_act", "kishotenketsu", "in_medias_res", "circular", "nonlinear_mosaic"],
+                        help="Narrative structure to use (default: auto - let AI choose based on genre/tone)")
+    parser.add_argument("--pages", type=int,
+                        help="Target number of pages for the story (e.g., 200 for a short novel, 400 for standard)")
     # Add database options
     parser.add_argument("--database-path", type=str,
                         help="Path to the story database file (default: ~/.storyteller/story_database.db)")
@@ -836,7 +845,9 @@ def main() -> None:
                     author=args.author,
                     initial_idea=args.idea,
                     language=args.language,
-                    progress_log_path=args.progress_log
+                    progress_log_path=args.progress_log,
+                    narrative_structure=args.structure,
+                    target_pages=args.pages
                 )
             
             # Show completion message

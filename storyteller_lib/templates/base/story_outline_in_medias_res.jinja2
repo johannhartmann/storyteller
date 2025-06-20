@@ -1,0 +1,99 @@
+{# In Medias Res story outline template #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Create a compelling story outline for a {{ tone }} {{ genre }} narrative using the in medias res structure.
+{% if initial_idea %}This story should be based on this initial idea: '{{ initial_idea }}'{% endif %}
+
+Structure your outline to begin in the middle of action:
+
+## OPENING ACTION SEQUENCE (10% of the story)
+**Purpose:** Hook readers with immediate high-stakes action
+
+1. **Cold Open** - Start at a crucial moment of danger/tension
+2. **Immediate Stakes** - What's at risk right now
+3. **Character Under Pressure** - Protagonist in action, revealing character
+4. **Cliffhanger Pause** - Leave the action unresolved
+
+## FLASHBACK: HOW WE GOT HERE (30% of the story)
+**Purpose:** Provide context while maintaining narrative momentum
+
+5. **Time Jump Marker** - Clear transition to the past
+6. **Original Status Quo** - Where the protagonist started
+7. **Seeds of Conflict** - Early signs of trouble
+8. **Escalating Events** - The chain of events leading to opening
+9. **Key Relationships** - Important people and their roles
+10. **Critical Decision** - The choice that set everything in motion
+11. **Accelerating Danger** - Events spiraling toward the opening scene
+
+## RETURN TO PRESENT ACTION (40% of the story)
+**Purpose:** Continue and escalate from the opening scene
+
+12. **Resume Opening Scene** - Pick up where we left off
+13. **Immediate Resolution** - Escape or survive the opening crisis
+14. **Larger Threat Revealed** - The real scope of danger
+15. **New Obstacles** - Fresh challenges based on what we now know
+16. **Allies and Resources** - Who/what helps the protagonist
+17. **Rising Action** - Multiple escalating confrontations
+18. **Devastating Setback** - All seems lost
+19. **Final Gambit** - The last desperate plan
+
+## CLIMAX AND RESOLUTION (20% of the story)
+**Purpose:** Payoff all setup with satisfying conclusion
+
+20. **Ultimate Confrontation** - Face the core threat/antagonist
+21. **Use of Knowledge** - Apply lessons from flashback
+22. **Moment of Truth** - Character's ultimate test
+23. **Resolution** - How the central conflict ends
+24. **New Normal** - The changed world/character
+25. **Final Reflection** - Understanding the full journey
+
+For each section, ensure that:
+- The opening grabs attention immediately
+- Flashbacks reveal information strategically
+- Present action builds on past revelations
+- Pacing maintains thriller-like momentum
+
+Also include:
+- Title: [A punchy title that hints at the action]
+- Main Characters: 3-5 characters revealed through action
+- Central Conflict: The driving force creating urgency
+- Setting: Vivid locations that enhance action
+- Themes: Ideas explored through the non-linear structure
+- Tone: How {{ tone }} atmosphere enhances suspense
+
+{% if idea_elements %}
+KEY ELEMENTS TO INCORPORATE:
+- Setting: {{ idea_elements.setting }}
+  * Use dynamically in both timeframes
+  * Make location crucial to action sequences
+
+- Characters: {{ idea_elements.characters | join(', ') }}
+  * Reveal through actions and decisions
+  * Show how past shapes present choices
+
+- Plot: {{ idea_elements.plot }}
+  * Split between flashback motivation and present action
+  * Use time structure to enhance drama
+
+- Themes: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+CRITICAL: The in medias res structure requires:
+- An opening scene so compelling readers must know what happens
+- Flashbacks that enhance rather than slow the story
+- Clear time transitions to avoid confusion
+- Payoff that justifies the non-linear approach

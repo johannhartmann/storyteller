@@ -1,10 +1,29 @@
 # StoryCraft Agent
 
-An autonomous AI agent designed to write engaging, multi-chapter stories based on the hero's journey using LangGraph for orchestration and SQLite database for state and memory management.
+An autonomous AI agent designed to write engaging, multi-chapter stories using flexible narrative structures, powered by LangGraph for orchestration and SQLite database for state and memory management.
+
+**Version 2.1** - Now with flexible narrative structures, intelligent scene context, enhanced consistency management, and simplified page-based length control.
+
+## Quick Start
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up your API key
+echo "GEMINI_API_KEY=your_key_here" > .env
+
+# Generate your first story
+python run_storyteller.py --genre fantasy --tone epic
+
+# Let AI choose everything for you
+python run_storyteller.py --idea "A story about a detective who solves crimes using dreams"
+```
 
 ## Features
 
-- **Hero's Journey Integration**: Dynamically generates all phases of the hero's journey as high-level plot milestones
+- **Flexible Narrative Structures**: Intelligently selects from 6 narrative structures (Hero's Journey, Three-Act, Kishōtenketsu, In Medias Res, Circular, Nonlinear/Mosaic) based on genre and story concept
+- **Dynamic Story Length**: Automatically determines optimal chapter count and scene distribution based on story complexity
 - **Autonomous Storyline Generation**: Creates a granular storyline subdivided into chapters and scenes
 - **Multi-Character Management**: Tracks each character's backstory, evolution, relationships, and knowledge
 - **Iterative Self-Reflection & Revision**: Each chapter and scene undergoes a self-reflection process for quality
@@ -15,6 +34,7 @@ An autonomous AI agent designed to write engaging, multi-chapter stories based o
 - **Robust Error Handling**: Includes safety mechanisms to prevent infinite loops and gracefully handle edge cases
 - **LLM Response Caching**: Improves performance and reduces API costs by caching LLM responses
 - **Multi-language Support**: Generate stories in 12 different languages
+- **Intelligent Scene Context**: Provides comprehensive "what happened until now" summaries for consistent narrative flow
 
 ## Requirements
 
@@ -62,6 +82,8 @@ python run_storyteller.py --genre fantasy --tone epic --output my_story.md
 - `--language`: Target language for story generation (default: english)
 - `--idea`: Initial story idea to use as a starting point (e.g., 'A detective story set in a zoo')
 - `--output`: Output file to save the generated story
+- `--structure`: Narrative structure to use (choices: auto, hero_journey, three_act, kishotenketsu, in_medias_res, circular, nonlinear_mosaic; default: auto)
+- `--pages`: Target number of pages for the story (e.g., 200 for a short novel, 400 for standard)
 - `--verbose`: Display detailed information about the story elements as they're generated
 - `--cache`: LLM cache type to use (choices: memory, sqlite, none; default: sqlite)
 - `--cache-path`: Path to the cache file (for sqlite cache)
@@ -123,24 +145,98 @@ python run_storyteller.py --genre mystery --tone dark --model-provider anthropic
 
 # Generate a story using a specific model from Google
 python run_storyteller.py --genre sci-fi --tone futuristic --model-provider gemini --model gemini-2.0-pro
+
+# Let AI choose the best narrative structure for a mystery
+python run_storyteller.py --genre mystery --tone dark --structure auto
+
+# Force a three-act structure for a thriller
+python run_storyteller.py --genre thriller --tone suspenseful --structure three_act
+
+# Generate a contemplative story using Kishōtenketsu (4-act Japanese structure)
+python run_storyteller.py --genre "literary fiction" --tone contemplative --structure kishotenketsu
+
+# Create a short novel (~200 pages)
+python run_storyteller.py --genre horror --tone atmospheric --pages 200
+
+# Generate a standard length novel (~400 pages)
+python run_storyteller.py --genre fantasy --tone epic --pages 400
+
+# Start the story in the middle of action
+python run_storyteller.py --genre action --tone "fast-paced" --structure in_medias_res
+
+# Create a 300-page mystery using three-act structure
+python run_storyteller.py --genre mystery --tone suspenseful --structure three_act --pages 300
 ```
 
 ## How It Works
 
 StoryCraft uses LangGraph to orchestrate the story generation process through several stages:
 
-1. **Initialization**: Sets up the story parameters based on user input
+1. **Initialization**: Sets up the story parameters and selects the optimal narrative structure
 2. **Creative Brainstorming**: Generates and evaluates multiple creative story concepts
-3. **Story Outline Generation**: Creates the overall hero's journey structure
-4. **Character Development**: Generates detailed character profiles
-5. **Chapter Planning**: Divides the story into chapters with outlines
-6. **Scene Brainstorming**: Generates creative elements for each scene
-7. **Scene Writing**: Generates detailed content for each scene
-8. **Reflection & Revision**: Reviews scenes for quality and consistency
-9. **Character Updates**: Manages character evolution throughout the story
-10. **Story Compilation**: Assembles the final complete story
+3. **Narrative Structure Selection**: AI analyzes genre, tone, and concept to choose the best structure
+4. **Story Outline Generation**: Creates the overall story structure using the selected narrative framework
+5. **Character Development**: Generates detailed character profiles
+6. **Chapter Planning**: Divides the story into chapters based on the narrative structure
+7. **Scene Brainstorming**: Generates creative elements for each scene
+8. **Scene Writing**: Generates detailed content with comprehensive context
+9. **Reflection & Revision**: Reviews scenes for quality and consistency
+10. **Character Updates**: Manages character evolution throughout the story
+11. **Story Compilation**: Assembles the final complete story
 
 The agent maintains state throughout the process using LangGraph's state management and SQLite database for memory operations to ensure consistency and continuity.
+
+## Story Length Control
+
+The `--pages` parameter provides an intuitive way to control story length:
+- **100-200 pages**: Short novel or novella
+- **200-300 pages**: Short to medium novel  
+- **300-400 pages**: Standard novel length
+- **400-500 pages**: Long novel
+- **500+ pages**: Epic length
+
+The system automatically calculates the optimal number of chapters and scenes based on:
+- Your chosen narrative structure
+- The complexity of your story idea
+- Genre conventions
+
+For example, a 300-page mystery using three-act structure might result in 15 chapters with 5 scenes each, while a 300-page literary fiction using Kishōtenketsu might have 16 chapters (divisible by 4) with 4-6 scenes each.
+
+## Narrative Structures
+
+StoryCraft supports multiple narrative structures, each suited to different types of stories:
+
+### Hero's Journey
+- **Best for**: Fantasy, adventure, coming-of-age stories
+- **Structure**: 12 phases from ordinary world through transformation and return
+- **Example genres**: Epic fantasy, space opera, mythological tales
+
+### Three-Act Structure
+- **Best for**: Mystery, thriller, romance, drama
+- **Structure**: Setup (25%), Confrontation (50%), Resolution (25%)
+- **Example genres**: Detective stories, psychological thrillers, romantic comedies
+
+### Kishōtenketsu (起承転結)
+- **Best for**: Literary fiction, slice-of-life, contemplative stories
+- **Structure**: Introduction, Development, Twist (non-conflict), Conclusion
+- **Example genres**: Character studies, philosophical narratives, Eastern-influenced stories
+
+### In Medias Res
+- **Best for**: Action, thriller, noir
+- **Structure**: Start in action, flashback for context, return to present
+- **Example genres**: Heist stories, war narratives, action thrillers
+
+### Circular/Cyclical
+- **Best for**: Philosophical, literary, time-based narratives
+- **Structure**: Ending mirrors beginning with transformation
+- **Example genres**: Time loop stories, character transformation arcs
+
+### Nonlinear/Mosaic
+- **Best for**: Literary fiction, mystery, psychological narratives
+- **Structure**: Interconnected vignettes revealing pattern
+- **Example genres**: Multi-perspective mysteries, experimental fiction
+
+The system automatically selects the most appropriate structure based on your genre and story concept, or you can specify one using the `--structure` parameter.
 
 ## System Components
 
@@ -255,43 +351,54 @@ Each provider has its own default model, but specific models can be specified us
 
 1. **Initialization (`initialization.py`)**:
    - Sets up initial state based on user parameters
+   - Analyzes story concept to select optimal narrative structure
    - Generates author style guidance if an author is specified
-   - Initializes memory with key constraints and requirements
+   - Determines story length and chapter distribution
 
-2. **Outline Generation (`outline.py`)**:
-   - Creates the global story structure following the hero's journey
+2. **Narrative Structures (`narrative_structures.py`)**:
+   - Defines 6 different narrative structure classes
+   - Provides structure selection logic based on genre/tone
+   - Calculates optimal chapter and scene distributions
+   - Manages structure-specific tension curves and pacing
+
+3. **Outline Generation (`outline.py`)**:
+   - Creates the global story structure using selected narrative framework
+   - Adapts outline generation to chosen structure
    - Generates character profiles with backstories and motivations
-   - Plans chapters with scene breakdowns
+   - Plans chapters with scene breakdowns based on structure
 
-3. **Worldbuilding (`worldbuilding.py`)**:
+4. **Worldbuilding (`worldbuilding.py`)**:
    - Generates detailed world elements across multiple categories
    - Creates geography, politics, culture, history, and more
    - Ensures world elements align with genre conventions
 
-4. **Scene Management (`scenes.py`)**:
+5. **Scene Management (`scenes.py` and `scenes_v2.py`)**:
    - Handles scene brainstorming, writing, reflection, and revision
    - Integrates plot threads, character information, and world elements
+   - Provides comprehensive scene context with "what happened until now" summaries
    - Ensures scenes advance both character arcs and plot development
 
-5. **Plot Thread Tracking (`plot_threads.py`)**:
+6. **Plot Thread Tracking (`plot_threads.py`)**:
    - Identifies and manages narrative threads throughout the story
    - Tracks thread status (introduced, developed, resolved, abandoned)
    - Ensures major plot threads are properly resolved
 
-6. **Progression Management (`progression.py`)**:
+7. **Progression Management (`progression.py`)**:
    - Handles transitions between scenes and chapters
    - Updates character profiles and world elements
    - Reviews continuity and resolves issues
 
-7. **Graph Construction (`graph.py`)**:
+8. **Graph Construction (`graph.py` and `graph_v2.py`)**:
    - Defines the LangGraph workflow with nodes and conditional edges
    - Implements decision functions that determine the flow
    - Manages state transitions between components
+   - V2 workflow provides enhanced scene context and consistency
 
-8. **Storyteller Core (`storyteller.py`)**:
+9. **Storyteller Core (`storyteller.py` and `storyteller_v2.py`)**:
    - Provides the main entry point for story generation
    - Handles initial idea parsing and genre element extraction
-   - Manages memory anchors for critical story elements
+   - Manages database integration and state coordination
+   - V2 version includes enhanced memory management
 
 ## LangGraph Workflow
 

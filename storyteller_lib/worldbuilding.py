@@ -75,21 +75,12 @@ class DailyLife(BaseModel):
     housing: Optional[str] = Field(default="", description="Housing and architecture")
     relevance: Optional[str] = Field(default="", description="How daily life reflects culture and status")
 
-class MysteryClue(BaseModel):
-    """A clue that reveals part of a mystery."""
-    description: str = Field(description="Description of the clue")
-    revelation_level: int = Field(ge=1, le=5, description="How much this reveals (1=subtle hint, 5=full revelation)")
-    revealed: bool = Field(default=False, description="Whether this clue has been revealed in the story")
-
-class MysteryElement(BaseModel):
-    """A key mystery element in the story."""
-    name: str = Field(description="Name of the mystery element")
-    description: str = Field(description="Description of why it's a compelling mystery")
-    clues: List[MysteryClue] = Field(description="Clues that could reveal this mystery")
-
-class MysteryAnalysis(BaseModel):
-    """Analysis of potential mystery elements in the world."""
-    key_mysteries: List[MysteryElement] = Field(description="List of key mystery elements")
+class MysteryAnalysisFlat(BaseModel):
+    """Flattened analysis of potential mystery elements to avoid nested dictionaries."""
+    mystery_names: str = Field(description="Pipe-separated list of mystery element names")
+    mystery_descriptions: str = Field(description="Pipe-separated list of why each mystery is compelling")
+    mystery_clues: str = Field(description="Pipe-separated list of semicolon-separated clue descriptions for each mystery")
+    mystery_clue_levels: str = Field(description="Pipe-separated list of comma-separated revelation levels (1-5) for each mystery's clues")
 
 class WorldbuildingElements(BaseModel):
     """Complete worldbuilding elements model."""
@@ -369,8 +360,8 @@ def generate_mystery_elements(world_elements: Dict[str, Any], num_mysteries: int
         }
     
     try:
-        # Create a structured LLM that outputs a MysteryAnalysis
-        structured_llm = llm.with_structured_output(MysteryAnalysis)
+        # Create a structured LLM that outputs a flattened MysteryAnalysis
+        structured_llm = llm.with_structured_output(MysteryAnalysisFlat)
         
         # Add language instruction
         language_instruction = ""
@@ -397,10 +388,34 @@ def generate_mystery_elements(world_elements: Dict[str, Any], num_mysteries: int
         )
         
         # Extract the structured data
-        mystery_analysis = structured_llm.invoke(prompt)
+        mystery_analysis_flat = structured_llm.invoke(prompt)
         
-        # Convert to dictionary
-        return mystery_analysis.model_dump()
+        # Convert flattened data to nested structure
+        names = [n.strip() for n in mystery_analysis_flat.mystery_names.split("|")]
+        descriptions = [d.strip() for d in mystery_analysis_flat.mystery_descriptions.split("|")]
+        clues_lists = [c.strip() for c in mystery_analysis_flat.mystery_clues.split("|")]
+        levels_lists = [l.strip() for l in mystery_analysis_flat.mystery_clue_levels.split("|")]
+        
+        key_mysteries = []
+        for name, desc, clues_str, levels_str in zip(names, descriptions, clues_lists, levels_lists):
+            clues = [c.strip() for c in clues_str.split(";") if c.strip()]
+            levels = [int(l.strip()) for l in levels_str.split(",") if l.strip()]
+            
+            mystery_clues = []
+            for clue_desc, level in zip(clues, levels):
+                mystery_clues.append({
+                    "description": clue_desc,
+                    "revelation_level": level,
+                    "revealed": False
+                })
+            
+            key_mysteries.append({
+                "name": name,
+                "description": desc,
+                "clues": mystery_clues
+            })
+        
+        return {"key_mysteries": key_mysteries}
     except Exception as e:
         print(f"Error generating mystery elements: {str(e)}")
         
@@ -780,10 +795,34 @@ def extract_mystery_elements(text: str, num_mysteries: int = 3) -> Dict[str, Any
         )
         
         # Extract the structured data
-        mystery_analysis = structured_llm.invoke(prompt)
+        mystery_analysis_flat = structured_llm.invoke(prompt)
         
-        # Convert to dictionary
-        return mystery_analysis.model_dump()
+        # Convert flattened data to nested structure
+        names = [n.strip() for n in mystery_analysis_flat.mystery_names.split("|")]
+        descriptions = [d.strip() for d in mystery_analysis_flat.mystery_descriptions.split("|")]
+        clues_lists = [c.strip() for c in mystery_analysis_flat.mystery_clues.split("|")]
+        levels_lists = [l.strip() for l in mystery_analysis_flat.mystery_clue_levels.split("|")]
+        
+        key_mysteries = []
+        for name, desc, clues_str, levels_str in zip(names, descriptions, clues_lists, levels_lists):
+            clues = [c.strip() for c in clues_str.split(";") if c.strip()]
+            levels = [int(l.strip()) for l in levels_str.split(",") if l.strip()]
+            
+            mystery_clues = []
+            for clue_desc, level in zip(clues, levels):
+                mystery_clues.append({
+                    "description": clue_desc,
+                    "revelation_level": level,
+                    "revealed": False
+                })
+            
+            key_mysteries.append({
+                "name": name,
+                "description": desc,
+                "clues": mystery_clues
+            })
+        
+        return {"key_mysteries": key_mysteries}
     except Exception as e:
         print(f"Error extracting mystery elements: {str(e)}")
         return {"error": f"Failed to extract mystery elements: {str(e)}"}

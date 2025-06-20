@@ -1,0 +1,100 @@
+{# Kishōtenketsu (Four-Act) story outline template #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Create a compelling story outline for a {{ tone }} {{ genre }} narrative following the kishōtenketsu (起承転結) structure.
+{% if initial_idea %}This story should be based on this initial idea: '{{ initial_idea }}'{% endif %}
+
+Structure your outline according to the four-act kishōtenketsu format:
+
+## KI (起) - INTRODUCTION (25% of the story)
+**Purpose:** Introduce characters, setting, and situation without conflict
+
+1. **Opening Scene** - Establish the everyday world and atmosphere
+2. **Character Introduction** - Present protagonists in their natural state
+3. **World Details** - Rich sensory details of the setting
+4. **Daily Rhythms** - The patterns and routines of life
+5. **Relationships** - How characters relate to each other and their world
+6. **Subtle Tensions** - Hints of unease or questions, not conflicts
+
+## SHŌ (承) - DEVELOPMENT (25% of the story)
+**Purpose:** Deepen understanding and develop the situation
+
+7. **Expanding View** - Broaden the scope of the world/situation
+8. **Character Depth** - Reveal more about motivations and desires
+9. **Parallel Elements** - Introduce seemingly unrelated threads
+10. **Building Atmosphere** - Intensify mood without direct conflict
+11. **Questions Arise** - Natural curiosity about where things lead
+12. **Connections Form** - Subtle links between elements
+
+## TEN (転) - TWIST/TURN (25% of the story)
+**Purpose:** Introduce unexpected perspective that recontextualizes everything
+
+13. **The Revelation** - A discovery, arrival, or event that changes perspective
+14. **New Understanding** - How this twist reframes earlier events
+15. **Shifted Dynamics** - Relationships and situations seen differently
+16. **Emotional Impact** - Characters process this new reality
+17. **Ripple Effects** - How the twist affects all story elements
+18. **Integration** - Characters adapt to new understanding
+
+## KETSU (結) - CONCLUSION (25% of the story)
+**Purpose:** Bring all elements together in harmonious resolution
+
+19. **Synthesis** - All threads weave together naturally
+20. **New Equilibrium** - A changed but stable state
+21. **Reflection** - Characters' understanding of their journey
+22. **Circular Elements** - Echoes of the beginning, transformed
+23. **Lingering Questions** - What remains beautifully unresolved
+24. **Final Image** - A moment that captures the story's essence
+
+For each section, provide specific details that:
+- Build naturally from the initial idea without forcing conflict
+- Develop characters through observation and insight
+- Use the setting as an active story element
+- Create engagement through curiosity rather than tension
+
+Important: The "twist" (ten) is NOT a conflict or problem, but a new perspective that makes us see everything differently - like discovering a friend is actually a long-lost sibling, or realizing the abandoned garden was once a shrine.
+
+Also include:
+- Title: [A poetic title that captures the story's essence]
+- Main Characters: 3-4 characters with inner lives and connections
+- Central Question: What the story explores (not a conflict)
+- Setting: A rich, atmospheric location integral to the story
+- Themes: Philosophical or emotional ideas examined
+- Mood: How the {{ tone }} quality creates atmosphere
+
+{% if idea_elements %}
+KEY ELEMENTS TO INCORPORATE:
+- Setting: {{ idea_elements.setting }}
+  * Make the setting almost a character itself
+  * Use its details to create atmosphere and meaning
+
+- Characters: {{ idea_elements.characters | join(', ') }}
+  * Focus on their inner lives and relationships
+  * Avoid forcing them into conflict
+
+- Situation: {{ idea_elements.plot }}
+  * Reframe as a situation to explore rather than conflict to resolve
+  * Find the philosophical question within
+
+- Themes: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+REMEMBER: Kishōtenketsu creates engagement through:
+- Rich atmosphere and detail
+- Character depth and relationships  
+- Unexpected perspectives that deepen meaning
+- Harmony rather than conflict resolution

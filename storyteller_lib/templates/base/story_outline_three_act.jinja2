@@ -1,0 +1,92 @@
+{# Three-Act Structure story outline template #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Create a compelling story outline for a {{ tone }} {{ genre }} narrative following the three-act structure.
+{% if initial_idea %}This story should be based on this initial idea: '{{ initial_idea }}'{% endif %}
+
+Structure your outline according to the three-act format:
+
+## ACT 1: SETUP (25% of the story)
+**Purpose:** Establish the world, introduce characters, and present the inciting incident
+
+1. **Opening Image/Hook** - The story's starting point that grabs attention
+2. **Character Introduction** - Introduce protagonist in their normal world
+3. **World Building** - Establish setting, rules, and tone
+4. **Inciting Incident** - The event that disrupts the status quo
+5. **Debate/Resistance** - Protagonist's reaction to the call
+6. **Plot Point 1** - The decision/event that launches Act 2
+
+## ACT 2: CONFRONTATION (50% of the story)
+**Purpose:** Develop conflict, raise stakes, and test the protagonist
+
+### First Half (Fun and Games)
+7. **New World** - Protagonist enters unfamiliar territory
+8. **Tests and Trials** - Initial challenges and obstacles
+9. **Allies and Enemies** - Key relationships form
+10. **Small Victories** - Early successes that build confidence
+
+### Midpoint
+11. **Major Revelation or Reversal** - Game-changing event at story's center
+
+### Second Half (Stakes Escalate)
+12. **Complications Multiply** - Things get worse
+13. **Internal Conflict** - Protagonist faces self-doubt
+14. **All Is Lost** - The darkest moment
+15. **Plot Point 2** - Discovery/decision that enables the climax
+
+## ACT 3: RESOLUTION (25% of the story)
+**Purpose:** Climax, resolution, and new equilibrium
+
+16. **Final Preparation** - Gathering resources/resolve for final confrontation
+17. **Climax** - The ultimate confrontation/challenge
+18. **Resolution** - Immediate aftermath of climax
+19. **Denouement** - Tying up loose ends
+20. **Final Image** - Mirror/contrast to opening, showing change
+
+For each section, provide specific details about what happens, ensuring it:
+- Advances the central plot from the initial idea
+- Develops the specified characters with clear arcs
+- Makes full use of the setting
+- Maintains appropriate pacing for a {{ genre }} story
+
+Also include:
+- Title: [A captivating title that reflects the story's core]
+- Main Characters: 3-5 characters with roles and motivations
+- Central Conflict: The primary dramatic question
+- Setting: Time and place with atmospheric details
+- Themes: Core ideas explored through the narrative
+- Tone: How the {{ tone }} quality manifests throughout
+
+{% if idea_elements %}
+KEY ELEMENTS TO INCORPORATE:
+- Setting: {{ idea_elements.setting }}
+  * Use as primary location, weaving it throughout all three acts
+
+- Characters: {{ idea_elements.characters | join(', ') }}
+  * Ensure each has a clear role in the three-act progression
+
+- Plot: {{ idea_elements.plot }}
+  * This should drive the central conflict across all acts
+
+- Themes: {{ idea_elements.themes | join(', ') }}
+- Genre Elements: {{ idea_elements.genre_elements | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+IMPORTANT: The three-act structure should create a satisfying dramatic arc with:
+- Clear setup that establishes all story elements
+- Escalating conflict that tests characters
+- Satisfying resolution that pays off all setups

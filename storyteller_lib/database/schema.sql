@@ -12,6 +12,14 @@ CREATE TABLE IF NOT EXISTS story_config (
     language TEXT DEFAULT 'english',
     initial_idea TEXT,
     global_story TEXT,
+    narrative_structure TEXT DEFAULT 'auto',
+    story_length TEXT DEFAULT 'auto',
+    target_chapters INTEGER,
+    target_scenes_per_chapter INTEGER,
+    target_words_per_scene INTEGER,
+    target_pages INTEGER,
+    structure_metadata TEXT, -- JSON
+    book_level_instructions TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -93,6 +101,7 @@ CREATE TABLE IF NOT EXISTS chapters (
     chapter_number INTEGER NOT NULL UNIQUE,
     title TEXT,
     outline TEXT,
+    summary TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -103,6 +112,7 @@ CREATE TABLE IF NOT EXISTS scenes (
     scene_number INTEGER NOT NULL,
     description TEXT,
     content TEXT,
+    summary TEXT,
     scene_type TEXT DEFAULT 'exploration',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
@@ -328,3 +338,8 @@ CREATE TABLE IF NOT EXISTS plot_progressions (
 -- Create index for plot progressions
 CREATE INDEX IF NOT EXISTS idx_plot_progressions_key ON plot_progressions(progression_key);
 CREATE INDEX IF NOT EXISTS idx_plot_progressions_chapter_scene ON plot_progressions(chapter_number, scene_number);
+
+-- Create indexes for narrative structure fields
+CREATE INDEX IF NOT EXISTS idx_story_config_structure ON story_config(narrative_structure);
+CREATE INDEX IF NOT EXISTS idx_chapters_summary ON chapters(chapter_number) WHERE summary IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_scenes_summary ON scenes(chapter_id, scene_number) WHERE summary IS NOT NULL;

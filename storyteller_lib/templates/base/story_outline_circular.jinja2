@@ -1,0 +1,103 @@
+{# Circular/Cyclical story outline template #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Create a compelling story outline for a {{ tone }} {{ genre }} narrative using a circular structure.
+{% if initial_idea %}This story should be based on this initial idea: '{{ initial_idea }}'{% endif %}
+
+Structure your outline so the ending mirrors the beginning with crucial transformation:
+
+## OPENING: THE FIRST ITERATION (20% of the story)
+**Purpose:** Establish the recurring situation and initial perspective
+
+1. **Opening Scene** - A specific moment/situation that will echo at the end
+2. **Initial Worldview** - How the protagonist sees their reality
+3. **The Pattern** - Established routines, beliefs, or cycles
+4. **Moment of Disruption** - Something breaks the pattern
+5. **Choice to Journey** - Decision that starts the transformation
+
+## JOURNEY OUTWARD: LEAVING THE KNOWN (30% of the story)
+**Purpose:** Move away from the familiar into new experiences
+
+6. **Departing the Familiar** - Physical or metaphorical journey begins
+7. **New Perspectives** - Encountering different ways of being
+8. **Challenges to Beliefs** - Core assumptions questioned
+9. **Accumulating Experiences** - Gathering new knowledge/skills
+10. **Relationships Transform** - Connections that change the protagonist
+11. **Point of No Return** - Can't go back to old ways of thinking
+
+## THE TRANSFORMATION: FUNDAMENTAL CHANGE (30% of the story)
+**Purpose:** Core shift in understanding or being
+
+12. **Crisis of Identity** - Who am I becoming?
+13. **Shedding the Old** - Letting go of past limitations
+14. **The Revelation** - Understanding what must change
+15. **Integration** - Combining old and new selves
+16. **Testing the Change** - Proving the transformation is real
+17. **New Wisdom** - What the protagonist now knows
+
+## RETURN: THE FINAL ITERATION (20% of the story)
+**Purpose:** Return to the beginning situation, utterly transformed
+
+18. **Approaching the Familiar** - Coming back to where we started
+19. **Same Scene, New Eyes** - The opening situation revisited
+20. **Others Unchanged** - The world is the same, protagonist different
+21. **The Choice Revisited** - Same decision, different response
+22. **Ripple Effects** - How the change affects everything
+23. **New Cycle Begins** - The next iteration starts from wisdom
+
+Key Elements for Circular Structure:
+- **The Mirror Scenes**: Opening and closing scenes that are nearly identical in setup but completely different in meaning
+- **The Central Image/Symbol**: Something that appears throughout, changing meaning
+- **The Repeated Question**: A question asked at beginning and end with different answers
+- **The Transformation Marker**: Clear evidence of internal change
+
+For each section, ensure that:
+- Every element in the opening has a transformed echo in the ending
+- The journey justifies the transformation
+- The circular structure enhances rather than limits the story
+- Readers feel the satisfaction of return and recognition
+
+Also include:
+- Title: [Something that captures the cyclical nature]
+- Main Characters: Focus on 2-3 characters to allow deep transformation
+- Central Question: What understanding must be gained?
+- Setting: A place that remains constant while meaning changes
+- Themes: Ideas about cycles, change, perception, time
+- Symbols: Recurring elements that gain meaning
+
+{% if idea_elements %}
+KEY ELEMENTS TO INCORPORATE:
+- Setting: {{ idea_elements.setting }}
+  * Use as the constant that highlights change
+  * Show how the same place can feel completely different
+
+- Characters: {{ idea_elements.characters | join(', ') }}
+  * Focus on internal transformation
+  * Show how relationships recontextualize
+
+- Plot: {{ idea_elements.plot }}
+  * Frame as a journey of understanding
+  * Use circular structure to deepen meaning
+
+- Themes: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+ESSENTIAL: The circular structure must:
+- Create a satisfying sense of completion
+- Show genuine transformation, not mere repetition
+- Use the return to measure how far we've come
+- Leave readers with a sense of profound recognition

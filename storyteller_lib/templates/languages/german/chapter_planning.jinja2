@@ -11,8 +11,9 @@ Und diesen Figuren:
 
 {{ characters }}
 
-Erstelle einen Plan für 8-15 Kapitel, die die gesamte Heldenreise für diese {{ tone }} {{ genre }}-Geschichte abdecken.
-WICHTIG: ES SOLLTEN NIEMALS WENIGER ALS 8 KAPITEL SEIN. EINE VOLLSTÄNDIGE GESCHICHTE BENÖTIGT MINDESTENS 8 KAPITEL ZUR ORDENTLICHEN ENTWICKLUNG.
+Erstelle einen Plan für {{ target_chapters }} Kapitel ({% if flexibility %}mit einer Flexibilität von ±{{ flexibility }} Kapiteln bei Bedarf{% endif %}), die den gesamten Handlungsbogen für diese {{ tone }} {{ genre }}-Geschichte abdecken.
+Die Erzählstruktur ist: {{ narrative_structure | replace('_', ' ') | title }}
+{% if min_chapters %}WICHTIG: ES SOLLTEN NIEMALS WENIGER ALS {{ min_chapters }} KAPITEL SEIN, um die Geschichte angemessen zu entwickeln.{% endif %}
 
 Liefere für jedes Kapitel:
 1. Kapitelnummer und Titel
@@ -61,12 +62,9 @@ RICHTLINIEN FÜR DRAMATISCHEN FLUSS:
 - Cliffhanger sollten an strategischen Punkten erscheinen, nicht in jeder Szene
 - Erwäge Szenen zu verschmelzen, die denselben dramatischen Zweck und Spannungsniveau teilen
 
-VERTEILUNG DER HELDENREISE:
-- Kapitel 1-2: Gewöhnliche Welt & Ruf zum Abenteuer
-- Kapitel 3-4: Verweigerung & Begegnung mit dem Mentor
-- Kapitel 5-6: Überschreitung der Schwelle & Prüfungen
-- Kapitel 7-9: Annäherung & Prüfung
-- Kapitel 10-12: Belohnung & Rückweg
-- Kapitel 13-15: Auferstehung & Rückkehr
+{% if structure_guidance %}
+STRUKTURSPEZIFISCHE ANLEITUNG:
+{{ structure_guidance }}
+{% endif %}
 
-Passe diese Struktur an deine spezifischen Geschichtsbedürfnisse an, während du den Reisebogen beibehältst.
+Passe die Kapitelverteilung an, um deiner Geschichte am besten zu dienen, während du angemessenes Tempo und Entwicklung beibehältst.

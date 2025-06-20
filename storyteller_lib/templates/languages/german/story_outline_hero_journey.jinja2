@@ -1,0 +1,80 @@
+{# Heldenreise Story-Gliederungsvorlage #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Erstellen Sie eine fesselnde Story-Gliederung für eine {{ tone }} {{ genre }}-Erzählung, die der Struktur der Heldenreise folgt.
+{% if initial_idea %}Diese Geschichte sollte auf dieser ursprünglichen Idee basieren: '{{ initial_idea }}'{% endif %}
+
+Fügen Sie alle wichtigen Phasen der Heldenreise ein, angepasst an die ursprüngliche Idee:
+
+1. **Die gewöhnliche Welt** - Das normale Leben und die Welt des Protagonisten etablieren
+2. **Der Ruf zum Abenteuer** - Der auslösende Vorfall, der die gewöhnliche Welt stört
+3. **Die Weigerung des Rufs** - Anfängliches Zögern oder Angst vor der Reise
+4. **Die Begegnung mit dem Mentor** - Treffen mit einem Führer, der Weisheit/Werkzeuge bereitstellt
+5. **Das Überschreiten der Schwelle** - Verpflichtung zum Abenteuer, Eintritt in die besondere Welt
+6. **Bewährungsproben, Verbündete und Feinde** - Herausforderungen und gebildete Beziehungen
+7. **Vordringen zur tiefsten Höhle** - Vorbereitung auf die große Herausforderung
+8. **Die Prüfung** - Die klimaktische Krise, Konfrontation mit der größten Angst
+9. **Die Belohnung (Das Schwert ergreifen)** - Sieg und Erhalt des Preises
+10. **Der Rückweg** - Die Rückreise in die gewöhnliche Welt beginnt
+11. **Auferstehung** - Letzte Prüfung, Anwendung alles Gelernten
+12. **Rückkehr mit dem Elixier** - Verwandelte Rückkehr mit Weisheit zum Teilen
+
+Geben Sie für jede Phase eine kurze Beschreibung (2-3 Sätze) dessen, was passiert, und stellen Sie sicher, dass sie:
+- Die zentrale Handlung aus der ursprünglichen Idee vorantreibt
+- Die angegebenen Charaktere entwickelt
+- Den gegebenen Schauplatz nutzt
+- Den {{ tone }} Ton und die Konventionen des {{ genre }} Genres widerspiegelt
+
+Die Heldenreise sollte sich organisch in Ihre Geschichte einfügen, nicht erzwungen wirken. Passen Sie die Struktur nach Bedarf an, während Sie den wesentlichen Bogen von Aufbruch, Initiation und Rückkehr beibehalten.
+
+Fügen Sie außerdem hinzu:
+- Titel: [Ein fesselnder Titel für die Geschichte, der die ursprüngliche Idee widerspiegelt]
+- 3-5 Hauptcharaktere mit kurzen Beschreibungen (schließen Sie die in der ursprünglichen Idee angegebenen ein)
+- Ein zentraler Konflikt oder eine Herausforderung (ausgerichtet auf die Handlung aus der ursprünglichen Idee)
+- Die Welt/Schauplatz der Geschichte (konsistent mit dem Schauplatz aus der ursprünglichen Idee)
+- Schlüsselthemen oder Botschaften (sollten die aus der ursprünglichen Idee einschließen)
+
+Formatieren Sie Ihre Antwort als strukturierte Gliederung mit klaren Abschnitten.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+{% if idea_elements %}
+EINZUBEZIEHENDE SCHLÜSSELELEMENTE:
+- Schauplatz: {{ idea_elements.setting }}
+  * Dieser Schauplatz sollte der primäre Ort der Geschichte sein
+  * Stellen Sie sicher, dass der Schauplatz gut in die gesamte Erzählung integriert ist
+
+- Charaktere: {{ idea_elements.characters | join(', ') }}
+  * Diese Charaktere sollten zentral für die Geschichte sein
+  * Behalten Sie ihre wesentliche Natur und Rollen wie beschrieben bei
+
+- Handlung: {{ idea_elements.plot }}
+  * Diese Handlung sollte der zentrale Konflikt sein
+  * Stellen Sie sicher, dass sich die Geschichte um diesen Kernkonflikt dreht
+
+- Themen: {{ idea_elements.themes | join(', ') }}
+- Genre-Elemente: {{ idea_elements.genre_elements | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+ÜBERPRÜFUNGSSCHRITT: Überprüfen Sie nach Abschluss der Gliederung, dass:
+1. Die Heldenreise-Struktur klar umgesetzt ist
+2. Der Schauplatz aus der ursprünglichen Idee gut integriert ist
+3. Die Charaktere aus der ursprünglichen Idee mit angemessenen Rollen enthalten sind
+4. Die Handlung/der Konflikt aus der ursprünglichen Idee zentral für die Geschichte ist
+5. Die Schlüsselelemente aus der ursprünglichen Idee erhalten und entwickelt werden

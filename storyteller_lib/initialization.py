@@ -167,13 +167,172 @@ def initialize_state(state: StoryState) -> Dict:
             
             # Language consistency instruction is temporary - no need to store
     
+    # Select narrative structure after we have all the context
+    from storyteller_lib.narrative_structures import (
+        NarrativeStructureAnalysis,
+        get_structure_by_name,
+        determine_story_length
+    )
+    from storyteller_lib.prompt_templates import render_prompt
+    from storyteller_lib.logger import get_logger
+    
+    logger = get_logger(__name__)
+    
+    # Check if we already have a narrative structure set
+    narrative_structure = None
+    story_length = None
+    target_chapters = None
+    target_scenes_per_chapter = None
+    target_words_per_scene = None
+    target_pages = None
+    
+    if db_manager:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT narrative_structure, story_length, target_chapters, 
+                       target_scenes_per_chapter, target_words_per_scene, target_pages
+                FROM story_config WHERE id = 1
+            """)
+            result = cursor.fetchone()
+            if result:
+                narrative_structure = result['narrative_structure']
+                story_length = result['story_length']
+                target_chapters = result['target_chapters']
+                target_scenes_per_chapter = result['target_scenes_per_chapter']
+                target_words_per_scene = result['target_words_per_scene']
+                try:
+                    target_pages = result['target_pages']
+                except (KeyError, IndexError):
+                    target_pages = None  # May not exist in older DBs
+    
+    # If narrative structure is 'auto' or not set, determine it now
+    if not narrative_structure or narrative_structure == 'auto':
+        logger.info("Selecting narrative structure based on story concept...")
+        
+        # Render the structure selection prompt
+        structure_prompt = render_prompt(
+            'narrative_structure_selection',
+            language="english",  # Always analyze in English for consistency
+            genre=genre,
+            tone=tone,
+            story_language=language,  # Language the story will be written in
+            initial_idea=initial_idea,
+            idea_elements=idea_elements if idea_elements else None
+        )
+        
+        # Get structured output for narrative structure
+        structured_llm = llm.with_structured_output(NarrativeStructureAnalysis)
+        structure_analysis = structured_llm.invoke(structure_prompt)
+        
+        # Extract the recommended values
+        narrative_structure = structure_analysis.primary_structure
+        story_complexity = structure_analysis.story_complexity
+        
+        # If pages are specified, calculate parameters from pages
+        if target_pages:
+            from storyteller_lib.narrative_structures import calculate_story_parameters_from_pages
+            structure_obj = get_structure_by_name(narrative_structure)
+            if not structure_obj:
+                logger.warning(f"Unknown narrative structure '{narrative_structure}', using hero_journey as fallback")
+                narrative_structure = "hero_journey"
+                structure_obj = get_structure_by_name(narrative_structure)
+            story_length_enum, target_chapters, target_scenes_per_chapter, target_words_per_scene = (
+                calculate_story_parameters_from_pages(target_pages, structure_obj)
+            )
+            story_length = story_length_enum.value
+            logger.info(f"Calculated from {target_pages} pages: {target_chapters} chapters, "
+                       f"{target_scenes_per_chapter} scenes/chapter, {target_words_per_scene} words/scene")
+        else:
+            # Use AI recommendations
+            story_length = structure_analysis.story_length
+            target_chapters = structure_analysis.chapter_count
+            target_scenes_per_chapter = structure_analysis.scenes_per_chapter
+            target_words_per_scene = structure_analysis.words_per_scene
+        
+        # Create structure metadata
+        structure_metadata = {
+            "structure_reasoning": structure_analysis.structure_reasoning,
+            "complexity": story_complexity,
+            "complexity_reasoning": structure_analysis.complexity_reasoning,
+            "length_reasoning": structure_analysis.length_reasoning,
+            "customization": structure_analysis.structure_customization,
+            "subplot_count": structure_analysis.subplot_count,
+            "pov_count": structure_analysis.pov_count
+        }
+        
+        logger.info(f"Selected narrative structure: {narrative_structure}")
+        logger.info(f"Story length: {story_length} ({target_chapters} chapters)")
+        logger.info(f"Scenes per chapter: {target_scenes_per_chapter}")
+        logger.info(f"Target words per scene: {target_words_per_scene}")
+        
+        # Save the structure selection to database
+        if db_manager:
+            import json
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE story_config SET 
+                        narrative_structure = ?,
+                        story_length = ?,
+                        target_chapters = ?,
+                        target_scenes_per_chapter = ?,
+                        target_words_per_scene = ?,
+                        structure_metadata = ?
+                    WHERE id = 1
+                """, (
+                    narrative_structure,
+                    story_length,
+                    target_chapters,
+                    target_scenes_per_chapter,
+                    target_words_per_scene,
+                    json.dumps(structure_metadata)
+                ))
+                conn.commit()
+    else:
+        # Structure is already set (not 'auto'), but we might need to calculate from pages
+        if target_pages and not target_chapters:
+            # User specified pages but not chapters - calculate from pages
+            from storyteller_lib.narrative_structures import calculate_story_parameters_from_pages
+            structure_obj = get_structure_by_name(narrative_structure)
+            if structure_obj:
+                story_length_enum, target_chapters, target_scenes_per_chapter, target_words_per_scene = (
+                    calculate_story_parameters_from_pages(target_pages, structure_obj)
+                )
+                story_length = story_length_enum.value
+                logger.info(f"Using {narrative_structure} structure with {target_pages} pages: "
+                           f"{target_chapters} chapters, {target_scenes_per_chapter} scenes/chapter, "
+                           f"{target_words_per_scene} words/scene")
+                
+                # Update database with calculated values
+                if db_manager:
+                    with db_manager._db._get_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE story_config SET 
+                                story_length = ?,
+                                target_chapters = ?,
+                                target_scenes_per_chapter = ?,
+                                target_words_per_scene = ?
+                            WHERE id = 1
+                        """, (
+                            story_length,
+                            target_chapters,
+                            target_scenes_per_chapter,
+                            target_words_per_scene
+                        ))
+                        conn.commit()
+    
     # Return only the workflow state updates
     # Configuration is already stored in database by storyteller.py
     result_state = {
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],
             AIMessage(content=response_message)
-        ]
+        ],
+        "narrative_structure": narrative_structure,
+        "target_chapters": target_chapters,
+        "target_scenes_per_chapter": target_scenes_per_chapter
     }
     
     # Add temporary fields if we have them
