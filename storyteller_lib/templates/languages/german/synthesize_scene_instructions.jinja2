@@ -1,6 +1,23 @@
 {# Template für die Synthese von Szenenanweisungen #}
 Analysiere den folgenden Kontext für Kapitel {{ chapter_number }}, Szene {{ scene_number }} und erstelle klare, spezifische Anweisungen für das Schreiben dieser Szene.
 
+{% if previous_chapters %}
+WAS BISHER GESCHAH:
+{% for chapter in previous_chapters %}
+Kapitel {{ chapter.chapter }}: {{ chapter.title }}
+{{ chapter.summary }}
+
+{% endfor %}
+{% endif %}
+
+{% if previous_scenes_current_chapter %}
+WAS IN DIESEM KAPITEL BISHER GESCHAH:
+{% for scene in previous_scenes_current_chapter %}
+Szene {{ scene.scene }}: {{ scene.summary }}
+{% endfor %}
+
+{% endif %}
+
 GESCHICHTENKONTEXT:
 - Prämisse: {{ story_premise }}
 {% if initial_idea %}

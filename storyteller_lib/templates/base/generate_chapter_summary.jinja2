@@ -1,0 +1,14 @@
+{# Template for generating chapter summaries #}
+Create a concise summary of Chapter {{ chapter }} based on the following scene summaries.
+
+SCENE SUMMARIES:
+{% for summary in scene_summaries %}
+{{ summary }}
+{% endfor %}
+
+Synthesize these scenes into a coherent chapter summary (3-4 sentences) that captures:
+- The main plot developments
+- Key character progressions
+- How this chapter advanced the overall story
+
+Focus on the most important events and avoid repetition. Write the summary:
