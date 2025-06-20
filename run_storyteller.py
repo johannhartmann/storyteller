@@ -683,9 +683,9 @@ def main() -> None:
     parser.add_argument("--tone", type=str, default="epic",
                         help="Tone of the story (e.g., epic, dark, humorous)")
     parser.add_argument("--author", type=str, default="",
+                        help="Author whose style to emulate (e.g., Tolkien, Rowling, Martin)")
     parser.add_argument("--use-v2", action="store_true",
                         help="Use simplified v2 workflow (faster, cleaner)")
-                        help="Author whose style to emulate (e.g., Tolkien, Rowling, Martin)")
     parser.add_argument("--language", type=str, default=DEFAULT_LANGUAGE,
                         help=f"Target language for story generation (e.g., {', '.join(SUPPORTED_LANGUAGES.keys())})")
     parser.add_argument("--idea", type=str, default="",

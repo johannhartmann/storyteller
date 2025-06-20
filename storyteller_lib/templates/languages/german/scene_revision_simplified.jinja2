@@ -1,0 +1,28 @@
+{# Vereinfachte Szenenüberarbeitungs-Vorlage #}
+Überarbeite diese Szene, um die identifizierten kritischen Probleme zu beheben.
+
+AKTUELLE SZENE:
+{{ scene_content }}
+
+KRITISCHE PROBLEME ZUM BEHEBEN:
+{% for issue in critical_issues %}
+- {{ issue }}
+{% endfor %}
+
+BEIZUBEHALTENDE SZENENANFORDERUNGEN:
+- Beschreibung: {{ scene_description }}
+- Handlungsfortschritte: {{ plot_progressions | join(', ') }}
+- Charakterlernen: {{ character_learns | join(', ') }}
+
+STORY-KONTEXT:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+
+ÜBERARBEITUNGSANWEISUNGEN:
+1. Behebe NUR die oben identifizierten kritischen Probleme
+2. Behalte alle Handlungsfortschritte und Charakterentwicklungen bei
+3. Bewahre, was in der aktuellen Szene gut funktioniert
+4. Erhalte die Länge und das Tempo der Szene
+5. Stelle sicher, dass die Überarbeitung natürlich fließt
+
+Schreibe die überarbeitete Szene:

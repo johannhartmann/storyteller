@@ -67,40 +67,22 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     tone = config.get("tone", "adventurous")
     language = config.get("language", "english")
     
-    # Create reflection prompt
-    prompt = f"""
-Analyze this scene for quality and critical issues.
-
-SCENE CONTENT:
-{scene_content}
-
-SCENE REQUIREMENTS:
-- Description: {scene_requirements.get('description', 'Not specified')}
-- Must advance plot: {', '.join(scene_requirements.get('plot_progressions', [])) or 'General progression'}
-- Characters should learn: {', '.join(scene_requirements.get('character_learns', [])) or 'Nothing specific'}
-- Scene type: {scene_requirements.get('scene_type', 'exploration')}
-
-STORY CONTEXT:
-- Genre: {genre}
-- Tone: {tone}
-- Chapter: {current_chapter}, Scene: {current_scene}
-
-Evaluate these 4 critical aspects:
-
-1. **Overall Quality** (1-10): Is this a well-written, engaging scene?
-2. **Plot Advancement**: Does the scene meaningfully advance the story?
-3. **Character Consistency**: Do characters act according to their established traits?
-4. **Engaging Prose**: Is the writing clear, vivid, and appropriate for the genre/tone?
-
-Identify any CRITICAL issues that would require revision:
-- Plot requirements not met
-- Character acting out of character
-- Confusing or unclear writing
-- Wrong tone or genre feel
-- Language consistency issues (should be in {language})
-
-Only recommend revision if there are critical issues or overall quality < 6.
-"""
+    # Use template for reflection prompt
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    prompt = render_prompt(
+        'scene_reflection_simplified',
+        language=language,
+        scene_content=scene_content,
+        scene_description=scene_requirements.get('description', 'Not specified'),
+        plot_progressions=scene_requirements.get('plot_progressions', []),
+        character_learns=scene_requirements.get('character_learns', []),
+        scene_type=scene_requirements.get('scene_type', 'exploration'),
+        genre=genre,
+        tone=tone,
+        chapter=current_chapter,
+        scene=current_scene
+    )
     
     # Get structured reflection
     structured_llm = llm.with_structured_output(SimplifiedReflection)

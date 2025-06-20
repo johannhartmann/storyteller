@@ -88,3 +88,4 @@ No formal test suite currently exists. Testing is done through running the story
 - NEVER IMPLEMENT A FALLBACK FOR UNSTRUCTURED GENERATION
 - Never truncate texts, rather generate a summary using the llm
 - Make sure you provide the LLM well structured prompts with a clear intent and properly structured information. Do not just put JSON dumps into the prompt.
+- Create each template in english (base language) and german
