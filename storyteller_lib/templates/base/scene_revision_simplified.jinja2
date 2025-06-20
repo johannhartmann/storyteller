@@ -1,0 +1,28 @@
+{# Simplified scene revision template #}
+Revise this scene to fix the identified critical issues.
+
+CURRENT SCENE:
+{{ scene_content }}
+
+CRITICAL ISSUES TO FIX:
+{% for issue in critical_issues %}
+- {{ issue }}
+{% endfor %}
+
+SCENE REQUIREMENTS TO MAINTAIN:
+- Description: {{ scene_description }}
+- Plot progressions: {{ plot_progressions | join(', ') }}
+- Character learning: {{ character_learns | join(', ') }}
+
+STORY CONTEXT:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+
+REVISION INSTRUCTIONS:
+1. Fix ONLY the critical issues identified above
+2. Maintain all plot progressions and character developments
+3. Keep what works well in the current scene
+4. Preserve the scene's length and pacing
+5. Ensure the revision flows naturally
+
+Write the revised scene:

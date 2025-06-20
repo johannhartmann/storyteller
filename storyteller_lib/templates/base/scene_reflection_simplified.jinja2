@@ -1,0 +1,32 @@
+{# Simplified scene reflection template #}
+Analyze this scene for quality and critical issues.
+
+SCENE CONTENT:
+{{ scene_content }}
+
+SCENE REQUIREMENTS:
+- Description: {{ scene_description }}
+- Must advance plot: {{ plot_progressions | join(', ') or 'General progression' }}
+- Characters should learn: {{ character_learns | join(', ') or 'Nothing specific' }}
+- Scene type: {{ scene_type }}
+
+STORY CONTEXT:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+- Chapter: {{ chapter }}, Scene: {{ scene }}
+
+Evaluate these 4 critical aspects:
+
+1. **Overall Quality** (1-10): Is this a well-written, engaging scene?
+2. **Plot Advancement**: Does the scene meaningfully advance the story?
+3. **Character Consistency**: Do characters act according to their established traits?
+4. **Engaging Prose**: Is the writing clear, vivid, and appropriate for the genre/tone?
+
+Identify any CRITICAL issues that would require revision:
+- Plot requirements not met
+- Character acting out of character
+- Confusing or unclear writing
+- Wrong tone or genre feel
+- Language consistency issues (should be in {{ language }})
+
+Only recommend revision if there are critical issues or overall quality < 6.

@@ -63,34 +63,20 @@ def revise_scene_simplified(state: StoryState) -> Dict:
     genre = config.get("genre", "fantasy")
     tone = config.get("tone", "adventurous")
     
-    # Create focused revision prompt
-    prompt = f"""
-Revise this scene to fix the identified critical issues.
-
-CURRENT SCENE:
-{scene_content}
-
-CRITICAL ISSUES TO FIX:
-{chr(10).join(f'- {issue}' for issue in critical_issues)}
-
-SCENE REQUIREMENTS TO MAINTAIN:
-- Description: {scene_requirements.get('description', '')}
-- Plot progressions: {', '.join(scene_requirements.get('plot_progressions', []))}
-- Character learning: {', '.join(scene_requirements.get('character_learns', []))}
-
-STORY CONTEXT:
-- Genre: {genre}
-- Tone: {tone}
-
-REVISION INSTRUCTIONS:
-1. Fix ONLY the critical issues identified above
-2. Maintain all plot progressions and character developments
-3. Keep what works well in the current scene
-4. Preserve the scene's length and pacing
-5. Ensure the revision flows naturally
-
-Write the revised scene:
-"""
+    # Use template for revision prompt
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    prompt = render_prompt(
+        'scene_revision_simplified',
+        language=config.get("language", "english"),
+        scene_content=scene_content,
+        critical_issues=critical_issues,
+        scene_description=scene_requirements.get('description', ''),
+        plot_progressions=scene_requirements.get('plot_progressions', []),
+        character_learns=scene_requirements.get('character_learns', []),
+        genre=genre,
+        tone=tone
+    )
     
     # Generate revision
     response = llm.invoke([HumanMessage(content=prompt)])

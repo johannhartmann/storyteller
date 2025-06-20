@@ -1,0 +1,32 @@
+{# Vereinfachte Szenenreflexions-Vorlage #}
+Analysiere diese Szene auf Qualität und kritische Probleme.
+
+SZENENINHALT:
+{{ scene_content }}
+
+SZENENANFORDERUNGEN:
+- Beschreibung: {{ scene_description }}
+- Muss Handlung vorantreiben: {{ plot_progressions | join(', ') or 'Allgemeiner Fortschritt' }}
+- Charaktere sollten lernen: {{ character_learns | join(', ') or 'Nichts Spezifisches' }}
+- Szenentyp: {{ scene_type }}
+
+STORY-KONTEXT:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+- Kapitel: {{ chapter }}, Szene: {{ scene }}
+
+Bewerte diese 4 kritischen Aspekte:
+
+1. **Gesamtqualität** (1-10): Ist dies eine gut geschriebene, fesselnde Szene?
+2. **Handlungsfortschritt**: Treibt die Szene die Geschichte bedeutungsvoll voran?
+3. **Charakterkonsistenz**: Handeln die Charaktere gemäß ihrer etablierten Eigenschaften?
+4. **Fesselnde Prosa**: Ist die Schreibweise klar, lebendig und dem Genre/Ton angemessen?
+
+Identifiziere KRITISCHE Probleme, die eine Überarbeitung erfordern würden:
+- Handlungsanforderungen nicht erfüllt
+- Charakter handelt untypisch
+- Verwirrende oder unklare Schreibweise
+- Falscher Ton oder Genre-Gefühl
+- Sprachkonsistenzprobleme (sollte auf {{ language }} sein)
+
+Empfehle nur eine Überarbeitung, wenn es kritische Probleme gibt oder die Gesamtqualität < 6 ist.
