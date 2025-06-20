@@ -70,7 +70,7 @@ def initialize_state(state: StoryState) -> Dict:
         
         # If we don't have elements yet, parse them
         if not idea_elements:
-            from storyteller_lib.storyteller import parse_initial_idea
+            from storyteller_lib.story_parser import parse_initial_idea
             idea_elements = parse_initial_idea(initial_idea, language)
     
     # Initial idea is already stored in story_config table by database_integration
