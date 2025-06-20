@@ -787,7 +787,8 @@ def main() -> None:
                     tone=args.tone,
                     author=args.author,
                     initial_idea=args.idea,
-                    language=args.language
+                    language=args.language,
+                    progress_log_path=args.progress_log
                 )
             else:
                 story, state = generate_story(

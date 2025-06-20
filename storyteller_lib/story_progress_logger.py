@@ -384,8 +384,8 @@ def get_progress_logger() -> Optional[StoryProgressLogger]:
         The progress logger instance or None if not initialized
     """
     global _progress_logger
-    if _progress_logger is None:
-        print("[DEBUG] Progress logger is None in get_progress_logger()")
+    # if _progress_logger is None:
+    #     print("[DEBUG] Progress logger is None in get_progress_logger()")
     return _progress_logger
 
 
@@ -413,7 +413,7 @@ def log_progress(content_type: str, **kwargs):
     logger = get_progress_logger()
     if not logger:
         # Debug: print when logger is not available
-        print(f"[DEBUG] Progress logger not available for {content_type}")
+        # print(f"[DEBUG] Progress logger not available for {content_type}")
         return
     
     try:
