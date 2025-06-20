@@ -857,7 +857,7 @@ def write_scene(state: StoryState) -> Dict:
                 # Format for structure analysis
                 scenes_for_structure = []
                 for scene_data in recent_scenes_data:
-                    if scene_data.get('content'):  # Only include scenes with content
+                    if scene_data['content'] is not None:  # Only include scenes with content
                         scenes_for_structure.append({
                             'chapter': scene_data['chapter_number'],
                             'scene': scene_data['scene_number'],
@@ -879,7 +879,7 @@ def write_scene(state: StoryState) -> Dict:
                 # For repetition analysis, use just the content (filter out None values)
                 content_list = []
                 for s in recent_scenes_data[:3]:
-                    if s.get('content') is not None:
+                    if s['content'] is not None:
                         content_list.append(s['content'])
                 recent_content = "\n\n---\n\n".join(content_list) if content_list else ""
                 
