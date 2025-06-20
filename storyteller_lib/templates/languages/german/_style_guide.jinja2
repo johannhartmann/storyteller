@@ -1,0 +1,66 @@
+{# Style guide partial template - German version #}
+{# Genre-Richtlinien #}
+Genre: {{ style_guide.genre }}
+{%- if style_guide.genre == 'fantasy' %} - Verwende reiche, immersive Beschreibungen. Füge Wunder und Magie natürlich ein.
+{%- elif style_guide.genre == 'sci-fi' %} - Verwende präzise, technische Sprache. Lass Technologie real und fundiert wirken.
+{%- elif style_guide.genre == 'mystery' %} - Baue Spannung durch vorsichtige Enthüllung auf. Platziere Hinweise subtil.
+{%- elif style_guide.genre == 'romance' %} - Konzentriere dich auf Emotionen und Chemie. Verwende sinnliche Details.
+{%- elif style_guide.genre == 'thriller' %} - Halte das Tempo schnell und angespannt. Verwende kurze, prägnante Sätze für Action.
+{%- elif style_guide.genre == 'horror' %} - Baue Grauen durch Atmosphäre auf. Verwende verstörende Bilder.
+{%- else %} - Erzähle eine fesselnde Geschichte.
+{%- endif %}
+
+{# Ton-Richtlinien #}
+Ton: {{ style_guide.tone }}
+{%- if style_guide.tone == 'adventurous' %} - Halte die Energie hoch und optimistisch. Betone Entdeckung.
+{%- elif style_guide.tone == 'dark' %} - Verwende Schatten und Schwere. Lass moralische Ambiguität einfließen.
+{%- elif style_guide.tone == 'humorous' %} - Finde natürliche Momente der Heiterkeit. Verwende Witz statt Slapstick.
+{%- elif style_guide.tone == 'epic' %} - Verwende großartige, schwungvolle Sprache. Lass Ereignisse bedeutsam wirken.
+{%- elif style_guide.tone == 'intimate' %} - Konzentriere dich auf kleine, persönliche Momente. Verwende eine nahe Perspektive.
+{%- elif style_guide.tone == 'mysterious' %} - Lass Fragen unbeantwortet. Baue Spannung allmählich auf.
+{%- else %} - Halte eine konsistente Stimmung.
+{%- endif %}
+
+{# Autorenstil-Anleitung falls verfügbar #}
+{% if style_guide.author and style_guide.author_style_guidance %}
+
+AUTORENSTIL ({{ style_guide.author }}):
+{% if style_guide.author_style_guidance.narrative_style %}
+Erzählstil: {{ style_guide.author_style_guidance.narrative_style }}
+{% endif %}
+{% if style_guide.author_style_guidance.character_development %}
+Charakterentwicklung: {{ style_guide.author_style_guidance.character_development }}
+{% endif %}
+{% if style_guide.author_style_guidance.dialogue_patterns %}
+Dialogmuster: {{ style_guide.author_style_guidance.dialogue_patterns }}
+{% endif %}
+{% if style_guide.author_style_guidance.thematic_elements %}
+Thematische Elemente: {{ style_guide.author_style_guidance.thematic_elements }}
+{% endif %}
+{% if style_guide.author_style_guidance.pacing_rhythm %}
+Tempo und Rhythmus: {{ style_guide.author_style_guidance.pacing_rhythm }}
+{% endif %}
+{% if style_guide.author_style_guidance.descriptive_approach %}
+Beschreibender Ansatz: {{ style_guide.author_style_guidance.descriptive_approach }}
+{% endif %}
+{% if style_guide.author_style_guidance.unique_elements %}
+Einzigartige Elemente: {{ style_guide.author_style_guidance.unique_elements }}
+{% endif %}
+{% if style_guide.author_style_guidance.emotional_tone %}
+Emotionaler Ton: {{ style_guide.author_style_guidance.emotional_tone }}
+{% endif %}
+{% elif style_guide.author %}
+Stil: Kanalisiere die Erzähltechniken von {{ style_guide.author }}
+{% endif %}
+
+{# Sprachliche Überlegungen #}
+{% if style_guide.language != "german" %}
+
+Sprache: Schreibe natürlich auf {{ style_guide.language }} und respektiere kulturelle Nuancen
+{% endif %}
+
+ALLGEMEINE TECHNIKEN:
+- Zeige, erzähle nicht - Verwende Handlung und Dialog statt Exposition
+- Variiere die Satzstruktur - Mische kurze und lange Sätze für Rhythmus
+- Verwende spezifische Details - Konkrete Bilder statt Abstraktionen
+- Bleibe in der Szene - Vermeide Zusammenfassungen oder Zeitsprünge innerhalb der Szene

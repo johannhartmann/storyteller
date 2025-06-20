@@ -1,0 +1,29 @@
+{# Template for synthesizing book-level writing instructions #}
+You are tasked with creating comprehensive writing instructions for a {{ tone }} {{ genre }} story{% if author %} in the style of {{ author }}{% endif %}.
+
+{% if initial_idea %}
+The story is based on this initial idea: {{ initial_idea }}
+{% endif %}
+
+{% if author and author_style_guidance %}
+AUTHOR STYLE ANALYSIS:
+{{ author_style_guidance }}
+{% endif %}
+
+GENRE: {{ genre }}
+TONE: {{ tone }}
+
+Your task is to synthesize all of this information into clear, actionable writing instructions that will guide the writing of every scene in this book. Focus on:
+
+1. The specific narrative voice and perspective to use
+2. How to handle descriptions (level of detail, sensory focus, metaphor style)
+3. Dialogue conventions and character voice patterns
+4. Pacing and rhythm guidelines
+5. The emotional atmosphere to maintain
+6. Specific techniques unique to {% if author %}{{ author }}'s style and {% endif %}the {{ genre }} genre
+7. How to balance {{ tone }} elements throughout scenes
+8. Any recurring motifs or thematic elements to weave in
+
+Create a coherent guide that explains HOW to write this story, not WHAT happens in it. The instructions should be specific enough that any scene written following them will feel consistent with the overall style and tone.
+
+Format your response as clear, practical guidance that can be followed when writing each scene. Be specific and avoid generic writing advice.

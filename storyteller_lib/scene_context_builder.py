@@ -63,7 +63,7 @@ class ComprehensiveSceneContext:
     
     # Style and language
     language: str
-    style_guide: str
+    style_guide: Dict[str, Any]
     
 
 def build_comprehensive_scene_context(
@@ -89,8 +89,8 @@ def build_comprehensive_scene_context(
     if not db_manager or not db_manager._db:
         raise RuntimeError("Database manager not available")
     
-    # 1. Get story-level context
-    story_context = _get_story_context(db_manager)
+    # 1. Get story-level context (including author style guidance from state)
+    story_context = _get_story_context(db_manager, state)
     
     # 2. Get chapter context
     chapter_context = _get_chapter_context(db_manager, chapter)
@@ -122,11 +122,12 @@ def build_comprehensive_scene_context(
     constraints = _get_writing_constraints(db_manager, chapter, scene)
     
     # 9. Get style guide
-    style_guide = _get_comprehensive_style_guide(
+    style_data = _get_comprehensive_style_guide(
         story_context['genre'],
         story_context['tone'], 
         story_context['author'],
-        story_context['language']
+        story_context['language'],
+        story_context.get('author_style_guidance', '')
     )
     
     # Build comprehensive context
@@ -178,12 +179,12 @@ def build_comprehensive_scene_context(
         
         # Style
         language=story_context['language'],
-        style_guide=style_guide
+        style_guide=style_data
     )
 
 
-def _get_story_context(db_manager) -> Dict[str, Any]:
-    """Get story-level context from database."""
+def _get_story_context(db_manager, state: StoryState = None) -> Dict[str, Any]:
+    """Get story-level context from database and state."""
     with db_manager._db._get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -202,6 +203,11 @@ def _get_story_context(db_manager) -> Dict[str, Any]:
             paragraphs = result['global_story'].split('\n\n')
             premise = paragraphs[0] if paragraphs else result['global_story'][:500]
         
+        # Get author style guidance from state if available
+        author_style_guidance = ""
+        if state and "author_style_guidance" in state:
+            author_style_guidance = state["author_style_guidance"]
+        
         return {
             'title': result['title'] or "Untitled Story",
             'genre': result['genre'] or "fantasy",
@@ -209,7 +215,8 @@ def _get_story_context(db_manager) -> Dict[str, Any]:
             'author': result['author'],
             'language': result['language'] or "english",
             'initial_idea': result['initial_idea'] or "",
-            'premise': premise
+            'premise': premise,
+            'author_style_guidance': author_style_guidance
         }
 
 
@@ -622,46 +629,55 @@ def _get_writing_constraints(db_manager, chapter: int, scene: int) -> Dict[str, 
     return constraints
 
 
-def _get_comprehensive_style_guide(genre: str, tone: str, author: Optional[str], language: str) -> str:
-    """Create a comprehensive style guide."""
-    guide_parts = []
-    
-    # Genre guidance
-    genre_guides = {
-        'fantasy': "Use rich, immersive descriptions. Include wonder and magic naturally.",
-        'sci-fi': "Use precise, technical language. Make technology feel real and grounded.",
-        'mystery': "Build suspense through careful revelation. Plant clues subtly.",
-        'romance': "Focus on emotions and chemistry. Use sensory details.",
-        'thriller': "Keep pace fast and tense. Use short, punchy sentences for action.",
-        'horror': "Build dread through atmosphere. Use unsettling imagery."
+def _get_comprehensive_style_guide(genre: str, tone: str, author: Optional[str], language: str, author_style_guidance: str = "") -> Dict[str, Any]:
+    """Create a comprehensive style guide data structure for template use."""
+    style_data = {
+        'genre': genre,
+        'tone': tone,
+        'author': author,
+        'language': language,
+        'author_style_guidance': {}
     }
-    guide_parts.append(f"Genre: {genre} - {genre_guides.get(genre, 'Tell an engaging story')}")
     
-    # Tone guidance
-    tone_guides = {
-        'adventurous': "Keep energy high and optimistic. Emphasize discovery.",
-        'dark': "Use shadow and weight. Let moral ambiguity seep in.",
-        'humorous': "Find natural moments of levity. Use wit over slapstick.",
-        'epic': "Use grand, sweeping language. Make events feel momentous.",
-        'intimate': "Focus on small, personal moments. Use close perspective.",
-        'mysterious': "Leave questions unanswered. Build intrigue gradually."
-    }
-    guide_parts.append(f"Tone: {tone} - {tone_guides.get(tone, 'Maintain consistent mood')}")
+    # If we have detailed author style guidance, parse it into structured data
+    if author and author_style_guidance:
+        # Parse the author style guidance into components
+        guidance_sections = {}
+        sections = author_style_guidance.split('\n\n')
+        
+        for section in sections:
+            if section.strip() and ':' in section:
+                lines = section.strip().split('\n')
+                if lines:
+                    # First line is the section header
+                    header_line = lines[0]
+                    if ':' in header_line:
+                        header, content = header_line.split(':', 1)
+                        header = header.strip()
+                        
+                        # Combine header content with any additional lines
+                        full_content = content.strip()
+                        if len(lines) > 1:
+                            full_content = '\n'.join([content.strip()] + lines[1:])
+                        
+                        # Map to standardized keys
+                        if 'Narrative Style' in header:
+                            guidance_sections['narrative_style'] = full_content
+                        elif 'Character Development' in header:
+                            guidance_sections['character_development'] = full_content
+                        elif 'Dialogue' in header:
+                            guidance_sections['dialogue_patterns'] = full_content
+                        elif 'Thematic' in header:
+                            guidance_sections['thematic_elements'] = full_content
+                        elif 'Pacing' in header:
+                            guidance_sections['pacing_rhythm'] = full_content
+                        elif 'Descriptive' in header:
+                            guidance_sections['descriptive_approach'] = full_content
+                        elif 'Unique' in header:
+                            guidance_sections['unique_elements'] = full_content
+                        elif 'Emotional' in header:
+                            guidance_sections['emotional_tone'] = full_content
+        
+        style_data['author_style_guidance'] = guidance_sections
     
-    # Author style if specified
-    if author:
-        guide_parts.append(f"Style: Channel {author}'s narrative techniques")
-    
-    # Language considerations
-    if language != "english":
-        guide_parts.append(f"Language: Write naturally in {language}, respecting cultural nuances")
-    
-    # General guidance
-    guide_parts.extend([
-        "Show don't tell - Use action and dialogue over exposition",
-        "Vary sentence structure - Mix short and long for rhythm", 
-        "Use specific details - Concrete imagery over abstractions",
-        "Stay in scene - Avoid summary or time skips within scene"
-    ])
-    
-    return "\n".join(f"- {part}" for part in guide_parts)
+    return style_data
