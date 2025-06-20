@@ -8,40 +8,11 @@ StoryCraft Agent is an autonomous AI-powered story writing system that generates
 
 ## Common Development Commands
 
-### Running the Story Generator
-```bash
-# Basic usage
-python run_storyteller.py --genre fantasy --tone epic --output my_story.md
-
-# With author style emulation
-python run_storyteller.py --genre mystery --tone dark --author "Edgar Allan Poe"
-
-# Generate in different languages (12 supported)
-python run_storyteller.py --genre fantasy --tone epic --language spanish
-
-# With custom story idea
-python run_storyteller.py --idea "A detective story set in a zoo" --tone mysterious
-
-# Using different LLM providers
-python run_storyteller.py --genre fantasy --tone epic --model-provider openai
-python run_storyteller.py --genre mystery --tone dark --model-provider anthropic
-```
-
 ### Development Setup
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
 # Using Nix development environment
 nix develop
 
-# Create .env file with API keys
-GEMINI_API_KEY=your_key
-OPENAI_API_KEY=your_key
-ANTHROPIC_API_KEY=your_key
-DEFAULT_MODEL_PROVIDER=gemini
-DEFAULT_MODEL=gemini-2.0-flash-thinking-exp-1219  # Optional: specific model to use
-```
 
 ## Architecture and Patterns
 
@@ -115,3 +86,5 @@ No formal test suite currently exists. Testing is done through running the story
 - NEVER share state in LangGraph and the database. Never invent your own state management.
 - We do not need any migrations. All data is temporary per run.
 - NEVER IMPLEMENT A FALLBACK FOR UNSTRUCTURED GENERATION
+- Never truncate texts, rather generate a summary using the llm
+- Make sure you provide the LLM well structured prompts with a clear intent and properly structured information. Do not just put JSON dumps into the prompt.
