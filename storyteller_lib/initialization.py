@@ -196,7 +196,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     
     # Default values
     genre = "fantasy"
-    tone = "epic"
+    tone = "adventurous"
     author = ""
     initial_idea = ""
     language = DEFAULT_LANGUAGE

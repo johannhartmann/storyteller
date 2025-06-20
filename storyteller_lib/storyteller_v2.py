@@ -67,6 +67,21 @@ def generate_story_simplified(
         "completed": False
     }
     
+    # Initialize story configuration in database
+    db_manager = get_db_manager()
+    if db_manager and db_manager._db:
+        # Create a placeholder title - will be updated when outline is generated
+        placeholder_title = f"{tone.title()} {genre.title()} Story"
+        db_manager._db.initialize_story_config(
+            title=placeholder_title,
+            genre=genre,
+            tone=tone,
+            author=author,
+            language=language,
+            initial_idea=initial_idea or ""
+        )
+        logger.info("Initialized story configuration in database")
+    
     # Create and run the simplified graph
     graph = create_simplified_graph()
     
