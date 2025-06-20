@@ -381,6 +381,7 @@ def _get_character_context(db_manager, required_chars: List[str], scene_desc: st
                     'personality': personality,
                     'emotional_state': emotional_state,
                     'motivation': personality.get('core_motivation', 'Unknown'),
+                    'inner_conflicts': personality.get('inner_conflicts', []),
                     'recent_knowledge': knowledge
                 })
     

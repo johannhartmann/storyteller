@@ -383,6 +383,8 @@ def generate_story(
         "scene_reflection": {},
         "scene_elements": {},
         "active_plot_threads": [],
+        "book_level_instructions": "",
+        "author_style_guidance": "",
         "completed": False,
         "last_node": ""
     }

@@ -675,6 +675,40 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                 sys.stdout.write(f"[{elapsed_str}] Overall progress: {progress_pct:.1f}% - {completed_chapters}/{total_chapters} chapters, {completed_scenes}/{total_planned_scenes} scenes\n")
                 sys.stdout.flush()
 
+def get_story_title_from_db() -> Optional[str]:
+    """Get the story title from the database."""
+    try:
+        from storyteller_lib.database_integration import get_db_manager
+        db_manager = get_db_manager()
+        
+        if db_manager and db_manager._db:
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT title FROM story_config WHERE id = 1")
+                result = cursor.fetchone()
+                if result and result['title']:
+                    return result['title']
+    except Exception:
+        pass
+    return None
+
+
+def sanitize_filename(title: str) -> str:
+    """Convert a story title to a valid filename."""
+    import re
+    # Replace spaces and invalid filename characters with underscores
+    # Keep Unicode letters, numbers, dashes, and common international characters
+    filename = re.sub(r'[^\w\-äöüÄÖÜßéèêàâçñáíóúÁÍÓÚ]+', '_', title, flags=re.UNICODE)
+    # Remove multiple consecutive underscores
+    filename = re.sub(r'_+', '_', filename)
+    # Remove leading/trailing underscores
+    filename = filename.strip('_')
+    # Ensure we have a valid filename
+    if not filename:
+        filename = "untitled_story"
+    return filename
+
+
 def main() -> None:
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Generate a story using the refactored StoryCraft agent")
@@ -806,6 +840,14 @@ def main() -> None:
             # Show completion message
             elapsed_str = progress_manager.state.get_elapsed_time()
             print(f"[{elapsed_str}] Story generation complete!")
+            
+            # If using default output filename, try to use the story title
+            if args.output == "story.md":
+                story_title = get_story_title_from_db()
+                if story_title:
+                    sanitized_title = sanitize_filename(story_title)
+                    args.output = f"{sanitized_title}.md"
+                    print(f"Using story title for filename: {args.output}")
         except Exception as e:
             # Show error message with elapsed time
             elapsed_str = progress_manager.state.get_elapsed_time()

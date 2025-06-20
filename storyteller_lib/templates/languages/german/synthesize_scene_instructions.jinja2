@@ -54,6 +54,7 @@ AKTIVE HANDLUNGSSTRÄNGE:
 CHARAKTERE IN DER SZENE: {{ required_characters|join(', ') }}
 {% for char in characters[:4] %}
 - {{ char.name }}: {{ char.role }}, derzeit {{ char.emotional_state }}, motiviert durch {{ char.motivation }}
+{% if char.inner_conflicts %}  Innerer Konflikt: {{ char.inner_conflicts[0].description if char.inner_conflicts else '' }}{% endif %}
 {% if char.recent_knowledge %}  Kürzlich erfahren: {{ char.recent_knowledge[0].content }}{% endif %}
 {% endfor %}
 

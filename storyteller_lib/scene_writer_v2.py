@@ -24,15 +24,22 @@ def write_scene_simplified(state: StoryState) -> Dict:
     
     logger.info(f"Writing scene {current_scene} of chapter {current_chapter} (intelligent synthesis)")
     
-    # Get book-level instructions from state (generated once)
-    book_instructions = state.get("book_level_instructions", "")
+    # Get book-level instructions from database
+    db_manager = get_db_manager()
+    book_instructions = None
+    
+    if db_manager:
+        book_instructions = db_manager.get_book_level_instructions()
     
     if not book_instructions:
-        logger.warning("No book-level instructions found in state. Scene may lack style consistency.")
-        # Could regenerate here, but better to fail early
+        logger.warning("No book-level instructions found in database. Generating them now.")
         from storyteller_lib.instruction_synthesis import generate_book_level_instructions
         book_instructions = generate_book_level_instructions(state)
-        # Note: Should update state with this, but that's a workflow change
+        
+        # Store them in database for future use
+        if db_manager:
+            db_manager.update_book_level_instructions(book_instructions)
+            logger.info("Stored generated book-level instructions in database")
     
     # Generate scene-specific instructions
     scene_instructions = generate_scene_level_instructions(current_chapter, current_scene, state)

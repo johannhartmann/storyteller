@@ -787,6 +787,74 @@ class StoryDatabaseManager:
             logger.error(f"Failed to update global story: {e}")
             raise
     
+    def update_book_level_instructions(self, instructions: str) -> None:
+        """Update the book-level writing instructions in the database."""
+        if not self.enabled or not self._db:
+            logger.warning("Database manager is disabled or not initialized")
+            return
+        
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                # First check if the row exists
+                cursor.execute("SELECT COUNT(*) FROM story_config WHERE id = 1")
+                exists = cursor.fetchone()[0] > 0
+                
+                if exists:
+                    # First check if column exists
+                    cursor.execute("PRAGMA table_info(story_config)")
+                    columns = [col[1] for col in cursor.fetchall()]
+                    
+                    if 'book_level_instructions' not in columns:
+                        # Add the column if it doesn't exist
+                        cursor.execute("ALTER TABLE story_config ADD COLUMN book_level_instructions TEXT")
+                        logger.info("Added book_level_instructions column to story_config table")
+                    
+                    cursor.execute(
+                        "UPDATE story_config SET book_level_instructions = ? WHERE id = 1",
+                        (instructions,)
+                    )
+                    logger.info("Updated book_level_instructions in database")
+                else:
+                    logger.error("story_config row does not exist - cannot store book_level_instructions")
+                    
+                conn.commit()
+                
+        except Exception as e:
+            logger.error(f"Failed to update book_level_instructions: {e}")
+            raise
+    
+    def get_book_level_instructions(self) -> Optional[str]:
+        """Retrieve the book-level writing instructions from the database."""
+        if not self.enabled or not self._db:
+            logger.warning("Database manager is disabled or not initialized")
+            return None
+        
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # First check if column exists
+                cursor.execute("PRAGMA table_info(story_config)")
+                columns = [col[1] for col in cursor.fetchall()]
+                
+                if 'book_level_instructions' not in columns:
+                    logger.warning("book_level_instructions column does not exist yet")
+                    return None
+                
+                cursor.execute("SELECT book_level_instructions FROM story_config WHERE id = 1")
+                result = cursor.fetchone()
+                
+                if result and result['book_level_instructions']:
+                    return result['book_level_instructions']
+                else:
+                    logger.warning("No book_level_instructions found in database")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"Failed to retrieve book_level_instructions: {e}")
+            return None
+    
     def _extract_title_from_outline(self, global_story: str) -> str:
         """Extract the story title from the global story outline."""
         if not global_story:
