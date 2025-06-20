@@ -1,0 +1,66 @@
+{# Style guide partial template - English version #}
+{# Genre guidance #}
+Genre: {{ style_guide.genre }}
+{%- if style_guide.genre == 'fantasy' %} - Use rich, immersive descriptions. Include wonder and magic naturally.
+{%- elif style_guide.genre == 'sci-fi' %} - Use precise, technical language. Make technology feel real and grounded.
+{%- elif style_guide.genre == 'mystery' %} - Build suspense through careful revelation. Plant clues subtly.
+{%- elif style_guide.genre == 'romance' %} - Focus on emotions and chemistry. Use sensory details.
+{%- elif style_guide.genre == 'thriller' %} - Keep pace fast and tense. Use short, punchy sentences for action.
+{%- elif style_guide.genre == 'horror' %} - Build dread through atmosphere. Use unsettling imagery.
+{%- else %} - Tell an engaging story.
+{%- endif %}
+
+{# Tone guidance #}
+Tone: {{ style_guide.tone }}
+{%- if style_guide.tone == 'adventurous' %} - Keep energy high and optimistic. Emphasize discovery.
+{%- elif style_guide.tone == 'dark' %} - Use shadow and weight. Let moral ambiguity seep in.
+{%- elif style_guide.tone == 'humorous' %} - Find natural moments of levity. Use wit over slapstick.
+{%- elif style_guide.tone == 'epic' %} - Use grand, sweeping language. Make events feel momentous.
+{%- elif style_guide.tone == 'intimate' %} - Focus on small, personal moments. Use close perspective.
+{%- elif style_guide.tone == 'mysterious' %} - Leave questions unanswered. Build intrigue gradually.
+{%- else %} - Maintain consistent mood.
+{%- endif %}
+
+{# Author style guidance if available #}
+{% if style_guide.author and style_guide.author_style_guidance %}
+
+AUTHOR STYLE ({{ style_guide.author }}):
+{% if style_guide.author_style_guidance.narrative_style %}
+Narrative Style: {{ style_guide.author_style_guidance.narrative_style }}
+{% endif %}
+{% if style_guide.author_style_guidance.character_development %}
+Character Development: {{ style_guide.author_style_guidance.character_development }}
+{% endif %}
+{% if style_guide.author_style_guidance.dialogue_patterns %}
+Dialogue Patterns: {{ style_guide.author_style_guidance.dialogue_patterns }}
+{% endif %}
+{% if style_guide.author_style_guidance.thematic_elements %}
+Thematic Elements: {{ style_guide.author_style_guidance.thematic_elements }}
+{% endif %}
+{% if style_guide.author_style_guidance.pacing_rhythm %}
+Pacing and Rhythm: {{ style_guide.author_style_guidance.pacing_rhythm }}
+{% endif %}
+{% if style_guide.author_style_guidance.descriptive_approach %}
+Descriptive Approach: {{ style_guide.author_style_guidance.descriptive_approach }}
+{% endif %}
+{% if style_guide.author_style_guidance.unique_elements %}
+Unique Elements: {{ style_guide.author_style_guidance.unique_elements }}
+{% endif %}
+{% if style_guide.author_style_guidance.emotional_tone %}
+Emotional Tone: {{ style_guide.author_style_guidance.emotional_tone }}
+{% endif %}
+{% elif style_guide.author %}
+Style: Channel {{ style_guide.author }}'s narrative techniques
+{% endif %}
+
+{# Language considerations #}
+{% if style_guide.language != "english" %}
+
+Language: Write naturally in {{ style_guide.language }}, respecting cultural nuances
+{% endif %}
+
+GENERAL TECHNIQUES:
+- Show don't tell - Use action and dialogue over exposition
+- Vary sentence structure - Mix short and long for rhythm
+- Use specific details - Concrete imagery over abstractions
+- Stay in scene - Avoid summary or time skips within scene

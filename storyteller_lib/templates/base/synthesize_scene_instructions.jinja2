@@ -1,0 +1,90 @@
+{# Template for synthesizing scene-level instructions #}
+Analyze the following context for Chapter {{ chapter_number }}, Scene {{ scene_number }} and create clear, specific instructions for writing this scene.
+
+STORY CONTEXT:
+- Premise: {{ story_premise }}
+{% if initial_idea %}
+- Original idea: {{ initial_idea }}
+{% endif %}
+
+CHAPTER {{ chapter_number }}: {{ chapter_title }}
+{{ chapter_outline }}
+{% if chapter_themes %}
+Themes: {{ chapter_themes|join(', ') }}
+{% endif %}
+
+SCENE PURPOSE:
+- Type: {{ scene_type }} scene
+- Dramatic purpose: {{ dramatic_purpose }}
+- Core event: {{ scene_description }}
+- Tension level: Build to {{ tension_level }}/10
+- Ending: {{ ends_with }}
+
+{% if plot_progressions %}
+PLOT REQUIREMENTS:
+{% for prog in plot_progressions %}
+- {{ prog.description }}{% if prog.already_occurred %} [Already occurred - reference only]{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if active_threads %}
+ACTIVE STORY THREADS:
+{% for thread in active_threads[:3] %}
+- {{ thread.name }}: {{ thread.description }} (Last: {{ thread.last_development }})
+{% endfor %}
+{% endif %}
+
+CHARACTERS IN SCENE: {{ required_characters|join(', ') }}
+{% for char in characters[:4] %}
+- {{ char.name }}: {{ char.role }}, currently {{ char.emotional_state }}, motivated by {{ char.motivation }}
+{% if char.recent_knowledge %}  Recently learned: {{ char.recent_knowledge[0].content }}{% endif %}
+{% endfor %}
+
+{% if relationships %}
+KEY RELATIONSHIPS:
+{% for rel in relationships[:3] %}
+- {{ rel.character1 }} & {{ rel.character2 }}: {{ rel.type }} - {{ rel.description }}
+{% endfor %}
+{% endif %}
+
+{% if character_learns %}
+CHARACTERS MUST LEARN: {{ character_learns|join(', ') }}
+{% endif %}
+
+{% if locations %}
+SETTING:
+{% for loc in locations[:2] %}
+- {{ loc.name }}: {{ loc.description }}
+{% endfor %}
+{% endif %}
+
+CONTINUITY:
+{% if previous_ending %}
+Previous scene ended: {{ previous_ending|truncate(200) }}
+{% endif %}
+{% if previous_summary %}
+Recent events: {{ previous_summary|truncate(300) }}
+{% endif %}
+{% if next_preview %}
+Next scene preview: {{ next_preview }}
+{% endif %}
+
+{% if forbidden_repetitions or recent_scene_types %}
+AVOID:
+{% if forbidden_repetitions %}
+- Repetitions: {{ forbidden_repetitions[:3]|join(', ') }}
+{% endif %}
+{% if recent_scene_types %}
+- Recent scene types: {{ recent_scene_types[:3]|join(', ') }}
+{% endif %}
+{% endif %}
+
+Based on all this context, create specific instructions for writing this scene that:
+1. Clearly state what must happen and why
+2. Explain how characters should behave based on their current state
+3. Describe the emotional journey and tension arc
+4. Specify key moments that must occur
+5. Clarify how to connect with previous/next scenes
+6. Highlight what makes this scene unique and necessary
+
+Format as clear, actionable instructions focused on THIS SPECIFIC SCENE, not generic writing advice.

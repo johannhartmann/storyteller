@@ -1,0 +1,29 @@
+{# Template für die Synthese von Schreibanweisungen auf Buchebene #}
+Du sollst umfassende Schreibanweisungen für eine {{ tone }} {{ genre }}-Geschichte{% if author %} im Stil von {{ author }}{% endif %} erstellen.
+
+{% if initial_idea %}
+Die Geschichte basiert auf dieser Ausgangsidee: {{ initial_idea }}
+{% endif %}
+
+{% if author and author_style_guidance %}
+AUTORENSTIL-ANALYSE:
+{{ author_style_guidance }}
+{% endif %}
+
+GENRE: {{ genre }}
+TON: {{ tone }}
+
+Deine Aufgabe ist es, all diese Informationen zu klaren, umsetzbaren Schreibanweisungen zu synthetisieren, die das Schreiben jeder Szene in diesem Buch leiten werden. Konzentriere dich auf:
+
+1. Die spezifische Erzählstimme und Perspektive
+2. Umgang mit Beschreibungen (Detailgrad, sensorischer Fokus, Metaphernstil)
+3. Dialogkonventionen und Charakterstimmenmuster
+4. Tempo- und Rhythmusrichtlinien
+5. Die beizubehaltende emotionale Atmosphäre
+6. Spezifische Techniken, die {% if author %}für {{ author }}s Stil und {% endif %}das {{ genre }}-Genre einzigartig sind
+7. Wie {{ tone }}-Elemente in den Szenen ausbalanciert werden
+8. Wiederkehrende Motive oder thematische Elemente zum Einweben
+
+Erstelle eine kohärente Anleitung, die erklärt, WIE diese Geschichte geschrieben werden soll, nicht WAS darin passiert. Die Anweisungen sollten spezifisch genug sein, dass jede nach ihnen geschriebene Szene konsistent mit dem Gesamtstil und -ton wirkt.
+
+Formatiere deine Antwort als klare, praktische Anleitung, die beim Schreiben jeder Szene befolgt werden kann. Sei spezifisch und vermeide generische Schreibratschläge.

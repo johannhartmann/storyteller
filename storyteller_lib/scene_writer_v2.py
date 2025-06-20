@@ -1,6 +1,6 @@
 """
-Simplified scene writer implementation following the refactoring plan.
-This module uses the comprehensive scene context builder for all context gathering.
+Simplified scene writer implementation using intelligent instruction synthesis.
+This module uses LLM to create coherent instructions instead of data concatenation.
 """
 
 from typing import Dict
@@ -11,66 +11,51 @@ from storyteller_lib.config import llm
 from storyteller_lib.models import StoryState
 from storyteller_lib.database_integration import get_db_manager
 from storyteller_lib.logger import scene_logger as logger
+from storyteller_lib.instruction_synthesis import generate_scene_level_instructions
 
 
 @track_progress
 def write_scene_simplified(state: StoryState) -> Dict:
     """
-    Simplified scene writing function using comprehensive context builder.
-    This replaces the complex write_scene function with a cleaner implementation.
+    Simplified scene writing function using intelligent instruction synthesis.
     """
     current_chapter = int(state.get("current_chapter", 1))
     current_scene = int(state.get("current_scene", 1))
     
-    logger.info(f"Writing scene {current_scene} of chapter {current_chapter} (simplified)")
+    logger.info(f"Writing scene {current_scene} of chapter {current_chapter} (intelligent synthesis)")
     
-    # Use the comprehensive context builder
-    from storyteller_lib.scene_context_builder import build_comprehensive_scene_context
+    # Get book-level instructions from state (generated once)
+    book_instructions = state.get("book_level_instructions", "")
     
-    context = build_comprehensive_scene_context(current_chapter, current_scene, state)
+    if not book_instructions:
+        logger.warning("No book-level instructions found in state. Scene may lack style consistency.")
+        # Could regenerate here, but better to fail early
+        from storyteller_lib.instruction_synthesis import generate_book_level_instructions
+        book_instructions = generate_book_level_instructions(state)
+        # Note: Should update state with this, but that's a workflow change
     
-    # Prepare template variables with all context
-    template_vars = {
-        # All context fields from the comprehensive context
-        'context': context,
-        # Individual fields for backward compatibility
-        'chapter': context.chapter_number,
-        'scene': context.scene_number,
-        'story_premise': context.story_premise,
-        'initial_idea': context.initial_idea,
-        'genre': context.genre,
-        'tone': context.tone,
-        'chapter_title': context.chapter_title,
-        'chapter_outline': context.chapter_outline,
-        'chapter_themes': context.chapter_themes,
-        'scene_description': context.scene_description,
-        'scene_type': context.scene_type,
-        'dramatic_purpose': context.dramatic_purpose,
-        'tension_level': context.tension_level,
-        'scene_ending': context.ends_with,
-        'plot_progressions': context.plot_progressions,
-        'active_threads': context.active_plot_threads[:3],
-        'required_characters': context.required_characters,
-        'character_learning': context.character_learns,
-        'characters': context.character_details,
-        'character_relationships': context.character_relationships,
-        'locations': context.relevant_locations,
-        'world_elements': context.relevant_world_elements,
-        'previous_ending': context.previous_scene_ending,
-        'previous_summary': context.previous_scenes_summary,
-        'next_preview': context.next_scene_preview,
-        'forbidden_repetitions': context.forbidden_repetitions,
-        'recent_scene_types': context.recent_scene_types,
-        'overused_phrases': context.overused_phrases,
-        'style_guide': context.style_guide,
-        'author': context.author_style
-    }
+    # Generate scene-specific instructions
+    scene_instructions = generate_scene_level_instructions(current_chapter, current_scene, state)
     
-    # Use template system for multilingual support
+    # Get language from database
+    db_manager = get_db_manager()
+    language = "english"
+    if db_manager:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT language FROM story_config WHERE id = 1")
+            result = cursor.fetchone()
+            if result:
+                language = result['language'] or 'english'
+    
+    # Use new intelligent scene writing template
     from storyteller_lib.prompt_templates import render_prompt
-    prompt = render_prompt('scene_writing_comprehensive', 
-                          language=context.language, 
-                          **template_vars)
+    prompt = render_prompt('scene_writing_intelligent',
+                          language=language,
+                          book_instructions=book_instructions,
+                          scene_instructions=scene_instructions,
+                          chapter=current_chapter,
+                          scene=current_scene)
     
     # Generate scene
     response = llm.invoke([HumanMessage(content=prompt)])

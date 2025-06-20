@@ -1,0 +1,90 @@
+{# Template für die Synthese von Szenenanweisungen #}
+Analysiere den folgenden Kontext für Kapitel {{ chapter_number }}, Szene {{ scene_number }} und erstelle klare, spezifische Anweisungen für das Schreiben dieser Szene.
+
+GESCHICHTENKONTEXT:
+- Prämisse: {{ story_premise }}
+{% if initial_idea %}
+- Ursprüngliche Idee: {{ initial_idea }}
+{% endif %}
+
+KAPITEL {{ chapter_number }}: {{ chapter_title }}
+{{ chapter_outline }}
+{% if chapter_themes %}
+Themen: {{ chapter_themes|join(', ') }}
+{% endif %}
+
+SZENENZWECK:
+- Typ: {{ scene_type }}-Szene
+- Dramatischer Zweck: {{ dramatic_purpose }}
+- Kernereignis: {{ scene_description }}
+- Spannungslevel: Aufbau auf {{ tension_level }}/10
+- Ende: {{ ends_with }}
+
+{% if plot_progressions %}
+HANDLUNGSANFORDERUNGEN:
+{% for prog in plot_progressions %}
+- {{ prog.description }}{% if prog.already_occurred %} [Bereits geschehen - nur erwähnen]{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if active_threads %}
+AKTIVE HANDLUNGSSTRÄNGE:
+{% for thread in active_threads[:3] %}
+- {{ thread.name }}: {{ thread.description }} (Zuletzt: {{ thread.last_development }})
+{% endfor %}
+{% endif %}
+
+CHARAKTERE IN DER SZENE: {{ required_characters|join(', ') }}
+{% for char in characters[:4] %}
+- {{ char.name }}: {{ char.role }}, derzeit {{ char.emotional_state }}, motiviert durch {{ char.motivation }}
+{% if char.recent_knowledge %}  Kürzlich erfahren: {{ char.recent_knowledge[0].content }}{% endif %}
+{% endfor %}
+
+{% if relationships %}
+WICHTIGE BEZIEHUNGEN:
+{% for rel in relationships[:3] %}
+- {{ rel.character1 }} & {{ rel.character2 }}: {{ rel.type }} - {{ rel.description }}
+{% endfor %}
+{% endif %}
+
+{% if character_learns %}
+CHARAKTERE MÜSSEN LERNEN: {{ character_learns|join(', ') }}
+{% endif %}
+
+{% if locations %}
+SCHAUPLATZ:
+{% for loc in locations[:2] %}
+- {{ loc.name }}: {{ loc.description }}
+{% endfor %}
+{% endif %}
+
+KONTINUITÄT:
+{% if previous_ending %}
+Vorherige Szene endete: {{ previous_ending|truncate(200) }}
+{% endif %}
+{% if previous_summary %}
+Jüngste Ereignisse: {{ previous_summary|truncate(300) }}
+{% endif %}
+{% if next_preview %}
+Nächste Szenenvorschau: {{ next_preview }}
+{% endif %}
+
+{% if forbidden_repetitions or recent_scene_types %}
+VERMEIDEN:
+{% if forbidden_repetitions %}
+- Wiederholungen: {{ forbidden_repetitions[:3]|join(', ') }}
+{% endif %}
+{% if recent_scene_types %}
+- Kürzliche Szenentypen: {{ recent_scene_types[:3]|join(', ') }}
+{% endif %}
+{% endif %}
+
+Erstelle basierend auf diesem gesamten Kontext spezifische Anweisungen für das Schreiben dieser Szene, die:
+1. Klar angeben, was passieren muss und warum
+2. Erklären, wie sich Charaktere basierend auf ihrem aktuellen Zustand verhalten sollten
+3. Die emotionale Reise und den Spannungsbogen beschreiben
+4. Schlüsselmomente spezifizieren, die auftreten müssen
+5. Klären, wie die Verbindung zu vorherigen/nächsten Szenen hergestellt wird
+6. Hervorheben, was diese Szene einzigartig und notwendig macht
+
+Formatiere als klare, umsetzbare Anweisungen, die sich auf DIESE SPEZIFISCHE SZENE konzentrieren, nicht auf generische Schreibratschläge.

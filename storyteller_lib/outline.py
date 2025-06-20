@@ -639,6 +639,11 @@ Emotional Tone: {style_analysis.emotional_tone}
     
     # Outline generation metadata is tracked through the state and database
     
+    # Generate book-level instructions after outline is created
+    from storyteller_lib.instruction_synthesis import generate_book_level_instructions
+    book_instructions = generate_book_level_instructions(state)
+    logger.info("Generated book-level writing instructions")
+    
     # Update the state
     
     # Get existing message IDs to delete
@@ -680,6 +685,7 @@ Emotional Tone: {style_analysis.emotional_tone}
     return {
         "global_story": story_outline,  # Return full outline, not truncated
         "plot_threads": plot_threads,  # Add generated plot threads to state
+        "book_level_instructions": book_instructions,  # Add book-level instructions to state
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],
             new_msg

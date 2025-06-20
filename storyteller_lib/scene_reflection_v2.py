@@ -37,9 +37,12 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     
     logger.info(f"Reflecting on Chapter {current_chapter}, Scene {current_scene} (simplified)")
     
-    # Use comprehensive context builder
-    from storyteller_lib.scene_context_builder import build_comprehensive_scene_context
-    context = build_comprehensive_scene_context(current_chapter, current_scene, state)
+    # Get book-level instructions
+    book_instructions = state.get("book_level_instructions", "")
+    
+    # Generate scene-specific instructions
+    from storyteller_lib.instruction_synthesis import generate_scene_level_instructions
+    scene_instructions = generate_scene_level_instructions(current_chapter, current_scene, state)
     
     # Get scene content
     db_manager = get_db_manager()
@@ -53,23 +56,21 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     if not scene_content:
         raise RuntimeError(f"No content found for Chapter {current_chapter}, Scene {current_scene}")
     
-    # Use template for reflection prompt
+    # Get language
+    config = get_story_config()
+    language = config.get("language", "english")
+    
+    # Use intelligent reflection template
     from storyteller_lib.prompt_templates import render_prompt
     
     prompt = render_prompt(
-        'scene_reflection_simplified',
-        language=context.language,
+        'reflect_scene_intelligent',
+        language=language,
+        book_instructions=book_instructions,
+        scene_instructions=scene_instructions,
         scene_content=scene_content,
-        scene_description=context.scene_description,
-        plot_progressions=[p['description'] for p in context.plot_progressions],
-        character_learns=context.character_learns,
-        scene_type=context.scene_type,
-        genre=context.genre,
-        tone=context.tone,
         chapter=current_chapter,
-        scene=current_scene,
-        dramatic_purpose=context.dramatic_purpose,
-        tension_level=context.tension_level
+        scene=current_scene
     )
     
     # Get structured reflection
@@ -88,6 +89,7 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     }
     
     # Update chapters with reflection
+    chapters = state.get("chapters", {})
     if str(current_chapter) not in chapters:
         chapters[str(current_chapter)] = {"scenes": {}}
     if str(current_scene) not in chapters[str(current_chapter)]["scenes"]:
@@ -97,6 +99,6 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     
     return {
         "chapters": chapters,
-        "scene_reflection": reflection.dict(),
+        "scene_reflection": reflection.model_dump(),
         "needs_revision": reflection.needs_revision
     }
