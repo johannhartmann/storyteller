@@ -221,7 +221,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     
     # If we still don't have elements but have an initial idea, parse it now
     if not initial_idea_elements and initial_idea:
-        from storyteller_lib.storyteller import parse_initial_idea
+        from storyteller_lib.story_parser import parse_initial_idea
         initial_idea_elements = parse_initial_idea(initial_idea, language)
     
     # Get author_style_guidance from state (was set by initialize_state)
@@ -281,7 +281,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
             print(f"[STORYTELLER] Selected story concept: {selected_concept[:200]}...")
             
             # Parse the selected concept to extract elements
-            from storyteller_lib.storyteller import parse_initial_idea
+            from storyteller_lib.story_parser import parse_initial_idea
             initial_idea = selected_concept
             initial_idea_elements = parse_initial_idea(initial_idea, language)
             
