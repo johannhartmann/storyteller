@@ -62,9 +62,24 @@ DRAMATIC FLOW GUIDELINES:
 - Cliffhangers should appear at strategic points, not every scene
 - Consider merging scenes that share the same dramatic purpose and tension level
 
-{% if structure_guidance %}
+{% if chapter_distribution %}
 STRUCTURE-SPECIFIC GUIDANCE:
-{{ structure_guidance }}
+Distribute chapters according to this structure:
+{% for section, count in chapter_distribution.items() %}
+- {{ section }}: {{ count }} chapters
+{% endfor %}
+
+{% if narrative_structure == "hero_journey" %}
+Ensure each phase of the hero's journey is properly represented.
+{% elif narrative_structure == "three_act" %}
+Maintain proper pacing with setup, confrontation, and resolution.
+{% elif narrative_structure == "kishotenketsu" %}
+Remember: the 'ten' (twist) should recontextualize, not create conflict.
+{% elif narrative_structure == "in_medias_res" %}
+Clearly mark flashback chapters vs. present action chapters.
+{% elif narrative_structure == "circular" %}
+Ensure the final chapters mirror the opening with transformation.
+{% endif %}
 {% endif %}
 
 Adapt the chapter distribution to best serve your story while maintaining proper pacing and development.

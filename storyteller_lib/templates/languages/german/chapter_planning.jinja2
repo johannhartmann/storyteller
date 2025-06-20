@@ -62,9 +62,72 @@ RICHTLINIEN FÜR DRAMATISCHEN FLUSS:
 - Cliffhanger sollten an strategischen Punkten erscheinen, nicht in jeder Szene
 - Erwäge Szenen zu verschmelzen, die denselben dramatischen Zweck und Spannungsniveau teilen
 
-{% if structure_guidance %}
+{% if chapter_distribution %}
 STRUKTURSPEZIFISCHE ANLEITUNG:
-{{ structure_guidance }}
+Verteilen Sie die Kapitel gemäß dieser Struktur:
+{% for section, count in chapter_distribution.items() %}
+{# Translate section names based on narrative structure #}
+{% if narrative_structure == "hero_journey" %}
+  {% if section == "Ordinary World" %}- Gewöhnliche Welt: {{ count }} Kapitel
+  {% elif section == "Call to Adventure" %}- Ruf zum Abenteuer: {{ count }} Kapitel
+  {% elif section == "Refusal & Mentor" %}- Verweigerung & Mentor: {{ count }} Kapitel
+  {% elif section == "Crossing Threshold" %}- Überschreiten der Schwelle: {{ count }} Kapitel
+  {% elif section == "Tests & Allies" %}- Prüfungen & Verbündete: {{ count }} Kapitel
+  {% elif section == "Ordeal" %}- Entscheidende Prüfung: {{ count }} Kapitel
+  {% elif section == "Reward & Road Back" %}- Belohnung & Rückweg: {{ count }} Kapitel
+  {% elif section == "Resurrection & Return" %}- Auferstehung & Rückkehr: {{ count }} Kapitel
+  {% else %}- {{ section }}: {{ count }} Kapitel
+  {% endif %}
+{% elif narrative_structure == "three_act" %}
+  {% if section == "Act 1 - Setup" %}- Akt 1 - Exposition: {{ count }} Kapitel
+  {% elif section == "Act 2 - Confrontation" %}- Akt 2 - Konfrontation: {{ count }} Kapitel
+  {% elif section == "Act 3 - Resolution" %}- Akt 3 - Auflösung: {{ count }} Kapitel
+  {% else %}- {{ section }}: {{ count }} Kapitel
+  {% endif %}
+{% elif narrative_structure == "kishotenketsu" %}
+  {% if section == "Ki (Introduction)" %}- Ki (Einführung): {{ count }} Kapitel
+  {% elif section == "Shō (Development)" %}- Shō (Entwicklung): {{ count }} Kapitel
+  {% elif section == "Ten (Twist)" %}- Ten (Wendung): {{ count }} Kapitel
+  {% elif section == "Ketsu (Conclusion)" %}- Ketsu (Schluss): {{ count }} Kapitel
+  {% else %}- {{ section }}: {{ count }} Kapitel
+  {% endif %}
+{% elif narrative_structure == "in_medias_res" %}
+  {% if section == "Opening Action" %}- Eröffnungshandlung: {{ count }} Kapitel
+  {% elif section == "Backstory & Context" %}- Vorgeschichte & Kontext: {{ count }} Kapitel
+  {% elif section == "Present Conflict Development" %}- Entwicklung des aktuellen Konflikts: {{ count }} Kapitel
+  {% elif section == "Climax & Resolution" %}- Höhepunkt & Auflösung: {{ count }} Kapitel
+  {% else %}- {{ section }}: {{ count }} Kapitel
+  {% endif %}
+{% elif narrative_structure == "circular" %}
+  {% if section == "Beginning/Setup" %}- Anfang/Einrichtung: {{ count }} Kapitel
+  {% elif section == "Journey Outward" %}- Reise nach außen: {{ count }} Kapitel
+  {% elif section == "Transformation" %}- Transformation: {{ count }} Kapitel
+  {% elif section == "Return/Mirror" %}- Rückkehr/Spiegelung: {{ count }} Kapitel
+  {% else %}- {{ section }}: {{ count }} Kapitel
+  {% endif %}
+{% elif narrative_structure == "nonlinear_mosaic" %}
+  {% if section == "Introduction Fragments" %}- Einführungsfragmente: {{ count }} Kapitel
+  {% elif section == "Deepening Connections" %}- Vertiefende Verbindungen: {{ count }} Kapitel
+  {% elif section == "Revelation Patterns" %}- Offenbarungsmuster: {{ count }} Kapitel
+  {% elif section == "Synthesis" %}- Synthese: {{ count }} Kapitel
+  {% else %}- {{ section }}: {{ count }} Kapitel
+  {% endif %}
+{% else %}
+- {{ section }}: {{ count }} Kapitel
+{% endif %}
+{% endfor %}
+
+{% if narrative_structure == "hero_journey" %}
+Stellen Sie sicher, dass jede Phase der Heldenreise angemessen dargestellt wird.
+{% elif narrative_structure == "three_act" %}
+Behalten Sie das richtige Tempo mit Exposition, Konfrontation und Auflösung bei.
+{% elif narrative_structure == "kishotenketsu" %}
+Denken Sie daran: Das 'Ten' (Wendung) sollte den Kontext neu definieren, nicht Konflikt erzeugen.
+{% elif narrative_structure == "in_medias_res" %}
+Kennzeichnen Sie deutlich Rückblenden-Kapitel gegenüber gegenwärtigen Handlungskapiteln.
+{% elif narrative_structure == "circular" %}
+Stellen Sie sicher, dass die letzten Kapitel die Eröffnung mit Transformation widerspiegeln.
+{% endif %}
 {% endif %}
 
 Passe die Kapitelverteilung an, um deiner Geschichte am besten zu dienen, während du angemessenes Tempo und Entwicklung beibehältst.
