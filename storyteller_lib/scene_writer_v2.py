@@ -163,34 +163,50 @@ def build_character_context(scene_description: str, required_characters: List[st
         with db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT name, personality, emotional_state
+                SELECT id, name, personality
                 FROM characters
                 WHERE identifier = ? OR name = ?
             """, (char_id, char_id))
             result = cursor.fetchone()
             
             if result:
+                char_db_id = result['id']
+                
+                # Get current emotional state from character_states if available
+                cursor.execute("""
+                    SELECT cs.emotional_state
+                    FROM character_states cs
+                    JOIN scenes s ON cs.scene_id = s.id
+                    WHERE cs.character_id = ?
+                    ORDER BY s.id DESC
+                    LIMIT 1
+                """, (char_db_id,))
+                state_result = cursor.fetchone()
+                
                 # Get current knowledge
                 cursor.execute("""
                     SELECT knowledge_content
                     FROM character_knowledge ck
                     JOIN scenes s ON ck.scene_id = s.id
-                    WHERE ck.character_id = (
-                        SELECT id FROM characters WHERE identifier = ? OR name = ?
-                    )
+                    WHERE ck.character_id = ?
                     ORDER BY s.id DESC
                     LIMIT 5
-                """, (char_id, char_id))
+                """, (char_db_id,))
                 knowledge = [row['knowledge_content'] for row in cursor.fetchall()]
                 
-                # Parse personality and emotional state
+                # Parse personality
                 import json
                 personality = json.loads(result['personality'] or '{}')
-                emotional_state = json.loads(result['emotional_state'] or '{}')
+                
+                # Parse emotional state if available
+                current_state = 'Unknown'
+                if state_result and state_result['emotional_state']:
+                    emotional_state = json.loads(state_result['emotional_state'])
+                    current_state = emotional_state.get('current', 'Unknown')
                 
                 character_contexts.append(CharacterContext(
                     name=result['name'],
-                    current_state=emotional_state.get('current', 'Unknown'),
+                    current_state=current_state,
                     motivation=personality.get('core_motivation', 'Unknown'),
                     knowledge=knowledge
                 ))
