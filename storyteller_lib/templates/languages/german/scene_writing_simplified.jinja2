@@ -1,5 +1,15 @@
 {# Vereinfachte Szenen-Schreibvorlage - Nur 6 Kernabschnitte #}
-Du schreibst Kapitel {{ chapter }}, Szene {{ scene }} einer Geschichte.
+Du schreibst Kapitel {{ chapter }}, Szene {{ scene }} einer {{ tone }} {{ genre }} Geschichte.
+
+## GESCHICHTENKONTEXT
+
+{% if story_premise %}
+**Handlungsprämisse**: {{ story_premise }}
+{% endif %}
+
+{% if chapter_outline %}
+**Dieses Kapitel**: {{ chapter_outline }}
+{% endif %}
 
 ## 1. SZENENANFORDERUNGEN
 
