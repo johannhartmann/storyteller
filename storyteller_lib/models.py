@@ -370,6 +370,10 @@ class StoryState(TypedDict):
     scene_elements: Dict[str, Any]  # Temporary storage for brainstormed scene elements
     active_plot_threads: List[Dict[str, Any]]  # Active plot threads for current scene
     
+    # Story-level instructions and guidance
+    book_level_instructions: str  # Synthesized writing instructions for the entire book
+    author_style_guidance: str  # Analysis of author's writing style to emulate
+    
     # Workflow control
     completed: bool  # Flag to indicate if the story is complete
     last_node: str  # Track which node was last executed for routing

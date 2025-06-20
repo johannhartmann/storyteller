@@ -639,9 +639,13 @@ Emotional Tone: {style_analysis.emotional_tone}
     
     # Outline generation metadata is tracked through the state and database
     
+    # Create a temporary state with author_style_guidance for book instruction generation
+    temp_state = dict(state)
+    temp_state["author_style_guidance"] = author_style_guidance
+    
     # Generate book-level instructions after outline is created
     from storyteller_lib.instruction_synthesis import generate_book_level_instructions
-    book_instructions = generate_book_level_instructions(state)
+    book_instructions = generate_book_level_instructions(temp_state)
     logger.info("Generated book-level writing instructions")
     
     # Update the state
@@ -667,6 +671,10 @@ Emotional Tone: {style_analysis.emotional_tone}
         db_manager.update_global_story(story_outline)
         logger.info("Story outline stored in database successfully")
         
+        # Store book-level instructions in the database
+        db_manager.update_book_level_instructions(book_instructions)
+        logger.info("Book-level instructions stored in database")
+        
         # Verify it was stored
         with db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
@@ -686,6 +694,7 @@ Emotional Tone: {style_analysis.emotional_tone}
         "global_story": story_outline,  # Return full outline, not truncated
         "plot_threads": plot_threads,  # Add generated plot threads to state
         "book_level_instructions": book_instructions,  # Add book-level instructions to state
+        "author_style_guidance": author_style_guidance,  # Include author style guidance in state
         "messages": [
             *[RemoveMessage(id=msg_id) for msg_id in message_ids],
             new_msg

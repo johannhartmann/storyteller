@@ -944,19 +944,36 @@ def compile_final_story(state: StoryState) -> Dict:
     """Compile the final story from all chapters and scenes."""
     chapters = state["chapters"]
     characters = state["characters"]
-    global_story = state["global_story"]
-    genre = state["genre"]
-    tone = state["tone"]
-    author = state["author"]
-    initial_idea = state.get("initial_idea", "")
     world_elements = state.get("world_elements", {})
     
-    # Load full chapter and scene content from database
+    # Get story configuration from database
     from storyteller_lib.database_integration import get_db_manager
     from storyteller_lib.logger import get_logger
     logger = get_logger(__name__)
     
     db_manager = get_db_manager()
+    if not db_manager:
+        raise RuntimeError("Database manager not available")
+    
+    # Fetch story metadata from database
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT genre, tone, author, initial_idea, global_story
+            FROM story_config WHERE id = 1
+        """)
+        config = cursor.fetchone()
+    
+    if not config:
+        raise RuntimeError("Story configuration not found in database")
+    
+    genre = config['genre'] or 'fantasy'
+    tone = config['tone'] or 'adventurous'
+    author = config['author'] or ''
+    initial_idea = config['initial_idea'] or ''
+    global_story = config['global_story'] or ''
+    
+    # Load full chapter and scene content from database
     if db_manager:
         # Load actual scene content from database for each chapter
         for chapter_num in chapters.keys():

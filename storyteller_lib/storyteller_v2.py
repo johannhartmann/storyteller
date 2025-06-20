@@ -53,18 +53,21 @@ def generate_story_simplified(
     # Create initial state
     initial_state: StoryState = {
         "messages": [],
-        "genre": genre,
-        "tone": tone,
-        "author": author or "",
-        "language": language,
-        "initial_idea": initial_idea or "",
-        "num_chapters": num_chapters,
         "chapters": {},
         "characters": {},
         "world_elements": {},
-        "current_chapter": "1",
-        "current_scene": "1",
-        "completed": False
+        "plot_threads": {},
+        "revelations": {},
+        "current_chapter": "",
+        "current_scene": "",
+        "current_scene_content": "",
+        "scene_reflection": {},
+        "scene_elements": {},
+        "active_plot_threads": [],
+        "book_level_instructions": "",
+        "author_style_guidance": "",
+        "completed": False,
+        "last_node": ""
     }
     
     # Initialize story configuration in database
