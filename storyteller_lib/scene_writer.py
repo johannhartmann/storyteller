@@ -877,7 +877,11 @@ def write_scene(state: StoryState) -> Dict:
                 structural_analysis_result = structural_analysis
                 
                 # For repetition analysis, use just the content (filter out None values)
-                recent_content = "\n\n---\n\n".join([s['content'] for s in recent_scenes_data[:3] if s.get('content')])
+                content_list = []
+                for s in recent_scenes_data[:3]:
+                    if s.get('content') is not None:
+                        content_list.append(s['content'])
+                recent_content = "\n\n---\n\n".join(content_list) if content_list else ""
                 
                 # Analyze repetition intelligently
                 intelligent_analysis = analyze_repetition_in_context(
