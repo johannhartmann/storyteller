@@ -782,33 +782,25 @@ def main() -> None:
             # Start the story generation
             # We don't need to pass progress_callback since we registered it globally
             if args.use_v2:
-            story, state = generate_story_simplified(
-
-                genre=args.genre,
-                tone=args.tone,
-                author=args.author,
-                initial_idea=args.idea,
-                language=args.language,
-                model_provider=args.model_provider,
-                model=args.model,
-                return_state=True,  # Return both story text and state
-                progress_log_path=args.progress_log
-            
-            )
-        else:
-            story, state = generate_story(
-
-                genre=args.genre,
-                tone=args.tone,
-                author=args.author,
-                initial_idea=args.idea,
-                language=args.language,
-                model_provider=args.model_provider,
-                model=args.model,
-                return_state=True,  # Return both story text and state
-                progress_log_path=args.progress_log
-            
-            )
+                story, state = generate_story_simplified(
+                    genre=args.genre,
+                    tone=args.tone,
+                    author=args.author,
+                    initial_idea=args.idea,
+                    language=args.language
+                )
+            else:
+                story, state = generate_story(
+                    genre=args.genre,
+                    tone=args.tone,
+                    author=args.author,
+                    initial_idea=args.idea,
+                    language=args.language,
+                    model_provider=args.model_provider,
+                    model=args.model,
+                    return_state=True,  # Return both story text and state
+                    progress_log_path=args.progress_log
+                )
             
             # Show completion message
             elapsed_str = progress_manager.state.get_elapsed_time()
