@@ -75,6 +75,23 @@ class StoryDatabase:
             """)
             conn.commit()
         
+        # Check if summary columns exist
+        cursor.execute("PRAGMA table_info(scenes)")
+        scene_columns = [col[1] for col in cursor.fetchall()]
+        
+        if 'summary' not in scene_columns:
+            logger.info("Adding summary column to scenes table")
+            cursor.execute("ALTER TABLE scenes ADD COLUMN summary TEXT")
+            conn.commit()
+        
+        cursor.execute("PRAGMA table_info(chapters)")
+        chapter_columns = [col[1] for col in cursor.fetchall()]
+        
+        if 'summary' not in chapter_columns:
+            logger.info("Adding summary column to chapters table")
+            cursor.execute("ALTER TABLE chapters ADD COLUMN summary TEXT")
+            conn.commit()
+        
         # Rename outline to description for consistency
         if 'outline' in columns and 'description' not in columns:
             logger.info("Renaming 'outline' column to 'description' in scenes table")

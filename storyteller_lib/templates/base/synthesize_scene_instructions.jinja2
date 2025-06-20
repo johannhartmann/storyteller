@@ -1,6 +1,23 @@
 {# Template for synthesizing scene-level instructions #}
 Analyze the following context for Chapter {{ chapter_number }}, Scene {{ scene_number }} and create clear, specific instructions for writing this scene.
 
+{% if previous_chapters %}
+WHAT HAPPENED UNTIL NOW:
+{% for chapter in previous_chapters %}
+Chapter {{ chapter.chapter }}: {{ chapter.title }}
+{{ chapter.summary }}
+
+{% endfor %}
+{% endif %}
+
+{% if previous_scenes_current_chapter %}
+WHAT HAPPENED IN THIS CHAPTER SO FAR:
+{% for scene in previous_scenes_current_chapter %}
+Scene {{ scene.scene }}: {{ scene.summary }}
+{% endfor %}
+
+{% endif %}
+
 STORY CONTEXT:
 - Premise: {{ story_premise }}
 {% if initial_idea %}

@@ -141,6 +141,10 @@ def generate_scene_level_instructions(
     # 8. Get writing constraints
     constraints = _get_writing_constraints(db_manager, chapter, scene)
     
+    # 9. Get story so far (previous summaries)
+    from storyteller_lib.summary_generation import get_story_so_far
+    story_so_far = get_story_so_far(chapter, scene)
+    
     # Prepare all data for synthesis
     template_vars = {
         # Story level
@@ -183,7 +187,11 @@ def generate_scene_level_instructions(
         # Constraints
         'forbidden_repetitions': constraints['forbidden_repetitions'],
         'recent_scene_types': constraints['recent_scene_types'],
-        'overused_phrases': constraints['overused_phrases']
+        'overused_phrases': constraints['overused_phrases'],
+        
+        # Story so far
+        'previous_chapters': story_so_far['chapter_summaries'],
+        'previous_scenes_current_chapter': story_so_far['current_chapter_scenes']
     }
     
     # Use template to create synthesis prompt

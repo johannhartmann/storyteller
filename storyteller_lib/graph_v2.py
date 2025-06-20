@@ -29,6 +29,7 @@ from storyteller_lib.scenes_v2 import (
     revise_scene_if_needed,
     write_scene
 )
+from storyteller_lib.summary_node import generate_summaries
 from storyteller_lib.worldbuilding import generate_worldbuilding
 
 logger = get_logger(__name__)
@@ -93,6 +94,7 @@ def create_simplified_graph(checkpointer=None) -> StateGraph:
     graph_builder.add_node("revise_scene_if_needed", revise_scene_if_needed)
     graph_builder.add_node("update_world_elements", update_world_elements)
     graph_builder.add_node("update_character_profiles", update_character_profiles)
+    graph_builder.add_node("generate_summaries", generate_summaries)
     graph_builder.add_node("advance_to_next_scene_or_chapter", advance_to_next_scene_or_chapter)
     graph_builder.add_node("compile_final_story", compile_final_story)
     
@@ -121,7 +123,8 @@ def create_simplified_graph(checkpointer=None) -> StateGraph:
     # Continue flow after revision
     graph_builder.add_edge("revise_scene_if_needed", "update_world_elements")
     graph_builder.add_edge("update_world_elements", "update_character_profiles")
-    graph_builder.add_edge("update_character_profiles", "advance_to_next_scene_or_chapter")
+    graph_builder.add_edge("update_character_profiles", "generate_summaries")
+    graph_builder.add_edge("generate_summaries", "advance_to_next_scene_or_chapter")
     
     # Check if story is complete
     graph_builder.add_conditional_edges(

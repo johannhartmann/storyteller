@@ -1,0 +1,14 @@
+{# Template für die Generierung von Kapitelzusammenfassungen #}
+Erstelle eine prägnante Zusammenfassung von Kapitel {{ chapter }} basierend auf den folgenden Szenenzusammenfassungen.
+
+SZENENZUSAMMENFASSUNGEN:
+{% for summary in scene_summaries %}
+{{ summary }}
+{% endfor %}
+
+Synthetisiere diese Szenen zu einer kohärenten Kapitelzusammenfassung (3-4 Sätze), die erfasst:
+- Die wichtigsten Handlungsentwicklungen
+- Schlüsselcharakterentwicklungen
+- Wie dieses Kapitel die Gesamtgeschichte vorangebracht hat
+
+Konzentriere dich auf die wichtigsten Ereignisse und vermeide Wiederholungen. Schreibe die Zusammenfassung:
