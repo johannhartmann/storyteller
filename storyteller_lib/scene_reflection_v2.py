@@ -37,6 +37,10 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     
     logger.info(f"Reflecting on Chapter {current_chapter}, Scene {current_scene} (simplified)")
     
+    # Use comprehensive context builder
+    from storyteller_lib.scene_context_builder import build_comprehensive_scene_context
+    context = build_comprehensive_scene_context(current_chapter, current_scene, state)
+    
     # Get scene content
     db_manager = get_db_manager()
     if not db_manager:
@@ -49,39 +53,23 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     if not scene_content:
         raise RuntimeError(f"No content found for Chapter {current_chapter}, Scene {current_scene}")
     
-    # Get scene requirements for context
-    chapters = state.get("chapters", {})
-    scene_requirements = {}
-    if str(current_chapter) in chapters and "scenes" in chapters[str(current_chapter)]:
-        scene_data = chapters[str(current_chapter)]["scenes"].get(str(current_scene), {})
-        scene_requirements = {
-            'description': scene_data.get('description', ''),
-            'plot_progressions': scene_data.get('plot_progressions', []),
-            'character_learns': scene_data.get('character_learns', []),
-            'scene_type': scene_data.get('scene_type', 'exploration')
-        }
-    
-    # Get story configuration
-    config = get_story_config()
-    genre = config.get("genre", "fantasy")
-    tone = config.get("tone", "adventurous")
-    language = config.get("language", "english")
-    
     # Use template for reflection prompt
     from storyteller_lib.prompt_templates import render_prompt
     
     prompt = render_prompt(
         'scene_reflection_simplified',
-        language=language,
+        language=context.language,
         scene_content=scene_content,
-        scene_description=scene_requirements.get('description', 'Not specified'),
-        plot_progressions=scene_requirements.get('plot_progressions', []),
-        character_learns=scene_requirements.get('character_learns', []),
-        scene_type=scene_requirements.get('scene_type', 'exploration'),
-        genre=genre,
-        tone=tone,
+        scene_description=context.scene_description,
+        plot_progressions=[p['description'] for p in context.plot_progressions],
+        character_learns=context.character_learns,
+        scene_type=context.scene_type,
+        genre=context.genre,
+        tone=context.tone,
         chapter=current_chapter,
-        scene=current_scene
+        scene=current_scene,
+        dramatic_purpose=context.dramatic_purpose,
+        tension_level=context.tension_level
     )
     
     # Get structured reflection

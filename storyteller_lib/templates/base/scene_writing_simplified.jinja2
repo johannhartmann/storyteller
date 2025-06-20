@@ -1,5 +1,15 @@
 {# Simplified scene writing template - 6 core sections only #}
-You are writing Chapter {{ chapter }}, Scene {{ scene }} of a story.
+You are writing Chapter {{ chapter }}, Scene {{ scene }} of a {{ tone }} {{ genre }} story.
+
+## STORY CONTEXT
+
+{% if story_premise %}
+**Story premise**: {{ story_premise }}
+{% endif %}
+
+{% if chapter_outline %}
+**This chapter**: {{ chapter_outline }}
+{% endif %}
 
 ## 1. SCENE REQUIREMENTS
 
