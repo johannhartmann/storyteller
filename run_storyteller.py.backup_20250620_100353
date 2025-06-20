@@ -22,7 +22,6 @@ from storyteller_lib.constants import NodeNames
 from storyteller_lib.progress_manager import ProgressManager, create_progress_manager
 from storyteller_lib.story_info import save_story_info
 from storyteller_lib.storyteller import generate_story
-from storyteller_lib.storyteller_v2 import generate_story_simplified
 from storyteller_lib.book_statistics import display_progress_report
 
 # Load environment variables from .env file
@@ -683,8 +682,6 @@ def main() -> None:
     parser.add_argument("--tone", type=str, default="epic",
                         help="Tone of the story (e.g., epic, dark, humorous)")
     parser.add_argument("--author", type=str, default="",
-    parser.add_argument("--use-v2", action="store_true",
-                        help="Use simplified v2 workflow (faster, cleaner)")
                         help="Author whose style to emulate (e.g., Tolkien, Rowling, Martin)")
     parser.add_argument("--language", type=str, default=DEFAULT_LANGUAGE,
                         help=f"Target language for story generation (e.g., {', '.join(SUPPORTED_LANGUAGES.keys())})")
@@ -781,23 +778,7 @@ def main() -> None:
         try:
             # Start the story generation
             # We don't need to pass progress_callback since we registered it globally
-            if args.use_v2:
-            story, state = generate_story_simplified(
-
-                genre=args.genre,
-                tone=args.tone,
-                author=args.author,
-                initial_idea=args.idea,
-                language=args.language,
-                model_provider=args.model_provider,
-                model=args.model,
-                return_state=True,  # Return both story text and state
-                progress_log_path=args.progress_log
-            
-            )
-        else:
             story, state = generate_story(
-
                 genre=args.genre,
                 tone=args.tone,
                 author=args.author,
@@ -807,7 +788,6 @@ def main() -> None:
                 model=args.model,
                 return_state=True,  # Return both story text and state
                 progress_log_path=args.progress_log
-            
             )
             
             # Show completion message

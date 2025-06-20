@@ -1,0 +1,109 @@
+"""
+Simplified storyteller implementation using the refactored workflow.
+This provides the main entry point for story generation with reduced complexity.
+"""
+
+import time
+from typing import Dict, Optional, Tuple
+
+from storyteller_lib.config import get_story_config
+from storyteller_lib.database_integration import get_db_manager
+from storyteller_lib.graph_v2 import create_simplified_graph
+from storyteller_lib.logger import get_logger
+from storyteller_lib.models import StoryState
+
+logger = get_logger(__name__)
+
+
+def generate_story_simplified(
+    genre: str,
+    tone: str,
+    num_chapters: int = 10,
+    author: Optional[str] = None,
+    language: str = "english",
+    initial_idea: Optional[str] = None
+) -> Tuple[str, StoryState]:
+    """
+    Generate a story using the simplified workflow.
+    
+    Args:
+        genre: Story genre (fantasy, sci-fi, mystery, etc.)
+        tone: Story tone (adventurous, dark, humorous, etc.)
+        num_chapters: Number of chapters to generate (default: 10)
+        author: Optional author style to emulate
+        language: Language for the story (default: english)
+        initial_idea: Optional initial story idea
+        
+    Returns:
+        Tuple of (compiled story markdown, final state)
+    """
+    start_time = time.time()
+    
+    logger.info(f"Starting simplified story generation - Genre: {genre}, Tone: {tone}, "
+                f"Chapters: {num_chapters}, Language: {language}")
+    
+    # Create initial state
+    initial_state: StoryState = {
+        "messages": [],
+        "genre": genre,
+        "tone": tone,
+        "author": author or "",
+        "language": language,
+        "initial_idea": initial_idea or "",
+        "num_chapters": num_chapters,
+        "chapters": {},
+        "characters": {},
+        "world_elements": {},
+        "current_chapter": "1",
+        "current_scene": "1",
+        "completed": False
+    }
+    
+    # Create and run the simplified graph
+    graph = create_simplified_graph()
+    
+    # Configure with recursion limit
+    config = {
+        "recursion_limit": 500,  # Reduced from 2000
+        "configurable": {
+            "thread_id": f"story_{genre}_{tone}_{int(time.time())}"
+        }
+    }
+    
+    try:
+        # Run the graph
+        logger.info("Executing simplified story generation graph...")
+        result = graph.invoke(initial_state, config)
+        
+        # Get the compiled story
+        db_manager = get_db_manager()
+        if db_manager:
+            story = db_manager.compile_story()
+        else:
+            story = result.get("compiled_story", "")
+        
+        elapsed_time = time.time() - start_time
+        logger.info(f"Story generation completed in {elapsed_time:.2f} seconds")
+        
+        # Log statistics
+        word_count = len(story.split())
+        logger.info(f"Generated story statistics: {word_count} words, "
+                   f"{len(result.get('chapters', {}))} chapters")
+        
+        return story, result
+        
+    except Exception as e:
+        logger.error(f"Error during simplified story generation: {str(e)}", exc_info=True)
+        
+        # Try to recover partial story
+        try:
+            db_manager = get_db_manager()
+            if db_manager:
+                partial_story = db_manager.compile_story()
+                if partial_story:
+                    logger.info("Partial story recovered from database")
+                    return partial_story, initial_state
+        except Exception as recovery_error:
+            logger.error(f"Failed to recover partial story: {str(recovery_error)}")
+        
+        raise
