@@ -600,11 +600,11 @@ Emotional Tone: {style_analysis.emotional_tone}
         # Revised outline is stored in state, validation results are temporary
         
     # Ensure we have a story outline to store
-    print(f"[DEBUG] Final check - story_outline length: {len(story_outline) if story_outline else 0}")
-    print(f"[DEBUG] Final check - story_outline type: {type(story_outline)}")
+    # print(f"[DEBUG] Final check - story_outline length: {len(story_outline) if story_outline else 0}")
+    # print(f"[DEBUG] Final check - story_outline type: {type(story_outline)}")
     if not story_outline:
         logger.error("CRITICAL: story_outline is empty after all generation attempts!")
-        print("[DEBUG] story_outline is empty or None!")
+        # print("[DEBUG] story_outline is empty or None!")
         # Outline should always be in state at this point
         # If missing, there's a critical error in the workflow
         if not story_outline:

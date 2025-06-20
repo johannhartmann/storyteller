@@ -21,7 +21,8 @@ def generate_story_simplified(
     num_chapters: int = 10,
     author: Optional[str] = None,
     language: str = "english",
-    initial_idea: Optional[str] = None
+    initial_idea: Optional[str] = None,
+    progress_log_path: Optional[str] = None
 ) -> Tuple[str, StoryState]:
     """
     Generate a story using the simplified workflow.
@@ -33,6 +34,7 @@ def generate_story_simplified(
         author: Optional author style to emulate
         language: Language for the story (default: english)
         initial_idea: Optional initial story idea
+        progress_log_path: Optional path for progress log file
         
     Returns:
         Tuple of (compiled story markdown, final state)
@@ -41,6 +43,12 @@ def generate_story_simplified(
     
     logger.info(f"Starting simplified story generation - Genre: {genre}, Tone: {tone}, "
                 f"Chapters: {num_chapters}, Language: {language}")
+    
+    # Initialize progress logger if requested
+    if progress_log_path:
+        from storyteller_lib.story_progress_logger import initialize_progress_logger
+        initialize_progress_logger(progress_log_path)
+        logger.info(f"Progress logging enabled: {progress_log_path}")
     
     # Create initial state
     initial_state: StoryState = {
