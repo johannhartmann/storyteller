@@ -21,8 +21,7 @@ from storyteller_lib.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.constants import NodeNames
 from storyteller_lib.progress_manager import ProgressManager, create_progress_manager
 from storyteller_lib.story_info import save_story_info
-from storyteller_lib.storyteller import generate_story
-from storyteller_lib.storyteller_v2 import generate_story_simplified
+from storyteller_lib.storyteller import generate_story_simplified
 from storyteller_lib.book_statistics import display_progress_report
 
 # Load environment variables from .env file
@@ -718,8 +717,8 @@ def main() -> None:
                         help="Tone of the story (e.g., epic, dark, humorous)")
     parser.add_argument("--author", type=str, default="",
                         help="Author whose style to emulate (e.g., Tolkien, Rowling, Martin)")
-    parser.add_argument("--use-v2", action="store_true",
-                        help="Use simplified v2 workflow (faster, cleaner)")
+    parser.add_argument("--use-v1", action="store_true",
+                        help="Use legacy v1 workflow (deprecated, for backward compatibility only)")
     parser.add_argument("--language", type=str, default=DEFAULT_LANGUAGE,
                         help=f"Target language for story generation (e.g., {', '.join(SUPPORTED_LANGUAGES.keys())})")
     parser.add_argument("--idea", type=str, default="",
@@ -815,16 +814,9 @@ def main() -> None:
         try:
             # Start the story generation
             # We don't need to pass progress_callback since we registered it globally
-            if args.use_v2:
-                story, state = generate_story_simplified(
-                    genre=args.genre,
-                    tone=args.tone,
-                    author=args.author,
-                    initial_idea=args.idea,
-                    language=args.language,
-                    progress_log_path=args.progress_log
-                )
-            else:
+            if args.use_v1:
+                # Legacy v1 workflow - deprecated
+                from storyteller_lib.storyteller import generate_story
                 story, state = generate_story(
                     genre=args.genre,
                     tone=args.tone,
@@ -834,6 +826,16 @@ def main() -> None:
                     model_provider=args.model_provider,
                     model=args.model,
                     return_state=True,  # Return both story text and state
+                    progress_log_path=args.progress_log
+                )
+            else:
+                # Default v2 workflow
+                story, state = generate_story_simplified(
+                    genre=args.genre,
+                    tone=args.tone,
+                    author=args.author,
+                    initial_idea=args.idea,
+                    language=args.language,
                     progress_log_path=args.progress_log
                 )
             
@@ -855,44 +857,26 @@ def main() -> None:
             import traceback
             traceback.print_exc()
             
-            # Try to recover partial story from the last good state
-            from storyteller_lib.storyteller import extract_partial_story
+            # Try to recover partial story from database
             try:
                 print("Attempting to recover partial story...")
-                if args.info_file:
-                    # If info file is requested, we need the state too
-                    partial_story, state = extract_partial_story(
-                        args.genre,
-                        args.tone,
-                        args.author,
-                        args.idea,
-                        args.language,
-                        args.model_provider,
-                        args.model,
-                        return_state=True
-                    )
-                else:
-                    # Otherwise just get the story
-                    partial_story = extract_partial_story(
-                        args.genre,
-                        args.tone,
-                        args.author,
-                        args.idea,
-                        args.language,
-                        args.model_provider,
-                        args.model
-                    )
-                if partial_story:
-                    print("Partial story recovered successfully!")
-                    story = partial_story
-                    
-                    # Generate info file if requested and state is available
-                    if args.info_file and 'state' in locals():
-                        try:
-                            info_file = save_story_info(state, args.output)
-                            print(f"Partial story information saved to {info_file}")
-                        except Exception as info_err:
-                            print(f"Error saving partial story information: {str(info_err)}")
+                from storyteller_lib.database_integration import get_db_manager
+                db_manager = get_db_manager()
+                if db_manager:
+                    partial_story = db_manager.compile_story()
+                    if partial_story:
+                        print("Partial story recovered successfully!")
+                        story = partial_story
+                        
+                        # Generate info file if requested
+                        if args.info_file:
+                            try:
+                                # Create a minimal state for info file
+                                state = {"chapters": {}, "characters": {}, "world_elements": {}}
+                                info_file = save_story_info(state, args.output)
+                                print(f"Partial story information saved to {info_file}")
+                            except Exception as info_err:
+                                print(f"Error saving partial story information: {str(info_err)}")
             except Exception as recovery_err:
                 print(f"Could not recover partial story: {str(recovery_err)}")
         

@@ -78,6 +78,6 @@ def reset_progress_tracking() -> None:
     _node_counts = {}
 
 # Export public API
-from storyteller_lib.storyteller import generate_story
+from storyteller_lib.storyteller import generate_story_simplified as generate_story
 
 __all__ = ["generate_story", "track_progress", "set_progress_callback", "reset_progress_tracking"]
