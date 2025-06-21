@@ -105,7 +105,7 @@ def generate_story_simplified(
     
     # Configure with recursion limit
     config = {
-        "recursion_limit": 500,  # Reduced from 2000
+        "recursion_limit": 2000,  # Increased to handle stories with many chapters
         "configurable": {
             "thread_id": f"story_{genre}_{tone}_{int(time.time())}"
         }

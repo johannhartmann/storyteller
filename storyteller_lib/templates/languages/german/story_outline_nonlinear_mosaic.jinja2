@@ -1,0 +1,113 @@
+{# Nichtlineare/Mosaik Handlungsskizze Vorlage - Deutsch #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Erstelle eine fesselnde Handlungsskizze für eine {{ tone }} {{ genre }}-Erzählung mit einer nichtlinearen/Mosaik-Struktur.
+{% if initial_idea %}Diese Geschichte soll auf dieser ursprünglichen Idee basieren: '{{ initial_idea }}'{% endif %}
+
+Strukturiere deine Skizze als miteinander verbundene Vignetten, die die vollständige Geschichte durch Muster enthüllen:
+
+## VIGNETTENGRUPPEN
+Organisiere deine Geschichte in 4-6 thematische Gruppierungen, jede mit mehreren Vignetten:
+
+### GRUPPE 1: EINFÜHRUNGSFRAGMENTE (20% der Geschichte)
+**Zweck:** Mysterium etablieren, Perspektiven einführen, Fragen schaffen
+
+Vignetten sollten:
+- Verschiedene Blickwinkel derselben Welt/Situation präsentieren
+- Figuren ohne vollen Kontext einführen
+- Fesselnde Mysterien schaffen, die Antworten verlangen
+- Ton und Atmosphäre etablieren
+- Samen pflanzen, die in späteren Vignetten aufblühen
+
+### GRUPPE 2: VERTIEFENDE VERBINDUNGEN (30% der Geschichte)
+**Zweck:** Beginnen zu enthüllen, wie Vignetten verbunden sind
+
+Vignetten sollten:
+- Gleiche Ereignisse aus verschiedenen Winkeln zeigen
+- Versteckte Verbindungen zwischen Figuren enthüllen
+- Mysterien vertiefen und gleichzeitig einige Fragen beantworten
+- Zeitsprünge oder Perspektivwechsel einführen
+- Thematische Resonanz zwischen scheinbar unverbundenen Ereignissen aufbauen
+
+### GRUPPE 3: ENTHÜLLUNGSMUSTER (30% der Geschichte)
+**Zweck:** Hauptverbindungen werden klar
+
+Vignetten sollten:
+- Die wahre Chronologie oder Beziehungsstruktur enthüllen
+- Zeigen, wie individuelle Geschichten eine größere Erzählung bilden
+- "Aha"-Momente bieten, die frühere Vignetten neu kontextualisieren
+- Das Tempo der Enthüllungen beschleunigen
+- Auf das vereinheitlichte Verständnis hinarbeiten
+
+### GRUPPE 4: SYNTHESE (20% der Geschichte)
+**Zweck:** Alle Teile fügen sich zusammen
+
+Vignetten sollten:
+- Das Mosaikbild vervollständigen
+- Das zentrale Mysterium/die Frage auflösen
+- Die volle Wirkung der Verbindungen zeigen
+- Emotionale/thematische Auflösung bieten
+- Etwas Mehrdeutigkeit für die Interpretation des Lesers lassen
+
+## VIGNETTENSPEZIFIKATIONEN
+Für jede Vignette spezifiziere:
+1. **Titel/Zeitstempel**: Wann/wo dieses Stück stattfindet
+2. **POV-Figur**: Wessen Perspektive wir folgen
+3. **Inhalt**: Was in diesem Fragment passiert
+4. **Verbindungen**: Wie es sich zu anderen Vignetten verhält
+5. **Enthüllungen**: Welche neuen Informationen es liefert
+6. **Fragen**: Welche Mysterien es schafft oder vertieft
+
+## VERBINDENDE ELEMENTE
+Identifiziere die Fäden, die durch alle Vignetten weben:
+- **Zentrales Mysterium/Frage**: Welches Rätsel lösen wir?
+- **Wiederkehrende Symbole/Objekte**: Gegenstände, die über Vignetten erscheinen
+- **Thematische Echos**: Ideen, die zwischen Fragmenten resonieren
+- **Zeitliche Struktur**: Wie Zeit in deinem Mosaik funktioniert
+- **Räumliche Verbindungen**: Orte, die Vignetten verknüpfen
+
+Füge außerdem hinzu:
+- Titel: [Etwas, das auf die Mosaiknatur hindeutet]
+- POV-Figuren: 4-6 Perspektiven, die verschiedene Teile bieten
+- Zentrale Frage: Was das Mosaik enthüllt, wenn vollständig
+- Schauplatz: Ort(e), die mehrere Blickwinkel unterstützen können
+- Themen: Ideen, die am besten durch Fragmentierung erforscht werden
+- Stimmung: Wie die {{ tone }}-Atmosphäre das Mosaik verstärkt
+
+{% if idea_elements %}
+WICHTIGE ELEMENTE ZUM EINBAUEN:
+- Schauplatz: {{ idea_elements.setting }}
+  * Als Knotenpunkt nutzen, wo verschiedene Perspektiven sich kreuzen
+  * Zeigen, wie derselbe Raum für verschiedene Menschen Verschiedenes bedeutet
+
+- Figuren: {{ idea_elements.characters | join(', ') }}
+  * Jeder eine einzigartige Perspektive auf Ereignisse geben
+  * Zeigen, wie ihre Geschichten auf überraschende Weise zusammenhängen
+
+- Handlung: {{ idea_elements.plot }}
+  * Über mehrere Zeitlinien oder Blickwinkel fragmentieren
+  * Verschiedene Aspekte durch jede Vignette enthüllen
+
+- Themen: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+ENTSCHEIDEND FÜR MOSAIKSTRUKTUR:
+- Jede Vignette muss für sich allein fesselnd sein
+- Das Muster muss allmählich entstehen, nicht erzwungen werden
+- Leser sollten Entdeckung erleben, nicht Verwirrung
+- Das vollständige Bild muss die Reise wert sein
+- Einige Verbindungen sollten subtil sein und Leserbeteiligung erfordern

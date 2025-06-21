@@ -1,0 +1,100 @@
+{# Kishōtenketsu (Vier-Akt) Handlungsskizze Vorlage - Deutsch #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Erstelle eine fesselnde Handlungsskizze für eine {{ tone }} {{ genre }}-Erzählung nach der Kishōtenketsu (起承転結) Struktur.
+{% if initial_idea %}Diese Geschichte soll auf dieser ursprünglichen Idee basieren: '{{ initial_idea }}'{% endif %}
+
+Strukturiere deine Skizze nach dem vierteiligen Kishōtenketsu-Format:
+
+## KI (起) - EINFÜHRUNG (25% der Geschichte)
+**Zweck:** Figuren, Schauplatz und Situation ohne Konflikt einführen
+
+1. **Eröffnungsszene** - Die alltägliche Welt und Atmosphäre etablieren
+2. **Figurenvorstellung** - Protagonisten in ihrem natürlichen Zustand präsentieren
+3. **Weltdetails** - Reiche sensorische Details des Schauplatzes
+4. **Tägliche Rhythmen** - Die Muster und Routinen des Lebens
+5. **Beziehungen** - Wie Figuren zueinander und zu ihrer Welt stehen
+6. **Subtile Spannungen** - Andeutungen von Unbehagen oder Fragen, keine Konflikte
+
+## SHŌ (承) - ENTWICKLUNG (25% der Geschichte)
+**Zweck:** Verständnis vertiefen und die Situation entwickeln
+
+7. **Erweiterte Sicht** - Den Umfang der Welt/Situation erweitern
+8. **Figurentiefe** - Mehr über Motivationen und Wünsche enthüllen
+9. **Parallele Elemente** - Scheinbar unverbundene Fäden einführen
+10. **Atmosphäre aufbauen** - Stimmung intensivieren ohne direkten Konflikt
+11. **Fragen entstehen** - Natürliche Neugier, wohin die Dinge führen
+12. **Verbindungen entstehen** - Subtile Verknüpfungen zwischen Elementen
+
+## TEN (転) - WENDUNG (25% der Geschichte)
+**Zweck:** Unerwartete Perspektive einführen, die alles neu kontextualisiert
+
+13. **Die Enthüllung** - Eine Entdeckung, Ankunft oder Ereignis, das die Perspektive ändert
+14. **Neues Verständnis** - Wie diese Wendung frühere Ereignisse neu rahmt
+15. **Verschobene Dynamiken** - Beziehungen und Situationen anders gesehen
+16. **Emotionale Wirkung** - Figuren verarbeiten diese neue Realität
+17. **Welleneffekte** - Wie die Wendung alle Geschichtselemente beeinflusst
+18. **Integration** - Figuren passen sich dem neuen Verständnis an
+
+## KETSU (結) - SCHLUSS (25% der Geschichte)
+**Zweck:** Alle Elemente in harmonischer Auflösung zusammenbringen
+
+19. **Synthese** - Alle Fäden verweben sich natürlich
+20. **Neues Gleichgewicht** - Ein veränderter, aber stabiler Zustand
+21. **Reflexion** - Das Verständnis der Figuren von ihrer Reise
+22. **Zirkuläre Elemente** - Echos des Anfangs, transformiert
+23. **Verbleibende Fragen** - Was schön ungelöst bleibt
+24. **Schlussbild** - Ein Moment, der die Essenz der Geschichte einfängt
+
+Gib für jeden Abschnitt spezifische Details an, die:
+- Natürlich aus der ursprünglichen Idee entstehen, ohne Konflikt zu erzwingen
+- Figuren durch Beobachtung und Einsicht entwickeln
+- Den Schauplatz als aktives Geschichtselement nutzen
+- Engagement durch Neugier statt Spannung erzeugen
+
+Wichtig: Die "Wendung" (ten) ist KEIN Konflikt oder Problem, sondern eine neue Perspektive, die uns alles anders sehen lässt - wie die Entdeckung, dass ein Freund eigentlich ein lange verlorenes Geschwister ist, oder die Erkenntnis, dass der verlassene Garten einmal ein Schrein war.
+
+Füge außerdem hinzu:
+- Titel: [Ein poetischer Titel, der die Essenz der Geschichte einfängt]
+- Hauptfiguren: 3-4 Figuren mit Innenleben und Verbindungen
+- Zentrale Frage: Was die Geschichte erforscht (kein Konflikt)
+- Schauplatz: Ein reicher, atmosphärischer Ort, der zur Geschichte gehört
+- Themen: Philosophische oder emotionale Ideen, die untersucht werden
+- Stimmung: Wie die {{ tone }}-Qualität Atmosphäre schafft
+
+{% if idea_elements %}
+WICHTIGE ELEMENTE ZUM EINBAUEN:
+- Schauplatz: {{ idea_elements.setting }}
+  * Den Schauplatz fast zu einer Figur machen
+  * Seine Details nutzen, um Atmosphäre und Bedeutung zu schaffen
+
+- Figuren: {{ idea_elements.characters | join(', ') }}
+  * Auf ihr Innenleben und ihre Beziehungen fokussieren
+  * Vermeiden, sie in Konflikte zu zwingen
+
+- Situation: {{ idea_elements.plot }}
+  * Als zu erforschende Situation statt als zu lösenden Konflikt umrahmen
+  * Die philosophische Frage darin finden
+
+- Themen: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+DENKE DARAN: Kishōtenketsu erzeugt Engagement durch:
+- Reiche Atmosphäre und Details
+- Figurentiefe und Beziehungen
+- Unerwartete Perspektiven, die Bedeutung vertiefen
+- Harmonie statt Konfliktlösung

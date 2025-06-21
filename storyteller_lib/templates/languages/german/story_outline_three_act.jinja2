@@ -1,0 +1,92 @@
+{# Three-Act Structure story outline template - German #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Erstelle eine fesselnde Handlungsskizze für eine {{ tone }} {{ genre }}-Erzählung nach der Drei-Akt-Struktur.
+{% if initial_idea %}Diese Geschichte soll auf dieser ursprünglichen Idee basieren: '{{ initial_idea }}'{% endif %}
+
+Strukturiere deine Skizze nach dem Drei-Akt-Format:
+
+## AKT 1: EXPOSITION (25% der Geschichte)
+**Zweck:** Die Welt etablieren, Figuren einführen und den auslösenden Vorfall präsentieren
+
+1. **Eröffnungsbild/Hook** - Der Ausgangspunkt der Geschichte, der Aufmerksamkeit erregt
+2. **Figurenvorstellung** - Protagonist in seiner normalen Welt einführen
+3. **Weltenbau** - Schauplatz, Regeln und Ton etablieren
+4. **Auslösender Vorfall** - Das Ereignis, das den Status quo stört
+5. **Debatte/Widerstand** - Die Reaktion des Protagonisten auf den Ruf
+6. **Wendepunkt 1** - Die Entscheidung/das Ereignis, das Akt 2 einleitet
+
+## AKT 2: KONFRONTATION (50% der Geschichte)
+**Zweck:** Konflikt entwickeln, Einsätze erhöhen und den Protagonisten testen
+
+### Erste Hälfte (Spaß und Spiele)
+7. **Neue Welt** - Protagonist betritt unbekanntes Terrain
+8. **Prüfungen und Herausforderungen** - Erste Hindernisse
+9. **Verbündete und Feinde** - Wichtige Beziehungen entstehen
+10. **Kleine Siege** - Frühe Erfolge, die Vertrauen aufbauen
+
+### Mittelpunkt
+11. **Große Enthüllung oder Umkehrung** - Spielveränderndes Ereignis in der Mitte der Geschichte
+
+### Zweite Hälfte (Einsätze eskalieren)
+12. **Komplikationen häufen sich** - Die Dinge werden schlimmer
+13. **Innerer Konflikt** - Protagonist zweifelt an sich selbst
+14. **Alles ist verloren** - Der dunkelste Moment
+15. **Wendepunkt 2** - Entdeckung/Entscheidung, die den Höhepunkt ermöglicht
+
+## AKT 3: AUFLÖSUNG (25% der Geschichte)
+**Zweck:** Höhepunkt, Auflösung und neues Gleichgewicht
+
+16. **Letzte Vorbereitung** - Ressourcen/Entschlossenheit für finale Konfrontation sammeln
+17. **Höhepunkt** - Die ultimative Konfrontation/Herausforderung
+18. **Auflösung** - Unmittelbare Folgen des Höhepunkts
+19. **Nachspiel** - Lose Enden verknüpfen
+20. **Schlussbild** - Spiegelung/Kontrast zur Eröffnung, zeigt Veränderung
+
+Gib für jeden Abschnitt spezifische Details darüber an, was passiert, und stelle sicher, dass es:
+- Die zentrale Handlung aus der ursprünglichen Idee vorantreibt
+- Die angegebenen Figuren mit klaren Entwicklungsbögen entwickelt
+- Den Schauplatz voll ausnutzt
+- Ein angemessenes Tempo für eine {{ genre }}-Geschichte beibehält
+
+Füge außerdem hinzu:
+- Titel: [Ein fesselnder Titel, der den Kern der Geschichte widerspiegelt]
+- Hauptfiguren: 3-5 Figuren mit Rollen und Motivationen
+- Zentraler Konflikt: Die primäre dramatische Frage
+- Schauplatz: Zeit und Ort mit atmosphärischen Details
+- Themen: Kernideen, die durch die Erzählung erforscht werden
+- Ton: Wie sich die {{ tone }}-Qualität durchzieht
+
+{% if idea_elements %}
+WICHTIGE ELEMENTE ZUM EINBAUEN:
+- Schauplatz: {{ idea_elements.setting }}
+  * Als Hauptort verwenden, durch alle drei Akte hindurch verweben
+
+- Figuren: {{ idea_elements.characters | join(', ') }}
+  * Stelle sicher, dass jede eine klare Rolle im Drei-Akt-Verlauf hat
+
+- Handlung: {{ idea_elements.plot }}
+  * Dies sollte den zentralen Konflikt über alle Akte hinweg antreiben
+
+- Themen: {{ idea_elements.themes | join(', ') }}
+- Genre-Elemente: {{ idea_elements.genre_elements | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+WICHTIG: Die Drei-Akt-Struktur sollte einen befriedigenden dramatischen Bogen schaffen mit:
+- Klarer Exposition, die alle Geschichtselemente etabliert
+- Eskalierendem Konflikt, der Figuren testet
+- Befriedigender Auflösung, die alle Setups auszahlt

@@ -1,0 +1,99 @@
+{# In Medias Res Handlungsskizze Vorlage - Deutsch #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Erstelle eine fesselnde Handlungsskizze für eine {{ tone }} {{ genre }}-Erzählung mit der In-medias-res-Struktur.
+{% if initial_idea %}Diese Geschichte soll auf dieser ursprünglichen Idee basieren: '{{ initial_idea }}'{% endif %}
+
+Strukturiere deine Skizze so, dass sie mitten in der Handlung beginnt:
+
+## ERÖFFNUNGSSEQUENZ (10% der Geschichte)
+**Zweck:** Leser mit unmittelbarer Hochspannungs-Action fesseln
+
+1. **Kalter Einstieg** - Beginne in einem entscheidenden Moment der Gefahr/Spannung
+2. **Unmittelbare Einsätze** - Was steht gerade auf dem Spiel
+3. **Figur unter Druck** - Protagonist in Aktion, enthüllt Charakter
+4. **Cliffhanger-Pause** - Lass die Handlung ungelöst
+
+## RÜCKBLENDE: WIE WIR HIERHER KAMEN (30% der Geschichte)
+**Zweck:** Kontext liefern und dabei erzählerischen Schwung beibehalten
+
+5. **Zeitsprungmarkierung** - Klarer Übergang in die Vergangenheit
+6. **Ursprünglicher Status Quo** - Wo der Protagonist begann
+7. **Samen des Konflikts** - Frühe Anzeichen von Problemen
+8. **Eskalierende Ereignisse** - Die Ereigniskette zur Eröffnung
+9. **Schlüsselbeziehungen** - Wichtige Menschen und ihre Rollen
+10. **Kritische Entscheidung** - Die Wahl, die alles in Bewegung setzte
+11. **Beschleunigende Gefahr** - Ereignisse spiralen zur Eröffnungsszene
+
+## RÜCKKEHR ZUR GEGENWÄRTIGEN HANDLUNG (40% der Geschichte)
+**Zweck:** Von der Eröffnungsszene fortfahren und eskalieren
+
+12. **Eröffnungsszene fortsetzen** - Dort weitermachen, wo wir aufgehört haben
+13. **Unmittelbare Auflösung** - Der Eröffnungskrise entkommen oder überleben
+14. **Größere Bedrohung enthüllt** - Das wahre Ausmaß der Gefahr
+15. **Neue Hindernisse** - Frische Herausforderungen basierend auf unserem Wissen
+16. **Verbündete und Ressourcen** - Wer/was dem Protagonisten hilft
+17. **Steigende Handlung** - Mehrere eskalierende Konfrontationen
+18. **Verheerender Rückschlag** - Alles scheint verloren
+19. **Letztes Wagnis** - Der letzte verzweifelte Plan
+
+## HÖHEPUNKT UND AUFLÖSUNG (20% der Geschichte)
+**Zweck:** Alle Setups mit befriedigender Schlussfolgerung auszahlen
+
+20. **Ultimative Konfrontation** - Sich der Kernbedrohung/dem Antagonisten stellen
+21. **Nutzung des Wissens** - Lektionen aus der Rückblende anwenden
+22. **Moment der Wahrheit** - Ultimativer Test der Figur
+23. **Auflösung** - Wie der zentrale Konflikt endet
+24. **Neue Normalität** - Die veränderte Welt/Figur
+25. **Finale Reflexion** - Die volle Reise verstehen
+
+Stelle für jeden Abschnitt sicher, dass:
+- Die Eröffnung sofort Aufmerksamkeit erregt
+- Rückblenden Informationen strategisch enthüllen
+- Gegenwärtige Handlung auf vergangenen Enthüllungen aufbaut
+- Das Tempo thriller-artigen Schwung beibehält
+
+Füge außerdem hinzu:
+- Titel: [Ein packender Titel, der auf die Action hindeutet]
+- Hauptfiguren: 3-5 Figuren, durch Handlung enthüllt
+- Zentraler Konflikt: Die treibende Kraft, die Dringlichkeit schafft
+- Schauplatz: Lebendige Orte, die die Action verstärken
+- Themen: Ideen, die durch die nicht-lineare Struktur erforscht werden
+- Ton: Wie die {{ tone }}-Atmosphäre die Spannung verstärkt
+
+{% if idea_elements %}
+WICHTIGE ELEMENTE ZUM EINBAUEN:
+- Schauplatz: {{ idea_elements.setting }}
+  * In beiden Zeitrahmen dynamisch nutzen
+  * Ort entscheidend für Actionsequenzen machen
+
+- Figuren: {{ idea_elements.characters | join(', ') }}
+  * Durch Handlungen und Entscheidungen enthüllen
+  * Zeigen, wie Vergangenheit gegenwärtige Entscheidungen prägt
+
+- Handlung: {{ idea_elements.plot }}
+  * Zwischen Rückblenden-Motivation und gegenwärtiger Action aufteilen
+  * Zeitstruktur nutzen, um Drama zu verstärken
+
+- Themen: {{ idea_elements.themes | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+ENTSCHEIDEND: Die In-medias-res-Struktur erfordert:
+- Eine Eröffnungsszene, die so fesselnd ist, dass Leser wissen müssen, was passiert
+- Rückblenden, die die Geschichte bereichern statt verlangsamen
+- Klare Zeitübergänge, um Verwirrung zu vermeiden
+- Eine Auflösung, die den nicht-linearen Ansatz rechtfertigt
