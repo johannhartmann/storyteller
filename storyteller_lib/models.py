@@ -108,6 +108,12 @@ def merge_scenes(existing: SceneStateDict, new: SceneStateDict) -> SceneStateDic
                         result_scene["reflection_notes"] = result_scene["reflection_notes"] + scene_data["reflection_notes"]
                     else:
                         result_scene["reflection_notes"] = scene_data["reflection_notes"]
+            
+            # CRITICAL: Merge the db_stored and written flags
+            if "db_stored" in scene_data:
+                result_scene["db_stored"] = scene_data["db_stored"]
+            if "written" in scene_data:
+                result_scene["written"] = scene_data["written"]
                         
             result[scene_id] = result_scene
         else:
