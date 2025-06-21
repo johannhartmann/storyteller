@@ -33,12 +33,21 @@ Themen: {{ chapter_themes|join(', ') }}
 SZENENZWECK:
 - Typ: {{ scene_type }}-Szene
 - Dramatischer Zweck: {{ dramatic_purpose }}
-- Kernereignis: {{ scene_description }}
 - Spannungslevel: Aufbau auf {{ tension_level }}/10
 - Ende: {{ ends_with }}
 
+WICHTIGE SZENENGRENZEN:
+Diese Szene MUSS sich NUR auf die unten beschriebenen Ereignisse konzentrieren. Die nächste Szene wird die nachfolgenden Ereignisse behandeln. Nehmen Sie keine Ereignisse aus zukünftigen Szenen vorweg.
+
+============ PRIMÄRER FOKUS ============
+WAS IN DIESER SZENE GESCHEHEN MUSS:
+{{ scene_description }}
+
+Dies ist der KERNINHALT, der geschrieben werden muss. Alles andere bietet Kontext und Anleitung dafür, WIE es geschrieben werden soll.
+========================================
+
 {% if plot_progressions %}
-HANDLUNGSANFORDERUNGEN:
+HANDLUNGSKONTEXT ZU BERÜCKSICHTIGEN:
 {% for prog in plot_progressions %}
 - {{ prog.description }}{% if prog.already_occurred %} [Bereits geschehen - nur erwähnen]{% endif %}
 {% endfor %}
@@ -98,11 +107,16 @@ VERMEIDEN:
 {% endif %}
 
 Erstelle basierend auf diesem gesamten Kontext spezifische Anweisungen für das Schreiben dieser Szene, die:
-1. Klar angeben, was passieren muss und warum
-2. Erklären, wie sich Charaktere basierend auf ihrem aktuellen Zustand verhalten sollten
-3. Die emotionale Reise und den Spannungsbogen beschreiben
-4. Schlüsselmomente spezifizieren, die auftreten müssen
-5. Klären, wie die Verbindung zu vorherigen/nächsten Szenen hergestellt wird
-6. Hervorheben, was diese Szene einzigartig und notwendig macht
 
-Formatiere als klare, umsetzbare Anweisungen, die sich auf DIESE SPEZIFISCHE SZENE konzentrieren, nicht auf generische Schreibratschläge.
+WICHTIGSTE PRIORITÄT: Die Szene MUSS den Inhalt liefern, der in "WAS IN DIESER SZENE GESCHEHEN MUSS" oben beschrieben ist. Das ist das primäre Ziel.
+
+Die Anweisungen sollten:
+1. Sich ZUERST darauf konzentrieren, wie die Szenenbeschreibung effektiv umgesetzt wird
+2. Erklären, wie sich Charaktere basierend auf ihrem aktuellen Zustand verhalten sollten, um die Szene zu unterstützen
+3. Die emotionale Reise und den Spannungsbogen beschreiben, der die Hauptereignisse unterstützt
+4. Schlüsselmomente aus der Szenenbeschreibung spezifizieren, die auftreten müssen
+5. Klären, wie die Verbindung zu vorherigen/nächsten Szenen hergestellt wird, während der Fokus auf dem Inhalt dieser Szene bleibt
+6. Hervorheben, was diese Szene einzigartig und notwendig für die Geschichte macht
+7. Die genauen Grenzen definieren - wo diese Szene beginnt und wo sie enden muss
+
+Formatiere als klare, umsetzbare Anweisungen, die sich auf DEN INHALT DIESER SPEZIFISCHEN SZENE konzentrieren. Alle anderen Elemente (Handlungsstränge, Charakterzustände usw.) sollten die primäre Szenenbeschreibung unterstützen, nicht überschatten.
