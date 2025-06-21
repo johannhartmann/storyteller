@@ -7,7 +7,7 @@ from typing import Dict
 from langchain_core.messages import HumanMessage
 
 from storyteller_lib import track_progress
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE
 from storyteller_lib.models import StoryState
 from storyteller_lib.database_integration import get_db_manager
 from storyteller_lib.logger import scene_logger as logger
@@ -46,14 +46,14 @@ def write_scene_simplified(state: StoryState) -> Dict:
     
     # Get language from database
     db_manager = get_db_manager()
-    language = "english"
+    language = DEFAULT_LANGUAGE
     if db_manager:
         with db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT language FROM story_config WHERE id = 1")
             result = cursor.fetchone()
             if result:
-                language = result['language'] or 'english'
+                language = result['language'] or DEFAULT_LANGUAGE
     
     # Use new intelligent scene writing template
     from storyteller_lib.prompt_templates import render_prompt

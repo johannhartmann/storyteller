@@ -6,7 +6,7 @@ Creates concise summaries to track "what happened until now" in the story.
 from typing import Optional
 from langchain_core.messages import HumanMessage
 
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE
 from storyteller_lib.database_integration import get_db_manager
 from storyteller_lib.logger import get_logger
 from storyteller_lib.prompt_templates import render_prompt
@@ -18,7 +18,7 @@ def generate_scene_summary(
     chapter: int,
     scene: int,
     scene_content: str,
-    language: str = "english"
+    language: str = DEFAULT_LANGUAGE
 ) -> str:
     """
     Generate a concise summary of a scene.
@@ -70,7 +70,7 @@ def generate_scene_summary(
 
 def generate_chapter_summary(
     chapter: int,
-    language: str = "english"
+    language: str = DEFAULT_LANGUAGE
 ) -> str:
     """
     Generate a concise summary of a complete chapter.

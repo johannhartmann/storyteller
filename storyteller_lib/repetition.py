@@ -7,10 +7,10 @@ and character traits, addressing issues with redundancy in the narrative.
 
 from typing import Dict, List, Any, Optional
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE
 from storyteller_lib.models import StoryState
 
-def detect_repetition(text: str, language: str = "english") -> Dict[str, Any]:
+def detect_repetition(text: str, language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:
     """
     Detect repetitive phrases, descriptions, and themes in text.
     
@@ -98,7 +98,7 @@ def detect_repetition(text: str, language: str = "english") -> Dict[str, Any]:
             "recommendations": ["Error detecting repetition"]
         }
 
-def reduce_repetition(text: str, repetition_analysis: Dict[str, Any], language: str = "english") -> str:
+def reduce_repetition(text: str, repetition_analysis: Dict[str, Any], language: str = DEFAULT_LANGUAGE) -> str:
     """
     Reduce repetition in text based on analysis.
     

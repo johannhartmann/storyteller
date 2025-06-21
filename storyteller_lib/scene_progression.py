@@ -8,6 +8,7 @@ from typing import Dict, List, Set, Any, Optional
 from datetime import datetime
 from storyteller_lib.logger import get_logger
 from storyteller_lib.database_integration import get_db_manager
+from storyteller_lib.config import DEFAULT_LANGUAGE
 
 logger = get_logger(__name__)
 
@@ -388,7 +389,7 @@ class SceneProgressionTracker:
                 'total_scenes': sum(scene_types.values())
             }
     
-    def extract_phrases_from_content(self, content: str, language: str = "english") -> Dict[str, List[str]]:
+    def extract_phrases_from_content(self, content: str, language: str = DEFAULT_LANGUAGE) -> Dict[str, List[str]]:
         """Extract notable phrases from scene content for tracking using LLM.
         
         Args:

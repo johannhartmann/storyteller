@@ -8,7 +8,7 @@ throughout the story generation process, using LangGraph state management.
 from typing import Dict, List, Any, Optional
 import json
 from langchain_core.messages import HumanMessage
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE
 from storyteller_lib.models import StoryState
 
 # Plot thread status options
@@ -182,7 +182,7 @@ class PlotThreadRegistry:
         return registry
 
 
-def identify_plot_threads_in_scene(scene_content: str, chapter_num: str, scene_num: str, characters: Dict[str, Any], language: str = "english") -> List[Dict[str, Any]]:
+def identify_plot_threads_in_scene(scene_content: str, chapter_num: str, scene_num: str, characters: Dict[str, Any], language: str = DEFAULT_LANGUAGE) -> List[Dict[str, Any]]:
     """
     Identify plot threads introduced or developed in a scene.
     
@@ -303,7 +303,7 @@ def update_plot_threads(state: StoryState) -> Dict[str, Any]:
             raise RuntimeError(f"Scene {current_scene} of chapter {current_chapter} not found")
     
     # Get language from state
-    language = state.get("language", "english")
+    language = state.get("language", DEFAULT_LANGUAGE)
     
     # Identify plot threads in the scene
     thread_updates = identify_plot_threads_in_scene(scene_content, current_chapter, current_scene, characters, language)
