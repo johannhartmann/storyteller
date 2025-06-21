@@ -873,29 +873,38 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
     # Calculate the next scene or chapter
     next_scene = str(int(current_scene) + 1)
     
-    # Check if the next scene exists in the current chapter
-    if next_scene in chapter["scenes"]:
+    # Check if there are more unwritten scenes in the current chapter
+    unwritten_scenes = []
+    for scene_num, scene_data in chapter["scenes"].items():
+        if not scene_data.get("db_stored", False):
+            unwritten_scenes.append(int(scene_num))
+    
+    if unwritten_scenes:
+        # Find the next unwritten scene
+        unwritten_scenes.sort()
+        next_unwritten = str(unwritten_scenes[0])
+        
         # Generate progress report after scene completion
         progress_report = generate_scene_progress_report(state, current_chapter, current_scene)
         
         # Get cleanup updates for scene transition
         cleanup_updates = cleanup_old_state(state, current_chapter, current_scene)
         
-        # Move to the next scene in the same chapter
+        # Move to the next unwritten scene in the same chapter
         return {
-            "current_scene": next_scene,
+            "current_scene": next_unwritten,
             "current_scene_content": None,  # Clear previous scene content
             "continuity_phase": "complete",  # Reset continuity phase
             # Include cleanup updates
             **cleanup_updates,
             # Add memory tracking
             "memory_usage": {
-                f"scene_transition_{current_chapter}_{current_scene}_to_{next_scene}": log_memory_usage(f"Scene transition {current_scene} to {next_scene}")
+                f"scene_transition_{current_chapter}_{current_scene}_to_{next_unwritten}": log_memory_usage(f"Scene transition {current_scene} to {next_unwritten}")
             },
             "messages": [
                 *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
                 AIMessage(content=progress_report),
-                AIMessage(content=f"Moving on to write scene {next_scene} of chapter {current_chapter}.")
+                AIMessage(content=f"Moving on to write scene {next_unwritten} of chapter {current_chapter}.")
             ]
         }
     else:
