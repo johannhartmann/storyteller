@@ -26,7 +26,14 @@ def revise_scene_simplified(state: StoryState) -> Dict:
     
     # Check if revision is needed
     scene_reflection = state.get("scene_reflection", {})
-    if not scene_reflection.get("needs_revision", False):
+    needs_revision_flag = state.get("needs_revision", False)
+    
+    logger.info(f"Chapter {current_chapter}, Scene {current_scene} - Revision check: "
+                f"needs_revision={needs_revision_flag}, "
+                f"scene_reflection.needs_revision={scene_reflection.get('needs_revision', False)}")
+    
+    # Check both the top-level flag and the scene_reflection flag
+    if not needs_revision_flag and not scene_reflection.get("needs_revision", False):
         logger.info(f"Chapter {current_chapter}, Scene {current_scene} - No revision needed")
         return {}
     
@@ -90,10 +97,10 @@ def revise_scene_simplified(state: StoryState) -> Dict:
     chapters[str(current_chapter)]["scenes"][str(current_scene)]["revised"] = True
     
     # Clear reflection data to prevent re-revision
-    if "scene_reflection" in state:
-        state["scene_reflection"]["needs_revision"] = False
-    
+    # We need to clear the needs_revision flag at the top level
+    # because that's what the graph condition checks
     return {
         "current_scene_content": revised_content,
-        "chapters": chapters
+        "chapters": chapters,
+        "needs_revision": False  # Clear the flag that the graph checks
     }

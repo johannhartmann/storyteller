@@ -39,8 +39,18 @@ logger = get_logger(__name__)
 
 def needs_revision(state: StoryState) -> str:
     """Check if scene needs revision based on reflection."""
-    if state.get("needs_revision", False):
+    revision_needed = state.get("needs_revision", False)
+    current_chapter = state.get("current_chapter", "")
+    current_scene = state.get("current_scene", "")
+    
+    logger.debug(f"needs_revision condition check for Ch:{current_chapter}/Sc:{current_scene} - "
+                 f"needs_revision={revision_needed}")
+    
+    if revision_needed:
+        logger.info(f"Scene Ch:{current_chapter}/Sc:{current_scene} needs revision - routing to revise_scene_if_needed")
         return "revise"
+    
+    logger.debug(f"Scene Ch:{current_chapter}/Sc:{current_scene} does not need revision - continuing")
     return "continue"
 
 
