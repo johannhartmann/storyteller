@@ -662,7 +662,8 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                         # Check if this is a newly completed chapter
                         # If the current chapter is different from the completed chapter, it means we've moved on
                         # from a completed chapter, so we should write it to the output file
-                        if int(ch_num) < int(current_chapter):
+                        # Only check if current_chapter is actually set (not empty string)
+                        if current_chapter and current_chapter.strip() and int(ch_num) < int(current_chapter):
                             # Check if this chapter has been written to the file already
                             chapter_written_key = f"chapter_{ch_num}_written"
                             if not state.get(chapter_written_key, False):
