@@ -213,7 +213,7 @@ def initialize_state(state: StoryState) -> Dict:
         # Render the structure selection prompt
         structure_prompt = render_prompt(
             'narrative_structure_selection',
-            language="english",  # Always analyze in English for consistency
+            language=language,  # Use the story's target language
             genre=genre,
             tone=tone,
             story_language=language,  # Language the story will be written in
