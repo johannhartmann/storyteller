@@ -873,33 +873,11 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
     # Calculate the next scene or chapter
     next_scene = str(int(current_scene) + 1)
     
-    # Check database for actual written scenes to ensure state is accurate
-    from storyteller_lib.database_integration import get_db_manager
-    db_manager = get_db_manager()
-    written_scenes = set()
-    if db_manager:
-        with db_manager._db._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT s.scene_number 
-                FROM scenes s 
-                JOIN chapters c ON s.chapter_id = c.id 
-                WHERE c.chapter_number = ? AND s.content IS NOT NULL
-            """, (int(current_chapter),))
-            written_scenes = {str(row['scene_number']) for row in cursor.fetchall()}
-    
-    # Log current state for debugging
-    logger.info(f"Checking advancement from Chapter {current_chapter}, Scene {current_scene}")
-    logger.info(f"Written scenes in database for Chapter {current_chapter}: {sorted(written_scenes)}")
-    logger.info(f"Planned scenes in state: {sorted(chapter['scenes'].keys())}")
-    
     # Check if there are more unwritten scenes in the current chapter
     unwritten_scenes = []
     for scene_num, scene_data in chapter["scenes"].items():
-        # Check both state and database
-        if scene_num not in written_scenes and not scene_data.get("db_stored", False):
+        if not scene_data.get("db_stored", False):
             unwritten_scenes.append(int(scene_num))
-            logger.info(f"Scene {scene_num} is unwritten (not in DB: {scene_num not in written_scenes}, db_stored: {scene_data.get('db_stored', False)})")
     
     if unwritten_scenes:
         # Find the next unwritten scene
