@@ -687,6 +687,13 @@ Emotional Tone: {style_analysis.emotional_tone}
         db_manager.update_global_story(story_outline)
         logger.info("Story outline stored in database successfully")
         
+        # Also save the title explicitly to the database
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE story_config SET title = ? WHERE id = 1", (outline_flat.title,))
+            conn.commit()
+        logger.info(f"Story title '{outline_flat.title}' saved to database")
+        
         # Store book-level instructions in the database
         db_manager.update_book_level_instructions(book_instructions)
         logger.info("Book-level instructions stored in database")
