@@ -27,7 +27,8 @@ def generate_story_simplified(
     story_length: str = "auto",
     target_chapters: Optional[int] = None,
     target_words_per_scene: Optional[int] = None,
-    target_pages: Optional[int] = None
+    target_pages: Optional[int] = None,
+    recursion_limit: int = 200
 ) -> Tuple[str, StoryState]:
     """
     Generate a story using the simplified workflow.
@@ -45,6 +46,7 @@ def generate_story_simplified(
         target_chapters: Override number of chapters (None = auto-determine) - deprecated, use target_pages
         target_words_per_scene: Override words per scene (None = auto-determine) - deprecated, use target_pages
         target_pages: Target number of pages for the story (None = auto-determine based on complexity)
+        recursion_limit: Maximum recursion depth for the LangGraph workflow (default: 200)
         
     Returns:
         Tuple of (compiled story markdown, final state)
@@ -105,7 +107,7 @@ def generate_story_simplified(
     
     # Configure with recursion limit
     config = {
-        "recursion_limit": 2000,  # Increased to handle stories with many chapters
+        "recursion_limit": recursion_limit,  # Use the provided recursion limit
         "configurable": {
             "thread_id": f"story_{genre}_{tone}_{int(time.time())}"
         }

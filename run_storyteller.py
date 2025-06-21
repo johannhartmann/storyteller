@@ -847,7 +847,8 @@ def main() -> None:
                     language=args.language,
                     progress_log_path=args.progress_log,
                     narrative_structure=args.structure,
-                    target_pages=args.pages
+                    target_pages=args.pages,
+                    recursion_limit=args.recursion_limit
                 )
             
             # Show completion message
