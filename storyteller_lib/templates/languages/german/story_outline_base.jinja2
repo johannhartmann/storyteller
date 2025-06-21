@@ -1,0 +1,57 @@
+{# Basis-Vorlage für alle Handlungsskizzen - geteilte Komponenten #}
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+Erstelle eine fesselnde Handlungsskizze für eine {{ tone }} {{ genre }}-Erzählung.
+{% if initial_idea %}Diese Geschichte soll auf dieser ursprünglichen Idee basieren: '{{ initial_idea }}'{% endif %}
+
+Deine Skizze sollte beinhalten:
+- Titel: [Ein fesselnder Titel für die Geschichte, der die ursprüngliche Idee widerspiegelt]
+- {{ character_count | default("3-5") }} Hauptfiguren mit kurzen Beschreibungen (einschließlich der in der ursprünglichen Idee genannten)
+- Ein zentraler Konflikt oder eine Herausforderung (ausgerichtet auf die Handlung aus der ursprünglichen Idee)
+- Die Welt/der Schauplatz der Geschichte (konsistent mit dem Schauplatz aus der ursprünglichen Idee)
+- Wichtige Themen oder Botschaften (sollte die aus der ursprünglichen Idee einschließen)
+
+Formatiere deine Antwort als strukturierte Skizze mit klaren Abschnitten.
+
+{% if language_instruction %}
+{{ language_instruction }}
+{% endif %}
+
+{% if idea_elements %}
+WICHTIGE ELEMENTE ZUM EINBAUEN:
+- Schauplatz: {{ idea_elements.setting }}
+  * Dieser Schauplatz sollte der Hauptort der Geschichte sein
+  * Stelle sicher, dass der Schauplatz gut in die Erzählung integriert ist
+
+- Figuren: {{ idea_elements.characters | join(', ') }}
+  * Diese Figuren sollten zentral für die Geschichte sein
+  * Behalte ihre wesentliche Natur und Rollen wie beschrieben bei
+
+- Handlung: {{ idea_elements.plot }}
+  * Diese Handlung sollte der zentrale Konflikt sein
+  * Stelle sicher, dass sich die Geschichte um diesen Kernkonflikt dreht
+
+- Themen: {{ idea_elements.themes | join(', ') }}
+- Genre-Elemente: {{ idea_elements.genre_elements | join(', ') }}
+{% endif %}
+
+{% if creative_guidance %}
+{{ creative_guidance }}
+{% endif %}
+
+{% if style_guidance %}
+{{ style_guidance }}
+{% endif %}
+
+{% if language_guidance %}
+{{ language_guidance }}
+{% endif %}
+
+ÜBERPRÜFUNGSSCHRITT: Nach Fertigstellung der Skizze überprüfe, dass:
+1. Die Erzählstruktur klar umgesetzt ist
+2. Der Schauplatz aus der ursprünglichen Idee gut integriert ist
+3. Die Figuren aus der ursprünglichen Idee mit angemessenen Rollen enthalten sind
+4. Die Handlung/der Konflikt aus der ursprünglichen Idee zentral für die Geschichte ist
+5. Die Schlüsselelemente aus der ursprünglichen Idee bewahrt und entwickelt werden
