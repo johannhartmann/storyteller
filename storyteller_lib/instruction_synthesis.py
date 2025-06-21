@@ -6,7 +6,7 @@ Uses LLM to create coherent, structured instructions instead of string concatena
 from typing import Dict, Optional
 from langchain_core.messages import HumanMessage
 
-from storyteller_lib.config import llm
+from storyteller_lib.config import llm, DEFAULT_LANGUAGE
 from storyteller_lib.models import StoryState
 from storyteller_lib.database_integration import get_db_manager
 from storyteller_lib.logger import get_logger
@@ -44,7 +44,7 @@ def generate_book_level_instructions(state: StoryState) -> str:
     genre = config['genre'] or 'fantasy'
     tone = config['tone'] or 'adventurous'
     author = config['author'] or ''
-    language = config['language'] or 'english'
+    language = config['language'] or DEFAULT_LANGUAGE
     initial_idea = config['initial_idea'] or ''
     
     # Get author style guidance from state

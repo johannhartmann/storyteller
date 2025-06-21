@@ -47,7 +47,7 @@ class AuthorStyleAnalysis(BaseModel):
     emotional_tone: str = Field(description="The emotional tone and atmosphere the author typically creates")
 
 
-def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str, initial_idea: str, language: str = "english") -> Dict[str, Dict]:
+def generate_plot_threads_from_outline(story_outline: str, genre: str, tone: str, initial_idea: str, language: str = DEFAULT_LANGUAGE) -> Dict[str, Dict]:
     """Generate initial plot threads from the story outline."""
     # Use template system
     from storyteller_lib.prompt_templates import render_prompt
