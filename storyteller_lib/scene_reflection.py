@@ -81,6 +81,12 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     logger.info(f"Reflection complete - Quality: {reflection.overall_quality}/10, "
                 f"Needs revision: {reflection.needs_revision}")
     
+    if reflection.needs_revision:
+        logger.info(f"Revision needed due to: {', '.join(reflection.critical_issues[:3])}")
+        logger.debug(f"Full reflection: advances_plot={reflection.advances_plot}, "
+                     f"character_consistency={reflection.character_consistency}, "
+                     f"engaging_prose={reflection.engaging_prose}")
+    
     # Store reflection in state (minimal data)
     reflection_data = {
         'quality': reflection.overall_quality,
