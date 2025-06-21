@@ -28,9 +28,8 @@ class StoryProgressLogger:
             log_dir = os.path.expanduser("~/.storyteller/logs")
             os.makedirs(log_dir, exist_ok=True)
             
-            # Create timestamped log file
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.log_file_path = os.path.join(log_dir, f"story_progress_{timestamp}.log")
+            # Use a single log file that gets overwritten each run
+            self.log_file_path = os.path.join(log_dir, "story_progress.log")
         else:
             self.log_file_path = log_file_path
             os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
