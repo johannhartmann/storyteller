@@ -79,7 +79,10 @@ def generate_story_simplified(
         "book_level_instructions": "",
         "author_style_guidance": "",
         "completed": False,
-        "last_node": ""
+        "last_node": "",
+        "manuscript_review_completed": False,
+        "manuscript_review_results": {},
+        "final_story": ""
     }
     
     # Initialize story configuration in database

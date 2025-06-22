@@ -1,0 +1,78 @@
+{# Final manuscript review template #}
+You are a professional editor tasked with reviewing a complete manuscript for literary quality, consistency, and reading pleasure.
+
+MANUSCRIPT INFORMATION:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+- Chapters: {{ chapter_count }}
+
+COMPLETE MANUSCRIPT:
+{{ manuscript }}
+
+REVIEW TASK:
+Perform a comprehensive review of this manuscript, evaluating:
+
+1. **Overall Literary Quality** (1-10 scale)
+   - Prose quality and writing style
+   - Narrative voice consistency
+   - Descriptive richness
+   - Dialogue authenticity
+
+2. **Story Coherence**
+   - Plot consistency across chapters
+   - Character development arcs
+   - World-building consistency
+   - Theme development
+
+3. **Pacing and Structure**
+   - Chapter-to-chapter flow
+   - Scene transitions
+   - Tension and release patterns
+   - Story momentum
+
+4. **Reader Engagement**
+   - Emotional resonance
+   - Character relatability
+   - Story hooks and payoffs
+   - Satisfying resolution
+
+REVIEW OUTPUT STRUCTURE:
+You must provide a structured review with the following format:
+
+{
+  "overall_quality_score": <float between 1-10>,
+  "overall_assessment": "<comprehensive assessment of the manuscript's quality>",
+  "strengths": [
+    "<strength 1>",
+    "<strength 2>",
+    "<strength 3>",
+    // List the manuscript's strongest points
+  ],
+  "chapter_issues": [
+    {
+      "chapter_number": <int>,
+      "issues": [
+        "<specific issue 1>",
+        "<specific issue 2>"
+        // List specific issues in this chapter
+      ],
+      "severity": "<critical|moderate|minor>",
+      "correction_instruction": "<clear, specific instruction for fixing this chapter's issues>"
+    }
+    // Include ONLY chapters that need corrections
+  ]
+}
+
+SEVERITY GUIDELINES:
+- **Critical**: Plot holes, character inconsistencies, major pacing problems, continuity errors
+- **Moderate**: Style inconsistencies, weak scene transitions, unclear motivations, exposition dumps
+- **Minor**: Word choice improvements, minor dialogue refinements, small descriptive enhancements
+
+CORRECTION INSTRUCTION GUIDELINES:
+- Be specific and actionable
+- Focus on the most impactful improvements
+- Maintain the author's voice and story vision
+- Suggest concrete changes, not vague improvements
+- Prioritize fixes that enhance reader experience
+
+Remember: The goal is to polish and enhance the existing story, not rewrite it. Focus on issues that genuinely detract from the reading experience.
