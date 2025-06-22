@@ -63,9 +63,9 @@ AKTIVE HANDLUNGSSTRÄNGE:
 CHARAKTERE IN DER SZENE: {{ required_characters|join(', ') }}
 {% for char in characters[:4] %}
 - {{ char.name }} ({{ char.role }}): Derzeit {{ char.emotional_state }}
-  {%- if char.personality.traits %} | Charakterzüge: {{ char.personality.traits[:3]|join(', ') }}{% endif %}
+  {%- if char.personality.get('traits') %} | Charakterzüge: {{ char.personality.get('traits')[:3]|join(', ') }}{% endif %}
   {%- if char.motivation != 'Unknown' %} | Motiviert durch: {{ char.motivation }}{% endif %}
-  {%- if char.personality.fears %} | Ängste: {{ char.personality.fears[0] }}{% endif %}
+  {%- if char.personality.get('fears') %} | Ängste: {{ char.personality.get('fears')[0] }}{% endif %}
   {%- if char.inner_conflicts %} | Innerer Konflikt: {{ char.inner_conflicts[0].description if char.inner_conflicts[0] is mapping else char.inner_conflicts[0] }}{% endif %}
   {%- if char.character_arc %} | Entwicklung: {{ char.character_arc.type }} ({{ char.character_arc.current_stage }}){% endif %}
   {%- if char.physical_description %} | Erscheinung: {{ char.physical_description }}{% endif %}
@@ -75,12 +75,12 @@ CHARAKTERE IN DER SZENE: {{ required_characters|join(', ') }}
 CHARAKTERTIEFE FÜR DIESE SZENE:
 {% for char in characters[:4] %}
 {{ char.name }}:
-{%- if char.personality.strengths %}
-  - Stärken: {{ char.personality.strengths[:2]|join(', ') }}{% endif %}
-{%- if char.personality.flaws %}
-  - Schwächen: {{ char.personality.flaws[:2]|join(', ') }}{% endif %}
-{%- if char.personality.values %}
-  - Werte: {{ char.personality.values[:2]|join(', ') }}{% endif %}
+{%- if char.personality.get('strengths') %}
+  - Stärken: {{ char.personality.get('strengths')[:2]|join(', ') }}{% endif %}
+{%- if char.personality.get('flaws') %}
+  - Schwächen: {{ char.personality.get('flaws')[:2]|join(', ') }}{% endif %}
+{%- if char.personality.get('values') %}
+  - Werte: {{ char.personality.get('values')[:2]|join(', ') }}{% endif %}
 {%- if char.evolution %}
   - Jüngste Entwicklung: {{ char.evolution[-1] }}{% endif %}
 {%- if char.recent_knowledge %}
