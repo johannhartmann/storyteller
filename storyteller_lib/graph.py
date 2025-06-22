@@ -56,10 +56,16 @@ def needs_revision(state: StoryState) -> str:
 
 def is_story_complete(state: StoryState) -> str:
     """Check if all chapters and scenes are complete."""
+    # First check if the advancement logic has marked the story as complete
+    if state.get("completed", False):
+        logger.info("Story marked as completed by advancement logic")
+        return "complete"
+    
     chapters = state.get("chapters", {})
     
     # Check if we have at least the minimum chapters
     if len(chapters) < 8:
+        logger.debug(f"Only {len(chapters)} chapters, need at least 8")
         return "continue"
     
     # Check if all planned scenes are written
@@ -67,8 +73,10 @@ def is_story_complete(state: StoryState) -> str:
         scenes = chapter_data.get("scenes", {})
         for scene_num, scene_data in scenes.items():
             if not scene_data.get("db_stored", False):
+                logger.debug(f"Chapter {chapter_num}, Scene {scene_num} not yet written")
                 return "continue"
     
+    logger.info("All planned scenes are written")
     return "complete"
 
 
