@@ -9,6 +9,7 @@ from typing import Annotated, Any, Dict, List, Union
 # Third party imports
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langgraph.graph.message import add_messages
+from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
 # Custom state reducers for merging complex story elements
@@ -388,3 +389,14 @@ class StoryState(TypedDict):
     # Workflow control
     completed: bool  # Flag to indicate if the story is complete
     last_node: str  # Track which node was last executed for routing
+
+
+class CorrectedScene(BaseModel):
+    """Structured output for a single corrected scene."""
+    scene_number: int = Field(description="The scene number")
+    content: str = Field(description="The corrected scene content")
+
+
+class ChapterCorrectionOutput(BaseModel):
+    """Structured output for chapter correction."""
+    corrected_scenes: List[CorrectedScene] = Field(description="List of corrected scenes in order")
