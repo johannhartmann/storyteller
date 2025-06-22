@@ -64,6 +64,9 @@ test_story.md
 extracted_story.md
 *_story.md
 *_story.txt
+*_Story.md
+*_audiobook.ssml
+audiobook_output/
 
 # Test files
 test_*.py
