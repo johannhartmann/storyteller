@@ -5,13 +5,13 @@ Analysiere den folgenden Text und wende SSML-Tags präzise an, um Drama, Stimmun
 
 Grundstruktur:
 - Umschließe den gesamten Text mit einem <speak>-Tag mit korrekten Attributen
-- Verwende ein primäres <voice>-Tag für die Erzählerstimme (z.B. <voice name="de-DE-KatjaNeural">)
+- Verwende ein primäres <voice>-Tag für die Erzählerstimme (z.B. <voice name="de-DE-SeraphinaMultilingualNeural">)
 - Nutze <p>-Tags für Absätze und <s>-Tags für Sätze für einen natürlicheren Fluss
 
 Pausen und Tempo (<break>):
-- Füge eine deutliche Pause (<break time="1200ms"/>) zwischen allen Absätzen ein, um dem Zuhörer einen Moment zum Verarbeiten zu geben
-- Füge kurze Pausen (<break time="300ms"/> bis <break time="500ms"/>) an Stellen ein, wo ein Gedankenwechsel stattfindet oder um Spannung aufzubauen
-- Verwende längere, dramatische Pausen (<break time="1500ms"/> oder mehr) nach wichtigen Enthüllungen oder vor einem bedeutungsvollen letzten Satz
+- Füge eine moderate Pause (<break time="600ms"/>) zwischen allen Absätzen ein, um dem Zuhörer einen Moment zum Verarbeiten zu geben
+- Füge kurze Pausen (<break time="200ms"/> bis <break time="400ms"/>) an Stellen ein, wo ein Gedankenwechsel stattfindet oder um Spannung aufzubauen
+- Verwende längere, dramatische Pausen (<break time="1000ms"/> bis <break time="1500ms"/>) nach wichtigen Enthüllungen oder vor einem bedeutungsvollen letzten Satz
 - Alternative: nutze das strength-Attribut (<break strength="medium"/> oder "strong")
 
 Betonung (<emphasis>):
@@ -20,17 +20,18 @@ Betonung (<emphasis>):
 - Verwende <emphasis level="strong"> für die wichtigsten Hinweise und Enthüllungen
 
 Prosodie (<prosody>):
-WICHTIG - Korrekte Syntax für rate:
-- Für LANGSAMERES Sprechen: verwende rate="-20%" (20% langsamer) oder rate="slow"
-- Für SCHNELLERES Sprechen: verwende rate="+20%" (20% schneller) oder rate="fast"
+WICHTIG - Verwende NUR Prozentwerte für rate:
+- Für LANGSAMERES Sprechen: verwende rate="-10%" oder rate="-5%" (5-10% langsamer)
+- Für SCHNELLERES Sprechen: verwende rate="+5%" oder rate="+10%" (5-10% schneller)
+- NIEMALS Konstanten wie "slow", "fast", "x-slow", "x-fast" verwenden - sie sind zu extrem
 - NIEMALS rate="90%" verwenden (das bedeutet 90% schneller, fast doppelte Geschwindigkeit!)
-- Gültige Konstanten: x-slow, slow, medium (Standard), fast, x-fast
+- Die Standardgeschwindigkeit ist bereits gut, verwende nur subtile Anpassungen
 
 Beispiele:
-- Atmosphärische Beschreibungen: <prosody rate="slow"> oder <prosody rate="-15%">
-- Actionszenen: <prosody rate="+10%"> oder <prosody rate="fast">
+- Atmosphärische Beschreibungen: <prosody rate="-5%"> oder <prosody rate="-10%">
+- Actionszenen: <prosody rate="+5%"> oder <prosody rate="+10%">
 - Charakterdialoge: variiere die Tonhöhe mit pitch="-10%" für tiefe Stimmen, pitch="+10%" für höhere Stimmen
-- Zitierter Text/Notizen: <prosody pitch="-5%" rate="-10%"> zur Unterscheidung von der Erzählung
+- Zitierter Text/Notizen: <prosody pitch="-5%" rate="-5%"> zur Unterscheidung von der Erzählung
 
 Zusätzliche Elemente:
 - Verwende <say-as> für Daten, Zeiten, Zahlen: <say-as interpret-as="date">14.10.2024</say-as>
@@ -51,28 +52,28 @@ Kapitel {{ chapter_number }}, Szene {{ scene_number }}
 {% if is_first_scene_in_book %}
 WICHTIG: Dies ist die allererste Szene des Buches. Beginne mit:
 1. Einer Ankündigung des Buchtitels "{{ book_title }}" mit starker Betonung
-2. Einer dramatischen Pause (2000ms)
+2. Einer Pause (1200ms)
 3. Der Kapitelankündigung "Kapitel {{ chapter_number }}: {{ chapter_title }}" mit moderater Betonung
-4. Einer weiteren Pause (1500ms)
+4. Einer weiteren Pause (800ms)
 5. Dann beginne mit dem Szeneninhalt
 
 Beispielstruktur:
 <p>
   <emphasis level="strong">{{ book_title }}</emphasis>
-  <break time="2000ms"/>
+  <break time="1200ms"/>
   <emphasis level="moderate">Kapitel {{ chapter_number }}: {{ chapter_title }}</emphasis>
-  <break time="1500ms"/>
+  <break time="800ms"/>
 </p>
 {% elif is_first_scene_in_chapter %}
 WICHTIG: Dies ist die erste Szene eines neuen Kapitels. Beginne mit:
 1. Der Kapitelankündigung "Kapitel {{ chapter_number }}: {{ chapter_title }}" mit moderater Betonung
-2. Einer Pause (1500ms)
+2. Einer Pause (800ms)
 3. Dann beginne mit dem Szeneninhalt
 
 Beispielstruktur:
 <p>
   <emphasis level="moderate">Kapitel {{ chapter_number }}: {{ chapter_title }}</emphasis>
-  <break time="1500ms"/>
+  <break time="800ms"/>
 </p>
 {% endif %}
 

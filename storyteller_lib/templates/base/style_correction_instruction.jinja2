@@ -1,0 +1,14 @@
+{# Template for creating style correction instructions #}
+Please fix the following style issues in the scene:
+
+{% for issue in style_issues %}
+{{ loop.index }}. {{ issue }}
+{% endfor %}
+
+Focus on:
+- Replacing repeated words with synonyms or restructuring sentences
+- Removing redundant descriptions
+- Varying sentence structures
+- Maintaining the same meaning and story content while improving the prose
+
+Make these corrections while preserving all plot points, character actions, and dialogue.
