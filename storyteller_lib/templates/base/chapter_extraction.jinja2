@@ -1,9 +1,11 @@
 {# Base template for chapter extraction - English version #}
 Based on the chapter plan you've created, I need you to extract a list of chapters with their key scenes.
 
+IMPORTANT: Extract CHAPTERS, not acts or sections. If the plan uses a structure like "3-act" with acts containing chapters, extract each individual CHAPTER within those acts.
+
 For each chapter, provide:
-1. The chapter number (as a string)
-2. A title
+1. The chapter number (as a string, e.g., "1", "2", "3", etc.)
+2. A title (the chapter's title, NOT the act title)
 3. A detailed outline (200-300 words)
 4. For each of the 3-5 key scenes, provide:
    - Description: The detailed 3-5 sentence summary of what happens in this scene
@@ -20,8 +22,10 @@ Chapter plan:
 {{ chapter_plan_text }}
 
 EXTRACTION GUIDELINES:
-- Maintain the exact structure from the plan
-- Include all chapters mentioned
+- Extract individual CHAPTERS, not acts or structural divisions
+- If the plan has acts/sections containing chapters, extract the chapters within them
+- Number chapters sequentially across the entire story (1, 2, 3... not resetting per act)
+- Include all chapters mentioned in the plan, regardless of which act they belong to
 - Preserve chapter numbers as strings ("1", "2", etc.)
 - Keep scene descriptions concise but clear
 - Focus on plot-critical and character-defining moments

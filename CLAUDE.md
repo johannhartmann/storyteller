@@ -89,3 +89,9 @@ No formal test suite currently exists. Testing is done through running the story
 - Never truncate texts, rather generate a summary using the llm
 - Make sure you provide the LLM well structured prompts with a clear intent and properly structured information. Do not just put JSON dumps into the prompt.
 - Create each template in english (base language) and german
+- Every time you mention claude in a commit message i will kill a small kitten.
+- Never use user provided examples in the code. They are licensed.
+- To debug the last run look in  ~/.storyteller/logs/story_progress.log
+- To debug the database look in ~/.storyteller/story_database.db
+- Never implement a fallback for structured output. Fail if the structured output did not work.
+- Never use nested dictionaries in structured output.

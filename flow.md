@@ -1,381 +1,254 @@
-# StoryCraft Agent - Complete Story Generation Flow
+# Story Generation Flow
+
+This document describes the complete story generation workflow as implemented in the StoryCraft Agent using LangGraph.
 
 ## Overview
 
-The StoryCraft Agent uses a LangGraph-based workflow to generate complete multi-chapter stories. The system follows a linear flow with conditional branching for scene revision, progressing through distinct phases from initialization to final compilation.
+The story generation follows a linear workflow with conditional branches for scene quality control. The system uses a state-based approach where each node reads from and updates a shared state dictionary.
 
-## Visual Flow Diagram
+## Graph Structure
 
-```mermaid
-graph TD
-    Start([Start]) --> Init[Initialize State]
-    Init --> Brain[Brainstorm Concepts]
-    Brain --> Outline[Generate Outline]
-    Outline --> World[Generate Worldbuilding]
-    World --> Chars[Generate Characters]
-    Chars --> Plan[Plan Chapters]
-    
-    Plan --> WriteLoop{Scene Writing Loop}
-    
-    WriteLoop --> Write[Write Scene]
-    Write --> Reflect[Reflect on Scene]
-    Reflect --> NeedRev{Needs Revision?}
-    
-    NeedRev -->|Yes| Revise[Revise Scene]
-    NeedRev -->|No| UpdateWorld[Update World]
-    Revise --> UpdateWorld
-    
-    UpdateWorld --> UpdateChar[Update Characters]
-    UpdateChar --> Summary[Generate Summaries]
-    Summary --> Advance[Advance Scene/Chapter]
-    
-    Advance --> Complete{Story Complete?}
-    Complete -->|No| WriteLoop
-    Complete -->|Yes| Compile[Compile Final Story]
-    Compile --> End([End])
-    
-    style Init fill:#e1f5e1
-    style Brain fill:#e1f5e1
-    style Outline fill:#e1f5e1
-    style World fill:#ffe1e1
-    style Chars fill:#ffe1e1
-    style Plan fill:#ffe1e1
-    style Write fill:#e1e1ff
-    style Reflect fill:#e1e1ff
-    style Revise fill:#e1e1ff
-    style Compile fill:#f5f5e1
-```
-
-## High-Level Architecture
+### Main Flow Sequence
 
 ```
-┌─────────────────┐     ┌──────────────┐     ┌───────────────┐
-│   User Input    │────▶│  LangGraph   │────▶│    Output     │
-│ (genre, tone,   │     │   Workflow   │     │ (story.md +   │
-│  language, etc) │     │  (graph.py)  │     │  database)    │
-└─────────────────┘     └──────────────┘     └───────────────┘
+START
+  ↓
+initialize_state
+  ↓
+brainstorm_story_concepts
+  ↓
+generate_story_outline
+  ↓
+generate_worldbuilding
+  ↓
+generate_characters
+  ↓
+plan_chapters
+  ↓
+write_scene ←─────────────────┐
+  ↓                           │
+reflect_on_scene              │
+  ↓                           │
+[Conditional Routing]         │
+  ├─→ apply_minor_corrections │
+  ├─→ revise_scene_if_needed  │
+  └─→ (continue)              │
+  ↓                           │
+update_world_elements         │
+  ↓                           │
+update_character_profiles     │
+  ↓                           │
+generate_summaries            │
+  ↓                           │
+advance_to_next_scene_or_chapter
+  ↓                           │
+[Story Complete Check]        │
+  ├─→ (continue) ─────────────┘
+  └─→ (complete)
+       ↓
+compile_final_story
+  ↓
+END
 ```
 
-## Detailed Flow
+## Node Descriptions
 
-### Phase 1: Initialization and Setup
+### 1. **initialize_state**
+- Sets up initial story state
+- Loads configuration (genre, tone, language)
+- Initializes database connection
+- Prepares author style analysis
 
-#### 1. Initialize State (`initialize_state`)
-- **Purpose**: Set up initial story parameters and configuration
-- **Input**: User parameters (genre, tone, language, author, initial idea)
-- **Process**:
-  - Load configuration from database
-  - Validate language support
-  - Parse initial idea elements if provided
-  - Set up author style guidance if author specified
-- **Output**: Initial state with configuration
+### 2. **brainstorm_story_concepts**
+- Generates creative story ideas based on initial parameters
+- Evaluates and selects the best concept
+- Creates initial story premise
 
-#### 2. Brainstorm Story Concepts (`brainstorm_story_concepts`)
-- **Purpose**: Generate creative elements for the story
-- **Process**:
-  - If no initial idea: Generate unique story premises
-  - Brainstorm story concepts (5 ideas)
-  - Brainstorm world-building elements
-  - Brainstorm central conflicts
-  - Use LLM to evaluate and select best ideas
-- **Output**: Creative elements stored in state
+### 3. **generate_story_outline**
+- Creates the overall story structure
+- Defines major plot points following hero's journey
+- Establishes story arc and pacing
 
-#### 3. Generate Story Outline (`generate_story_outline`)
-- **Purpose**: Create the complete story structure
-- **Process**:
-  - Determine narrative structure (hero_journey, three_act, etc.)
-  - Use structure-specific template (e.g., `story_outline_hero_journey.jinja2`)
-  - Generate title, characters, conflict, setting, themes
-  - Create phase-by-phase story progression
-  - Extract initial plot threads
-- **Output**: 
-  - Complete story outline
-  - Initial plot thread registry
-  - Title stored in database
+### 4. **generate_worldbuilding**
+- Develops the story world and setting
+- Creates consistent world rules and elements
+- Establishes atmosphere and environment
 
-### Phase 2: World and Character Building
+### 5. **generate_characters**
+- Creates main and supporting characters
+- Defines character profiles, motivations, and relationships
+- Establishes character arcs
 
-#### 4. Generate Worldbuilding (`generate_worldbuilding`)
-- **Purpose**: Create detailed world elements
-- **Process**:
-  - Analyze genre requirements
-  - Create locations, cultures, rules
-  - Establish world-specific elements (magic systems, technology, etc.)
-  - Ensure consistency with initial idea
-- **Output**: World elements dictionary stored in state and database
+### 6. **plan_chapters**
+- Breaks down the story into chapters (minimum 8)
+- Plans scenes for each chapter
+- Defines plot progressions and character development per scene
 
-#### 5. Generate Characters (`generate_characters`)
-- **Purpose**: Create detailed character profiles
-- **Process**:
-  - Extract character requirements from outline
-  - Generate 5-8 character profiles
-  - Create personalities, backstories, motivations
-  - Establish character relationships
-  - Define character arcs
-- **Output**: Character profiles stored in state and database
+### 7. **write_scene**
+- Generates book-level writing instructions
+- Creates scene-specific instructions
+- Writes the actual scene content
+- Stores scene in database
 
-#### 6. Plan Chapters (`plan_chapters`)
-- **Purpose**: Create detailed chapter-by-chapter plan
-- **Process**:
-  - Use narrative structure to determine chapter distribution
-  - For each chapter:
-    - Create title and summary (200-300 words)
-    - Plan 3-6 scenes with:
-      - Scene type (action, dialogue, exploration, etc.)
-      - Plot progressions
-      - Character developments
-      - Tension levels
-      - Connections between scenes
-  - Establish pacing and dramatic flow
-- **Output**: Complete chapter plan with scene specifications
-
-### Phase 3: Scene Generation Loop
-
-The system now enters a loop that continues until all scenes are written:
-
-#### 7. Write Scene (`write_scene`)
-- **Purpose**: Generate actual scene content
-- **Process**:
-  - Use intelligent instruction synthesis:
-    - Generate book-level instructions (stored for reuse)
-    - Generate scene-specific instructions
-  - Combine all context in `scene_writing_intelligent` template
-  - Generate 1500-2500 word scene
-  - Store in database immediately
-- **Output**: Scene content saved to database
-
-#### 8. Reflect on Scene (`reflect_on_scene`)
-- **Purpose**: Quality check the written scene
-- **Process**: Simplified 4-metric analysis:
+### 8. **reflect_on_scene**
+- Analyzes scene quality across 4 key metrics:
   - Overall quality (1-10)
-  - Plot advancement check
-  - Character consistency check
-  - Prose engagement check
-  - Identify critical issues only
-- **Output**: Reflection results and revision decision
+  - Plot advancement
+  - Character consistency
+  - Prose engagement
+- Identifies critical issues (requiring full revision)
+- Identifies minor issues (suitable for targeted correction)
+- Sets flags: `needs_revision` and `needs_minor_corrections`
 
-#### 9. Conditional: Revise Scene (`revise_scene_if_needed`)
-- **Condition**: Only if critical issues identified
-- **Process**:
-  - Single revision pass
-  - Focus on specific critical issues
-  - Maintain scene requirements
-  - Replace scene content in database
-- **Output**: Revised scene content
+### 9. **Conditional Routing** (`check_correction_type`)
+Routes based on reflection results:
+- **"revise"**: If critical issues exist → `revise_scene_if_needed`
+- **"minor_corrections"**: If only minor issues exist → `apply_minor_corrections`
+- **"continue"**: If no issues → `update_world_elements`
 
-#### 10. Update World Elements (`update_world_elements`)
-- **Purpose**: Track new world information from scene
-- **Process**:
-  - Extract new locations, objects, rules
-  - Update world element database
-  - Maintain consistency
-- **Output**: Updated world elements
+### 10. **apply_minor_corrections** (New)
+- Applies surgical corrections for minor issues
+- Uses the `correct_scene` function
+- Preserves scene integrity while fixing specific problems
+- Does not trigger full rewrite
 
-#### 11. Update Character Profiles (`update_character_profiles`)
-- **Purpose**: Track character development
-- **Process**:
-  - Extract character actions, dialogue, development
-  - Update character knowledge tracking
-  - Track relationship changes
-  - Note character growth
-- **Output**: Updated character profiles
+### 11. **revise_scene_if_needed**
+- Performs complete scene revision for critical issues
+- Single-pass revision focused on specific problems
+- Rewrites scene while maintaining requirements
 
-#### 12. Generate Summaries (`generate_summaries`)
-- **Purpose**: Create scene and chapter summaries
-- **Process**:
-  - Generate concise scene summary (2-3 sentences)
-  - If chapter complete: Generate chapter summary
-  - Update "what happened until now" context
-  - Store in database for future reference
-- **Output**: Summary data for context building
+### 12. **update_world_elements**
+- Extracts new world information from the scene
+- Updates world database
+- Maintains consistency across story
 
-#### 13. Advance to Next Scene/Chapter (`advance_to_next_scene_or_chapter`)
-- **Purpose**: Progress tracking and decision making
-- **Process**:
-  - Mark current scene as complete
-  - Generate progress report
-  - Determine next scene/chapter
-  - Check if story is complete
-- **Output**: Updated current_chapter and current_scene
+### 13. **update_character_profiles**
+- Updates character states and knowledge
+- Tracks character development
+- Maintains character consistency
 
-#### 14. Conditional Branch: Continue or Complete
-- **Condition Check** (`is_story_complete`):
-  - If more scenes to write → Return to step 7
-  - If all scenes complete → Continue to step 15
+### 14. **generate_summaries**
+- Creates scene summary
+- Updates chapter summary
+- Maintains running story summary
 
-### Phase 4: Finalization
+### 15. **advance_to_next_scene_or_chapter**
+- Moves to next scene or chapter
+- Updates progress tracking
+- Checks if story is complete
 
-#### 15. Compile Final Story (`compile_final_story`)
-- **Purpose**: Assemble the complete story
-- **Process**:
-  - Retrieve all scenes from database
-  - Organize by chapter and scene order
-  - Add chapter titles and formatting
-  - Create table of contents
-  - Generate metadata
-- **Output**: Complete story in markdown format
+### 16. **Story Complete Check** (`is_story_complete`)
+Determines if story generation should continue:
+- **"continue"**: More scenes to write → back to `write_scene`
+- **"complete"**: All scenes written → `compile_final_story`
 
-## Key Components and Systems
+### 17. **compile_final_story**
+- Assembles all chapters and scenes
+- Creates final story document
+- Performs final formatting
 
-### 1. Instruction Synthesis System
-- **Book-level instructions**: Generated once, captures overall style, tone, themes
-- **Scene-level instructions**: Generated per scene, includes:
-  - What happened until now (summary context)
-  - Specific scene requirements
-  - Active plot threads
-  - Character states and knowledge
+## Key Features
 
-### 2. Database Integration
-- **SQLite database** stores:
-  - Story configuration
-  - Scene content
-  - Character profiles
-  - World elements
-  - Summaries
-  - Progress tracking
+### Quality Control System
+The workflow implements a three-tier quality control system:
 
-### 3. Template System
-- **Multi-language support**: English and German templates
-- **Structure-specific templates**: Different templates for each narrative structure
-- **Intelligent templates**: Use LLM to synthesize instructions rather than concatenate data
+1. **No Issues**: Scene passes reflection → continues to updates
+2. **Minor Issues**: Small problems → targeted corrections via `correct_scene`
+3. **Critical Issues**: Major problems → full revision
 
-### 4. Progress Tracking
-- **Real-time updates**: Each node reports progress
-- **Statistics tracking**: Word count, page estimates, completion percentage
-- **Progress reports**: Generated after each scene/chapter
+### Database Integration
+- All scenes stored in SQLite database
+- Tracks world elements, characters, and plot progressions
+- Maintains consistency throughout generation
 
-### 5. Quality Control
-- **Reflection system**: Automated quality checks
-- **Revision system**: Targeted fixes for critical issues only
-- **Consistency tracking**: Plot threads, character knowledge, world rules
+### Progress Tracking
+- Real-time progress updates via `@track_progress` decorator
+- Chapter and scene tracking
+- Completion status monitoring
 
-## Optimizations and Simplifications
+### Language Support
+- Multi-language support (English, German, Spanish, French, etc.)
+- Language-specific templates for all prompts
+- Consistent style across languages
 
-1. **Removed scene brainstorming**: Integrated into writing process
-2. **Simplified reflection**: Reduced from 9 metrics to 4 key checks
-3. **Single-pass revision**: Maximum one revision per scene
-4. **Intelligent instruction synthesis**: LLM creates coherent context instead of data dumps
-5. **Conditional revision**: Only revise if critical issues present
+## State Management
 
-## Configuration Options
+The `StoryState` TypedDict maintains:
+- Current chapter and scene numbers
+- Story configuration (genre, tone, language)
+- Generated content (outline, characters, world)
+- Book and scene-level instructions
+- Reflection results and correction flags
+- Progress indicators
 
-- **Narrative structures**: hero_journey, three_act, kishotenketsu, in_medias_res, circular, nonlinear_mosaic
-- **Languages**: English, German (full template support)
-- **Recursion limit**: Configurable (default 200, increase for longer stories)
-- **Target pages**: Automatically calculates chapters and scenes based on page target
+## Conditional Logic
+
+### Scene Correction Routing
+```python
+def check_correction_type(state: StoryState) -> str:
+    if state.get("needs_revision", False):
+        return "revise"  # Critical issues
+    if state.get("needs_minor_corrections", False):
+        return "minor_corrections"  # Minor issues
+    return "continue"  # No issues
+```
+
+### Story Completion Check
+```python
+def is_story_complete(state: StoryState) -> str:
+    if state.get("completed", False):
+        return "complete"
+    if len(chapters) < 8:
+        return "continue"
+    # Check if all planned scenes are written
+    for chapter in chapters:
+        for scene in chapter["scenes"]:
+            if not scene.get("db_stored", False):
+                return "continue"
+    return "complete"
+```
 
 ## Error Handling
 
-- **Partial story recovery**: Can recover incomplete stories from database
-- **Progress persistence**: All content saved immediately to database
-- **Graceful degradation**: Missing components use sensible defaults
+- Database operations wrapped in try-except blocks
+- Graceful degradation if minor corrections fail
+- Logging at each step for debugging
+- State preservation across node failures
 
-## Scene Generation Deep Dive
+## Configuration
 
-### Instruction Synthesis Process
+Key configuration options:
+- `genre`: Story genre (fantasy, sci-fi, mystery, etc.)
+- `tone`: Writing tone (adventurous, dark, humorous, etc.)
+- `language`: Output language
+- `llm_provider`: AI model provider
+- `llm_model`: Specific model to use
 
-The system uses a two-level instruction synthesis approach:
+## Recent Enhancements
 
-1. **Book-Level Instructions** (generated once):
-   - Synthesizes genre conventions, tone requirements, and author style
-   - Creates coherent writing guidance for the entire book
-   - Stored in database and reused for all scenes
-   - Example: "Write in the whimsical, adventurous style of Terry Pratchett, with witty dialogue..."
+### Minor Corrections Integration (Latest)
+- Added distinction between critical and minor issues
+- New `apply_minor_corrections` node for targeted fixes
+- Enhanced reflection to categorize issue severity
+- Improved overall story quality without excessive revisions
 
-2. **Scene-Level Instructions** (generated per scene):
-   - Combines multiple context sources:
-     - Scene requirements from chapter plan
-     - "What happened until now" summary
-     - Active plot threads
-     - Character states and knowledge
-     - Recent scene patterns to avoid
-   - Uses LLM to create coherent instructions rather than concatenating data
-   - Example: "Felix enters the archives seeking the ancient map. He's exhausted from the chase..."
+### Intelligent Scene Writing
+- Context-aware scene generation
+- Book-level and scene-level instruction synthesis
+- "What happened until now" summaries for continuity
 
-### Context Building System
+## Usage
 
-The `scene_context_builder.py` module creates comprehensive context by:
+The workflow is initiated through:
+```python
+from storyteller_lib import generate_story
 
-1. **Historical Context**:
-   - Previous scene summaries (last 3-5 scenes)
-   - Chapter summaries for context
-   - Key events and revelations
-
-2. **Character Context**:
-   - Current emotional states
-   - Knowledge tracking (what each character knows)
-   - Recent character interactions
-   - Arc progression status
-
-3. **World Context**:
-   - Active locations and their states
-   - Established rules and systems
-   - Recent world changes
-
-4. **Plot Context**:
-   - Active plot threads and their status
-   - Required plot progressions for this scene
-   - Foreshadowing elements
-
-### Summary Generation
-
-After each scene is finalized:
-
-1. **Scene Summary** (2-3 sentences):
-   - Key events and outcomes
-   - Character developments
-   - Plot progressions
-   - Stored with timestamp
-
-2. **Chapter Summary** (when chapter completes):
-   - Major chapter events
-   - Character arc progress
-   - Plot thread developments
-   - Thematic elements explored
-
-These summaries feed back into the context for future scenes.
-
-## Database Schema
-
-Key tables in the SQLite database:
-
-1. **story_config**: Story metadata and configuration
-2. **scenes**: Scene content and metadata
-3. **characters**: Character profiles and development
-4. **world_elements**: Locations, objects, rules
-5. **summaries**: Scene and chapter summaries
-6. **plot_threads**: Plot thread tracking
-7. **character_knowledge**: What each character knows
-8. **scene_structures**: Pattern tracking for variety
-
-## Template Organization
-
-```
-templates/
-├── base/                    # English templates
-│   ├── scene_writing_intelligent.jinja2
-│   ├── reflect_scene_intelligent.jinja2
-│   ├── synthesize_book_instructions.jinja2
-│   ├── synthesize_scene_instructions.jinja2
-│   └── story_outline_[structure].jinja2
-└── languages/
-    └── german/             # German translations
-        └── [same structure as base]
+result = generate_story(
+    initial_premise="Your story idea",
+    genre="fantasy",
+    tone="adventurous",
+    language="english"
+)
 ```
 
-## Performance Considerations
-
-1. **Memory Management**:
-   - State pruning after each chapter
-   - Summary-based context compression
-   - Database storage for large content
-
-2. **LLM Optimization**:
-   - Structured output for consistency
-   - Template-based prompts for efficiency
-   - Intelligent context selection
-
-3. **Progress Tracking**:
-   - Real-time updates via callback system
-   - Efficient database queries
-   - Cached statistics
+The system then automatically progresses through all nodes, generating a complete multi-chapter story with consistent characters, world-building, and plot development.

@@ -1,0 +1,27 @@
+{# Szenenkorrektur-Template - für gezielte Korrekturen bestehender Szenen #}
+Sie haben die Aufgabe, eine spezifische Korrektur an einer bestehenden Szene vorzunehmen. Ihr Ziel ist es, NUR das zu korrigieren, was in der Korrekturanweisung erwähnt wird, während Sie alles andere an der Szene beibehalten.
+
+AKTUELLE SZENE:
+{{ current_scene }}
+
+KORREKTURANWEISUNG:
+{{ correction_instruction }}
+
+SZENENKONTEXT:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+- Ursprüngliche Szenenanweisungen: {{ scene_instructions }}
+
+KORREKTURRICHTLINIEN:
+1. Wenden Sie NUR die spezifische Korrektur an, die in der Anweisung erwähnt wird
+2. Bewahren Sie alle anderen Aspekte der Szene:
+   - Behalten Sie denselben Schreibstil und dieselbe Erzählstimme bei
+   - Lassen Sie alle nicht betroffenen Dialoge und Beschreibungen unverändert
+   - Bewahren Sie das Tempo und den Fluss der Szene
+   - Behalten Sie alle Charakterverhalten und Emotionen bei, die nicht mit der Korrektur zusammenhängen
+   - Behalten Sie dieselbe Erzählperspektive bei
+3. Stellen Sie sicher, dass sich die Korrektur nahtlos in den Rest der Szene einfügt
+4. Fügen Sie keine neuen Handlungselemente oder Charakterentwicklungen hinzu, es sei denn, dies wird ausdrücklich durch die Korrektur verlangt
+5. Wahren Sie die Konsistenz mit dem etablierten Genre und Ton
+
+Schreiben Sie die korrigierte Szene unten, wobei NUR die angeforderte Änderung angewendet wird:

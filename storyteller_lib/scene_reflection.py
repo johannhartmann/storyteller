@@ -23,7 +23,9 @@ class SimplifiedReflection(BaseModel):
     character_consistency: bool = Field(description="Are characters acting consistently?")
     engaging_prose: bool = Field(description="Is the prose engaging and well-written?")
     critical_issues: List[str] = Field(default_factory=list, description="Critical issues that must be fixed")
+    minor_issues: List[str] = Field(default_factory=list, description="Minor issues that could be improved")
     needs_revision: bool = Field(description="Does this scene need revision?")
+    needs_minor_corrections: bool = Field(default=False, description="Does this scene need minor corrections?")
 
 
 @track_progress
@@ -110,8 +112,14 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     
     chapters[str(current_chapter)]["scenes"][str(current_scene)]["reflection"] = reflection_data
     
+    # Log if minor corrections are needed
+    if reflection.needs_minor_corrections and reflection.minor_issues:
+        logger.info(f"Scene needs minor corrections: {', '.join(reflection.minor_issues[:3])}")
+    
     return {
         "chapters": chapters,
         "scene_reflection": reflection.model_dump(),
-        "needs_revision": reflection.needs_revision
+        "needs_revision": reflection.needs_revision,
+        "needs_minor_corrections": reflection.needs_minor_corrections,
+        "minor_issues": reflection.minor_issues
     }
