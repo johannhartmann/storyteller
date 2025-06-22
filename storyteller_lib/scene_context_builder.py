@@ -387,7 +387,7 @@ def _get_character_context(db_manager, required_chars: List[str], scene_desc: st
                     'backstory': result['backstory'],
                     'personality': personality,
                     'emotional_state': emotional_state,
-                    'motivation': personality.get('core_motivation', 'Unknown'),
+                    'motivation': personality.get('desires', ['Unknown'])[0] if personality.get('desires') else 'Unknown',
                     'inner_conflicts': personality.get('inner_conflicts', []),
                     'recent_knowledge': knowledge
                 }
