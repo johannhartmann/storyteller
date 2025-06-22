@@ -1166,6 +1166,107 @@ class StoryDatabaseManager:
             logger.error(f"Failed to save scene {scene_num} of chapter {chapter_num}: {e}")
             raise
     
+    def save_scene_instructions(self, chapter_num: int, scene_num: int, instructions: str) -> None:
+        """Save scene instructions to database."""
+        if not self.enabled or not self._db:
+            return
+        
+        try:
+            # Get chapter ID
+            chapter_id = self._chapter_id_map.get(str(chapter_num))
+            if not chapter_id:
+                # Try to get from database
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT id FROM chapters WHERE chapter_number = ?",
+                        (chapter_num,)
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        chapter_id = result['id']
+                        self._chapter_id_map[str(chapter_num)] = chapter_id
+            
+            if chapter_id:
+                # Check if instructions column exists
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("PRAGMA table_info(scenes)")
+                    columns = [col[1] for col in cursor.fetchall()]
+                    
+                    if 'instructions' not in columns:
+                        # Add the column if it doesn't exist
+                        cursor.execute("ALTER TABLE scenes ADD COLUMN instructions TEXT")
+                        conn.commit()
+                        logger.info("Added instructions column to scenes table")
+                    
+                    # Update scene with instructions
+                    cursor.execute(
+                        "UPDATE scenes SET instructions = ? WHERE chapter_id = ? AND scene_number = ?",
+                        (instructions, chapter_id, scene_num)
+                    )
+                    conn.commit()
+                    logger.info(f"Saved instructions for scene {scene_num} of chapter {chapter_num}")
+            else:
+                logger.warning(f"Could not find chapter {chapter_num} to save scene instructions")
+        
+        except Exception as e:
+            logger.error(f"Failed to save scene instructions for Ch{chapter_num}/Sc{scene_num}: {e}")
+            raise
+    
+    def get_scene_instructions(self, chapter_num: int, scene_num: int) -> Optional[str]:
+        """Get scene instructions from database."""
+        if not self.enabled or not self._db:
+            return None
+        
+        try:
+            # Get chapter ID
+            chapter_id = self._chapter_id_map.get(str(chapter_num))
+            if not chapter_id:
+                # Try to get from database
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT id FROM chapters WHERE chapter_number = ?",
+                        (chapter_num,)
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        chapter_id = result['id']
+                        self._chapter_id_map[str(chapter_num)] = chapter_id
+            
+            if chapter_id:
+                # Check if instructions column exists
+                with self._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("PRAGMA table_info(scenes)")
+                    columns = [col[1] for col in cursor.fetchall()]
+                    
+                    if 'instructions' not in columns:
+                        logger.debug("Instructions column does not exist yet")
+                        return None
+                    
+                    # Get scene instructions
+                    cursor.execute(
+                        "SELECT instructions FROM scenes WHERE chapter_id = ? AND scene_number = ?",
+                        (chapter_id, scene_num)
+                    )
+                    result = cursor.fetchone()
+                    
+                    if result and result['instructions']:
+                        logger.info(f"Retrieved instructions for scene {scene_num} of chapter {chapter_num}")
+                        return result['instructions']
+                    else:
+                        logger.debug(f"No instructions found for scene {scene_num} of chapter {chapter_num}")
+                        return None
+            else:
+                logger.warning(f"Could not find chapter {chapter_num} to get scene instructions")
+                return None
+        
+        except Exception as e:
+            logger.error(f"Failed to get scene instructions for Ch{chapter_num}/Sc{scene_num}: {e}")
+            return None
+    
     def track_plot_progression(self, progression_key: str, chapter_num: int, scene_num: int, description: str = "") -> bool:
         """
         Track a plot progression that has occurred.

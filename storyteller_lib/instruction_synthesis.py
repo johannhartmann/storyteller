@@ -92,6 +92,15 @@ def generate_scene_level_instructions(
     """
     logger.info(f"Generating scene-level instructions for Chapter {chapter}, Scene {scene}")
     
+    # Debug: Log the state chapters structure
+    chapters = state.get("chapters", {})
+    if str(chapter) in chapters and "scenes" in chapters[str(chapter)]:
+        scenes_in_chapter = chapters[str(chapter)]["scenes"]
+        logger.debug(f"Chapter {chapter} has {len(scenes_in_chapter)} scenes")
+        for scene_num, scene_data in scenes_in_chapter.items():
+            desc = scene_data.get('description', 'NO DESCRIPTION')
+            logger.debug(f"  Scene {scene_num}: {desc[:100]}...")
+    
     # Get database manager
     db_manager = get_db_manager()
     if not db_manager:

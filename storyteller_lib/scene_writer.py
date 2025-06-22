@@ -44,6 +44,11 @@ def write_scene_simplified(state: StoryState) -> Dict:
     # Generate scene-specific instructions
     scene_instructions = generate_scene_level_instructions(current_chapter, current_scene, state)
     
+    # Save scene instructions to database
+    if db_manager:
+        db_manager.save_scene_instructions(current_chapter, current_scene, scene_instructions)
+        logger.info("Saved scene instructions to database")
+    
     # Get language from database
     db_manager = get_db_manager()
     language = DEFAULT_LANGUAGE
