@@ -29,7 +29,6 @@ from storyteller_lib.scenes import (
     revise_scene_if_needed,
     write_scene
 )
-from storyteller_lib.minor_corrections import apply_minor_corrections
 from storyteller_lib.summary_node import generate_summaries
 from storyteller_lib.worldbuilding import generate_worldbuilding
 
@@ -38,31 +37,21 @@ logger = get_logger(__name__)
 
 # Simplified condition functions
 
-def check_correction_type(state: StoryState) -> str:
+def needs_revision_check(state: StoryState) -> str:
     """
-    Check what type of correction (if any) is needed based on reflection.
-    Routes to: minor corrections, full revision, or continue.
+    Simple check if scene needs revision based on reflection.
+    Style corrections are now handled within reflect_on_scene.
     """
     needs_revision = state.get("needs_revision", False)
-    needs_minor_corrections = state.get("needs_minor_corrections", False)
     current_chapter = state.get("current_chapter", "")
     current_scene = state.get("current_scene", "")
     
-    logger.debug(f"check_correction_type for Ch:{current_chapter}/Sc:{current_scene} - "
-                 f"needs_revision={needs_revision}, needs_minor_corrections={needs_minor_corrections}")
-    
-    # Full revision takes priority
     if needs_revision:
         logger.info(f"Scene Ch:{current_chapter}/Sc:{current_scene} needs full revision")
         return "revise"
-    
-    # Minor corrections if no full revision needed
-    if needs_minor_corrections:
-        logger.info(f"Scene Ch:{current_chapter}/Sc:{current_scene} needs minor corrections")
-        return "minor_corrections"
-    
-    logger.debug(f"Scene Ch:{current_chapter}/Sc:{current_scene} needs no corrections - continuing")
-    return "continue"
+    else:
+        logger.debug(f"Scene Ch:{current_chapter}/Sc:{current_scene} - no revision needed, continuing")
+        return "continue"
 
 
 def is_story_complete(state: StoryState) -> str:
@@ -117,10 +106,9 @@ def create_simplified_graph(checkpointer=None) -> StateGraph:
     graph_builder.add_node("generate_characters", generate_characters)
     graph_builder.add_node("plan_chapters", plan_chapters)
     
-    # Simplified scene flow
+    # Simplified scene flow - reflect_on_scene now handles style corrections internally
     graph_builder.add_node("write_scene", write_scene)
     graph_builder.add_node("reflect_on_scene", reflect_on_scene)
-    graph_builder.add_node("apply_minor_corrections", apply_minor_corrections)
     graph_builder.add_node("revise_scene_if_needed", revise_scene_if_needed)
     graph_builder.add_node("update_world_elements", update_world_elements)
     graph_builder.add_node("update_character_profiles", update_character_profiles)
@@ -140,19 +128,17 @@ def create_simplified_graph(checkpointer=None) -> StateGraph:
     graph_builder.add_edge("plan_chapters", "write_scene")
     graph_builder.add_edge("write_scene", "reflect_on_scene")
     
-    # Conditional correction routing: minor corrections, full revision, or continue
+    # Conditional routing: full revision or continue (style corrections handled in reflect_on_scene)
     graph_builder.add_conditional_edges(
         "reflect_on_scene",
-        check_correction_type,
+        needs_revision_check,
         {
-            "minor_corrections": "apply_minor_corrections",
             "revise": "revise_scene_if_needed",
             "continue": "update_world_elements"
         }
     )
     
-    # Continue flow after corrections
-    graph_builder.add_edge("apply_minor_corrections", "update_world_elements")
+    # Continue flow after revision
     graph_builder.add_edge("revise_scene_if_needed", "update_world_elements")
     graph_builder.add_edge("update_world_elements", "update_character_profiles")
     graph_builder.add_edge("update_character_profiles", "generate_summaries")
