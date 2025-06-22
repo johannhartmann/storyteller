@@ -40,15 +40,22 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     # Get book-level instructions
     book_instructions = state.get("book_level_instructions", "")
     
-    # Generate scene-specific instructions
-    from storyteller_lib.instruction_synthesis import generate_scene_level_instructions
-    scene_instructions = generate_scene_level_instructions(current_chapter, current_scene, state)
-    
-    # Get scene content
+    # Get scene-specific instructions from database
     db_manager = get_db_manager()
     if not db_manager:
         raise RuntimeError("Database manager not available")
     
+    scene_instructions = db_manager.get_scene_instructions(current_chapter, current_scene)
+    
+    # If not found in database, generate them (shouldn't happen in normal flow)
+    if not scene_instructions:
+        logger.warning(f"Scene instructions not found in database for Ch{current_chapter}/Sc{current_scene}. Generating now.")
+        from storyteller_lib.instruction_synthesis import generate_scene_level_instructions
+        scene_instructions = generate_scene_level_instructions(current_chapter, current_scene, state)
+        # Save for future use
+        db_manager.save_scene_instructions(current_chapter, current_scene, scene_instructions)
+    
+    # Get scene content
     scene_content = db_manager.get_scene_content(current_chapter, current_scene)
     if not scene_content:
         scene_content = state.get("current_scene_content", "")
