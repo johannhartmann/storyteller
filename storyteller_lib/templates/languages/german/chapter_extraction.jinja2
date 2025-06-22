@@ -1,9 +1,11 @@
 {# Base template for chapter extraction - German version #}
 Basierend auf dem von Ihnen erstellten Kapitelplan muss ich eine Liste der Kapitel mit ihren Schlüsselszenen extrahieren.
 
+WICHTIG: Extrahieren Sie KAPITEL, nicht Akte oder Abschnitte. Wenn der Plan eine Struktur wie "3-Akte" mit Akten verwendet, die Kapitel enthalten, extrahieren Sie jedes einzelne KAPITEL innerhalb dieser Akte.
+
 Für jedes Kapitel bitte angeben:
-1. Die Kapitelnummer (als String)
-2. Einen Titel
+1. Die Kapitelnummer (als String, z.B. "1", "2", "3" usw.)
+2. Einen Titel (den Titel des Kapitels, NICHT den Akt-Titel)
 3. Eine detaillierte Gliederung (200-300 Wörter)
 4. Für jede der 3-5 Schlüsselszenen angeben:
    - Beschreibung: Die detaillierte Zusammenfassung in 3-5 Sätzen, was in dieser Szene passiert
@@ -20,8 +22,10 @@ Kapitelplan:
 {{ chapter_plan_text }}
 
 EXTRAKTIONSRICHTLINIEN:
-- Die exakte Struktur aus dem Plan beibehalten
-- Alle erwähnten Kapitel einbeziehen
+- Extrahieren Sie einzelne KAPITEL, nicht Akte oder strukturelle Unterteilungen
+- Wenn der Plan Akte/Abschnitte mit Kapiteln enthält, extrahieren Sie die Kapitel innerhalb dieser
+- Nummerieren Sie Kapitel fortlaufend über die gesamte Geschichte (1, 2, 3... nicht pro Akt neu beginnend)
+- Beziehen Sie alle im Plan erwähnten Kapitel ein, unabhängig davon, zu welchem Akt sie gehören
 - Kapitelnummern als Strings beibehalten ("1", "2", usw.)
 - Szenenbeschreibungen prägnant aber klar halten
 - Fokus auf handlungskritische und charakterdefinierende Momente

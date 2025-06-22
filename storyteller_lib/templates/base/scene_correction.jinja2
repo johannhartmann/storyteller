@@ -1,0 +1,27 @@
+{# Scene correction template - for targeted fixes to existing scenes #}
+You are tasked with making a specific correction to an existing scene. Your goal is to fix ONLY what is mentioned in the correction instruction while preserving everything else about the scene.
+
+CURRENT SCENE:
+{{ current_scene }}
+
+CORRECTION INSTRUCTION:
+{{ correction_instruction }}
+
+SCENE CONTEXT:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+- Original scene instructions: {{ scene_instructions }}
+
+CORRECTION GUIDELINES:
+1. Apply ONLY the specific correction mentioned in the instruction
+2. Preserve all other aspects of the scene:
+   - Maintain the same writing style and voice
+   - Keep all unrelated dialogue and descriptions unchanged
+   - Preserve the scene's pacing and flow
+   - Retain all character behaviors and emotions not related to the correction
+   - Keep the same narrative perspective
+3. Ensure the correction integrates seamlessly with the rest of the scene
+4. Do not add new plot elements or character developments unless specifically required by the correction
+5. Maintain consistency with the established genre and tone
+
+Write the corrected scene below, with ONLY the requested change applied:

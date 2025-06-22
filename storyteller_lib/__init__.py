@@ -79,5 +79,7 @@ def reset_progress_tracking() -> None:
 
 # Export public API
 from storyteller_lib.storyteller import generate_story_simplified as generate_story
+from storyteller_lib.scene_correction import correct_scene, correct_scene_with_validation
 
-__all__ = ["generate_story", "track_progress", "set_progress_callback", "reset_progress_tracking"]
+__all__ = ["generate_story", "track_progress", "set_progress_callback", "reset_progress_tracking", 
+          "correct_scene", "correct_scene_with_validation"]

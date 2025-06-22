@@ -895,139 +895,105 @@ def plan_chapters(state: StoryState) -> Dict:
             chapter_plan_text = llm.invoke([HumanMessage(content=revised_prompt)]).content
     
     # Use direct LLM structured output with simplified Pydantic model
-    try:
-        # Create a structured output prompt that explicitly asks for chapter data with scenes
-        # Render the chapter extraction prompt
-        structured_prompt = render_prompt(
-            'chapter_extraction',
-            language=language,
-            chapter_plan_text=chapter_plan_text
-        )
-        
-        # Always use flattened model to avoid nested dictionaries
-        structured_output_llm = llm.with_structured_output(FlatChapterPlan)
-        
-        # Get structured output
-        result = structured_output_llm.invoke(structured_prompt)
-        
-        # Convert from flattened structure
-        chapters_dict = {}
-        
-        # Convert from flattened structure
-        # First, create chapters with sequential numbering
-        # Also create a mapping from LLM chapter numbers to actual sequential numbers
-        llm_to_actual_chapter = {}
-        for idx, chapter in enumerate(result.chapters, 1):
-            # Use sequential numbering instead of trusting LLM output
-            actual_chapter_num = str(idx)
-            llm_chapter_num = str(chapter.number)
-            llm_to_actual_chapter[llm_chapter_num] = actual_chapter_num
+    max_retries = 2
+    retry_count = 0
+    
+    while retry_count <= max_retries:
+        try:
+            # Create a structured output prompt that explicitly asks for chapter data with scenes
+            # Render the chapter extraction prompt
+            structured_prompt = render_prompt(
+                'chapter_extraction',
+                language=language,
+                chapter_plan_text=chapter_plan_text
+            )
             
-            logger.info(f"Creating chapter {actual_chapter_num} (LLM labeled it as {llm_chapter_num}): {chapter.title}")
+            # Add explicit instruction about chapter count if this is a retry
+            if retry_count > 0:
+                structured_prompt = f"""CRITICAL: Your previous attempt only generated {len(chapters) if 'chapters' in locals() else 'too few'} chapters.
+You MUST generate AT LEAST {max(5, target_chapters - 3)} chapters (target: {target_chapters} chapters).
+This is REQUIRED for the story structure.
+
+{structured_prompt}"""
+            
+            # Always use flattened model to avoid nested dictionaries
+            structured_output_llm = llm.with_structured_output(FlatChapterPlan)
+            
+            # Get structured output
+            result = structured_output_llm.invoke(structured_prompt)
+            
+            # Convert from flattened structure
+            chapters_dict = {}
+            
+            # Convert from flattened structure
+            # First, create chapters with sequential numbering
+            # Also create a mapping from LLM chapter numbers to actual sequential numbers
+            llm_to_actual_chapter = {}
+            for idx, chapter in enumerate(result.chapters, 1):
+                # Use sequential numbering instead of trusting LLM output
+                actual_chapter_num = str(idx)
+                llm_chapter_num = str(chapter.number)
+                llm_to_actual_chapter[llm_chapter_num] = actual_chapter_num
                 
-            chapters_dict[actual_chapter_num] = {
-                "title": chapter.title,
-                "outline": chapter.outline,
-                "scenes": {},
-                "reflection_notes": []
-            }
-        
-        # Then add scenes to their respective chapters using the mapping
-        for scene in result.total_scenes:
-            llm_chapter_num = scene.chapter_number
-            # Map the LLM's chapter number to our sequential number
-            actual_chapter_num = llm_to_actual_chapter.get(llm_chapter_num, llm_chapter_num)
-            scene_num = str(scene.scene_number)
-            
-            if actual_chapter_num in chapters_dict:
-                chapters_dict[actual_chapter_num]["scenes"][scene_num] = {
-                    "content": "",
-                    "description": scene.description,
-                    "scene_type": scene.scene_type,
-                    "plot_progressions": [s.strip() for s in scene.plot_progressions_csv.split(",") if s.strip()] if scene.plot_progressions_csv else [],
-                    "character_learns": [s.strip() for s in scene.character_learns_csv.split(",") if s.strip()] if scene.character_learns_csv else [],
-                    "required_characters": [s.strip() for s in scene.required_characters_csv.split(",") if s.strip()] if scene.required_characters_csv else [],
-                    "forbidden_repetitions": [s.strip() for s in scene.forbidden_repetitions_csv.split(",") if s.strip()] if scene.forbidden_repetitions_csv else [],
-                    "dramatic_purpose": scene.dramatic_purpose,
-                    "tension_level": scene.tension_level,
-                    "ends_with": scene.ends_with,
-                    "connects_to_next": scene.connects_to_next,
+                logger.info(f"Creating chapter {actual_chapter_num} (LLM labeled it as {llm_chapter_num}): {chapter.title}")
+                    
+                chapters_dict[actual_chapter_num] = {
+                    "title": chapter.title,
+                    "outline": chapter.outline,
+                    "scenes": {},
                     "reflection_notes": []
                 }
-        
-        # Use the dictionary as our chapters
-        chapters = chapters_dict
-        
-        # Fail if we don't have enough chapters
-        min_chapters = max(5, target_chapters - 3)
-        if len(chapters) < min_chapters:
-            raise RuntimeError(f"Only {len(chapters)} chapters were generated. At least {min_chapters} chapters are required for this story structure.")
-    except Exception as e:
-        print(f"Error generating chapter data with Pydantic: {str(e)}")
-        
-        # If structured output fails, try to parse the text directly
-        try:
-            # Create empty chapters dictionary
-            chapters = {}
             
-            # Parse the chapter plan text to extract chapters
-            import re
-            
-            # Look for chapter patterns like "Chapter 1:", "Chapter One:", etc.
-            chapter_matches = re.finditer(r'(?:Chapter|Kapitel|Chapitre)\s+(\d+|[A-Za-z]+)[:\s-]+([^\n]+)', chapter_plan_text)
-            
-            current_chapter = None
-            current_outline = []
-            
-            lines = chapter_plan_text.split('\n')
-            for i, line in enumerate(lines):
-                # Check if this line starts a new chapter
-                match = re.match(r'(?:Chapter|Kapitel|Chapitre)\s+(\d+|[A-Za-z]+)[:\s-]+([^\n]+)', line)
-                if match:
-                    # If we were processing a previous chapter, save it
-                    if current_chapter:
-                        chapter_num = current_chapter['number']
-                        # Fail - we should not create scenes without proper descriptions
-                        raise RuntimeError(f"Chapter planning failed: No scene descriptions were generated for chapter {chapter_num}. Structured output is required.")
-                    
-                    # Start a new chapter
-                    chapter_num = match.group(1)
-                    # Convert word numbers to digits if needed
-                    if chapter_num.lower() == 'one': chapter_num = '1'
-                    elif chapter_num.lower() == 'two': chapter_num = '2'
-                    elif chapter_num.lower() == 'three': chapter_num = '3'
-                    elif chapter_num.lower() == 'four': chapter_num = '4'
-                    elif chapter_num.lower() == 'five': chapter_num = '5'
-                    elif chapter_num.lower() == 'six': chapter_num = '6'
-                    elif chapter_num.lower() == 'seven': chapter_num = '7'
-                    elif chapter_num.lower() == 'eight': chapter_num = '8'
-                    elif chapter_num.lower() == 'nine': chapter_num = '9'
-                    elif chapter_num.lower() == 'ten': chapter_num = '10'
-                    
-                    current_chapter = {
-                        'number': chapter_num,
-                        'title': match.group(2).strip()
+            # Then add scenes to their respective chapters using the mapping
+            for scene in result.total_scenes:
+                llm_chapter_num = scene.chapter_number
+                # Map the LLM's chapter number to our sequential number
+                actual_chapter_num = llm_to_actual_chapter.get(llm_chapter_num, llm_chapter_num)
+                scene_num = str(scene.scene_number)
+                
+                if actual_chapter_num in chapters_dict:
+                    chapters_dict[actual_chapter_num]["scenes"][scene_num] = {
+                        "content": "",
+                        "description": scene.description,
+                        "scene_type": scene.scene_type,
+                        "plot_progressions": [s.strip() for s in scene.plot_progressions_csv.split(",") if s.strip()] if scene.plot_progressions_csv else [],
+                        "character_learns": [s.strip() for s in scene.character_learns_csv.split(",") if s.strip()] if scene.character_learns_csv else [],
+                        "required_characters": [s.strip() for s in scene.required_characters_csv.split(",") if s.strip()] if scene.required_characters_csv else [],
+                        "forbidden_repetitions": [s.strip() for s in scene.forbidden_repetitions_csv.split(",") if s.strip()] if scene.forbidden_repetitions_csv else [],
+                        "dramatic_purpose": scene.dramatic_purpose,
+                        "tension_level": scene.tension_level,
+                        "ends_with": scene.ends_with,
+                        "connects_to_next": scene.connects_to_next,
+                        "reflection_notes": []
                     }
-                    current_outline = []
-                else:
-                    # Add this line to the current chapter's outline
-                    if current_chapter and line.strip():
-                        current_outline.append(line.strip())
             
-            # Don't forget to save the last chapter
-            if current_chapter:
-                chapter_num = current_chapter['number']
-                # Fail - we should not create scenes without proper descriptions
-                raise RuntimeError(f"Chapter planning failed: No scene descriptions were generated for chapter {chapter_num}. Structured output is required.")
+            # Use the dictionary as our chapters
+            chapters = chapters_dict
             
-            # Fail if we still don't have enough chapters
+            # Fail if we don't have enough chapters
             min_chapters = max(5, target_chapters - 3)
             if len(chapters) < min_chapters:
-                raise RuntimeError(f"Chapter planning failed: Only {len(chapters)} chapters were extracted. At least {min_chapters} chapters are required.")
-        except Exception as e2:
-            print(f"Error parsing chapter data directly: {str(e2)}")
-            # Re-raise the error - no fallback allowed
-            raise RuntimeError(f"Chapter planning failed completely: {str(e2)}. Cannot continue without proper scene descriptions.")
+                if retry_count < max_retries:
+                    logger.warning(f"Insufficient chapters generated: {len(chapters)} < {min_chapters} (target was {target_chapters}). Retrying...")
+                    retry_count += 1
+                    continue  # Try again
+                else:
+                    logger.error(f"Insufficient chapters generated after {max_retries + 1} attempts: {len(chapters)} < {min_chapters} (target was {target_chapters})")
+                    logger.error(f"Chapters generated: {list(chapters.keys())}")
+                    raise RuntimeError(f"Only {len(chapters)} chapters were generated, but at least {min_chapters} are required (target: {target_chapters}). The LLM must generate a complete chapter plan.")
+            
+            # If we got here, we have enough chapters - break out of retry loop
+            break
+            
+        except Exception as e:
+            if retry_count < max_retries:
+                logger.warning(f"Chapter planning attempt {retry_count + 1} failed: {str(e)}. Retrying...")
+                retry_count += 1
+                continue
+            else:
+                # No fallback parsing - fail if structured output doesn't work
+                logger.error(f"Chapter planning failed with structured output after {max_retries + 1} attempts: {str(e)}")
+                raise RuntimeError(f"Chapter planning failed: {str(e)}. Structured output is required.")
     
     # Validate the structure and ensure each chapter has the required fields
     for chapter_num, chapter in chapters.items():
