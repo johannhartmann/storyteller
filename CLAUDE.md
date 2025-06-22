@@ -95,3 +95,5 @@ No formal test suite currently exists. Testing is done through running the story
 - To debug the database look in ~/.storyteller/story_database.db
 - Never implement a fallback for structured output. Fail if the structured output did not work.
 - Never use nested dictionaries in structured output.
+- Never run the storyteller on your own, it takes hours
+- Never add generated markdown files to git.

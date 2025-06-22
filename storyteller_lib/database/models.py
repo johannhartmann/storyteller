@@ -84,6 +84,12 @@ class StoryDatabase:
             cursor.execute("ALTER TABLE scenes ADD COLUMN summary TEXT")
             conn.commit()
         
+        # Check if content_ssml column exists
+        if 'content_ssml' not in scene_columns:
+            logger.info("Adding content_ssml column to scenes table")
+            cursor.execute("ALTER TABLE scenes ADD COLUMN content_ssml TEXT")
+            conn.commit()
+        
         cursor.execute("PRAGMA table_info(chapters)")
         chapter_columns = [col[1] for col in cursor.fetchall()]
         
@@ -674,7 +680,7 @@ class StoryDatabase:
         Args:
             chapter_id: The chapter ID
             scene_num: Scene number
-            **kwargs: Additional fields (outline, content)
+            **kwargs: Additional fields (outline, content, content_ssml)
             
         Returns:
             int: The ID of the created scene
@@ -684,17 +690,34 @@ class StoryDatabase:
             
             cursor.execute(
                 """
-                INSERT INTO scenes (chapter_id, scene_number, description, content, scene_type)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO scenes (chapter_id, scene_number, description, content, content_ssml, scene_type)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (chapter_id, scene_num, kwargs.get('description', kwargs.get('outline')), 
-                 kwargs.get('content'), kwargs.get('scene_type', 'exploration'))
+                 kwargs.get('content'), kwargs.get('content_ssml'), kwargs.get('scene_type', 'exploration'))
             )
             conn.commit()
             
             scene_id = cursor.lastrowid
             logger.info(f"Created scene {scene_num} (ID: {scene_id}) for chapter {chapter_id}")
             return scene_id
+    
+    def update_scene_ssml(self, scene_id: int, content_ssml: str) -> None:
+        """
+        Update the SSML content for a scene.
+        
+        Args:
+            scene_id: The scene ID
+            content_ssml: The SSML formatted content
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE scenes SET content_ssml = ? WHERE id = ?",
+                (content_ssml, scene_id)
+            )
+            conn.commit()
+            logger.info(f"Updated SSML content for scene {scene_id}")
     
     def add_entity_to_scene(self, scene_id: int, entity_type: str, entity_id: int,
                            involvement: str = "present") -> None:

@@ -1,0 +1,88 @@
+Du bist ein Experte für SSML und Hörbuch-Regie. Deine Aufgabe ist es, einen literarischen Text in ein reich annotiertes SSML-Dokument zu konvertieren. Das Ziel ist es, ein immersives und atmosphärisches Hörerlebnis zu schaffen, das die Stimmung des Textes perfekt einfängt.
+
+Anweisungen:
+Analysiere den folgenden Text und wende SSML-Tags präzise an, um Drama, Stimmung und Rhythmus zu steuern. Halte dich an diese Regeln:
+
+Grundstruktur:
+- Umschließe den gesamten Text mit einem <speak>-Tag mit korrekten Attributen
+- Verwende ein primäres <voice>-Tag für die Erzählerstimme (z.B. <voice name="de-DE-KatjaNeural">)
+- Nutze <p>-Tags für Absätze und <s>-Tags für Sätze für einen natürlicheren Fluss
+
+Pausen und Tempo (<break>):
+- Füge eine deutliche Pause (<break time="1200ms"/>) zwischen allen Absätzen ein, um dem Zuhörer einen Moment zum Verarbeiten zu geben
+- Füge kurze Pausen (<break time="300ms"/> bis <break time="500ms"/>) an Stellen ein, wo ein Gedankenwechsel stattfindet oder um Spannung aufzubauen
+- Verwende längere, dramatische Pausen (<break time="1500ms"/> oder mehr) nach wichtigen Enthüllungen oder vor einem bedeutungsvollen letzten Satz
+- Alternative: nutze das strength-Attribut (<break strength="medium"/> oder "strong")
+
+Betonung (<emphasis>):
+- Identifiziere Schlüsselwörter, die für die Handlung, Stimmung oder das zentrale Thema entscheidend sind (z.B. Namen, Orte, Hinweise, emotionale Zustände)
+- Verwende <emphasis level="moderate"> für wichtige beschreibende Adjektive oder Verben, die Atmosphäre aufbauen
+- Verwende <emphasis level="strong"> für die wichtigsten Hinweise und Enthüllungen
+
+Prosodie (<prosody>):
+WICHTIG - Korrekte Syntax für rate:
+- Für LANGSAMERES Sprechen: verwende rate="-20%" (20% langsamer) oder rate="slow"
+- Für SCHNELLERES Sprechen: verwende rate="+20%" (20% schneller) oder rate="fast"
+- NIEMALS rate="90%" verwenden (das bedeutet 90% schneller, fast doppelte Geschwindigkeit!)
+- Gültige Konstanten: x-slow, slow, medium (Standard), fast, x-fast
+
+Beispiele:
+- Atmosphärische Beschreibungen: <prosody rate="slow"> oder <prosody rate="-15%">
+- Actionszenen: <prosody rate="+10%"> oder <prosody rate="fast">
+- Charakterdialoge: variiere die Tonhöhe mit pitch="-10%" für tiefe Stimmen, pitch="+10%" für höhere Stimmen
+- Zitierter Text/Notizen: <prosody pitch="-5%" rate="-10%"> zur Unterscheidung von der Erzählung
+
+Zusätzliche Elemente:
+- Verwende <say-as> für Daten, Zeiten, Zahlen: <say-as interpret-as="date">14.10.2024</say-as>
+- Verwende <sub> für Aussprache: <sub alias="Doktor Watson">Dr. Watson</sub>
+- Verwende <lang> für Fremdwörter: <lang xml:lang="en-US">smartphone</lang>
+
+Charakterdialoge: Für Charakterdialoge erwäge, verschiedene Stimmen oder Prosodie-Anpassungen zu verwenden, um Sprecher zu unterscheiden, besonders in Gesprächen.
+
+Genre- und Ton-Überlegungen:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+Passe deine SSML-Auszeichnung an diese Elemente an. Zum Beispiel könnte ein Thriller mehr dramatische Pausen und Betonungen haben, während eine Komödie ein schnelleres Tempo und leichtere Betonungen haben könnte.
+
+Szenenkontext:
+Kapitel {{ chapter_number }}, Szene {{ scene_number }}
+{{ scene_description }}
+
+{% if is_first_scene_in_book %}
+WICHTIG: Dies ist die allererste Szene des Buches. Beginne mit:
+1. Einer Ankündigung des Buchtitels "{{ book_title }}" mit starker Betonung
+2. Einer dramatischen Pause (2000ms)
+3. Der Kapitelankündigung "Kapitel {{ chapter_number }}: {{ chapter_title }}" mit moderater Betonung
+4. Einer weiteren Pause (1500ms)
+5. Dann beginne mit dem Szeneninhalt
+
+Beispielstruktur:
+<p>
+  <emphasis level="strong">{{ book_title }}</emphasis>
+  <break time="2000ms"/>
+  <emphasis level="moderate">Kapitel {{ chapter_number }}: {{ chapter_title }}</emphasis>
+  <break time="1500ms"/>
+</p>
+{% elif is_first_scene_in_chapter %}
+WICHTIG: Dies ist die erste Szene eines neuen Kapitels. Beginne mit:
+1. Der Kapitelankündigung "Kapitel {{ chapter_number }}: {{ chapter_title }}" mit moderater Betonung
+2. Einer Pause (1500ms)
+3. Dann beginne mit dem Szeneninhalt
+
+Beispielstruktur:
+<p>
+  <emphasis level="moderate">Kapitel {{ chapter_number }}: {{ chapter_title }}</emphasis>
+  <break time="1500ms"/>
+</p>
+{% endif %}
+
+Deine Aufgabe:
+Wende diese Prinzipien nun auf den unten angegebenen Text an. Erstelle ein vollständiges, gebrauchsfertiges SSML-Dokument, das das Hörbucherlebnis verbessert.
+
+Zu konvertierender Text:
+{{ scene_content }}
+
+WICHTIG: 
+1. Gib NUR den SSML-formatierten Inhalt zurück, beginnend mit <speak> und endend mit </speak>.
+2. Das <speak>-Tag MUSS enthalten: version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="de-DE"
+3. Füge keine Erklärungen oder Kommentare hinzu.
