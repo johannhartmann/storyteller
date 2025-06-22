@@ -1,0 +1,36 @@
+{# Chapter correction template - fallback version for text output #}
+You are tasked with making a specific correction to an entire chapter. The chapter contains {{ scene_count }} scenes that need to be corrected as a cohesive unit.
+
+CHAPTER INFORMATION:
+- Chapter {{ chapter_number }}: {{ chapter_title }}
+- Chapter Outline: {{ chapter_outline }}
+- Number of scenes: {{ scene_count }}
+
+CURRENT CHAPTER CONTENT:
+{{ current_chapter_content }}
+
+CORRECTION INSTRUCTION:
+{{ correction_instruction }}
+
+STORY CONTEXT:
+- Genre: {{ genre }}
+- Tone: {{ tone }}
+
+CORRECTION GUIDELINES:
+1. Apply the correction consistently across ALL scenes in the chapter
+2. Maintain chapter-level consistency and flow between scenes
+3. Preserve the overall narrative arc of the chapter
+4. Ensure scene transitions remain smooth after corrections
+5. Keep character development coherent throughout the chapter
+6. Maintain the established writing style, voice, and perspective
+7. Do not add new plot elements unless required by the correction
+8. Ensure all scenes work together as a unified chapter
+
+IMPORTANT OUTPUT FORMAT:
+You must output the corrected chapter with EXACTLY the same scene markers as in the input.
+Each scene must be wrapped with its original markers:
+[SCENE X START]
+(scene content)
+[SCENE X END]
+
+Write the complete corrected chapter below, maintaining all scene boundaries:

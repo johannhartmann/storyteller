@@ -1,0 +1,46 @@
+{# Kapitelkorrektur-Template - für strukturierte Ausgabe mit Szenentrennung #}
+Sie haben die Aufgabe, eine spezifische Korrektur an einem gesamten Kapitel vorzunehmen. Das Kapitel enthält {{ scene_count }} Szenen, die als zusammenhängende Einheit korrigiert werden müssen.
+
+KAPITELINFORMATIONEN:
+- Kapitel {{ chapter_number }}: {{ chapter_title }}
+- Kapitelübersicht: {{ chapter_outline }}
+- Anzahl der Szenen: {{ scene_count }}
+
+AKTUELLER KAPITELINHALT:
+{{ current_chapter_content }}
+
+KORREKTURANWEISUNG:
+{{ correction_instruction }}
+
+STORY-KONTEXT:
+- Genre: {{ genre }}
+- Ton: {{ tone }}
+
+KORREKTURRICHTLINIEN:
+1. Wenden Sie die Korrektur konsistent auf ALLE Szenen im Kapitel an
+2. Erhalten Sie die Konsistenz auf Kapitelebene und den Fluss zwischen den Szenen
+3. Bewahren Sie den Gesamterzählbogen des Kapitels
+4. Stellen Sie sicher, dass Szenenübergänge nach den Korrekturen fließend bleiben
+5. Halten Sie die Charakterentwicklung im gesamten Kapitel kohärent
+6. Behalten Sie den etablierten Schreibstil, die Stimme und die Perspektive bei
+7. Fügen Sie keine neuen Handlungselemente hinzu, es sei denn, die Korrektur erfordert dies
+8. Stellen Sie sicher, dass alle Szenen als einheitliches Kapitel zusammenwirken
+
+WICHTIGE AUSGABESTRUKTUR:
+Sie müssen ein JSON-Objekt mit folgender Struktur zurückgeben:
+{
+  "corrected_scenes": [
+    {
+      "scene_number": 1,
+      "content": "Der vollständige korrigierte Inhalt von Szene 1..."
+    },
+    {
+      "scene_number": 2,
+      "content": "Der vollständige korrigierte Inhalt von Szene 2..."
+    }
+    // ... weiter für alle {{ scene_count }} Szenen
+  ]
+}
+
+Der Inhalt jeder Szene sollte der VOLLSTÄNDIGE Szenentext nach Anwendung der Korrektur sein.
+Stellen Sie sicher, dass Sie ALLE {{ scene_count }} Szenen in der richtigen Reihenfolge einbeziehen.
