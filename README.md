@@ -238,6 +238,78 @@ StoryCraft supports multiple narrative structures, each suited to different type
 
 The system automatically selects the most appropriate structure based on your genre and story concept, or you can specify one using the `--structure` parameter.
 
+## Audiobook Generation
+
+StoryCraft can generate professional audiobooks using Azure Text-to-Speech with SSML (Speech Synthesis Markup Language) support.
+
+### Prerequisites
+
+1. **Azure Speech Service Account**: You need an Azure account with Speech Service enabled
+2. **API Credentials**: Add to your `.env` file:
+   ```
+   SPEECH_KEY=your-azure-speech-key-here
+   SPEECH_REGION=your-azure-region-here  # e.g., eastus, westeurope
+   ```
+
+### Generating Audiobooks
+
+1. **Generate a story with SSML support**:
+   ```bash
+   python run_storyteller.py --genre fantasy --tone epic --audio-book
+   ```
+   This generates the story and prepares SSML content for each scene.
+
+2. **Convert existing story to audiobook**:
+   ```bash
+   python run_storyteller.py --convert-existing --audio-book
+   ```
+   This adds SSML markup to an existing story in the database.
+
+3. **Generate audio files**:
+   ```bash
+   # Test with first scene only
+   python generate_audiobook.py --test
+   
+   # Generate complete audiobook
+   python generate_audiobook.py
+   
+   # Use a different voice
+   python generate_audiobook.py --voice "en-US-AvaMultilingualNeural"
+   ```
+
+### Audio File Organization
+
+Audio files are generated in a folder named after your story title:
+```
+audiobook_output/
+└── Your_Story_Title/
+    ├── 01-01-chapter_title.mp3  # Chapter 1, Scene 1
+    ├── 01-02-chapter_title.mp3  # Chapter 1, Scene 2
+    ├── 02-01-chapter_title.mp3  # Chapter 2, Scene 1
+    └── ...
+```
+
+File naming format: `[chapter]-[scene]-[chapter_title].mp3`
+
+### SSML Features
+
+The generated SSML includes:
+- **Book and chapter announcements**: First scene includes book title, each chapter starts with chapter title
+- **Prosody control**: Variable speech rates for atmosphere (slower for dramatic scenes, faster for action)
+- **Emphasis**: Important words and phrases are emphasized
+- **Pauses**: Natural pauses between paragraphs and dramatic pauses for effect
+- **Voice variations**: Different pitch for dialogue, quotes, and narrative
+
+### Supported Voices
+
+- **English**: en-US-JennyNeural (default), en-US-AvaMultilingualNeural, en-US-GuyNeural
+- **German**: de-DE-KatjaNeural (default), de-DE-ConradNeural
+- **Other languages**: Automatically selected based on story language
+
+### Cost Estimation
+
+Azure Text-to-Speech pricing is approximately $16 per 1 million characters. The system shows cost estimates before generation.
+
 ## System Components
 
 ### Plot Thread Tracking

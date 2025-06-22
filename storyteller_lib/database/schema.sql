@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS scenes (
     description TEXT,
     content TEXT,
     summary TEXT,
+    content_ssml TEXT,
     scene_type TEXT DEFAULT 'exploration',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,

@@ -757,6 +757,8 @@ def main() -> None:
     # Story continuation is not supported in single-story mode
     parser.add_argument("--progress-log", type=str,
                         help="Path to save progress log file (default: automatically generated in ~/.storyteller/logs/)")
+    parser.add_argument("--audio-book", action="store_true",
+                        help="Generate SSML-formatted audiobook version of the story (during or after generation)")
     args = parser.parse_args()
     
     # Import config to check API keys
@@ -793,6 +795,49 @@ def main() -> None:
         os.environ["STORY_DATABASE_PATH"] = args.database_path
     from storyteller_lib.config import DATABASE_PATH
     print(f"Database persistence: {DATABASE_PATH}")
+    
+    # Handle SSML conversion for existing story (if audio-book flag is set without generating new story)
+    if args.audio_book and not any([args.genre, args.tone, args.idea]):
+        # User wants to convert existing story to audiobook
+        try:
+            print("Converting existing story to SSML format for audiobook...")
+            from storyteller_lib.ssml_converter import SSMLConverter
+            from storyteller_lib.config import DATABASE_PATH
+            
+            # Check if database exists
+            if not os.path.exists(DATABASE_PATH):
+                print(f"Error: No story database found at {DATABASE_PATH}")
+                print("Please generate a story first before converting to audiobook.")
+                return
+                
+            # Create SSML converter
+            ssml_converter = SSMLConverter(
+                model_provider=args.model_provider,
+                model=args.model,
+                language=args.language
+            )
+            
+            # Get story title for output filename
+            story_title = get_story_title_from_db()
+            if story_title:
+                output_filename = f"{sanitize_filename(story_title)}_audiobook.ssml"
+            else:
+                output_filename = "story_audiobook.ssml"
+            
+            # Convert to SSML
+            ssml_converter.convert_book_to_ssml(DATABASE_PATH, output_filename)
+            
+            print(f"\nSSML conversion complete!")
+            print(f"SSML file saved to: {output_filename}")
+            print("\nTo generate audio files, run:")
+            print(f"  nix develop -c python generate_audiobook.py")
+            return
+            
+        except Exception as e:
+            print(f"Error converting to audiobook: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return
     
     try:
         # Single story mode - always starts fresh
@@ -981,6 +1026,35 @@ def main() -> None:
         print(f"- Word count: {word_count}")
         
         print(f"\nStory successfully saved to {args.output} in markdown format")
+        
+        # Generate audiobook SSML if requested during generation
+        if args.audio_book:
+            try:
+                print("\nGenerating SSML for audiobook...")
+                from storyteller_lib.ssml_converter import SSMLConverter
+                
+                # Create SSML converter with the appropriate configuration
+                ssml_converter = SSMLConverter(
+                    model_provider=args.model_provider,
+                    model=args.model,
+                    language=args.language
+                )
+                
+                # Generate output filename for SSML
+                base_name = os.path.splitext(args.output)[0]
+                ssml_output = f"{base_name}_audiobook.ssml"
+                
+                # Convert the book to SSML
+                ssml_converter.convert_book_to_ssml(DATABASE_PATH, ssml_output)
+                
+                print(f"SSML audiobook successfully saved to {ssml_output}")
+                print("\nTo generate audio files, run:")
+                print(f"  nix develop -c python generate_audiobook.py")
+                
+            except Exception as ssml_err:
+                print(f"Error generating audiobook SSML: {str(ssml_err)}")
+                import traceback
+                traceback.print_exc()
         
     except Exception as e:
         print(f"Error during story generation: {str(e)}")
