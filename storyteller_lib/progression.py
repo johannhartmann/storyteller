@@ -867,8 +867,11 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
     
+    logger.info(f"=== ADVANCE DECISION for Chapter {current_chapter}, Scene {current_scene} ===")
+    
     # Get the current chapter data
     chapter = chapters[current_chapter]
+    logger.info(f"Chapter {current_chapter} has {len(chapter.get('scenes', {}))} planned scenes: {sorted(chapter.get('scenes', {}).keys())}")
     
     # Calculate the next scene or chapter
     next_scene = str(int(current_scene) + 1)
@@ -876,8 +879,13 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
     # Check if there are more unwritten scenes in the current chapter
     unwritten_scenes = []
     for scene_num, scene_data in chapter["scenes"].items():
+        db_stored = scene_data.get("db_stored", False)
+        written = scene_data.get("written", False)
+        logger.info(f"Scene {scene_num}: db_stored={db_stored}, written={written}, has_content={bool(scene_data.get('content', ''))}")
         if not scene_data.get("db_stored", False):
             unwritten_scenes.append(int(scene_num))
+    
+    logger.info(f"Unwritten scenes in Chapter {current_chapter}: {sorted(unwritten_scenes)}")
     
     if unwritten_scenes:
         # Find the next unwritten scene
@@ -908,6 +916,8 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
             ]
         }
     else:
+        logger.info(f"All scenes in Chapter {current_chapter} are written. Moving to next chapter.")
+        
         # Move to the next chapter
         next_chapter = str(int(current_chapter) + 1)
         
@@ -915,6 +925,7 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
         progress_report = generate_chapter_progress_report(state, current_chapter)
         
         # Check if the next chapter exists
+        logger.info(f"Checking if Chapter {next_chapter} exists. Available chapters: {sorted(chapters.keys())}")
         if next_chapter in chapters:
             # Get cleanup updates for old state data
             cleanup_updates = cleanup_old_state(state, current_chapter)
@@ -939,6 +950,7 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
             }
         else:
             # All chapters are complete
+            logger.info(f"No more chapters after {current_chapter}. Story is complete!")
             return {
                 "completed": True,
                 "continuity_phase": "complete",  # Reset continuity phase
