@@ -914,26 +914,33 @@ def plan_chapters(state: StoryState) -> Dict:
         chapters_dict = {}
         
         # Convert from flattened structure
-        # First, create chapters
-        for chapter in result.chapters:
-            chapter_num = chapter.number
-            if not isinstance(chapter_num, str):
-                chapter_num = str(chapter_num)
+        # First, create chapters with sequential numbering
+        # Also create a mapping from LLM chapter numbers to actual sequential numbers
+        llm_to_actual_chapter = {}
+        for idx, chapter in enumerate(result.chapters, 1):
+            # Use sequential numbering instead of trusting LLM output
+            actual_chapter_num = str(idx)
+            llm_chapter_num = str(chapter.number)
+            llm_to_actual_chapter[llm_chapter_num] = actual_chapter_num
+            
+            logger.info(f"Creating chapter {actual_chapter_num} (LLM labeled it as {llm_chapter_num}): {chapter.title}")
                 
-            chapters_dict[chapter_num] = {
+            chapters_dict[actual_chapter_num] = {
                 "title": chapter.title,
                 "outline": chapter.outline,
                 "scenes": {},
                 "reflection_notes": []
             }
         
-        # Then add scenes to their respective chapters
+        # Then add scenes to their respective chapters using the mapping
         for scene in result.total_scenes:
-            chapter_num = scene.chapter_number
+            llm_chapter_num = scene.chapter_number
+            # Map the LLM's chapter number to our sequential number
+            actual_chapter_num = llm_to_actual_chapter.get(llm_chapter_num, llm_chapter_num)
             scene_num = str(scene.scene_number)
             
-            if chapter_num in chapters_dict:
-                chapters_dict[chapter_num]["scenes"][scene_num] = {
+            if actual_chapter_num in chapters_dict:
+                chapters_dict[actual_chapter_num]["scenes"][scene_num] = {
                     "content": "",
                     "description": scene.description,
                     "scene_type": scene.scene_type,
