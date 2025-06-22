@@ -67,8 +67,16 @@ def review_and_polish_manuscript(state: StoryState) -> Dict:
     # Get chapter count for context
     chapter_count = len(state.get("chapters", {}))
     
+    # Calculate manuscript statistics for logging
+    word_count = len(manuscript.split())
+    logger.info(f"Manuscript compiled: {chapter_count} chapters, ~{word_count} words")
+    
     # Step 2: Analyze the manuscript
-    logger.info("Analyzing manuscript for quality issues...")
+    logger.info("=== STARTING FINAL MANUSCRIPT REVIEW ===")
+    logger.info(f"Analyzing manuscript for quality issues...")
+    logger.info(f"Genre: {genre}, Tone: {tone}, Language: {language}")
+    print(f"\n📖 Starting final manuscript review ({chapter_count} chapters, ~{word_count} words)...")
+    print(f"   This comprehensive review may take a few minutes...")
     
     # Render the review prompt
     review_prompt = render_prompt(
@@ -82,6 +90,7 @@ def review_and_polish_manuscript(state: StoryState) -> Dict:
     
     # Get structured review output
     try:
+        print(f"   Analyzing literary quality, consistency, and reader engagement...")
         review_result = llm.with_structured_output(ManuscriptReviewOutput).invoke([HumanMessage(content=review_prompt)])
         
         if not review_result:
@@ -104,22 +113,38 @@ def review_and_polish_manuscript(state: StoryState) -> Dict:
     # Log review results
     logger.info(f"Overall quality score: {review_result.overall_quality_score}/10")
     logger.info(f"Found {len(review_result.chapter_issues)} chapters with issues")
+    print(f"\n✅ Review complete! Overall quality score: {review_result.overall_quality_score}/10")
     
     # Step 3: Apply corrections
     corrections_applied = []
     correction_failures = []
     
     if review_result.chapter_issues:
+        # Count issues by severity
+        severity_counts = {"critical": 0, "moderate": 0, "minor": 0}
+        for issue in review_result.chapter_issues:
+            severity_counts[issue.severity] = severity_counts.get(issue.severity, 0) + 1
+        
+        print(f"\n🔧 Found issues in {len(review_result.chapter_issues)} chapters:")
+        if severity_counts["critical"]:
+            print(f"   - {severity_counts['critical']} critical issues")
+        if severity_counts["moderate"]:
+            print(f"   - {severity_counts['moderate']} moderate issues")
+        if severity_counts["minor"]:
+            print(f"   - {severity_counts['minor']} minor issues")
+        
         logger.info("Applying corrections to chapters...")
+        print(f"\n📝 Applying corrections...")
         
         # Sort by severity (critical first)
         severity_order = {"critical": 0, "moderate": 1, "minor": 2}
         sorted_issues = sorted(review_result.chapter_issues, 
                              key=lambda x: (severity_order.get(x.severity, 3), x.chapter_number))
         
-        for chapter_issue in sorted_issues:
+        for i, chapter_issue in enumerate(sorted_issues, 1):
             chapter_num = chapter_issue.chapter_number
             logger.info(f"Correcting Chapter {chapter_num} ({chapter_issue.severity} issues)")
+            print(f"   [{i}/{len(sorted_issues)}] Correcting Chapter {chapter_num} ({chapter_issue.severity})...")
             
             try:
                 # Apply correction using the existing correct_chapter function
@@ -142,6 +167,8 @@ def review_and_polish_manuscript(state: StoryState) -> Dict:
     
     # Step 4: Recompile the corrected story
     logger.info("Recompiling corrected manuscript...")
+    if corrections_applied:
+        print(f"\n📚 Recompiling manuscript with corrections...")
     final_polished_story = compile_story_content(state)
     
     # Create summary message
@@ -181,6 +208,13 @@ def review_and_polish_manuscript(state: StoryState) -> Dict:
         ])
     
     summary_message = "\n".join(summary_parts)
+    
+    # Print final status
+    print(f"\n🎉 Final manuscript review and polish complete!")
+    if corrections_applied:
+        print(f"   Applied {len(corrections_applied)} improvements to enhance quality")
+    else:
+        print(f"   No corrections needed - manuscript quality is excellent!")
     
     # Return updated state
     return {
