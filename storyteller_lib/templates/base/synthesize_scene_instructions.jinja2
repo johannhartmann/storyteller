@@ -62,10 +62,31 @@ ACTIVE STORY THREADS:
 
 CHARACTERS IN SCENE: {{ required_characters|join(', ') }}
 {% for char in characters[:4] %}
-- {{ char.name }}: {{ char.role }}, currently {{ char.emotional_state }}, motivated by {{ char.motivation }}
-{% if char.inner_conflicts %}  Inner conflict: {{ char.inner_conflicts[0].description if char.inner_conflicts else '' }}{% endif %}
-{% if char.recent_knowledge %}  Recently learned: {{ char.recent_knowledge[0].content }}{% endif %}
+- {{ char.name }} ({{ char.role }}): Currently {{ char.emotional_state }}
+  {%- if char.personality.traits %} | Key traits: {{ char.personality.traits[:3]|join(', ') }}{% endif %}
+  {%- if char.motivation != 'Unknown' %} | Motivated by: {{ char.motivation }}{% endif %}
+  {%- if char.personality.fears %} | Fears: {{ char.personality.fears[0] }}{% endif %}
+  {%- if char.inner_conflicts %} | Inner conflict: {{ char.inner_conflicts[0].description if char.inner_conflicts[0] is mapping else char.inner_conflicts[0] }}{% endif %}
+  {%- if char.character_arc %} | Arc: {{ char.character_arc.type }} ({{ char.character_arc.current_stage }}){% endif %}
+  {%- if char.physical_description %} | Appearance: {{ char.physical_description }}{% endif %}
 {% endfor %}
+
+{% if characters %}
+CHARACTER DEPTH FOR THIS SCENE:
+{% for char in characters[:4] %}
+{{ char.name }}:
+{%- if char.personality.strengths %}
+  - Strengths: {{ char.personality.strengths[:2]|join(', ') }}{% endif %}
+{%- if char.personality.flaws %}
+  - Flaws: {{ char.personality.flaws[:2]|join(', ') }}{% endif %}
+{%- if char.personality.values %}
+  - Values: {{ char.personality.values[:2]|join(', ') }}{% endif %}
+{%- if char.evolution %}
+  - Recent development: {{ char.evolution[-1] }}{% endif %}
+{%- if char.recent_knowledge %}
+  - Recently learned: {{ char.recent_knowledge[0].content }}{% endif %}
+{% endfor %}
+{% endif %}
 
 {% if relationships %}
 KEY RELATIONSHIPS:
