@@ -105,7 +105,8 @@ def build_comprehensive_scene_context(
     character_context = _get_character_context(
         db_manager, 
         scene_specs['required_characters'],
-        scene_specs['description']
+        scene_specs['description'],
+        state
     )
     
     # 6. Get world context
@@ -326,10 +327,15 @@ def _get_plot_context(db_manager, scene_specs: Dict[str, Any]) -> Dict[str, Any]
     }
 
 
-def _get_character_context(db_manager, required_chars: List[str], scene_desc: str) -> Dict[str, Any]:
-    """Get comprehensive character context."""
+def _get_character_context(db_manager, required_chars: List[str], scene_desc: str, state: StoryState = None) -> Dict[str, Any]:
+    """Get comprehensive character context including worldbuilding descriptions."""
     characters = []
     character_ids = []
+    
+    # Get character info from state if available for richer descriptions
+    state_characters = {}
+    if state and "characters" in state:
+        state_characters = state.get("characters", {})
     
     # Get required characters first
     for char_identifier in required_chars:
@@ -372,7 +378,8 @@ def _get_character_context(db_manager, required_chars: List[str], scene_desc: st
                              'type': row['knowledge_type']} 
                             for row in cursor.fetchall()]
                 
-                characters.append({
+                # Check if we have richer character data in state
+                char_data = {
                     'id': result['id'],
                     'identifier': result['identifier'],
                     'name': result['name'],
@@ -383,7 +390,57 @@ def _get_character_context(db_manager, required_chars: List[str], scene_desc: st
                     'motivation': personality.get('core_motivation', 'Unknown'),
                     'inner_conflicts': personality.get('inner_conflicts', []),
                     'recent_knowledge': knowledge
-                })
+                }
+                
+                # Enhance with state data if available
+                if state_characters and result['identifier'] in state_characters:
+                    state_char = state_characters[result['identifier']]
+                    
+                    # Add personality details if more comprehensive in state
+                    if isinstance(state_char.get('personality'), dict):
+                        state_personality = state_char['personality']
+                        # Merge personality data, preferring state data when richer
+                        if 'traits' in state_personality:
+                            char_data['personality']['traits'] = state_personality.get('traits', [])
+                        if 'strengths' in state_personality:
+                            char_data['personality']['strengths'] = state_personality.get('strengths', [])
+                        if 'flaws' in state_personality:
+                            char_data['personality']['flaws'] = state_personality.get('flaws', [])
+                        if 'fears' in state_personality:
+                            char_data['personality']['fears'] = state_personality.get('fears', [])
+                        if 'desires' in state_personality:
+                            char_data['personality']['desires'] = state_personality.get('desires', [])
+                        if 'values' in state_personality:
+                            char_data['personality']['values'] = state_personality.get('values', [])
+                    
+                    # Add emotional journey if available
+                    if 'emotional_state' in state_char and isinstance(state_char['emotional_state'], dict):
+                        char_data['emotional_journey'] = state_char['emotional_state'].get('journey', [])
+                        char_data['initial_emotional_state'] = state_char['emotional_state'].get('initial', emotional_state)
+                    
+                    # Add inner conflicts from state (more detailed than DB)
+                    if 'inner_conflicts' in state_char and isinstance(state_char['inner_conflicts'], list):
+                        char_data['inner_conflicts'] = state_char['inner_conflicts']
+                    
+                    # Add character arc information
+                    if 'character_arc' in state_char and isinstance(state_char['character_arc'], dict):
+                        char_data['character_arc'] = state_char['character_arc']
+                    
+                    # Add evolution notes
+                    if 'evolution' in state_char and isinstance(state_char['evolution'], list):
+                        char_data['evolution'] = state_char['evolution']
+                    
+                    # Extract physical description from key traits if available
+                    if 'key_traits' in state_char and isinstance(state_char['key_traits'], list):
+                        char_data['key_traits'] = state_char['key_traits']
+                        # Look for physical descriptions in key traits
+                        physical_traits = [trait for trait in state_char['key_traits'] 
+                                         if any(word in trait.lower() for word in 
+                                               ['tall', 'short', 'hair', 'eyes', 'build', 'appearance', 'looks'])]
+                        if physical_traits:
+                            char_data['physical_description'] = ', '.join(physical_traits)
+                
+                characters.append(char_data)
     
     # Get relationships between characters
     relationships = []
@@ -392,7 +449,8 @@ def _get_character_context(db_manager, required_chars: List[str], scene_desc: st
             cursor = conn.cursor()
             placeholders = ','.join('?' * len(character_ids))
             cursor.execute(f"""
-                SELECT cr.*, c1.name as char1_name, c2.name as char2_name
+                SELECT cr.*, c1.name as char1_name, c2.name as char2_name,
+                       cr.character1_id, cr.character2_id, cr.properties
                 FROM character_relationships cr
                 JOIN characters c1 ON cr.character1_id = c1.id
                 JOIN characters c2 ON cr.character2_id = c2.id
@@ -401,12 +459,56 @@ def _get_character_context(db_manager, required_chars: List[str], scene_desc: st
             """, character_ids + character_ids)
             
             for row in cursor.fetchall():
-                relationships.append({
+                rel_data = {
                     'character1': row['char1_name'],
                     'character2': row['char2_name'],
                     'type': row['relationship_type'],
                     'description': row['description']
-                })
+                }
+                
+                # Parse properties if available for dynamics and evolution
+                if row['properties']:
+                    try:
+                        properties = json.loads(row['properties'])
+                        if 'dynamics' in properties:
+                            rel_data['dynamics'] = properties['dynamics']
+                        if 'evolution' in properties:
+                            rel_data['evolution'] = properties['evolution']
+                        if 'conflicts' in properties:
+                            rel_data['conflicts'] = properties['conflicts']
+                    except json.JSONDecodeError:
+                        pass
+                
+                # Also check state for richer relationship data
+                if state_characters:
+                    # Look for relationship data in state characters
+                    for char_id in [row['character1_id'], row['character2_id']]:
+                        # Find the character identifier for this ID
+                        char_identifier = None
+                        for char in characters:
+                            if char['id'] == char_id:
+                                char_identifier = char['identifier']
+                                break
+                        
+                        if char_identifier and char_identifier in state_characters:
+                            state_char = state_characters[char_identifier]
+                            if 'relationships' in state_char and isinstance(state_char['relationships'], dict):
+                                # Look for relationship with the other character
+                                for rel_key, rel_info in state_char['relationships'].items():
+                                    if isinstance(rel_info, dict):
+                                        # Check if this relationship matches
+                                        target_name = rel_info.get('target_character', '')
+                                        if target_name in [row['char1_name'], row['char2_name']]:
+                                            # Enhance with state data
+                                            if 'dynamics' in rel_info and not rel_data.get('dynamics'):
+                                                rel_data['dynamics'] = rel_info['dynamics']
+                                            if 'evolution' in rel_info:
+                                                rel_data['evolution'] = rel_info.get('evolution', [])
+                                            if 'conflicts' in rel_info:
+                                                rel_data['conflicts'] = rel_info.get('conflicts', [])
+                                            break
+                
+                relationships.append(rel_data)
     
     # Get character locations
     locations = []
