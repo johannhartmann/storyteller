@@ -44,6 +44,7 @@ class NodeNames:
     CONTINUITY_RESOLUTION = "continuity_resolution"
     PROGRESSION = "progression"
     STORY_COMPILATION = "story_compilation"
+    REVIEW_AND_POLISH_MANUSCRIPT = "review_and_polish_manuscript"
 
 # Memory namespaces
 class MemoryNamespaces:

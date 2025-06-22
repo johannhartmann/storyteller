@@ -389,6 +389,11 @@ class StoryState(TypedDict):
     # Workflow control
     completed: bool  # Flag to indicate if the story is complete
     last_node: str  # Track which node was last executed for routing
+    
+    # Final manuscript review
+    manuscript_review_completed: bool  # Flag to indicate review and polish is done
+    manuscript_review_results: Dict[str, Any]  # Results from the review process
+    final_story: str  # The final polished story content
 
 
 class CorrectedScene(BaseModel):

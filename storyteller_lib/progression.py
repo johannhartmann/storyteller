@@ -960,12 +960,20 @@ def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
                 ]
             }
 
-@track_progress
-def compile_final_story(state: StoryState) -> Dict:
-    """Compile the final story from all chapters and scenes."""
+def compile_story_content(state: StoryState) -> str:
+    """
+    Compile the story content from all chapters and scenes.
+    
+    This is a utility function that can be called multiple times,
+    e.g., before and after final corrections.
+    
+    Args:
+        state: The current story state
+        
+    Returns:
+        The compiled story as a string
+    """
     chapters = state["chapters"]
-    characters = state["characters"]
-    world_elements = state.get("world_elements", {})
     
     # Get story configuration from database
     from storyteller_lib.database_integration import get_db_manager
@@ -980,7 +988,7 @@ def compile_final_story(state: StoryState) -> Dict:
     with db_manager._db._get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT genre, tone, author, initial_idea, global_story
+            SELECT title, global_story
             FROM story_config WHERE id = 1
         """)
         config = cursor.fetchone()
@@ -988,10 +996,6 @@ def compile_final_story(state: StoryState) -> Dict:
     if not config:
         raise RuntimeError("Story configuration not found in database")
     
-    genre = config['genre'] or 'fantasy'
-    tone = config['tone'] or 'adventurous'
-    author = config['author'] or ''
-    initial_idea = config['initial_idea'] or ''
     global_story = config['global_story'] or ''
     
     # Load full chapter and scene content from database
@@ -1014,21 +1018,6 @@ def compile_final_story(state: StoryState) -> Dict:
                 except Exception as e:
                     logger.error(f"Failed to load scene content for Chapter {chapter_num}, Scene {scene_num}: {e}")
     
-    # Check for unresolved plot threads
-    from storyteller_lib.plot_threads import check_plot_thread_resolution
-    plot_thread_resolution = check_plot_thread_resolution(state)
-    
-    # Add a warning about unresolved plot threads if any exist
-    unresolved_threads_warning = ""
-    if not plot_thread_resolution.get("all_major_threads_resolved", True):
-        unresolved_threads = plot_thread_resolution.get("unresolved_major_threads", [])
-        unresolved_threads_warning = f"{chr(10)}{chr(10)}## WARNING: Unresolved Plot Threads{chr(10)}{chr(10)}"
-        unresolved_threads_warning += f"The following major plot threads were not resolved in the story:{chr(10)}{chr(10)}"
-        
-        for thread in unresolved_threads:
-            unresolved_threads_warning += f"- **{thread['name']}**: {thread['description']}{chr(10)}"
-            unresolved_threads_warning += f"  - First appeared: {thread['first_appearance']}{chr(10)}"
-            unresolved_threads_warning += f"  - Last mentioned: {thread['last_appearance']}{chr(10)}{chr(10)}"
     
     # Compile the story content
     story_content = []
@@ -1074,9 +1063,6 @@ def compile_final_story(state: StoryState) -> Dict:
     story_content.append(global_story[:500] + "...")
     story_content.append("")
     
-    # Add warning about unresolved plot threads if any exist
-    if unresolved_threads_warning:
-        story_content.append(unresolved_threads_warning)
     
     # Add each chapter and its scenes
     for chapter_num in sorted(chapters.keys(), key=int):
@@ -1105,55 +1091,5 @@ def compile_final_story(state: StoryState) -> Dict:
     # Join all content
     final_story = chr(10).join(story_content)
     
-    # Store the final story in memory
-    # Final story is stored in database and written to output file
-    
-    # Import optimization utility
-    from storyteller_lib.prompt_optimization import log_prompt_size
-    
-    # Create a summary of the story
-    summary_prompt = f"""
-    Create a brief summary of this story:
-    
-    Title: {story_title}
-    Genre: {genre}
-    Tone: {tone}
-    
-    Story premise:
-    {global_story[:300]}...
-    
-    The story has {len(chapters)} chapters covering a hero's journey.
-    
-    Create an engaging summary (150-200 words) that captures:
-    - The main character and their quest
-    - The central conflict
-    - The story's unique elements
-    """
-    
-    # Log prompt size
-    log_prompt_size(summary_prompt, "story summary generation")
-    
-    story_summary = llm.invoke([HumanMessage(content=summary_prompt)]).content
-    
-    # Store the summary in memory
-    # Story summary is included in the final output
-    
-    # Story completion statistics are calculated for the return value
-    total_chapters = len(chapters)
-    total_scenes = sum(len(ch["scenes"]) for ch in chapters.values())
-    total_words = len(final_story.split())
-    # Story completion logging is handled by the progress callback
-    # No need for duplicate logging here
-    
-    # Return the final state with plot thread resolution information
-    return {
-        "final_story": final_story,
-        "story_summary": story_summary,
-        "plot_thread_resolution": plot_thread_resolution,
-        "messages": [
-            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
-            AIMessage(content=f"I've compiled the final story: {story_title}{chr(10)}{chr(10)}Summary:{chr(10)}{story_summary}{chr(10)}{chr(10)}The complete story has been generated successfully." +
-                      (f"{chr(10)}{chr(10)}Note: {len(plot_thread_resolution.get('unresolved_major_threads', []))} major plot threads remain unresolved."
-                       if not plot_thread_resolution.get("all_major_threads_resolved", True) else ""))
-        ]
-    }
+    # Return just the compiled story content
+    return final_story

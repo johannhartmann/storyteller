@@ -19,10 +19,10 @@ from storyteller_lib.models import StoryState
 from storyteller_lib.outline import generate_story_outline, plan_chapters
 from storyteller_lib.progression import (
     advance_to_next_scene_or_chapter,
-    compile_final_story,
     update_character_profiles,
     update_world_elements
 )
+from storyteller_lib.manuscript_review import review_and_polish_manuscript
 # Use simplified scene modules
 from storyteller_lib.scenes import (
     reflect_on_scene,
@@ -126,7 +126,7 @@ def create_simplified_graph(checkpointer=None) -> StateGraph:
     graph_builder.add_node("update_character_profiles", update_character_profiles)
     graph_builder.add_node("generate_summaries", generate_summaries)
     graph_builder.add_node("advance_to_next_scene_or_chapter", advance_to_next_scene_or_chapter)
-    graph_builder.add_node("compile_final_story", compile_final_story)
+    graph_builder.add_node("review_and_polish_manuscript", review_and_polish_manuscript)
     
     # Linear story setup flow
     graph_builder.add_edge(START, "initialize_state")
@@ -164,12 +164,12 @@ def create_simplified_graph(checkpointer=None) -> StateGraph:
         is_story_complete,
         {
             "continue": "write_scene",
-            "complete": "compile_final_story"
+            "complete": "review_and_polish_manuscript"
         }
     )
     
     # End
-    graph_builder.add_edge("compile_final_story", END)
+    graph_builder.add_edge("review_and_polish_manuscript", END)
     
     # Compile the graph
     if checkpointer:
