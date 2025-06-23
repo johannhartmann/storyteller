@@ -23,8 +23,10 @@ class SimplifiedReflection(BaseModel):
     character_consistency: bool = Field(description="Are characters acting consistently?")
     engaging_prose: bool = Field(description="Is the prose engaging and well-written?")
     critical_issues: List[str] = Field(default_factory=list, description="Critical issues that must be fixed")
+    style_issues: List[str] = Field(default_factory=list, description="Style issues like word repetition, redundant descriptions")
     minor_issues: List[str] = Field(default_factory=list, description="Minor issues that could be improved")
     needs_revision: bool = Field(description="Does this scene need revision?")
+    needs_style_corrections: bool = Field(default=False, description="Does this scene need style corrections?")
     needs_minor_corrections: bool = Field(default=False, description="Does this scene need minor corrections?")
 
 
@@ -112,6 +114,32 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     
     chapters[str(current_chapter)]["scenes"][str(current_scene)]["reflection"] = reflection_data
     
+    # Handle style corrections immediately if needed
+    if reflection.needs_style_corrections and reflection.style_issues:
+        logger.info(f"Scene needs style corrections: {', '.join(reflection.style_issues[:3])}")
+        
+        # Import correction function
+        from storyteller_lib.scene_correction import correct_scene
+        
+        # Create correction instruction focused on style issues
+        style_correction_instruction = _create_style_correction_instruction(reflection.style_issues)
+        
+        # Apply the correction
+        success = correct_scene(
+            chapter_num=current_chapter,
+            scene_num=current_scene,
+            correction_instruction=style_correction_instruction
+        )
+        
+        if success:
+            logger.info(f"Successfully applied style corrections to Chapter {current_chapter}, Scene {current_scene}")
+            chapters[str(current_chapter)]["scenes"][str(current_scene)]["style_corrections_applied"] = True
+            # Clear the style correction flag since we've handled it
+            reflection.needs_style_corrections = False
+            reflection.style_issues = []
+        else:
+            logger.error(f"Failed to apply style corrections, but continuing anyway")
+    
     # Log if minor corrections are needed
     if reflection.needs_minor_corrections and reflection.minor_issues:
         logger.info(f"Scene needs minor corrections: {', '.join(reflection.minor_issues[:3])}")
@@ -120,6 +148,32 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
         "chapters": chapters,
         "scene_reflection": reflection.model_dump(),
         "needs_revision": reflection.needs_revision,
+        "needs_style_corrections": reflection.needs_style_corrections,
         "needs_minor_corrections": reflection.needs_minor_corrections,
+        "style_issues": reflection.style_issues,
         "minor_issues": reflection.minor_issues
     }
+
+
+def _create_style_correction_instruction(style_issues: List[str]) -> str:
+    """
+    Create a correction instruction specifically for style issues.
+    
+    Args:
+        style_issues: List of style issues identified during reflection
+        
+    Returns:
+        A correction instruction focused on style improvements
+    """
+    # Get language from config
+    config = get_story_config()
+    language = config.get("language", "english")
+    
+    # Use template to generate instruction
+    from storyteller_lib.prompt_templates import render_prompt
+    
+    return render_prompt(
+        'style_correction_instruction',
+        language=language,
+        style_issues=style_issues
+    )
