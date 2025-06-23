@@ -344,3 +344,21 @@ CREATE INDEX IF NOT EXISTS idx_plot_progressions_chapter_scene ON plot_progressi
 CREATE INDEX IF NOT EXISTS idx_story_config_structure ON story_config(narrative_structure);
 CREATE INDEX IF NOT EXISTS idx_chapters_summary ON chapters(chapter_number) WHERE summary IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_scenes_summary ON scenes(chapter_id, scene_number) WHERE summary IS NOT NULL;
+
+-- 24. SSML Repair Log table (for tracking repair attempts)
+CREATE TABLE IF NOT EXISTS ssml_repair_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scene_id INTEGER NOT NULL,
+    error_code INTEGER,
+    error_message TEXT,
+    repair_attempt INTEGER,
+    original_ssml TEXT,
+    repaired_ssml TEXT,
+    repair_successful BOOLEAN,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE
+);
+
+-- Create indexes for SSML repair log
+CREATE INDEX IF NOT EXISTS idx_repair_log_scene_id ON ssml_repair_log(scene_id);
+CREATE INDEX IF NOT EXISTS idx_repair_log_error_code ON ssml_repair_log(error_code);

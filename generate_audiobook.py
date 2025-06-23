@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 from storyteller_lib.database.models import StoryDatabase
 from storyteller_lib.logger import get_logger
+from storyteller_lib.ssml_repair import SSMLRepair
 
 logger = get_logger(__name__)
 
@@ -142,11 +143,41 @@ class AudiobookGenerator:
         
         return ssml
     
+    def _should_regenerate_audio(self, output_path: Path) -> bool:
+        """
+        Check if audio file needs to be regenerated.
+        
+        Args:
+            output_path: Path to the audio file
+            
+        Returns:
+            True if file should be regenerated, False if it can be skipped
+        """
+        if not output_path.exists():
+            logger.info(f"Audio file does not exist: {output_path.name}")
+            return True
+            
+        file_size = output_path.stat().st_size
+        if file_size == 0:
+            logger.warning(f"Found 0-byte file: {output_path.name} - will regenerate")
+            return True
+            
+        logger.info(f"Skipping existing audio file: {output_path.name} ({file_size / 1024:.1f} KB)")
+        return False
+    
+    def _get_lang_code(self) -> str:
+        """Get the appropriate language code for SSML."""
+        if self.language == "german":
+            return "de-DE"
+        else:
+            return "en-US"
+    
     def generate_scene_audio(self, scene_id: int, chapter_num: int, scene_num: int,
                            chapter_title: str, content_ssml: str, 
-                           format: str = "mp3") -> Optional[str]:
+                           format: str = "mp3", force_regenerate: bool = False,
+                           max_repair_attempts: int = 3) -> Optional[str]:
         """
-        Generate audio for a single scene.
+        Generate audio for a single scene with automatic repair on failure.
         
         Args:
             scene_id: Database scene ID
@@ -155,6 +186,8 @@ class AudiobookGenerator:
             chapter_title: Chapter title for filename
             content_ssml: SSML-formatted content
             format: Audio format (mp3, wav)
+            force_regenerate: Force regeneration even if file exists
+            max_repair_attempts: Maximum number of repair attempts
             
         Returns:
             Path to generated audio file or None if failed
@@ -162,77 +195,115 @@ class AudiobookGenerator:
         filename = self._create_audio_filename(chapter_num, scene_num, chapter_title, format)
         output_path = self.output_dir / filename
         
-        # Fix SSML language attribute if needed (for existing SSML in database)
-        content_ssml = self._fix_ssml_language(content_ssml)
+        # Check if we should skip this file
+        if not force_regenerate and not self._should_regenerate_audio(output_path):
+            return str(output_path)
         
-        try:
-            # Configure audio output
-            if format.lower() == "mp3":
-                audio_config = speechsdk.audio.AudioOutputConfig(
-                    filename=str(output_path),
-                    use_default_speaker=False
-                )
-                self.speech_config.set_speech_synthesis_output_format(
-                    speechsdk.SpeechSynthesisOutputFormat.Audio24Khz96KBitRateMonoMp3
-                )
-            else:  # WAV format
-                audio_config = speechsdk.audio.AudioOutputConfig(
-                    filename=str(output_path),
-                    use_default_speaker=False
-                )
-                self.speech_config.set_speech_synthesis_output_format(
-                    speechsdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm
-                )
+        # Initialize SSML repair module
+        repair_module = SSMLRepair(db_path=self.db.db_path)
+        
+        # Try synthesis with repair loop
+        current_ssml = content_ssml
+        
+        for attempt in range(max_repair_attempts + 1):
+            # Fix SSML language attribute if needed
+            current_ssml = self._fix_ssml_language(current_ssml)
             
-            # Create synthesizer with error handling
             try:
-                logger.debug(f"Creating synthesizer for {filename}")
-                logger.debug(f"Audio output path: {output_path}")
-                logger.debug(f"Audio format: {format}")
+                # Configure audio output
+                if format.lower() == "mp3":
+                    audio_config = speechsdk.audio.AudioOutputConfig(
+                        filename=str(output_path),
+                        use_default_speaker=False
+                    )
+                    self.speech_config.set_speech_synthesis_output_format(
+                        speechsdk.SpeechSynthesisOutputFormat.Audio24Khz96KBitRateMonoMp3
+                    )
+                else:  # WAV format
+                    audio_config = speechsdk.audio.AudioOutputConfig(
+                        filename=str(output_path),
+                        use_default_speaker=False
+                    )
+                    self.speech_config.set_speech_synthesis_output_format(
+                        speechsdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm
+                    )
                 
+                # Create synthesizer
                 synthesizer = speechsdk.SpeechSynthesizer(
                     speech_config=self.speech_config,
                     audio_config=audio_config
                 )
-                logger.debug("Synthesizer created successfully")
-            except Exception as e:
-                logger.error(f"Failed to create synthesizer: {str(e)}")
-                logger.error(f"Exception type: {type(e).__name__}")
-                logger.error(f"Speech config - Region: {self.speech_config.region}, Voice: {self.speech_config.speech_synthesis_voice_name}")
                 
-                # Check if we can get more details about the error
-                if hasattr(e, 'error_code'):
-                    logger.error(f"Error code: {e.error_code}")
-                if hasattr(e, 'error_details'):
-                    logger.error(f"Error details: {e.error_details}")
+                # Synthesize SSML
+                logger.debug(f"Starting synthesis for scene {scene_id}, attempt {attempt + 1}")
+                result = synthesizer.speak_ssml_async(current_ssml).get()
+                
+                if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                    file_size = output_path.stat().st_size
+                    logger.info(f"Generated audio for Chapter {chapter_num}, Scene {scene_num}: "
+                              f"{filename} ({file_size / 1024 / 1024:.1f} MB)")
+                    return str(output_path)
                     
-                raise
-            
-            # Synthesize SSML
-            logger.debug(f"Starting synthesis for scene {scene_id}")
-            
-            # Log first 200 chars of SSML to check prosody settings
-            logger.debug(f"SSML preview: {content_ssml[:200]}...")
-            
-            result = synthesizer.speak_ssml_async(content_ssml).get()
-            
-            if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-                file_size = output_path.stat().st_size
-                logger.info(f"Generated audio for Chapter {chapter_num}, Scene {scene_num}: "
-                          f"{filename} ({file_size / 1024 / 1024:.1f} MB)")
-                return str(output_path)
-            elif result.reason == speechsdk.ResultReason.Canceled:
-                cancellation_details = result.cancellation_details
-                logger.error(f"Speech synthesis canceled: {cancellation_details.reason}")
-                if cancellation_details.reason == speechsdk.CancellationReason.Error:
-                    logger.error(f"Error details: {cancellation_details.error_details}")
-                return None
+                elif result.reason == speechsdk.ResultReason.Canceled:
+                    cancellation_details = result.cancellation_details
+                    logger.error(f"Speech synthesis canceled: {cancellation_details.reason}")
+                    
+                    if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                        error_details = cancellation_details.error_details
+                        logger.error(f"Error details: {error_details}")
+                        
+                        # Check if this is an SSML error we can repair
+                        if attempt < max_repair_attempts and "Error code:" in error_details:
+                            logger.info(f"Attempting SSML repair for scene {scene_id}, attempt {attempt + 1}/{max_repair_attempts}")
+                            
+                            # Repair SSML
+                            repaired_ssml = repair_module.repair_ssml(
+                                scene_id=scene_id,
+                                original_ssml=current_ssml,
+                                error_message=error_details,
+                                attempt=attempt + 1
+                            )
+                            
+                            if repaired_ssml:
+                                logger.info(f"SSML repaired successfully, retrying synthesis")
+                                current_ssml = repaired_ssml
+                                
+                                # Update database with repaired SSML
+                                self.db.update_scene_ssml(scene_id, repaired_ssml)
+                                continue
+                            else:
+                                logger.error(f"SSML repair failed for scene {scene_id}")
+                                
+                    return None
+                    
+            except Exception as e:
+                logger.error(f"Error generating audio for scene {scene_id}: {str(e)}")
                 
-        except Exception as e:
-            logger.error(f"Error generating audio for scene {scene_id}: {str(e)}")
-            return None
+                # For known SSML errors, try repair
+                if attempt < max_repair_attempts and hasattr(e, 'error_details'):
+                    error_msg = getattr(e, 'error_details', str(e))
+                    if "Error code:" in error_msg:
+                        logger.info(f"Attempting SSML repair after exception, attempt {attempt + 1}/{max_repair_attempts}")
+                        
+                        repaired_ssml = repair_module.repair_ssml(
+                            scene_id=scene_id,
+                            original_ssml=current_ssml,
+                            error_message=error_msg,
+                            attempt=attempt + 1
+                        )
+                        
+                        if repaired_ssml:
+                            current_ssml = repaired_ssml
+                            self.db.update_scene_ssml(scene_id, repaired_ssml)
+                            continue
+                            
+                return None
+        
+        logger.error(f"All repair attempts exhausted for scene {scene_id}")
+        return None
             
-    def generate_first_scene_only(self, format: str = "mp3", voice: Optional[str] = None) -> Optional[str]:
+    def generate_first_scene_only(self, format: str = "mp3", voice: Optional[str] = None, 
+                                  force_regenerate: bool = False) -> Optional[str]:
         """
         Generate audio for only the first scene (test mode).
         
@@ -293,7 +364,8 @@ class AudiobookGenerator:
                 scene_num=scene['scene_number'],
                 chapter_title=scene['chapter_title'],
                 content_ssml=scene['content_ssml'],
-                format=format
+                format=format,
+                force_regenerate=force_regenerate
             )
             
             if audio_path:
@@ -321,7 +393,8 @@ class AudiobookGenerator:
                 
             return audio_path
     
-    def generate_all_scenes(self, format: str = "mp3", voice: Optional[str] = None) -> List[str]:
+    def generate_all_scenes(self, format: str = "mp3", voice: Optional[str] = None,
+                            force_regenerate: bool = False) -> List[str]:
         """
         Generate audio files for all scenes with SSML content.
         
@@ -371,7 +444,8 @@ class AudiobookGenerator:
                     scene_num=scene['scene_number'],
                     chapter_title=scene['chapter_title'],
                     content_ssml=scene['content_ssml'],
-                    format=format
+                    format=format,
+                    force_regenerate=force_regenerate
                 )
                 
                 if audio_path:
@@ -501,6 +575,12 @@ def main():
         help="Test mode: only generate audio for the first scene"
     )
     
+    parser.add_argument(
+        "--force-regenerate",
+        action="store_true",
+        help="Force regeneration of all audio files, even if they already exist"
+    )
+    
     args = parser.parse_args()
     
     # Get Azure credentials
@@ -567,7 +647,8 @@ def main():
                 # Test mode - only generate first scene
                 audio_file = generator.generate_first_scene_only(
                     format=args.format,
-                    voice=args.voice
+                    voice=args.voice,
+                    force_regenerate=args.force_regenerate
                 )
                 
                 if audio_file:
@@ -580,7 +661,8 @@ def main():
                 # Normal mode - generate all scenes
                 generated_files = generator.generate_all_scenes(
                     format=args.format,
-                    voice=args.voice
+                    voice=args.voice,
+                    force_regenerate=args.force_regenerate
                 )
                 
                 if generated_files:
