@@ -8,6 +8,7 @@ to SSML (Speech Synthesis Markup Language) format for audiobook generation.
 from typing import Dict
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 import os
+import xml.etree.ElementTree as ET
 
 from storyteller_lib.config import get_llm
 from storyteller_lib.logger import get_logger
@@ -97,6 +98,9 @@ class SSMLConverter:
             else:
                 ssml_content = str(response)
                 
+            # Fix smart quotes to prevent XML parsing errors
+            ssml_content = self._fix_smart_quotes(ssml_content)
+            
             # Basic validation - ensure it starts with <speak> and ends with </speak>
             ssml_content = ssml_content.strip()
             if not ssml_content.startswith('<speak'):
@@ -111,6 +115,11 @@ class SSMLConverter:
             if not ssml_content.endswith('</speak>'):
                 logger.warning("SSML output missing closing </speak> tag, adding it")
                 ssml_content = ssml_content + '\n</speak>'
+            
+            # Validate the final SSML
+            if not self._validate_ssml(ssml_content):
+                logger.warning("Generated SSML failed validation, using fallback")
+                return self._create_fallback_ssml(scene_content)
                 
             return ssml_content
             
@@ -129,17 +138,58 @@ class SSMLConverter:
     def _get_voice_name(self) -> str:
         """Get the appropriate voice name for the language."""
         if self.language == "german":
-            return "de-DE-KatjaNeural"
+            return "de-DE-SeraphinaMultilingualNeural"
         else:
             return "en-US-JennyNeural"
             
     def _create_fallback_ssml(self, content: str) -> str:
         """Create a basic SSML wrapper as fallback."""
+        # Fix smart quotes in fallback content too
+        content = self._fix_smart_quotes(content)
         return f'''<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="{self._get_lang_code()}">
     <voice name="{self._get_voice_name()}">
         {content}
     </voice>
 </speak>'''
+    
+    def _fix_smart_quotes(self, text: str) -> str:
+        """Replace smart quotes with straight quotes to prevent XML parsing errors."""
+        # Define replacements using Unicode escapes to avoid syntax issues
+        replacements = {
+            '\u201C': '"',  # Left double quotation mark
+            '\u201D': '"',  # Right double quotation mark
+            '\u201E': '"',  # Double low-9 quotation mark (German)
+            '\u201F': '"',  # Double high-reversed-9 quotation mark
+            '\u2018': "'",  # Left single quotation mark
+            '\u2019': "'",  # Right single quotation mark
+            '\u201A': "'",  # Single low-9 quotation mark
+            '\u201B': "'",  # Single high-reversed-9 quotation mark
+        }
+        
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        
+        return text
+    
+    def _validate_ssml(self, ssml_content: str) -> bool:
+        """Validate that the SSML is well-formed XML."""
+        try:
+            # Parse the XML to check if it's valid
+            root = ET.fromstring(ssml_content)
+            
+            # Additional validation: check root element
+            tag_name = root.tag.split('}')[-1] if '}' in root.tag else root.tag
+            if tag_name != 'speak':
+                logger.error(f"SSML root element is <{tag_name}>, not <speak>")
+                return False
+                
+            return True
+        except ET.ParseError as e:
+            logger.error(f"SSML XML validation failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error validating SSML: {e}")
+            return False
 
     def convert_book_to_ssml(self, db_path: str, output_path: str) -> None:
         """
@@ -251,7 +301,7 @@ class SSMLConverter:
                         
                     ssml_parts.append(scene_content)
                     
-                    # Update database with SSML content
+                    # Update database with SSML content (already has smart quotes fixed)
                     db.update_scene_ssml(row['scene_id'], scene_ssml)
                     
                     # Add pause between scenes

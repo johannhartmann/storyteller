@@ -303,7 +303,7 @@ The generated SSML includes:
 ### Supported Voices
 
 - **English**: en-US-JennyNeural (default), en-US-AvaMultilingualNeural, en-US-GuyNeural
-- **German**: de-DE-KatjaNeural (default), de-DE-ConradNeural
+- **German**: de-DE-SeraphinaMultilingualNeural (default), de-DE-KatjaNeural, de-DE-ConradNeural
 - **Other languages**: Automatically selected based on story language
 
 ### Cost Estimation
