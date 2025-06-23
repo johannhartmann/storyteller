@@ -137,6 +137,13 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
             # Clear the style correction flag since we've handled it
             reflection.needs_style_corrections = False
             reflection.style_issues = []
+            
+            # Verify the correction was saved by reading it back
+            corrected_content = db_manager.get_scene_content(current_chapter, current_scene)
+            if corrected_content:
+                logger.info(f"Verified corrected content saved - length: {len(corrected_content)} chars")
+            else:
+                logger.error("Could not verify corrected content was saved")
         else:
             logger.error(f"Failed to apply style corrections, but continuing anyway")
     
