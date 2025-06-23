@@ -172,7 +172,7 @@ class SSMLConverter:
         return text
     
     def _validate_ssml(self, ssml_content: str) -> bool:
-        """Validate that the SSML is well-formed XML."""
+        """Validate that the SSML is well-formed XML and follows Azure TTS rules."""
         try:
             # Parse the XML to check if it's valid
             root = ET.fromstring(ssml_content)
@@ -182,6 +182,10 @@ class SSMLConverter:
             if tag_name != 'speak':
                 logger.error(f"SSML root element is <{tag_name}>, not <speak>")
                 return False
+            
+            # Azure TTS specific validation
+            if not self._validate_azure_rules(root):
+                return False
                 
             return True
         except ET.ParseError as e:
@@ -190,6 +194,39 @@ class SSMLConverter:
         except Exception as e:
             logger.error(f"Unexpected error validating SSML: {e}")
             return False
+    
+    def _validate_azure_rules(self, root: ET.Element) -> bool:
+        """Validate Azure TTS specific rules."""
+        # Check for text directly in speak tag
+        if root.text and root.text.strip():
+            logger.error("Found text directly in <speak> tag - must be inside <voice>")
+            return False
+            
+        # Check for break tags directly in speak
+        for child in root:
+            tag_name = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+            if tag_name == 'break':
+                logger.error("Found <break> directly in <speak> - must be inside <voice>")
+                return False
+                
+        # Check for nested voice tags and prosody/voice nesting
+        voice_elements = root.findall('.//{*}voice')
+        for voice in voice_elements:
+            # Check for voice inside voice
+            nested_voices = voice.findall('.//{*}voice')
+            if nested_voices:
+                logger.error("Found nested <voice> tags - not allowed")
+                return False
+                
+        # Check for voice inside prosody
+        prosody_elements = root.findall('.//{*}prosody')
+        for prosody in prosody_elements:
+            voices_in_prosody = prosody.findall('.//{*}voice')
+            if voices_in_prosody:
+                logger.error("Found <voice> inside <prosody> - must be other way around")
+                return False
+                
+        return True
 
     def convert_book_to_ssml(self, db_path: str, output_path: str) -> None:
         """

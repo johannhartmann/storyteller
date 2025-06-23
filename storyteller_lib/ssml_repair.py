@@ -31,8 +31,8 @@ class SSMLRepair:
     # Known Azure TTS error patterns and their repair strategies
     ERROR_PATTERNS = {
         1007: {
-            "pattern": r"Node \[(\w+)\] with type \[(\w+)\] should not contain node \[(\w+)\] with type \[(\w+)\]",
-            "description": "Invalid SSML nesting",
+            "pattern": r"Node \[(\w+)\] with type \[(\w+)\] should not contain node \[(\w+)\] with type \[(\w+)\]|Unsupported voice|node can only contain Element or Comment",
+            "description": "Invalid SSML nesting or unsupported elements",
             "repair_strategy": "fix_invalid_nesting"
         },
         1001: {
@@ -171,31 +171,64 @@ class SSMLRepair:
             return self._repair_with_llm(ssml, error, attempt)
             
     def _fix_invalid_nesting(self, ssml: str, error: AzureError, attempt: int) -> Optional[str]:
-        """Fix invalid SSML nesting (e.g., voice inside prosody)."""
-        # For error 1007: Node [prosody] should not contain node [voice]
-        if "prosody" in error.details and "voice" in error.details:
-            # Use LLM to restructure the SSML
-            prompt = f"""Fix the following SSML that has invalid nesting. Azure TTS error: {error.details}
-
-The error indicates that <voice> tags cannot be inside <prosody> tags. Please restructure the SSML to fix this issue while preserving all the speech effects.
+        """Fix invalid SSML nesting and structure errors."""
+        error_details = error.details.lower() if error.details else ""
+        
+        # Determine specific error type
+        if "prosody" in error_details and "voice" in error_details:
+            fix_type = "prosody_voice_nesting"
+        elif "voice" in error_details and "should not contain node [voice]" in error_details:
+            fix_type = "nested_voice"
+        elif "speak" in error_details and "break" in error_details:
+            fix_type = "break_in_speak"
+        elif "unsupported voice" in error_details:
+            fix_type = "unsupported_voice"
+        elif "can only contain element or comment" in error_details:
+            fix_type = "text_in_speak"
+        else:
+            fix_type = "general"
+            
+        prompt = f"""Fix the following SSML based on this Azure TTS error: {error.details}
 
 Original SSML:
 {ssml}
 
-Rules:
-1. <voice> tags must be at the top level or directly inside <speak>
-2. <prosody> tags should be inside <voice> tags, not the other way around
-3. Preserve all the original prosody settings (rate, pitch, etc.)
-4. Preserve all the original content and pauses
-5. Return only the fixed SSML without any explanation
+CRITICAL RULES FOR AZURE TTS:
+1. Structure must be: <speak><voice>ALL CONTENT HERE</voice></speak>
+2. NO nested <voice> tags - only ONE voice tag wrapping all content
+3. <prosody> tags must be INSIDE <voice>, never the other way around
+4. <break> tags must be INSIDE <voice>, never directly in <speak>
+5. ALL text must be inside <voice> tags - no bare text in <speak>
+6. Valid German voices: de-DE-ConradNeural, de-DE-KatjaNeural, de-DE-AmalaNeural, de-DE-SeraphinaMultilingualNeural
+7. Valid English voices: en-US-JennyNeural, en-US-AriaNeural, en-US-GuyNeural, en-US-AvaMultilingualNeural
+
+Specific fix needed: {fix_type}
+"""
+
+        if fix_type == "prosody_voice_nesting":
+            prompt += """
+The error shows <voice> inside <prosody>. Restructure so <prosody> is inside <voice>."""
+        elif fix_type == "nested_voice":
+            prompt += """
+The error shows nested <voice> tags. Use only ONE <voice> tag wrapping all content."""
+        elif fix_type == "break_in_speak":
+            prompt += """
+The error shows <break> directly in <speak>. Move ALL <break> tags inside the <voice> tag."""
+        elif fix_type == "unsupported_voice":
+            prompt += """
+The voice name is not supported. Replace with a valid voice from the list above based on language."""
+        elif fix_type == "text_in_speak":
+            prompt += """
+There is text directly in <speak>. ALL text must be inside <voice> tags."""
+            
+        prompt += """
+
+Return ONLY the fixed SSML without any explanation.
 
 Fixed SSML:"""
 
-            response = self.llm.invoke(prompt)
-            return response.content if hasattr(response, 'content') else str(response)
-        else:
-            # General nesting fix
-            return self._repair_with_llm(ssml, error, attempt)
+        response = self.llm.invoke(prompt)
+        return response.content if hasattr(response, 'content') else str(response)
             
     def _fix_syntax_error(self, ssml: str, error: AzureError, attempt: int) -> Optional[str]:
         """Fix general SSML syntax errors."""

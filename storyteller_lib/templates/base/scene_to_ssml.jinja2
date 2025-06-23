@@ -83,7 +83,24 @@ Now, apply these principles to the text provided below. Create a complete, ready
 Text to convert:
 {{ scene_content }}
 
-IMPORTANT: 
+IMPORTANT AZURE TTS RULES - MUST FOLLOW TO AVOID ERRORS:
 1. Return ONLY the SSML-formatted content, starting with <speak> and ending with </speak>.
 2. The <speak> tag MUST include: version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"
 3. Do not include any explanations or comments.
+4. CRITICAL NESTING RULES:
+   - <voice> tags must NEVER be nested inside other <voice> tags
+   - <voice> tags must NEVER be inside <prosody> tags - always put <prosody> INSIDE <voice>
+   - <break> tags must ALWAYS be inside a <voice> tag, never directly inside <speak>
+   - ALL text content must be inside <voice> tags - no bare text in <speak>
+   - The structure must be: <speak><voice>...<prosody>...</prosody>...</voice></speak>
+5. Only ONE <voice> tag should wrap all content (unless switching voices for dialogue)
+6. Example correct structure:
+   <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">
+     <voice name="en-US-JennyNeural">
+       <p>
+         <prosody rate="-5%">Slow text here</prosody>
+         <break time="500ms"/>
+         Normal text here.
+       </p>
+     </voice>
+   </speak>

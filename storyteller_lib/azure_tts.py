@@ -52,13 +52,13 @@ class VoiceManager:
         },
         "german": {
             "narrator": {
-                "male": ["de-DE-ConradNeural", "de-DE-KlausNeural"],
-                "female": ["de-DE-SeraphinaMultilingualNeural", "de-DE-KatjaNeural"],
-                "neutral": ["de-DE-AmalaNeural"]
+                "male": ["de-DE-ConradNeural", "de-DE-KlausNeural", "de-DE-KillianNeural"],
+                "female": ["de-DE-SeraphinaMultilingualNeural", "de-DE-KatjaNeural", "de-DE-AmalaNeural"],
+                "neutral": ["de-DE-TanjaNeural", "de-DE-LouisaNeural"]
             },
             "dramatic": {
-                "male": ["de-DE-RalfNeural"],
-                "female": ["de-DE-LouisaNeural"]
+                "male": ["de-DE-RalfNeural", "de-DE-FlorianMultilingualNeural"],
+                "female": ["de-DE-LouisaNeural", "de-DE-ElkeNeural"]
             }
         }
     }

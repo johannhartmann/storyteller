@@ -83,7 +83,24 @@ Wende diese Prinzipien nun auf den unten angegebenen Text an. Erstelle ein volls
 Zu konvertierender Text:
 {{ scene_content }}
 
-WICHTIG: 
+WICHTIGE AZURE TTS REGELN - MÜSSEN BEFOLGT WERDEN UM FEHLER ZU VERMEIDEN:
 1. Gib NUR den SSML-formatierten Inhalt zurück, beginnend mit <speak> und endend mit </speak>.
 2. Das <speak>-Tag MUSS enthalten: version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="de-DE"
 3. Füge keine Erklärungen oder Kommentare hinzu.
+4. KRITISCHE VERSCHACHTELUNGSREGELN:
+   - <voice>-Tags dürfen NIEMALS in anderen <voice>-Tags verschachtelt werden
+   - <voice>-Tags dürfen NIEMALS in <prosody>-Tags sein - setze <prosody> IMMER IN <voice>
+   - <break>-Tags müssen IMMER in einem <voice>-Tag sein, niemals direkt in <speak>
+   - ALLER Textinhalt muss in <voice>-Tags sein - kein bloßer Text in <speak>
+   - Die Struktur muss sein: <speak><voice>...<prosody>...</prosody>...</voice></speak>
+5. Nur EIN <voice>-Tag sollte allen Inhalt umschließen (außer beim Stimmenwechsel für Dialoge)
+6. Beispiel für korrekte Struktur:
+   <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="de-DE">
+     <voice name="de-DE-SeraphinaMultilingualNeural">
+       <p>
+         <prosody rate="-5%">Langsamer Text hier</prosody>
+         <break time="500ms"/>
+         Normaler Text hier.
+       </p>
+     </voice>
+   </speak>
