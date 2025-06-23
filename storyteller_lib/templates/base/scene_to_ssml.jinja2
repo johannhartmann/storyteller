@@ -9,9 +9,9 @@ Basic Structure:
 - Use <p> tags for paragraphs and <s> tags for sentences to improve natural flow
 
 Pauses and Pacing (<break>):
-- Insert a clear pause (<break time="1200ms"/>) between all paragraphs to give the listener a moment to process
-- Add short pauses (<break time="300ms"/> to <break time="500ms"/>) in places where a change of thought occurs or to build tension
-- Use longer, dramatic pauses (<break time="1500ms"/> or more) after major revelations or before a meaningful final sentence
+- Insert a moderate pause (<break time="600ms"/>) between all paragraphs to give the listener a moment to process
+- Add short pauses (<break time="200ms"/> to <break time="400ms"/>) in places where a change of thought occurs or to build tension
+- Use longer, dramatic pauses (<break time="1000ms"/> to <break time="1500ms"/>) after major revelations or before a meaningful final sentence
 - Alternative: use strength attribute (<break strength="medium"/> or "strong")
 
 Emphasis (<emphasis>):
@@ -20,17 +20,18 @@ Emphasis (<emphasis>):
 - Use <emphasis level="strong"> for the most critical clues and revelations
 
 Prosody (<prosody>):
-IMPORTANT - Correct syntax for rate:
-- For SLOWER speech: use rate="-20%" (20% slower) or rate="slow" 
-- For FASTER speech: use rate="+20%" (20% faster) or rate="fast"
+IMPORTANT - Use ONLY percentage values for rate:
+- For SLOWER speech: use rate="-10%" or rate="-5%" (5-10% slower)
+- For FASTER speech: use rate="+5%" or rate="+10%" (5-10% faster)
+- NEVER use constants like "slow", "fast", "x-slow", "x-fast" - they are too extreme
 - NEVER use rate="90%" (this means 90% faster, almost double speed!)
-- Valid constants: x-slow, slow, medium (default), fast, x-fast
+- Default speech is already well-paced, so use subtle adjustments only
 
 Examples:
-- Atmospheric descriptions: <prosody rate="slow"> or <prosody rate="-15%">
-- Action scenes: <prosody rate="+10%"> or <prosody rate="fast">
+- Atmospheric descriptions: <prosody rate="-5%"> or <prosody rate="-10%">
+- Action scenes: <prosody rate="+5%"> or <prosody rate="+10%">
 - Character dialogue: vary pitch with pitch="-10%" for deep voices, pitch="+10%" for higher voices
-- Quoted text/notes: <prosody pitch="-5%" rate="-10%"> to differentiate from narration
+- Quoted text/notes: <prosody pitch="-5%" rate="-5%"> to differentiate from narration
 
 Additional Elements:
 - Use <say-as> for dates, times, numbers: <say-as interpret-as="date">10/14/2024</say-as>
@@ -51,28 +52,28 @@ Chapter {{ chapter_number }}, Scene {{ scene_number }}
 {% if is_first_scene_in_book %}
 IMPORTANT: This is the very first scene of the book. Begin with:
 1. An announcement of the book title "{{ book_title }}" with strong emphasis
-2. A dramatic pause (2000ms)
+2. A pause (1200ms)
 3. The chapter announcement "Chapter {{ chapter_number }}: {{ chapter_title }}" with moderate emphasis
-4. Another pause (1500ms)
+4. Another pause (800ms)
 5. Then begin the scene content
 
 Example structure:
 <p>
   <emphasis level="strong">{{ book_title }}</emphasis>
-  <break time="2000ms"/>
+  <break time="1200ms"/>
   <emphasis level="moderate">Chapter {{ chapter_number }}: {{ chapter_title }}</emphasis>
-  <break time="1500ms"/>
+  <break time="800ms"/>
 </p>
 {% elif is_first_scene_in_chapter %}
 IMPORTANT: This is the first scene of a new chapter. Begin with:
 1. The chapter announcement "Chapter {{ chapter_number }}: {{ chapter_title }}" with moderate emphasis
-2. A pause (1500ms)
+2. A pause (800ms)
 3. Then begin the scene content
 
 Example structure:
 <p>
   <emphasis level="moderate">Chapter {{ chapter_number }}: {{ chapter_title }}</emphasis>
-  <break time="1500ms"/>
+  <break time="800ms"/>
 </p>
 {% endif %}
 

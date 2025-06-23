@@ -112,7 +112,7 @@ class AudiobookGenerator:
             self.speech_config.speech_synthesis_voice_name = voice_name
         elif self.language == 'german':
             # German voices
-            self.speech_config.speech_synthesis_voice_name = "de-DE-KatjaNeural"
+            self.speech_config.speech_synthesis_voice_name = "de-DE-SeraphinaMultilingualNeural"
         else:
             # English voices (default)
             self.speech_config.speech_synthesis_voice_name = "en-US-JennyNeural"
