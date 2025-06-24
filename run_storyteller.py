@@ -17,12 +17,12 @@ from dotenv import load_dotenv
 
 # Local imports
 from storyteller_lib import reset_progress_tracking, set_progress_callback
-from storyteller_lib.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
-from storyteller_lib.constants import NodeNames
-from storyteller_lib.progress_manager import ProgressManager, create_progress_manager
-from storyteller_lib.story_info import save_story_info
-from storyteller_lib.storyteller import generate_story_simplified
-from storyteller_lib.book_statistics import display_progress_report
+from storyteller_lib.core.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+from storyteller_lib.core.constants import NodeNames
+from storyteller_lib.persistence.progress import ProgressManager, create_progress_manager
+from storyteller_lib.utils.info import save_story_info
+from storyteller_lib.api.storyteller import generate_story_simplified
+from storyteller_lib.analysis.statistics import display_progress_report
 
 # Load environment variables from .env file
 load_dotenv()
@@ -48,7 +48,7 @@ def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> N
     """
     try:
         # Get content from database
-        from storyteller_lib.database_integration import get_db_manager
+        from storyteller_lib.persistence.database import get_db_manager
         db_manager = get_db_manager()
         
         if not db_manager or not db_manager._db:
@@ -95,7 +95,7 @@ def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> N
                             print(f"[DEBUG] Title in DB is placeholder: '{story_title}', attempting to extract from outline")
                             if story_info['global_story']:
                                 # Re-extract the title
-                                from storyteller_lib.database_integration import StoryDatabaseManager
+                                from storyteller_lib.persistence.database import StoryDatabaseManager
                                 temp_manager = StoryDatabaseManager()
                                 extracted_title = temp_manager._extract_title_from_outline(story_info['global_story'])
                                 if extracted_title and extracted_title != "Untitled Story":
@@ -158,7 +158,7 @@ def write_chapter_to_file(chapter_num: int, chapter_data: Dict[str, Any], output
             chapter_num = int(chapter_num)
         
         # Get content from database since we're using thin state pattern
-        from storyteller_lib.database_integration import get_db_manager
+        from storyteller_lib.persistence.database import get_db_manager
         db_manager = get_db_manager()
         
         if not db_manager or not db_manager._db:
@@ -255,6 +255,12 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
         progress_manager.state.current_chapter = state["current_chapter"]
     if "current_scene" in state:
         progress_manager.state.current_scene = state["current_scene"]
+    
+    # Save state to database after node execution
+    from storyteller_lib.persistence.database import get_db_manager
+    db_manager = get_db_manager()
+    if db_manager:
+        db_manager.save_node_state(node_name, state)
     
     # Get formatted progress message
     progress_message = progress_manager.get_progress_message(node_name)
@@ -595,7 +601,7 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
         
         # Display final progress report
         try:
-            from storyteller_lib.database_integration import get_db_manager
+            from storyteller_lib.persistence.database import get_db_manager
             db_manager = get_db_manager()
             display_progress_report(db_manager)
         except Exception as e:
@@ -681,7 +687,7 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
 def get_story_title_from_db() -> Optional[str]:
     """Get the story title from the database."""
     try:
-        from storyteller_lib.database_integration import get_db_manager
+        from storyteller_lib.persistence.database import get_db_manager
         db_manager = get_db_manager()
         
         if db_manager and db_manager._db:
@@ -740,7 +746,7 @@ def main() -> None:
     parser.add_argument("--recursion-limit", type=int, default=200,
                         help="LangGraph recursion limit (default: 200)")
     # Add model provider options
-    from storyteller_lib.config import MODEL_PROVIDER_OPTIONS, DEFAULT_MODEL_PROVIDER, MODEL_CONFIGS
+    from storyteller_lib.core.config import MODEL_PROVIDER_OPTIONS, DEFAULT_MODEL_PROVIDER, MODEL_CONFIGS
     parser.add_argument("--model-provider", type=str, choices=MODEL_PROVIDER_OPTIONS, default=DEFAULT_MODEL_PROVIDER,
                         help=f"LLM provider to use (default: {DEFAULT_MODEL_PROVIDER})")
     parser.add_argument("--model", type=str,
@@ -762,7 +768,7 @@ def main() -> None:
     args = parser.parse_args()
     
     # Import config to check API keys
-    from storyteller_lib.config import MODEL_CONFIGS
+    from storyteller_lib.core.config import MODEL_CONFIGS
     
     # Check if API key is set for the selected provider
     provider = args.model_provider
@@ -778,7 +784,7 @@ def main() -> None:
     progress_manager.set_write_chapter_callback(write_chapter_to_file)
     
     # Set up caching based on command line arguments
-    from storyteller_lib.config import setup_cache, CACHE_LOCATION
+    from storyteller_lib.core.config import setup_cache, CACHE_LOCATION
     if args.cache_path:
         # Setting environment variable before importing other modules
         os.environ["CACHE_LOCATION"] = args.cache_path
@@ -793,7 +799,7 @@ def main() -> None:
     # Setup database
     if args.database_path:
         os.environ["STORY_DATABASE_PATH"] = args.database_path
-    from storyteller_lib.config import DATABASE_PATH
+    from storyteller_lib.core.config import DATABASE_PATH
     print(f"Database persistence: {DATABASE_PATH}")
     
     # Handle SSML conversion for existing story (if audio-book flag is set without generating new story)
@@ -801,8 +807,8 @@ def main() -> None:
         # User wants to convert existing story to audiobook
         try:
             print("Converting existing story to SSML format for audiobook...")
-            from storyteller_lib.ssml_converter import SSMLConverter
-            from storyteller_lib.config import DATABASE_PATH
+            from storyteller_lib.audiobook.ssml.converter import SSMLConverter
+            from storyteller_lib.core.config import DATABASE_PATH
             
             # Check if database exists
             if not os.path.exists(DATABASE_PATH):
@@ -847,7 +853,7 @@ def main() -> None:
         language_str = f" in {SUPPORTED_LANGUAGES.get(args.language.lower(), args.language)}" if args.language.lower() != DEFAULT_LANGUAGE else ""
         
         # Get model information
-        from storyteller_lib.config import MODEL_CONFIGS
+        from storyteller_lib.core.config import MODEL_CONFIGS
         provider_config = MODEL_CONFIGS[args.model_provider]
         model_name = args.model or provider_config["default_model"]
         
@@ -871,7 +877,7 @@ def main() -> None:
             # We don't need to pass progress_callback since we registered it globally
             if args.use_v1:
                 # Legacy v1 workflow - deprecated
-                from storyteller_lib.storyteller import generate_story
+                from storyteller_lib.api.storyteller import generate_story
                 story, state = generate_story(
                     genre=args.genre,
                     tone=args.tone,
@@ -918,7 +924,7 @@ def main() -> None:
             # Try to recover partial story from database
             try:
                 print("Attempting to recover partial story...")
-                from storyteller_lib.database_integration import get_db_manager
+                from storyteller_lib.persistence.database import get_db_manager
                 db_manager = get_db_manager()
                 if db_manager:
                     partial_story = db_manager.compile_story()
@@ -1031,7 +1037,7 @@ def main() -> None:
         if args.audio_book:
             try:
                 print("\nGenerating SSML for audiobook...")
-                from storyteller_lib.ssml_converter import SSMLConverter
+                from storyteller_lib.audiobook.ssml.converter import SSMLConverter
                 
                 # Create SSML converter with the appropriate configuration
                 ssml_converter = SSMLConverter(
