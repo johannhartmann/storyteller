@@ -1,0 +1,47 @@
+{# Base template for validation feedback - German version #}
+{% if idea_issues %}
+PROBLEME BEI DER INTEGRATION DER ANFANGSIDEE:
+{% if idea_issues_details %}
+Gefundene Probleme:
+{% for issue in idea_issues_details %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
+{% if idea_suggestions %}
+Vorschläge: {{ idea_suggestions }}
+{% endif %}
+
+{% endif %}
+{% if genre_issues %}
+PROBLEME BEI DER GENRE-EINHALTUNG:
+{% if genre_issues_details %}
+Gefundene Probleme:
+{% for issue in genre_issues_details %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
+{% if genre_suggestions %}
+Vorschläge: {{ genre_suggestions }}
+{% endif %}
+
+{% endif %}
+{% if setting_issues %}
+PROBLEME BEI DER SETTING-EINHALTUNG:
+{% if setting_issues_details %}
+Gefundene Probleme:
+{% for issue in setting_issues_details %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
+{% if setting_suggestions %}
+Vorschläge: {{ setting_suggestions }}
+{% endif %}
+
+{% endif %}
+
+WICHTIGE ÜBERARBEITUNGSANWEISUNGEN:
+Die vorherige Gliederung hatte folgende Probleme, die behoben werden müssen:
+
+{{ all_issues }}
+
+Bitte generieren Sie die Handlungsskizze neu und stellen Sie sicher, dass ALLE oben genannten Probleme ordnungsgemäß behoben werden.

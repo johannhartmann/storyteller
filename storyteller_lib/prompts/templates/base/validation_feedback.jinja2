@@ -1,0 +1,47 @@
+{# Base template for validation feedback - English version #}
+{% if idea_issues %}
+INITIAL IDEA INTEGRATION ISSUES:
+{% if idea_issues_details %}
+Issues found:
+{% for issue in idea_issues_details %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
+{% if idea_suggestions %}
+Suggestions: {{ idea_suggestions }}
+{% endif %}
+
+{% endif %}
+{% if genre_issues %}
+GENRE ADHERENCE ISSUES:
+{% if genre_issues_details %}
+Issues found:
+{% for issue in genre_issues_details %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
+{% if genre_suggestions %}
+Suggestions: {{ genre_suggestions }}
+{% endif %}
+
+{% endif %}
+{% if setting_issues %}
+SETTING ADHERENCE ISSUES:
+{% if setting_issues_details %}
+Issues found:
+{% for issue in setting_issues_details %}
+- {{ issue }}
+{% endfor %}
+{% endif %}
+{% if setting_suggestions %}
+Suggestions: {{ setting_suggestions }}
+{% endif %}
+
+{% endif %}
+
+IMPORTANT REVISION INSTRUCTIONS:
+The previous outline had the following issues that must be addressed:
+
+{{ all_issues }}
+
+Please regenerate the story outline, ensuring that ALL the issues mentioned above are properly addressed.

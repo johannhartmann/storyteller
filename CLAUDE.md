@@ -6,13 +6,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 StoryCraft Agent is an autonomous AI-powered story writing system that generates complete, multi-chapter stories following the hero's journey structure. It uses LangGraph for orchestration, SQLite database for state and memory management, and supports multiple LLM providers.
 
+## Recent Refactoring (December 2024)
+
+The codebase underwent a major reorganization from a flat structure (`storyteller_lib/*.py`) to a hierarchical, Pythonic structure:
+
+```
+storyteller_lib/
+├── __init__.py
+├── api/              # Public API interface
+├── analysis/         # Story analysis tools
+├── audiobook/        # SSML and TTS generation
+├── core/             # Core components (config, models, logger)
+├── generation/       # Content generation modules
+│   ├── creative/     # Brainstorming and creative tools
+│   ├── scene/        # Scene generation and management
+│   └── story/        # Story-level components (arcs, narrative)
+├── persistence/      # Database and storage
+├── prompts/          # Template rendering and optimization
+├── universe/         # World and character building
+├── utils/            # Utility functions
+└── workflow/         # LangGraph workflow nodes
+```
+
+### Key Changes from Refactoring
+
+1. **Module Organization**: All modules now follow Python package conventions with proper hierarchy
+2. **Import Updates**: All imports updated from `storyteller_lib.module` to `storyteller_lib.category.module`
+3. **Fixed Issues During Refactoring**:
+   - Widespread indentation errors from automated import updates (now fixed)
+   - Missing `plan_chapters` function copied from old codebase
+   - `PlotThreadRegistry.register_thread` → `PlotThreadRegistry.add_thread`
+   - Database storage of story outline now properly implemented
+   - Template paths updated to use absolute package paths
+
 ## Common Development Commands
 
 ### Development Setup
 ```bash
 # Using Nix development environment
 nix develop
-
+```
 
 ## Architecture and Patterns
 
@@ -23,24 +56,26 @@ The system uses LangGraph's native edge system (not router-based) with condition
 2. **Conditional Edges**: Each edge evaluates current state to determine next node
 3. **No Recursion**: Explicit state transitions prevent recursion issues
 
-### Core Components
+### Core Components (Updated Paths)
 
 1. **Graph Construction** (`storyteller_lib/graph.py`): Defines the LangGraph workflow with nodes and conditional edges
-2. **State Models** (`storyteller_lib/models.py`): TypedDict definitions for StoryState, CharacterProfile, ChapterState, SceneState
-3. **Memory Management** (`storyteller_lib/memory_manager.py`): SQLite-based memory storage and retrieval
-4. **Configuration** (`storyteller_lib/config.py`): LLM setup and provider management
+2. **State Models** (`storyteller_lib/core/models.py`): TypedDict definitions for StoryState, CharacterProfile, ChapterState, SceneState
+3. **Memory Management** (`storyteller_lib/persistence/memory.py`): SQLite-based memory storage and retrieval
+4. **Configuration** (`storyteller_lib/core/config.py`): LLM setup and provider management
+5. **Database Integration** (`storyteller_lib/persistence/database.py`): Database manager for state persistence
 
 ### Story Generation Pipeline
 
 The workflow follows this sequence:
 1. Initialize → Brainstorm → Outline → Worldbuilding → Characters → Chapters → Scenes → Compilation
 
-Each stage uses specific modules:
-- **Initialization** (`initialization.py`): Sets up state and author style
-- **Creative Brainstorming** (`creative_tools.py`): Generates and evaluates ideas
-- **Plot Management** (`plot_threads.py`): Tracks narrative threads with PlotThreadRegistry
-- **Scene Generation** (`scenes.py`): Combines brainstorming, writing, reflection, and revision
-- **Consistency** (`consistency.py`): Continuity checking and issue resolution
+Each stage uses specific modules (with updated paths):
+- **Initialization** (`workflow/nodes/initialization.py`): Sets up state and author style
+- **Creative Brainstorming** (`generation/creative/brainstorming.py`): Generates and evaluates ideas
+- **Plot Management** (`generation/story/plot_threads.py`): Tracks narrative threads with PlotThreadRegistry
+- **Scene Generation** (`workflow/nodes/scenes.py`): Combines brainstorming, writing, reflection, and revision
+- **Consistency** (`analysis/consistency.py`): Continuity checking and issue resolution
+- **Outline Generation** (`workflow/nodes/outline.py`): Story outline and chapter planning
 
 ### Important Design Decisions
 
@@ -66,14 +101,17 @@ Each stage uses specific modules:
 
 No formal test suite currently exists. Testing is done through running the story generator with different parameters and validating output quality.
 
-## Key Files and Their Purposes
+## Key Files and Their Purposes (Updated Paths)
 
 - `run_storyteller.py`: Main entry point with CLI argument parsing
 - `storyteller_lib/graph.py`: LangGraph workflow definition
-- `storyteller_lib/models.py`: All state type definitions
-- `storyteller_lib/scenes.py`: Core scene generation logic
-- `storyteller_lib/plot_threads.py`: Plot thread tracking system
-- `storyteller_lib/consistency.py`: Continuity management
+- `storyteller_lib/core/models.py`: All state type definitions
+- `storyteller_lib/workflow/nodes/scenes.py`: Core scene generation logic
+- `storyteller_lib/generation/story/plot_threads.py`: Plot thread tracking system
+- `storyteller_lib/analysis/consistency.py`: Continuity management
+- `storyteller_lib/api/storyteller.py`: Main API interface for story generation
+- `storyteller_lib/prompts/renderer.py`: Template rendering system
+- `storyteller_lib/prompts/templates/`: Jinja2 templates for all prompts
 
 ## Memories and Known Issues
 
@@ -97,3 +135,11 @@ No formal test suite currently exists. Testing is done through running the story
 - Never use nested dictionaries in structured output.
 - Never run the storyteller on your own, it takes hours
 - Never add generated markdown files to git.
+- never simply add all files (git add -A)
+- After refactoring: all Python files have been moved to subdirectories, update imports accordingly
+- The `plan_chapters` function was missing and has been added to `workflow/nodes/outline.py`
+- Story outline must be stored in database using `db_manager.update_global_story()` after generation
+- Character relationships require two-pass saving: first save all characters, then update relationships
+- Do not write about every change and fix into the claude.md
+- For indentation errors: first try to fix them using black
+- You can analyze data database in /home/johann/.storyteller/story_database.db

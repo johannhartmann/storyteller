@@ -66,7 +66,7 @@ class StoryDatabaseManager:
             node_name: Name of the node that just executed
             state: Current story state
         """
-        logger.debug(f"save_node_state called for node: {node_name}")
+        logger.info(f"save_node_state called for node: {node_name}")
         logger.debug(
             f"Database enabled: {self.enabled}, DB exists: {self._db is not None}"
         )
@@ -85,21 +85,21 @@ class StoryDatabaseManager:
                 self._save_world_elements(state)
             elif node_name in [NodeNames.CREATE_CHARACTERS, "generate_characters"]:
                 self._save_characters(state)
-            # Plot threads are saved after scene reflection
-            elif node_name in [NodeNames.SCENE_REFLECTION, "reflect_on_scene"]:
+            # Plot threads are saved after outline generation and scene reflection
+            elif node_name in ["generate_story_outline"]:
+                self._save_plot_threads(state)
+            elif node_name in [NodeNames.SCENE_REFLECTION, "reflect_on_scene", "check_plot_threads"]:
                 self._save_plot_threads(state)
             elif node_name == NodeNames.PLAN_CHAPTER:
                 self._save_chapter(state)
             elif node_name == "plan_chapters":  # Handle the actual node name from graph
+                logger.info(f"Processing plan_chapters node, calling _save_all_chapters")
                 self._save_all_chapters(state)
             elif node_name in [NodeNames.SCENE_WRITING, NodeNames.SCENE_REVISION, "write_scene", "revise_scene_if_needed"]:
                 self._save_scene(state)
             elif node_name in [NodeNames.CHARACTER_EVOLUTION, "update_character_knowledge"]:
                 self._update_character_states(state)
-            elif node_name == "generate_story_outline":
-                # Save the global story outline
-                if "story_outline" in state and state["story_outline"]:
-                    self.update_global_story(state["story_outline"])
+            # Story outline is saved by the generate_story_outline node itself
 
             logger.debug(f"Saved state after {node_name}")
         except Exception as e:
@@ -115,7 +115,7 @@ class StoryDatabaseManager:
         )
 
         if not get_context_provider():
-            initialize_context_provider()
+            initialize_context_provider(self)
 
     def _save_world_elements(self, state: StoryState) -> None:
         """Save world building elements."""
@@ -272,9 +272,11 @@ class StoryDatabaseManager:
         chapters = state.get("chapters", {})
         if not chapters:
             logger.warning("No chapters found in state after plan_chapters")
+            logger.warning(f"State keys available: {list(state.keys())}")
             return
         
         logger.info(f"Saving {len(chapters)} chapters to database")
+        logger.debug(f"Chapter keys: {list(chapters.keys())}")
         
         for chapter_key, chapter_data in chapters.items():
             # Extract chapter number
@@ -837,6 +839,7 @@ class StoryDatabaseManager:
                         "UPDATE story_config SET global_story = ?, title = ? WHERE id = 1",
                         (global_story, story_title),
                     )
+                    conn.commit()
                     logger.info(
                         f"Updated existing story_config with title: '{story_title}'"
                     )
