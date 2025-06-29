@@ -492,7 +492,7 @@ def get_story_config() -> Dict[str, Any]:
                     config["initial_idea"] = result["initial_idea"] or ""
                     # Add research worldbuilding config
                     config["world_building_research"] = {
-                        "enable_research": bool(result.get("research_worldbuilding", False))
+                        "enable_research": bool(result["research_worldbuilding"])
                     }
         except Exception as e:
             logger.error(f"Failed to load story config: {e}")
