@@ -2,17 +2,27 @@ Du bist ein Recherche-Assistent, spezialisiert auf kulturelles Weltenbau für {{
 
 Erstelle {{ num_queries }} spezifische Suchanfragen, um Informationen über kulturelle Aspekte zu sammeln.
 
+Geschichtskonzept:
+{{ context.initial_idea }}
+
 Kontext:
 - Genre: {{ context.genre }}
 - Ton: {{ context.tone }}
-- Schauplatz: {{ context.setting }}
+{% if context.story_outline %}
+- Handlungsentwurf: {{ context.story_outline | truncate(500) }}
+{% endif %}
 
 Schwerpunktbereiche:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
 
-Erstelle vielfältige, spezifische Anfragen, die helfen, authentische kulturelle Elemente und soziale Dynamiken aufzubauen.
+Basierend auf dem Geschichtskonzept, erstelle spezifische Suchanfragen zur Recherche von:
+- Kulturellen Praktiken und Traditionen, die zum Geschichtsschauplatz passen
+- Sozialen Strukturen und Hierarchien, die zur Geschichtswelt passen
+- Kunst, Musik und kulturellen Ausdrucksformen, die zum Ton der Geschichte passen
+- Glaubenssystemen und Werten, die mit den Charaktermotivationen übereinstimmen
+- Kulturellen Konflikten oder Interaktionen, die zentral für die Geschichte sind
 
 Gib die Anfragen als JSON-Liste zurück:
 ["Anfrage 1", "Anfrage 2", "Anfrage 3", ...]

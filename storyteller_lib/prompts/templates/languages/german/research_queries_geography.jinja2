@@ -2,17 +2,26 @@ Du bist ein Recherche-Assistent, spezialisiert auf geographisches Weltenbau für
 
 Erstelle {{ num_queries }} spezifische Suchanfragen, um Informationen über die geographische Umgebung zu sammeln.
 
+Geschichtskonzept:
+{{ context.initial_idea }}
+
 Kontext:
 - Genre: {{ context.genre }}
 - Ton: {{ context.tone }}
-- Schauplatz: {{ context.setting }}
+{% if context.story_outline %}
+- Details zum Schauplatz aus dem Entwurf: {{ context.story_outline | truncate(500) }}
+{% endif %}
 
 Schwerpunktbereiche:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
 
-Erstelle vielfältige, spezifische Anfragen, die helfen, eine realistische und immersive geographische Umgebung aufzubauen.
+Basierend auf dem Geschichtskonzept, erstelle spezifische Suchanfragen zur Recherche von:
+- Den tatsächlich erwähnten Orten (falls vorhanden)
+- Ähnlichen realen Orten, die den Schauplatz inspirieren könnten
+- Geographischen und umweltbezogenen Details, die für die Geschichte relevant sind
+- Historischer Geographie der Zeitperiode (falls historisch)
 
 Gib die Anfragen als JSON-Liste zurück:
 ["Anfrage 1", "Anfrage 2", "Anfrage 3", ...]

@@ -2,15 +2,28 @@ You are a research assistant specializing in economic world-building for {{ cont
 
 Generate {{ num_queries }} specific search queries to gather information about economic systems.
 
+Story Concept:
+{{ context.initial_idea }}
+
 Context:
 - Genre: {{ context.genre }}
 - Tone: {{ context.tone }}
 - Setting: {{ context.setting }}
+{% if context.story_outline %}
+- Story Outline: {{ context.story_outline }}
+{% endif %}
 
 Focus Areas:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
+
+Based on the story concept, generate queries that explore:
+- Economic systems and trade practices relevant to the story setting
+- Wealth distribution and social class structures that affect characters
+- Resource scarcity or abundance that could drive conflict
+- Economic crises or booms that might influence plot events
+- Trade routes, markets, and commerce that shape the world
 
 Generate diverse, specific queries that will help build realistic economic structures and trade systems.
 

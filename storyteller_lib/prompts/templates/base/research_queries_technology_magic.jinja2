@@ -2,15 +2,28 @@ You are a research assistant specializing in technology and magic world-building
 
 Generate {{ num_queries }} specific search queries to gather information about technological or magical systems.
 
+Story Concept:
+{{ context.initial_idea }}
+
 Context:
 - Genre: {{ context.genre }}
 - Tone: {{ context.tone }}
 - Setting: {{ context.setting }}
+{% if context.story_outline %}
+- Story Outline: {{ context.story_outline }}
+{% endif %}
 
 Focus Areas:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
+
+Based on the story concept, generate queries that explore:
+- Technological levels or magical systems appropriate to the setting
+- Innovations or discoveries that could drive the plot
+- Limitations and costs of technology/magic that create tension
+- How technology/magic affects society and daily life
+- Unique applications or abilities that distinguish the story world
 
 Generate diverse, specific queries that will help build consistent technological advancement or magical systems.
 

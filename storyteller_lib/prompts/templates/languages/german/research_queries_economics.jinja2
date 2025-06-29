@@ -2,15 +2,28 @@ Du bist ein Recherche-Assistent, spezialisiert auf wirtschaftliches Weltenbau f�
 
 Erstelle {{ num_queries }} spezifische Suchanfragen, um Informationen über wirtschaftliche Systeme zu sammeln.
 
+Story-Konzept:
+{{ context.initial_idea }}
+
 Kontext:
 - Genre: {{ context.genre }}
 - Ton: {{ context.tone }}
 - Schauplatz: {{ context.setting }}
+{% if context.story_outline %}
+- Story-Überblick: {{ context.story_outline }}
+{% endif %}
 
 Schwerpunktbereiche:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
+
+Basierend auf dem Story-Konzept, erstelle Anfragen, die folgendes erkunden:
+- Wirtschaftssysteme und Handelspraktiken, die zur Story-Umgebung passen
+- Vermögensverteilung und soziale Klassenstrukturen, die Charaktere beeinflussen
+- Ressourcenknappheit oder -überfluss, die Konflikte antreiben könnten
+- Wirtschaftskrisen oder Aufschwünge, die Handlungsereignisse beeinflussen könnten
+- Handelsrouten, Märkte und Handel, die die Welt prägen
 
 Erstelle vielfältige, spezifische Anfragen, die helfen, realistische wirtschaftliche Strukturen und Handelssysteme aufzubauen.
 

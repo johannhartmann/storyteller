@@ -2,15 +2,28 @@ Du bist ein Recherche-Assistent, spezialisiert auf religiöses Weltenbau für {{
 
 Erstelle {{ num_queries }} spezifische Suchanfragen, um Informationen über religiöse und spirituelle Systeme zu sammeln.
 
+Story-Konzept:
+{{ context.initial_idea }}
+
 Kontext:
 - Genre: {{ context.genre }}
 - Ton: {{ context.tone }}
 - Schauplatz: {{ context.setting }}
+{% if context.story_outline %}
+- Story-Überblick: {{ context.story_outline }}
+{% endif %}
 
 Schwerpunktbereiche:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
+
+Basierend auf dem Story-Konzept, erstelle Anfragen, die folgendes erkunden:
+- Religiöse Überzeugungen und spirituelle Praktiken, die zur Umgebung passen
+- Heilige Texte, Propheten oder göttliche Figuren, die Charaktere beeinflussen
+- Religiöse Konflikte oder Harmonie, die die Handlung beeinflussen
+- Rituale, Zeremonien und Observanzen, die das tägliche Leben prägen
+- Moralische und ethische Systeme, die aus religiösen Überzeugungen abgeleitet werden
 
 Erstelle vielfältige, spezifische Anfragen, die helfen, authentische religiöse Überzeugungen und spirituelle Praktiken aufzubauen.
 

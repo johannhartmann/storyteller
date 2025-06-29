@@ -2,17 +2,27 @@ You are a research assistant specializing in historical world-building for {{ co
 
 Generate {{ num_queries }} specific search queries to gather information about the historical background.
 
+Story Concept:
+{{ context.initial_idea }}
+
 Context:
 - Genre: {{ context.genre }}
 - Tone: {{ context.tone }}
-- Setting: {{ context.setting }}
+{% if context.story_outline %}
+- Story outline: {{ context.story_outline | truncate(500) }}
+{% endif %}
 
 Focus Areas:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
 
-Generate diverse, specific queries that will help build a rich historical context and timeline.
+Based on the story concept, generate specific search queries that will help research:
+- Historical periods that match the story's timeline
+- Real historical events that could inspire or parallel story events
+- Historical figures or groups relevant to the story themes
+- Historical context for the technology/society level depicted
+- Historical precedents for conflicts or situations in the story
 
 Return the queries as a JSON list:
 ["query 1", "query 2", "query 3", ...]

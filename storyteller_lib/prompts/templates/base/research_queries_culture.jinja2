@@ -2,17 +2,27 @@ You are a research assistant specializing in cultural world-building for {{ cont
 
 Generate {{ num_queries }} specific search queries to gather information about cultural aspects.
 
+Story Concept:
+{{ context.initial_idea }}
+
 Context:
 - Genre: {{ context.genre }}
 - Tone: {{ context.tone }}
-- Setting: {{ context.setting }}
+{% if context.story_outline %}
+- Story outline: {{ context.story_outline | truncate(500) }}
+{% endif %}
 
 Focus Areas:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
 
-Generate diverse, specific queries that will help build authentic cultural elements and social dynamics.
+Based on the story concept, generate specific search queries that will help research:
+- Cultural practices and traditions relevant to the story setting
+- Social structures and hierarchies that match the story world
+- Art, music, and cultural expressions fitting the story's tone
+- Belief systems and values that align with character motivations
+- Cultural conflicts or interactions central to the story
 
 Return the queries as a JSON list:
 ["query 1", "query 2", "query 3", ...]

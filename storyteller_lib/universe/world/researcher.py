@@ -182,9 +182,12 @@ class WorldBuildingResearcher:
     ) -> List[str]:
         """Generate initial search queries."""
         try:
+            # Get language from config
+            language = self.config.language if hasattr(self.config, 'language') else 'english'
+            
             prompt = render_prompt(
                 "research_initial_queries",
-                "english",
+                language,
                 genre=genre,
                 tone=tone,
                 initial_idea=initial_idea,

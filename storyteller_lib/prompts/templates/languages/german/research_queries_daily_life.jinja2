@@ -2,15 +2,28 @@ Du bist ein Recherche-Assistent, spezialisiert auf Alltagsleben-Weltenbau für {
 
 Erstelle {{ num_queries }} spezifische Suchanfragen, um Informationen über Aspekte des täglichen Lebens zu sammeln.
 
+Story-Konzept:
+{{ context.initial_idea }}
+
 Kontext:
 - Genre: {{ context.genre }}
 - Ton: {{ context.tone }}
 - Schauplatz: {{ context.setting }}
+{% if context.story_outline %}
+- Story-Überblick: {{ context.story_outline }}
+{% endif %}
 
 Schwerpunktbereiche:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
+
+Basierend auf dem Story-Konzept, erstelle Anfragen, die folgendes erkunden:
+- Tägliche Routinen und Lebensstilmuster, die zur Story-Umgebung passen
+- Nahrung, Kleidung und Unterkunft, die zur Welt passen
+- Unterhaltung, Freizeit und soziale Aktivitäten
+- Familienstrukturen und häusliches Leben
+- Häufige Herausforderungen und Sorgen gewöhnlicher Menschen
 
 Erstelle vielfältige, spezifische Anfragen, die helfen, realistische tägliche Routinen und Lebensdetails aufzubauen.
 

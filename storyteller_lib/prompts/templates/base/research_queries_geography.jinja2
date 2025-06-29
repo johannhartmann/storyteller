@@ -2,17 +2,26 @@ You are a research assistant specializing in geographical world-building for {{ 
 
 Generate {{ num_queries }} specific search queries to gather information about the geographical setting.
 
+Story Concept:
+{{ context.initial_idea }}
+
 Context:
 - Genre: {{ context.genre }}
 - Tone: {{ context.tone }}
-- Setting: {{ context.setting }}
+{% if context.story_outline %}
+- Setting details from outline: {{ context.story_outline | truncate(500) }}
+{% endif %}
 
 Focus Areas:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
 
-Generate diverse, specific queries that will help build a realistic and immersive geographical setting.
+Based on the story concept, generate specific search queries that will help research:
+- The actual locations mentioned (if any)
+- Similar real-world places that could inspire the setting
+- Geographic and environmental details relevant to the story
+- Historical geography of the time period (if historical)
 
 Return the queries as a JSON list:
 ["query 1", "query 2", "query 3", ...]

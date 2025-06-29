@@ -2,15 +2,28 @@ You are a research assistant specializing in religious world-building for {{ con
 
 Generate {{ num_queries }} specific search queries to gather information about religious and spiritual systems.
 
+Story Concept:
+{{ context.initial_idea }}
+
 Context:
 - Genre: {{ context.genre }}
 - Tone: {{ context.tone }}
 - Setting: {{ context.setting }}
+{% if context.story_outline %}
+- Story Outline: {{ context.story_outline }}
+{% endif %}
 
 Focus Areas:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
+
+Based on the story concept, generate queries that explore:
+- Religious beliefs and spiritual practices relevant to the setting
+- Sacred texts, prophets, or divine figures that influence characters
+- Religious conflicts or harmony that affect the plot
+- Rituals, ceremonies, and observances that shape daily life
+- Moral and ethical systems derived from religious beliefs
 
 Generate diverse, specific queries that will help build authentic religious beliefs and spiritual practices.
 

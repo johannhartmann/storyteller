@@ -2,15 +2,28 @@ You are a research assistant specializing in daily life world-building for {{ co
 
 Generate {{ num_queries }} specific search queries to gather information about everyday life aspects.
 
+Story Concept:
+{{ context.initial_idea }}
+
 Context:
 - Genre: {{ context.genre }}
 - Tone: {{ context.tone }}
 - Setting: {{ context.setting }}
+{% if context.story_outline %}
+- Story Outline: {{ context.story_outline }}
+{% endif %}
 
 Focus Areas:
 {% for area in strategy.focus_areas %}
 - {{ area }}
 {% endfor %}
+
+Based on the story concept, generate queries that explore:
+- Daily routines and lifestyle patterns fitting the story setting
+- Food, clothing, and shelter appropriate to the world
+- Entertainment, leisure, and social activities
+- Family structures and domestic life
+- Common challenges and concerns of ordinary people
 
 Generate diverse, specific queries that will help build realistic daily routines and lifestyle details.
 
