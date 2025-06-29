@@ -295,9 +295,12 @@ class WorldBuildingResearcher:
         results_text = self._format_results_for_synthesis(all_results[:10])
         
         try:
+            # Get language from context or use default
+            language = self.config.language if hasattr(self.config, 'language') else 'english'
+            
             prompt = render_prompt(
                 "research_synthesis_initial",
-                "english",
+                language,
                 research_findings=results_text,
                 genre=genre,
                 tone=tone,
@@ -345,9 +348,12 @@ class WorldBuildingResearcher:
         results_text = self._format_results_for_synthesis(results[:15])
         
         try:
+            # Get language from context or use default
+            language = context.language if hasattr(context, 'language') else context.get('language', 'english')
+            
             prompt = render_prompt(
                 f"research_synthesis_{category}",
-                "english",
+                language,
                 category=category,
                 research_findings=results_text,
                 context=context

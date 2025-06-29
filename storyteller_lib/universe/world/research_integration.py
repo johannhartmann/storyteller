@@ -189,8 +189,8 @@ async def generate_worldbuilding_with_research(state: StoryState) -> Dict:
         if not global_story:
             raise RuntimeError("Story outline is empty in database")
     
-    # Get language settings
-    language = state.get("language", DEFAULT_LANGUAGE)
+    # Get language settings - prefer config over state
+    language = config.get("language", state.get("language", DEFAULT_LANGUAGE))
     language_guidance = ""  # Will be set if needed
     
     # Define category models

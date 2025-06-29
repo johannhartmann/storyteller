@@ -48,6 +48,11 @@ class WorldBuildingResearchConfig(BaseModel):
         description="Execute category research in parallel"
     )
     
+    language: str = Field(
+        default="english",
+        description="Language for prompts and templates"
+    )
+    
     cache_results: bool = Field(
         default=True,
         description="Cache research results for reuse"
@@ -62,6 +67,8 @@ class WorldBuildingResearchConfig(BaseModel):
     def from_config(cls, config: Dict[str, Any]) -> "WorldBuildingResearchConfig":
         """Create configuration from story config dictionary."""
         research_config = config.get("world_building_research", {})
+        # Add language from story config
+        research_config["language"] = config.get("language", "english")
         return cls(**research_config)
     
     def get_depth_params(self) -> Dict[str, int]:
