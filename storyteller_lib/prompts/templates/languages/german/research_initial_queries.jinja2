@@ -1,0 +1,19 @@
+Erstelle {{ num_queries }} spezifische Suchanfragen zur Recherche des realen Kontexts für eine {{ genre }}-Geschichte mit {{ tone }} Ton.
+
+Geschichtsidee: {{ initial_idea }}
+
+{% if story_outline %}
+Handlungsentwurf: {{ story_outline }}
+{% endif %}
+
+Erstelle Suchanfragen, die helfen würden zu entdecken:
+1. Reale Orte, Kulturen oder historische Epochen, die den Schauplatz inspirieren könnten
+2. Ähnliche reale Ereignisse oder Situationen, die dem Geschichtskonzept entsprechen
+3. Technische, wissenschaftliche oder kulturelle Details, die für das Genre relevant sind
+4. Historische Präzedenzfälle oder zeitgenössische Beispiele
+5. Geografische und umweltbezogene Kontexte
+
+Mache die Anfragen spezifisch und durchsuchbar, vermeide zu allgemeine Begriffe.
+Konzentriere dich darauf, konkrete, faktische Informationen zu finden, die die fiktive Welt erden können.
+
+Gib NUR die Suchanfragen zurück, eine pro Zeile, ohne Nummerierung oder Erklärung.

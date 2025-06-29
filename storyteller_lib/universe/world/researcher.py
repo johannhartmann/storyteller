@@ -191,20 +191,9 @@ class WorldBuildingResearcher:
                 story_outline=story_outline or "Not yet developed",
                 num_queries=self.config.queries_per_category
             )
-        except:
-            # Fallback if template doesn't exist
-            prompt = f"""
-            Generate {self.config.queries_per_category} search queries to research context for a {genre} story with {tone} tone.
-            
-            Story idea: {initial_idea}
-            
-            Create specific, searchable queries that would help understand:
-            - Real-world parallels and inspiration
-            - Historical or contemporary context
-            - Cultural and geographic settings
-            
-            Return only the queries, one per line.
-            """
+        except Exception as e:
+            logger.error(f"Failed to render research_initial_queries template: {e}")
+            raise
         
         response = await llm.ainvoke(prompt)
         queries = [q.strip() for q in response.content.strip().split('\n') if q.strip()]
@@ -306,22 +295,9 @@ class WorldBuildingResearcher:
                 tone=tone,
                 initial_idea=initial_idea
             )
-        except:
-            # Fallback prompt
-            prompt = f"""
-            Based on these research findings, synthesize key insights for a {genre} story with {tone} tone:
-            
-            {results_text}
-            
-            Story idea: {initial_idea}
-            
-            Extract insights about:
-            1. Real-world settings or parallels
-            2. Historical or cultural context
-            3. Interesting details that could enrich the story
-            
-            Format as key: insight pairs.
-            """
+        except Exception as e:
+            logger.error(f"Failed to render research_synthesis_initial template: {e}")
+            raise
         
         response = await llm.ainvoke(prompt)
         
@@ -358,23 +334,9 @@ class WorldBuildingResearcher:
                 research_findings=results_text,
                 context=context
             )
-        except:
-            # Fallback prompt
-            prompt = f"""
-            Synthesize research findings for {category} elements in a {context.genre} story:
-            
-            Research findings:
-            {results_text}
-            
-            Story context: {context.initial_idea}
-            
-            Extract key insights specifically relevant to {category} that would:
-            - Add authenticity and depth
-            - Support the {context.tone} tone
-            - Fit the {context.genre} genre
-            
-            Format as focused insights for worldbuilding.
-            """
+        except Exception as e:
+            logger.error(f"Failed to render research_synthesis_{category} template: {e}")
+            raise
         
         response = await llm.ainvoke(prompt)
         
