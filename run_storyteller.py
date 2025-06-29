@@ -840,6 +840,16 @@ def main() -> None:
     try:
         # Single story mode - always starts fresh
         
+        # Delete existing database to ensure a fresh start
+        from storyteller_lib.core.config import DATABASE_PATH
+        if os.path.exists(DATABASE_PATH):
+            os.unlink(DATABASE_PATH)
+            print(f"Removed existing database to start fresh")
+        
+        # Reinitialize database manager with fresh database
+        from storyteller_lib.persistence.database import initialize_db_manager
+        initialize_db_manager(DATABASE_PATH)
+        
         # Generate the story with visual progress display
         author_str = f" in the style of {args.author}" if args.author else ""
         language_str = f" in {SUPPORTED_LANGUAGES.get(args.language.lower(), args.language)}" if args.language.lower() != DEFAULT_LANGUAGE else ""

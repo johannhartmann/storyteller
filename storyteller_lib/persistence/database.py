@@ -884,19 +884,6 @@ class StoryDatabaseManager:
                 exists = cursor.fetchone()[0] > 0
 
                 if exists:
-                    # First check if column exists
-                    cursor.execute("PRAGMA table_info(story_config)")
-                    columns = [col[1] for col in cursor.fetchall()]
-
-                    if "book_level_instructions" not in columns:
-                        # Add the column if it doesn't exist
-                        cursor.execute(
-                            "ALTER TABLE story_config ADD COLUMN book_level_instructions TEXT"
-                        )
-                        logger.info(
-                            "Added book_level_instructions column to story_config table"
-                        )
-
                     cursor.execute(
                         "UPDATE story_config SET book_level_instructions = ? WHERE id = 1",
                         (instructions,),
@@ -923,13 +910,7 @@ class StoryDatabaseManager:
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
 
-                # First check if column exists
-                cursor.execute("PRAGMA table_info(story_config)")
-                columns = [col[1] for col in cursor.fetchall()]
-
-                if "book_level_instructions" not in columns:
-                    logger.warning("book_level_instructions column does not exist yet")
-                    return None
+                # Get book level instructions directly - assume column exists
 
                 cursor.execute(
                     "SELECT book_level_instructions FROM story_config WHERE id = 1"
@@ -1330,21 +1311,9 @@ class StoryDatabaseManager:
                         self._chapter_id_map[str(chapter_num)] = chapter_id
 
             if chapter_id:
-                # Check if instructions column exists
+                # Update scene with instructions - assume column exists
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute("PRAGMA table_info(scenes)")
-                    columns = [col[1] for col in cursor.fetchall()]
-
-                    if "instructions" not in columns:
-                        # Add the column if it doesn't exist
-                        cursor.execute(
-                            "ALTER TABLE scenes ADD COLUMN instructions TEXT"
-                        )
-                        conn.commit()
-                        logger.info("Added instructions column to scenes table")
-
-                    # Update scene with instructions
                     cursor.execute(
                         "UPDATE scenes SET instructions = ? WHERE chapter_id = ? AND scene_number = ?",
                         (instructions, chapter_id, scene_num),
@@ -1386,17 +1355,9 @@ class StoryDatabaseManager:
                         self._chapter_id_map[str(chapter_num)] = chapter_id
 
             if chapter_id:
-                # Check if instructions column exists
+                # Get scene instructions - assume column exists
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute("PRAGMA table_info(scenes)")
-                    columns = [col[1] for col in cursor.fetchall()]
-
-                    if "instructions" not in columns:
-                        logger.debug("Instructions column does not exist yet")
-                        return None
-
-                    # Get scene instructions
                     cursor.execute(
                         "SELECT instructions FROM scenes WHERE chapter_id = ? AND scene_number = ?",
                         (chapter_id, scene_num),
