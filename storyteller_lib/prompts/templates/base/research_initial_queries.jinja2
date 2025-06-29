@@ -1,0 +1,19 @@
+Generate {{ num_queries }} specific search queries to research real-world context for a {{ genre }} story with {{ tone }} tone.
+
+Story idea: {{ initial_idea }}
+
+{% if story_outline %}
+Story outline: {{ story_outline }}
+{% endif %}
+
+Create search queries that would help discover:
+1. Real-world locations, cultures, or historical periods that could inspire the setting
+2. Similar real events or situations that parallel the story concept
+3. Technical, scientific, or cultural details relevant to the genre
+4. Historical precedents or contemporary examples
+5. Geographic and environmental contexts
+
+Make queries specific and searchable, avoiding overly broad terms.
+Focus on finding concrete, factual information that can ground the fictional world.
+
+Return ONLY the search queries, one per line, no numbering or explanation.
