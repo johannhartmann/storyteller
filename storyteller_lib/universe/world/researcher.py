@@ -247,8 +247,33 @@ class WorldBuildingResearcher:
             return base_queries
         
         response = await llm.ainvoke(prompt)
-        queries = [q.strip() for q in response.content.strip().split('\n') if q.strip()]
-        return queries[:self.config.queries_per_category]
+        
+        # Parse JSON response
+        import json
+        try:
+            # Try to extract JSON from the response
+            content = response.content.strip()
+            # Find JSON array in the response
+            start_idx = content.find('[')
+            end_idx = content.rfind(']') + 1
+            if start_idx >= 0 and end_idx > start_idx:
+                json_str = content[start_idx:end_idx]
+                queries = json.loads(json_str)
+            else:
+                # Fallback: split by newlines if no JSON found
+                queries = [q.strip() for q in content.split('\n') if q.strip() and not q.startswith('[')]
+        except (json.JSONDecodeError, Exception) as e:
+            logger.warning(f"Failed to parse JSON response: {e}")
+            # Fallback to line splitting
+            queries = [q.strip() for q in response.content.strip().split('\n') if q.strip() and not q.startswith('[')]
+        
+        # Ensure we have valid queries
+        valid_queries = []
+        for query in queries[:self.config.queries_per_category]:
+            if isinstance(query, str) and len(query) > 2:
+                valid_queries.append(query)
+        
+        return valid_queries
     
     async def _synthesize_initial_insights(
         self,
