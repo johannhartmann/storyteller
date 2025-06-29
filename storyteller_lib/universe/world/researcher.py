@@ -8,7 +8,7 @@ search execution, and result synthesis.
 
 import asyncio
 from typing import Dict, Any, List, Optional
-from storyteller_lib.core.config import llm
+from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.prompts.renderer import render_prompt
 from storyteller_lib.universe.world.research_config import WorldBuildingResearchConfig
@@ -151,8 +151,10 @@ class WorldBuildingResearcher:
         citations = self._create_citations(unique_results, synthesized_insights)
         
         # Create research summary
+        # Get language from context or use global default
+        language = context.language if hasattr(context, 'language') else DEFAULT_LANGUAGE
         summary = await self._create_research_summary(
-            category, synthesized_insights, examples
+            category, synthesized_insights, examples, language
         )
         
         # Build results
@@ -182,8 +184,8 @@ class WorldBuildingResearcher:
     ) -> List[str]:
         """Generate initial search queries."""
         try:
-            # Get language from config
-            language = self.config.language if hasattr(self.config, 'language') else 'english'
+            # Get language from config or use global default
+            language = self.config.language if hasattr(self.config, 'language') else DEFAULT_LANGUAGE
             
             prompt = render_prompt(
                 "research_initial_queries",
@@ -210,33 +212,17 @@ class WorldBuildingResearcher:
         existing_research: Optional[Dict[str, Any]] = None
     ) -> List[str]:
         """Generate search queries for a specific category."""
-        try:
-            # Get language from context or use default
-            language = context.language if hasattr(context, 'language') else context.get('language', 'english')
-            
-            prompt = render_prompt(
-                f"research_queries_{category}",
-                language,
-                context=context,
-                strategy=strategy,
-                existing_research=existing_research or {},
-                num_queries=self.config.queries_per_category
-            )
-        except:
-            # Fallback using strategy templates
-            base_queries = []
-            for template in strategy.query_templates[:self.config.queries_per_category]:
-                # Simple template substitution
-                query = template
-                if "[genre]" in query:
-                    query = query.replace("[genre]", context.genre)
-                if "[tone]" in query:
-                    query = query.replace("[tone]", context.tone)
-                if "[time_period]" in query:
-                    query = query.replace("[time_period]", context.time_period or "contemporary")
-                base_queries.append(query)
-            
-            return base_queries
+        # Get language from context or use global default
+        language = context.language if hasattr(context, 'language') else DEFAULT_LANGUAGE
+        
+        prompt = render_prompt(
+            f"research_queries_{category}",
+            language,
+            context=context,
+            strategy=strategy,
+            existing_research=existing_research or {},
+            num_queries=self.config.queries_per_category
+        )
         
         response = await llm.ainvoke(prompt)
         
@@ -287,8 +273,8 @@ class WorldBuildingResearcher:
         results_text = self._format_results_for_synthesis(all_results[:10])
         
         try:
-            # Get language from context or use default
-            language = self.config.language if hasattr(self.config, 'language') else 'english'
+            # Get language from config or use global default
+            language = self.config.language if hasattr(self.config, 'language') else DEFAULT_LANGUAGE
             
             prompt = render_prompt(
                 "research_synthesis_initial",
@@ -380,17 +366,18 @@ class WorldBuildingResearcher:
         # Simple refinement - look for gaps in coverage
         results_summary = self._format_results_for_synthesis(current_results[:5])
         
-        prompt = f"""
-        Based on initial research for {category} in a {context.genre} story:
+        # Get language from context
+        language = context.language if hasattr(context, 'language') else context.get('language', 'english')
         
-        Current findings:
-        {results_summary}
-        
-        Focus areas needed: {', '.join(strategy.focus_areas)}
-        
-        Generate {self.config.queries_per_category} refined search queries to fill gaps and get more specific information.
-        Return only the queries, one per line.
-        """
+        prompt = render_prompt(
+            "research_refine_queries",
+            language,
+            category=category,
+            context=context,
+            strategy=strategy,
+            results_summary=results_summary,
+            num_queries=self.config.queries_per_category
+        )
         
         response = await llm.ainvoke(prompt)
         queries = [q.strip() for q in response.content.strip().split('\n') if q.strip()]
@@ -437,23 +424,20 @@ class WorldBuildingResearcher:
         self,
         category: str,
         insights: Dict[str, str],
-        examples: List[Dict[str, Any]]
+        examples: List[Dict[str, Any]],
+        language: str = DEFAULT_LANGUAGE
     ) -> str:
         """Create a summary of research findings."""
         insights_text = '\n'.join([f"- {k}: {v}" for k, v in insights.items()])
         examples_text = '\n'.join([f"- {e['title']}: {e['description']}" for e in examples[:5]])
         
-        prompt = f"""
-        Summarize research findings for {category} worldbuilding:
-        
-        Key insights:
-        {insights_text}
-        
-        Notable examples:
-        {examples_text}
-        
-        Create a concise paragraph summarizing the most valuable findings for worldbuilding.
-        """
+        prompt = render_prompt(
+            "research_create_summary",
+            language,
+            category=category,
+            insights_text=insights_text,
+            examples_text=examples_text
+        )
         
         response = await llm.ainvoke(prompt)
         return response.content.strip()
