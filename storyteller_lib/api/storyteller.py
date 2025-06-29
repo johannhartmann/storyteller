@@ -29,6 +29,7 @@ def generate_story_simplified(
     target_words_per_scene: Optional[int] = None,
     target_pages: Optional[int] = None,
     recursion_limit: int = 200,
+    research_worldbuilding: bool = False,
 ) -> Tuple[str, StoryState]:
     """
     Generate a story using the simplified workflow.
@@ -47,6 +48,7 @@ def generate_story_simplified(
         target_words_per_scene: Override words per scene (None = auto-determine) - deprecated, use target_pages
         target_pages: Target number of pages for the story (None = auto-determine based on complexity)
         recursion_limit: Maximum recursion depth for the LangGraph workflow (default: 200)
+        research_worldbuilding: Enable research-driven world building (requires TAVILY_API_KEY)
 
     Returns:
         Tuple of (compiled story markdown, final state)
@@ -105,6 +107,7 @@ def generate_story_simplified(
             target_chapters=target_chapters,
             target_words_per_scene=target_words_per_scene,
             target_pages=target_pages,
+            research_worldbuilding=research_worldbuilding,
         )
         logger.info("Initialized story configuration in database")
 

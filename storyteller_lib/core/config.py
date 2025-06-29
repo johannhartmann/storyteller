@@ -477,7 +477,7 @@ def get_story_config() -> Dict[str, Any]:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT genre, tone, language, author, initial_idea 
+                    SELECT genre, tone, language, author, initial_idea, research_worldbuilding 
                     FROM story_config WHERE id = 1
                 """
                 )
@@ -488,6 +488,10 @@ def get_story_config() -> Dict[str, Any]:
                     config["language"] = result["language"] or config["language"]
                     config["author"] = result["author"] or ""
                     config["initial_idea"] = result["initial_idea"] or ""
+                    # Add research worldbuilding config
+                    config["world_building_research"] = {
+                        "enable_research": bool(result.get("research_worldbuilding", False))
+                    }
         except Exception as e:
             logger.error(f"Failed to load story config: {e}")
 

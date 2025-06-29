@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS story_config (
     target_pages INTEGER,
     structure_metadata TEXT, -- JSON
     book_level_instructions TEXT,
+    research_worldbuilding INTEGER DEFAULT 0, -- SQLite uses INTEGER for boolean
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

@@ -246,6 +246,7 @@ class StoryDatabase:
                     "target_pages",
                     "structure_metadata",
                     "book_level_instructions",
+                    "research_worldbuilding",
                 ]:
                     if field in kwargs:
                         update_fields.append(f"{field} = ?")
@@ -273,6 +274,7 @@ class StoryDatabase:
                     "target_pages",
                     "structure_metadata",
                     "book_level_instructions",
+                    "research_worldbuilding",
                 ]:
                     if field in kwargs:
                         fields.append(field)

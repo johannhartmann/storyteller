@@ -765,6 +765,8 @@ def main() -> None:
                         help="Path to save progress log file (default: automatically generated in ~/.storyteller/logs/)")
     parser.add_argument("--audio-book", action="store_true",
                         help="Generate SSML-formatted audiobook version of the story (during or after generation)")
+    parser.add_argument("--research-worldbuilding", action="store_true",
+                        help="Use web research to create more authentic world building (requires TAVILY_API_KEY)")
     args = parser.parse_args()
     
     # Import config to check API keys
@@ -776,6 +778,14 @@ def main() -> None:
     if not os.environ.get(api_key_env):
         print(f"Error: {api_key_env} environment variable is not set for the {provider} provider.")
         print(f"Please create a .env file with {api_key_env}=your_api_key")
+        return
+    
+    # Check if TAVILY_API_KEY is set when research is enabled
+    if args.research_worldbuilding and not os.environ.get("TAVILY_API_KEY"):
+        print("Error: TAVILY_API_KEY environment variable is not set.")
+        print("Research-based worldbuilding requires a Tavily API key.")
+        print("Please add TAVILY_API_KEY=your_key to your .env file")
+        print("Get your API key at: https://app.tavily.com/")
         return
         
     # Create progress manager
@@ -900,7 +910,8 @@ def main() -> None:
                     progress_log_path=args.progress_log,
                     narrative_structure=args.structure,
                     target_pages=args.pages,
-                    recursion_limit=args.recursion_limit
+                    recursion_limit=args.recursion_limit,
+                    research_worldbuilding=args.research_worldbuilding
                 )
             
             # Show completion message
