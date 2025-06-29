@@ -9,7 +9,6 @@ import os
 import asyncio
 from typing import List, Dict, Any, Optional
 from tavily import AsyncTavilyClient
-from langchain_tavily import TavilySearchAPIRetriever, TavilyExtractAPITool
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.universe.world.research_models import SearchResult
 
@@ -27,9 +26,7 @@ async def search_with_tavily(
     api_key: Optional[str] = None
 ) -> List[SearchResult]:
     """
-    Execute a search using Tavily API with two-step approach:
-    1. Search for relevant pages
-    2. Extract full content from top 3 pages
+    Execute a search using Tavily API.
     
     Args:
         query: Search query
@@ -45,68 +42,38 @@ async def search_with_tavily(
         if not api_key:
             raise SearchAPIError("Tavily API key not found. Set TAVILY_API_KEY environment variable.")
         
-        # Set API key in environment for langchain_tavily
-        os.environ["TAVILY_API_KEY"] = api_key
+        # Initialize Tavily client
+        client = AsyncTavilyClient(api_key=api_key)
         
-        # Step 1: Search (only meta-info)
-        search_retriever = TavilySearchAPIRetriever(
-            k=max_results,
-            search_depth="advanced",  # Better relevance
-            include_raw_content=False  # Content in step 2
+        # Execute search with raw content included
+        response = await client.search(
+            query=query,
+            max_results=max_results,
+            search_depth="advanced",
+            include_raw_content=True
         )
         
-        # Execute search synchronously in async context
-        loop = asyncio.get_event_loop()
-        docs = await loop.run_in_executor(None, search_retriever.invoke, query)
+        # Extract results array from the response
+        results = response.get("results", [])
         
-        # Extract URLs from search results
-        urls = []
+        # Convert to SearchResult objects
         search_results = []
-        
-        for idx, doc in enumerate(docs):
-            url = doc.metadata.get("source")
-            if url:
-                urls.append(url)
-                # Create initial SearchResult with basic info
-                search_results.append(SearchResult(
-                    title=doc.metadata.get("title", f"Result {idx + 1}"),
-                    url=url,
-                    content=doc.page_content,  # Initial snippet
-                    relevance_score=doc.metadata.get("score", 0.5),
-                    source_type="web",
-                    metadata={
-                        "snippet": doc.page_content,
-                        "published_date": doc.metadata.get("published_date")
-                    }
-                ))
-        
-        # Step 2: Extract full content from top 3 URLs
-        if urls:
-            extract_tool = TavilyExtractAPITool(
-                format="markdown",
-                extract_depth="advanced"  # Robust parser
-            )
+        for idx, result in enumerate(results):
+            # Use raw_content if available, otherwise use content
+            full_content = result.get("raw_content") or result.get("content", "")
             
-            # Extract content from top 3 URLs
-            urls_to_extract = urls[:3]
-            try:
-                extracted_pages = await loop.run_in_executor(
-                    None, 
-                    extract_tool.invoke, 
-                    {"urls": urls_to_extract}
-                )
-                
-                # Update SearchResults with extracted content
-                for i, extracted_content in enumerate(extracted_pages):
-                    if i < len(search_results) and extracted_content:
-                        # Update the content with full extracted markdown text
-                        search_results[i].content = extracted_content
-                        search_results[i].metadata["raw_content"] = extracted_content
-                        search_results[i].metadata["content_format"] = "markdown"
-                        
-            except Exception as e:
-                logger.warning(f"Failed to extract content from URLs: {str(e)}")
-                # Continue with snippet content if extraction fails
+            search_results.append(SearchResult(
+                title=result.get("title", f"Result {idx + 1}"),
+                url=result.get("url"),
+                content=full_content,
+                relevance_score=result.get("score", 0.5),
+                source_type="web",
+                metadata={
+                    "snippet": result.get("content", ""),
+                    "raw_content": full_content,
+                    "published_date": result.get("published_date")
+                }
+            ))
         
         return search_results
         
