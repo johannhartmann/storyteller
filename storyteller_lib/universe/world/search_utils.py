@@ -7,10 +7,15 @@ using various APIs like Tavily, and processing the results.
 
 import os
 import asyncio
+import warnings
 from typing import List, Dict, Any, Optional
-from langchain_community.tools.tavily_search import TavilySearchResults
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.universe.world.research_models import SearchResult
+
+# Suppress the deprecation warning for now until langchain-tavily is available in nix
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain")
+    from langchain_community.tools.tavily_search import TavilySearchResults
 
 logger = get_logger(__name__)
 
