@@ -16,6 +16,8 @@ from storyteller_lib.universe.world.research_models import (
     ResearchResults, ResearchContext, CategoryResearchStrategy,
     SearchResult, Citation, ResearchInsight
 )
+from pydantic import BaseModel, Field
+from typing import List as ListType
 from storyteller_lib.universe.world.search_utils import (
     execute_parallel_searches, filter_results_by_relevance,
     deduplicate_results
@@ -23,6 +25,29 @@ from storyteller_lib.universe.world.search_utils import (
 from storyteller_lib.universe.world.research_strategies import get_category_strategy
 
 logger = get_logger(__name__)
+
+
+# Pydantic models for structured output
+class SearchQueries(BaseModel):
+    """Search queries for research."""
+    queries: ListType[str] = Field(
+        description="List of search queries",
+        min_items=1
+    )
+
+
+class ResearchInsights(BaseModel):
+    """Insights from research synthesis."""
+    insights: Dict[str, str] = Field(
+        description="Key-value pairs of insights from research"
+    )
+
+
+class ResearchSummary(BaseModel):
+    """Summary of research findings."""
+    summary: str = Field(
+        description="Concise paragraph summarizing the most valuable findings"
+    )
 
 
 class WorldBuildingResearcher:
@@ -200,9 +225,9 @@ class WorldBuildingResearcher:
             logger.error(f"Failed to render research_initial_queries template: {e}")
             raise
         
-        response = await llm.ainvoke(prompt)
-        queries = [q.strip() for q in response.content.strip().split('\n') if q.strip()]
-        return queries[:self.config.queries_per_category]
+        structured_llm = llm.with_structured_output(SearchQueries)
+        result = await structured_llm.ainvoke(prompt)
+        return result.queries[:self.config.queries_per_category]
     
     async def _generate_category_queries(
         self,
@@ -224,34 +249,9 @@ class WorldBuildingResearcher:
             num_queries=self.config.queries_per_category
         )
         
-        response = await llm.ainvoke(prompt)
-        
-        # Parse JSON response
-        import json
-        try:
-            # Try to extract JSON from the response
-            content = response.content.strip()
-            # Find JSON array in the response
-            start_idx = content.find('[')
-            end_idx = content.rfind(']') + 1
-            if start_idx >= 0 and end_idx > start_idx:
-                json_str = content[start_idx:end_idx]
-                queries = json.loads(json_str)
-            else:
-                # Fallback: split by newlines if no JSON found
-                queries = [q.strip() for q in content.split('\n') if q.strip() and not q.startswith('[')]
-        except (json.JSONDecodeError, Exception) as e:
-            logger.warning(f"Failed to parse JSON response: {e}")
-            # Fallback to line splitting
-            queries = [q.strip() for q in response.content.strip().split('\n') if q.strip() and not q.startswith('[')]
-        
-        # Ensure we have valid queries
-        valid_queries = []
-        for query in queries[:self.config.queries_per_category]:
-            if isinstance(query, str) and len(query) > 2:
-                valid_queries.append(query)
-        
-        return valid_queries
+        structured_llm = llm.with_structured_output(SearchQueries)
+        result = await structured_llm.ainvoke(prompt)
+        return result.queries[:self.config.queries_per_category]
     
     async def _synthesize_initial_insights(
         self,
@@ -288,16 +288,9 @@ class WorldBuildingResearcher:
             logger.error(f"Failed to render research_synthesis_initial template: {e}")
             raise
         
-        response = await llm.ainvoke(prompt)
-        
-        # Parse insights
-        insights = {}
-        for line in response.content.strip().split('\n'):
-            if ':' in line:
-                key, value = line.split(':', 1)
-                insights[key.strip()] = value.strip()
-        
-        return insights
+        structured_llm = llm.with_structured_output(ResearchInsights)
+        result = await structured_llm.ainvoke(prompt)
+        return result.insights
     
     async def _synthesize_category_insights(
         self,
@@ -327,16 +320,9 @@ class WorldBuildingResearcher:
             logger.error(f"Failed to render research_synthesis_{category} template: {e}")
             raise
         
-        response = await llm.ainvoke(prompt)
-        
-        # Parse insights specific to category
-        insights = {}
-        for line in response.content.strip().split('\n'):
-            if ':' in line:
-                key, value = line.split(':', 1)
-                insights[key.strip()] = value.strip()
-        
-        return insights
+        structured_llm = llm.with_structured_output(ResearchInsights)
+        result = await structured_llm.ainvoke(prompt)
+        return result.insights
     
     def _format_results_for_synthesis(self, results: List[SearchResult]) -> str:
         """Format search results for LLM synthesis."""
@@ -379,9 +365,9 @@ class WorldBuildingResearcher:
             num_queries=self.config.queries_per_category
         )
         
-        response = await llm.ainvoke(prompt)
-        queries = [q.strip() for q in response.content.strip().split('\n') if q.strip()]
-        return queries[:self.config.queries_per_category]
+        structured_llm = llm.with_structured_output(SearchQueries)
+        result = await structured_llm.ainvoke(prompt)
+        return result.queries[:self.config.queries_per_category]
     
     def _extract_relevant_examples(
         self,
@@ -439,8 +425,9 @@ class WorldBuildingResearcher:
             examples_text=examples_text
         )
         
-        response = await llm.ainvoke(prompt)
-        return response.content.strip()
+        structured_llm = llm.with_structured_output(ResearchSummary)
+        result = await structured_llm.ainvoke(prompt)
+        return result.summary
     
     def _calculate_confidence(
         self,
