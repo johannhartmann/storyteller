@@ -357,7 +357,13 @@ class WorldBuildingResearcher:
         formatted = []
         for i, result in enumerate(results, 1):
             formatted.append(f"{i}. {result.title}")
-            formatted.append(f"   {result.content[:500]}...")
+            # Use full content from extraction if available, otherwise use snippet
+            content = result.metadata.get("raw_content", result.content)
+            # For extracted content (markdown), we want to preserve much more
+            # Only limit if it's extremely long (>10k chars)
+            if len(content) > 10000:
+                content = content[:10000] + "\n\n[Content truncated...]"
+            formatted.append(f"   {content}")
             if result.url:
                 formatted.append(f"   Source: {result.url}")
             formatted.append("")
