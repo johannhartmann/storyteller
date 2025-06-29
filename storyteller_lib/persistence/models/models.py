@@ -47,6 +47,12 @@ class StoryDatabase:
         schema_path = Path(__file__).parent / "schema.sql"
 
         try:
+            # Ensure the directory exists
+            db_dir = Path(self.db_path).parent
+            if not db_dir.exists():
+                db_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Created database directory: {db_dir}")
+            
             with open(schema_path, "r") as f:
                 schema_sql = f.read()
 
