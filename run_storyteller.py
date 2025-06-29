@@ -357,6 +357,94 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
             sys.stdout.write(f"[Story outline continues with {section_count} more sections...]\n")
             sys.stdout.write("----------------------------------\n\n")
             
+    elif node_name == "generate_worldbuilding":
+        progress_message = f"[{elapsed_str}] Generated detailed world building elements"
+        
+        # Show world building results
+        if "world_elements" in state:
+            world_elements = state["world_elements"]
+            sys.stdout.write("\n------ WORLD BUILDING RESULTS ------\n")
+            
+            # Show each category of world building
+            for category, elements in world_elements.items():
+                if category != "mystery_elements" and elements:  # Skip mystery elements for now
+                    sys.stdout.write(f"\n{category.upper().replace('_', ' ')}:\n")
+                    
+                    # Handle different data structures
+                    if isinstance(elements, dict):
+                        # For dictionary elements, show first 2-3 items
+                        items_shown = 0
+                        for key, value in elements.items():
+                            if items_shown >= 3:
+                                remaining = len(elements) - items_shown
+                                if remaining > 0:
+                                    sys.stdout.write(f"  [... and {remaining} more]\n")
+                                break
+                            
+                            # Format the output based on content
+                            if isinstance(value, dict):
+                                sys.stdout.write(f"  • {key}: ")
+                                # Show a brief summary of dict contents
+                                if 'description' in value:
+                                    desc = value['description']
+                                    desc_preview = desc[:100] + "..." if len(desc) > 100 else desc
+                                    sys.stdout.write(f"{desc_preview}\n")
+                                elif 'name' in value:
+                                    sys.stdout.write(f"{value['name']}\n")
+                                else:
+                                    # Show first available field
+                                    first_value = next(iter(value.values()))
+                                    if isinstance(first_value, str):
+                                        preview = first_value[:80] + "..." if len(first_value) > 80 else first_value
+                                        sys.stdout.write(f"{preview}\n")
+                                    else:
+                                        sys.stdout.write(f"{str(first_value)[:80]}...\n")
+                            elif isinstance(value, list):
+                                sys.stdout.write(f"  • {key}: {', '.join(str(v) for v in value[:3])}")
+                                if len(value) > 3:
+                                    sys.stdout.write(f" [... and {len(value) - 3} more]")
+                                sys.stdout.write("\n")
+                            else:
+                                # String or other simple types
+                                value_str = str(value)
+                                value_preview = value_str[:100] + "..." if len(value_str) > 100 else value_str
+                                sys.stdout.write(f"  • {key}: {value_preview}\n")
+                            
+                            items_shown += 1
+                    elif isinstance(elements, list):
+                        # For list elements, show first 3
+                        for i, item in enumerate(elements[:3]):
+                            if isinstance(item, dict) and 'name' in item:
+                                sys.stdout.write(f"  • {item['name']}")
+                                if 'description' in item:
+                                    desc = item['description'][:60] + "..." if len(item['description']) > 60 else item['description']
+                                    sys.stdout.write(f": {desc}")
+                                sys.stdout.write("\n")
+                            else:
+                                item_str = str(item)[:80] + "..." if len(str(item)) > 80 else str(item)
+                                sys.stdout.write(f"  • {item_str}\n")
+                        
+                        if len(elements) > 3:
+                            sys.stdout.write(f"  [... and {len(elements) - 3} more]\n")
+                    else:
+                        # Simple value
+                        value_str = str(elements)
+                        value_preview = value_str[:200] + "..." if len(value_str) > 200 else value_str
+                        sys.stdout.write(f"  {value_preview}\n")
+            
+            # Special handling for mystery elements if present
+            if "mystery_elements" in world_elements and world_elements["mystery_elements"]:
+                mystery = world_elements["mystery_elements"]
+                sys.stdout.write(f"\nMYSTERY ELEMENTS:\n")
+                if 'central_mystery' in mystery:
+                    sys.stdout.write(f"  • Central Mystery: {mystery['central_mystery'][:100]}...\n")
+                if 'clues' in mystery and mystery['clues']:
+                    sys.stdout.write(f"  • Number of Clues: {len(mystery['clues'])}\n")
+                if 'red_herrings' in mystery and mystery['red_herrings']:
+                    sys.stdout.write(f"  • Red Herrings: {len(mystery['red_herrings'])}\n")
+            
+            sys.stdout.write("------------------------------------\n\n")
+            
     elif node_name == "generate_characters":
         progress_message = f"[{elapsed_str}] Created {len(state.get('characters', {}))} detailed character profiles with interconnected backgrounds"
         
