@@ -733,8 +733,6 @@ def main() -> None:
                         help="Initial story idea to use as a starting point (e.g., 'A detective story set in a zoo')")
     parser.add_argument("--output", type=str, default="story.md",
                         help="Output file to save the generated story")
-    parser.add_argument("--info-file", action="store_true",
-                        help="Generate a YAML info file with story metadata and worldbuilding elements")
     parser.add_argument("--verbose", action="store_true",
                         help="Display detailed information about the story elements as they're generated")
     # Add model provider options
@@ -913,15 +911,14 @@ def main() -> None:
                         print("Partial story recovered successfully!")
                         story = partial_story
                         
-                        # Generate info file if requested
-                        if args.info_file:
-                            try:
-                                # Create a minimal state for info file
-                                state = {"chapters": {}, "characters": {}, "world_elements": {}}
-                                info_file = save_story_info(state, args.output)
-                                print(f"Partial story information saved to {info_file}")
-                            except Exception as info_err:
-                                print(f"Error saving partial story information: {str(info_err)}")
+                        # Always generate info file
+                        try:
+                            # Create a minimal state for info file
+                            state = {"chapters": {}, "characters": {}, "world_elements": {}}
+                            info_file = save_story_info(state, args.output)
+                            print(f"Partial story information saved to {info_file}")
+                        except Exception as info_err:
+                            print(f"Error saving partial story information: {str(info_err)}")
             except Exception as recovery_err:
                 print(f"Could not recover partial story: {str(recovery_err)}")
         
@@ -963,8 +960,8 @@ def main() -> None:
             
             # Database persistence is automatic for the single story
             
-            # Generate info file if requested
-            if args.info_file and 'state' in locals():
+            # Always generate info file
+            if 'state' in locals():
                 try:
                     info_file = save_story_info(state, args.output)
                     print(f"Story information saved to {info_file}")
@@ -978,6 +975,14 @@ def main() -> None:
                 with open(fallback_path, "w") as f:
                     f.write(story)
                 print(f"Story saved to fallback location: {fallback_path}")
+                
+                # Try to save info file for fallback too
+                if 'state' in locals():
+                    try:
+                        info_file = save_story_info(state, fallback_path)
+                        print(f"Story information saved to {info_file}")
+                    except Exception as info_err:
+                        print(f"Error saving story information: {str(info_err)}")
             except IOError as fallback_err:
                 print(f"Critical error: Could not save story to fallback location: {str(fallback_err)}")
         
