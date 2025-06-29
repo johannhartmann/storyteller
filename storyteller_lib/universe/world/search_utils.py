@@ -26,7 +26,9 @@ async def search_with_tavily(
     api_key: Optional[str] = None
 ) -> List[SearchResult]:
     """
-    Execute a search using Tavily API.
+    Execute a search using Tavily API with two-step approach:
+    1. Search for relevant pages
+    2. Extract full content from top 3 pages
     
     Args:
         query: Search query
@@ -45,12 +47,12 @@ async def search_with_tavily(
         # Initialize Tavily client
         client = AsyncTavilyClient(api_key=api_key)
         
-        # Execute search with raw content included
+        # Step 1: Search (only get snippets, not full content)
         response = await client.search(
             query=query,
             max_results=max_results,
             search_depth="advanced",
-            include_raw_content=True
+            include_raw_content=False  # Don't get raw content in search
         )
         
         # Extract results array from the response
@@ -58,22 +60,52 @@ async def search_with_tavily(
         
         # Convert to SearchResult objects
         search_results = []
+        urls_to_extract = []
+        
         for idx, result in enumerate(results):
-            # Use raw_content if available, otherwise use content
-            full_content = result.get("raw_content") or result.get("content", "")
+            url = result.get("url")
+            if url:
+                urls_to_extract.append(url)
+                search_results.append(SearchResult(
+                    title=result.get("title", f"Result {idx + 1}"),
+                    url=url,
+                    content=result.get("content", ""),  # Initial snippet
+                    relevance_score=result.get("score", 0.5),
+                    source_type="web",
+                    metadata={
+                        "snippet": result.get("content", ""),
+                        "published_date": result.get("published_date")
+                    }
+                ))
+        
+        # Step 2: Extract full content from top 3 URLs
+        if urls_to_extract and len(search_results) > 0:
+            # Only extract from top 3 most relevant results
+            extract_urls = urls_to_extract[:3]
             
-            search_results.append(SearchResult(
-                title=result.get("title", f"Result {idx + 1}"),
-                url=result.get("url"),
-                content=full_content,
-                relevance_score=result.get("score", 0.5),
-                source_type="web",
-                metadata={
-                    "snippet": result.get("content", ""),
-                    "raw_content": full_content,
-                    "published_date": result.get("published_date")
-                }
-            ))
+            try:
+                # Extract content using Tavily Extract API
+                extract_response = await client.extract(
+                    urls=extract_urls,
+                    format="markdown"  # Get content in markdown format
+                )
+                
+                # Process extracted content
+                extracted_results = extract_response.get("results", [])
+                
+                for i, extracted in enumerate(extracted_results):
+                    if i < len(search_results) and extracted.get("success", False):
+                        # Update the corresponding search result with full content
+                        full_content = extracted.get("raw_content", "")
+                        if full_content:
+                            search_results[i].content = full_content
+                            search_results[i].metadata["raw_content"] = full_content
+                            search_results[i].metadata["content_format"] = "markdown"
+                            logger.info(f"Extracted {len(full_content)} chars from {search_results[i].url}")
+                        
+            except Exception as e:
+                logger.warning(f"Failed to extract full content: {str(e)}")
+                # Continue with snippet content if extraction fails
         
         return search_results
         
