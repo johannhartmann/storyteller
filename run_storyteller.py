@@ -727,8 +727,6 @@ def main() -> None:
                         help="Tone of the story (e.g., epic, dark, humorous)")
     parser.add_argument("--author", type=str, default="",
                         help="Author whose style to emulate (e.g., Tolkien, Rowling, Martin)")
-    parser.add_argument("--use-v1", action="store_true",
-                        help="Use legacy v1 workflow (deprecated, for backward compatibility only)")
     parser.add_argument("--language", type=str, default=DEFAULT_LANGUAGE,
                         help=f"Target language for story generation (e.g., {', '.join(SUPPORTED_LANGUAGES.keys())})")
     parser.add_argument("--idea", type=str, default="",
@@ -739,12 +737,6 @@ def main() -> None:
                         help="Generate a YAML info file with story metadata and worldbuilding elements")
     parser.add_argument("--verbose", action="store_true",
                         help="Display detailed information about the story elements as they're generated")
-    parser.add_argument("--cache", type=str, choices=["memory", "sqlite", "none"], default="sqlite",
-                        help="LLM cache type to use (default: sqlite)")
-    parser.add_argument("--cache-path", type=str,
-                        help="Path to the cache file (for sqlite cache)")
-    parser.add_argument("--recursion-limit", type=int, default=200,
-                        help="LangGraph recursion limit (default: 200)")
     # Add model provider options
     from storyteller_lib.core.config import MODEL_PROVIDER_OPTIONS, DEFAULT_MODEL_PROVIDER, MODEL_CONFIGS
     parser.add_argument("--model-provider", type=str, choices=MODEL_PROVIDER_OPTIONS, default=DEFAULT_MODEL_PROVIDER,
@@ -757,10 +749,6 @@ def main() -> None:
                         help="Narrative structure to use (default: auto - let AI choose based on genre/tone)")
     parser.add_argument("--pages", type=int,
                         help="Target number of pages for the story (e.g., 200 for a short novel, 400 for standard)")
-    # Add database options
-    parser.add_argument("--database-path", type=str,
-                        help="Path to the story database file (default: ~/.storyteller/story_database.db)")
-    # Story continuation is not supported in single-story mode
     parser.add_argument("--progress-log", type=str,
                         help="Path to save progress log file (default: automatically generated in ~/.storyteller/logs/)")
     parser.add_argument("--audio-book", action="store_true",
@@ -793,22 +781,18 @@ def main() -> None:
     progress_manager = create_progress_manager(verbose=args.verbose, output_file=args.output)
     progress_manager.set_write_chapter_callback(write_chapter_to_file)
     
-    # Set up caching based on command line arguments
+    # Set up caching based on environment variables
     from storyteller_lib.core.config import setup_cache, CACHE_LOCATION
-    if args.cache_path:
-        # Setting environment variable before importing other modules
-        os.environ["CACHE_LOCATION"] = args.cache_path
-        print(f"Using cache at: {args.cache_path}")
-    else:
-        print(f"Using default cache location: {CACHE_LOCATION}")
+    
+    # Get cache type from environment
+    cache_type = os.environ.get("CACHE_TYPE", "sqlite")
     
     # Setup the cache with the specified type
-    cache = setup_cache(args.cache)
-    print(f"LLM caching: {args.cache}")
+    cache = setup_cache(cache_type)
+    print(f"LLM caching: {cache_type}")
+    print(f"Cache location: {CACHE_LOCATION}")
     
-    # Setup database
-    if args.database_path:
-        os.environ["STORY_DATABASE_PATH"] = args.database_path
+    # Database path is handled by environment variable
     from storyteller_lib.core.config import DATABASE_PATH
     print(f"Database persistence: {DATABASE_PATH}")
     
@@ -884,35 +868,21 @@ def main() -> None:
         partial_story = None
         try:
             # Start the story generation
-            # We don't need to pass progress_callback since we registered it globally
-            if args.use_v1:
-                # Legacy v1 workflow - deprecated
-                from storyteller_lib.api.storyteller import generate_story
-                story, state = generate_story(
-                    genre=args.genre,
-                    tone=args.tone,
-                    author=args.author,
-                    initial_idea=args.idea,
-                    language=args.language,
-                    model_provider=args.model_provider,
-                    model=args.model,
-                    return_state=True,  # Return both story text and state
-                    progress_log_path=args.progress_log
-                )
-            else:
-                # Default v2 workflow
-                story, state = generate_story_simplified(
-                    genre=args.genre,
-                    tone=args.tone,
-                    author=args.author,
-                    initial_idea=args.idea,
-                    language=args.language,
-                    progress_log_path=args.progress_log,
-                    narrative_structure=args.structure,
-                    target_pages=args.pages,
-                    recursion_limit=args.recursion_limit,
-                    research_worldbuilding=args.research_worldbuilding
-                )
+            # Get recursion limit from environment
+            recursion_limit = int(os.environ.get("LANGGRAPH_RECURSION_LIMIT", "200"))
+            
+            story, state = generate_story_simplified(
+                genre=args.genre,
+                tone=args.tone,
+                author=args.author,
+                initial_idea=args.idea,
+                language=args.language,
+                progress_log_path=args.progress_log,
+                narrative_structure=args.structure,
+                target_pages=args.pages,
+                recursion_limit=recursion_limit,
+                research_worldbuilding=args.research_worldbuilding
+            )
             
             # Show completion message
             elapsed_str = progress_manager.state.get_elapsed_time()
