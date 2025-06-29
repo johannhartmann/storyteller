@@ -43,6 +43,8 @@ from storyteller_lib.workflow.nodes.summary_node import generate_summaries
 from storyteller_lib.universe.world.builder import generate_worldbuilding
 from storyteller_lib.universe.characters.profiles import generate_characters
 
+logger = get_logger(__name__)
+
 # Import research-enabled world building if available
 try:
     from storyteller_lib.universe.world.research_integration import generate_worldbuilding_with_research
@@ -50,8 +52,6 @@ try:
 except ImportError:
     RESEARCH_WORLDBUILDING_AVAILABLE = False
     logger.warning("Research-based worldbuilding not available")
-
-logger = get_logger(__name__)
 
 
 # Simplified condition functions

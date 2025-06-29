@@ -219,9 +219,12 @@ class WorldBuildingResearcher:
     ) -> List[str]:
         """Generate search queries for a specific category."""
         try:
+            # Get language from context or use default
+            language = context.language if hasattr(context, 'language') else context.get('language', 'english')
+            
             prompt = render_prompt(
                 f"research_queries_{category}",
-                "english",
+                language,
                 context=context,
                 strategy=strategy,
                 existing_research=existing_research or {},

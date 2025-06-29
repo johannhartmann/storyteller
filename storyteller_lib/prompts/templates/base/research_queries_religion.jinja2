@@ -1,0 +1,18 @@
+You are a research assistant specializing in religious world-building for {{ context.genre }} stories.
+
+Generate {{ num_queries }} specific search queries to gather information about religious and spiritual systems.
+
+Context:
+- Genre: {{ context.genre }}
+- Tone: {{ context.tone }}
+- Setting: {{ context.setting }}
+
+Focus Areas:
+{% for area in strategy.focus_areas %}
+- {{ area }}
+{% endfor %}
+
+Generate diverse, specific queries that will help build authentic religious beliefs and spiritual practices.
+
+Return the queries as a JSON list:
+["query 1", "query 2", "query 3", ...]

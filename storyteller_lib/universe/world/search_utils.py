@@ -7,15 +7,10 @@ using various APIs like Tavily, and processing the results.
 
 import os
 import asyncio
-import warnings
 from typing import List, Dict, Any, Optional
+from tavily import AsyncTavilyClient
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.universe.world.research_models import SearchResult
-
-# Suppress the deprecation warning for now until langchain-tavily is available in nix
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain")
-    from langchain_community.tools.tavily_search import TavilySearchResults
 
 logger = get_logger(__name__)
 
@@ -47,14 +42,18 @@ async def search_with_tavily(
         if not api_key:
             raise SearchAPIError("Tavily API key not found. Set TAVILY_API_KEY environment variable.")
         
-        # Initialize Tavily search tool
-        search_tool = TavilySearchResults(
-            api_key=api_key,
-            max_results=max_results
-        )
+        # Initialize Tavily client
+        client = AsyncTavilyClient(api_key=api_key)
         
         # Execute search
-        results = await asyncio.to_thread(search_tool.run, query)
+        response = await client.search(
+            query=query,
+            max_results=max_results,
+            include_raw_content=True
+        )
+        
+        # Extract results array from the response
+        results = response.get("results", [])
         
         # Convert to SearchResult objects
         search_results = []
@@ -62,7 +61,7 @@ async def search_with_tavily(
             search_results.append(SearchResult(
                 title=result.get("title", f"Result {idx + 1}"),
                 url=result.get("url"),
-                content=result.get("content", ""),
+                content=result.get("content", "") or result.get("raw_content", ""),
                 relevance_score=result.get("score", 0.5),
                 source_type="web",
                 metadata={
