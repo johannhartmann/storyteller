@@ -8,7 +8,7 @@ search execution, and result synthesis.
 
 import asyncio
 from typing import Dict, Any, List, Optional
-from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE
+from storyteller_lib.core.config import llm
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.prompts.renderer import render_prompt
 from storyteller_lib.universe.world.research_config import WorldBuildingResearchConfig
@@ -151,8 +151,8 @@ class WorldBuildingResearcher:
         citations = self._create_citations(unique_results, synthesized_insights)
         
         # Create research summary
-        # Get language from context or use global default
-        language = context.language if hasattr(context, 'language') else DEFAULT_LANGUAGE
+        # Get language from context
+        language = context.language
         summary = await self._create_research_summary(
             category, synthesized_insights, examples, language
         )
@@ -184,8 +184,8 @@ class WorldBuildingResearcher:
     ) -> List[str]:
         """Generate initial search queries."""
         try:
-            # Get language from config or use global default
-            language = self.config.language if hasattr(self.config, 'language') else DEFAULT_LANGUAGE
+            # Get language from config (which comes from command line)
+            language = self.config.language
             
             prompt = render_prompt(
                 "research_initial_queries",
@@ -212,8 +212,8 @@ class WorldBuildingResearcher:
         existing_research: Optional[Dict[str, Any]] = None
     ) -> List[str]:
         """Generate search queries for a specific category."""
-        # Get language from context or use global default
-        language = context.language if hasattr(context, 'language') else DEFAULT_LANGUAGE
+        # Get language from context
+        language = context.language
         
         prompt = render_prompt(
             f"research_queries_{category}",
@@ -273,8 +273,8 @@ class WorldBuildingResearcher:
         results_text = self._format_results_for_synthesis(all_results[:10])
         
         try:
-            # Get language from config or use global default
-            language = self.config.language if hasattr(self.config, 'language') else DEFAULT_LANGUAGE
+            # Get language from config (which comes from command line)
+            language = self.config.language
             
             prompt = render_prompt(
                 "research_synthesis_initial",
@@ -425,7 +425,7 @@ class WorldBuildingResearcher:
         category: str,
         insights: Dict[str, str],
         examples: List[Dict[str, Any]],
-        language: str = DEFAULT_LANGUAGE
+        language: str
     ) -> str:
         """Create a summary of research findings."""
         insights_text = '\n'.join([f"- {k}: {v}" for k, v in insights.items()])

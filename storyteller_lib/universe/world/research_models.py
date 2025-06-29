@@ -9,7 +9,6 @@ world building.
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
-from storyteller_lib.core.config import DEFAULT_LANGUAGE
 
 
 class SearchResult(BaseModel):
@@ -133,7 +132,6 @@ class ResearchContext(BaseModel):
         description="Already generated world elements"
     )
     language: str = Field(
-        default=DEFAULT_LANGUAGE,
         description="Target language for the story"
     )
     cultural_context: Optional[str] = Field(
