@@ -7,7 +7,7 @@ It uses Pydantic models for structured data extraction and validation.
 """
 
 from typing import Dict, Any, List, Optional, Union, Type
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from langchain_core.messages import HumanMessage, AIMessage, RemoveMessage
 from storyteller_lib.core.config import (
     llm,
@@ -30,119 +30,288 @@ class Geography(BaseModel):
     """Geography elements of the world."""
 
     locations: str = Field(
-        description="Major locations (cities, countries, planets, etc.)"
+        description="Generate 4-6 detailed paragraphs describing major locations including cities, regions, territories, and settlements. Include specific names, unique characteristics, architectural styles, population details, and how they connect to each other. Describe the atmosphere and feeling of each place."
     )
-    climate: Optional[str] = Field(
-        default="", description="Climate and weather patterns"
+    climate: str = Field(
+        description="Generate 3-4 detailed paragraphs about climate zones, seasonal variations, weather patterns, and extreme events. Explain how climate affects agriculture, architecture, daily life, and migration patterns. Include specific details about temperature ranges, precipitation, and unique atmospheric phenomena."
     )
-    landmarks: Optional[str] = Field(
-        default="", description="Notable landmarks and physical features"
+    landmarks: str = Field(
+        description="Generate 3-5 detailed paragraphs about notable physical features including mountain ranges, rivers, forests, deserts, and natural wonders. Give them evocative names and describe their strategic importance, local legends, and how they shape travel and trade routes."
     )
-    relevance: Optional[str] = Field(
-        default="", description="How geography impacts the story"
+    relevance: str = Field(
+        description="Generate 2-3 detailed paragraphs explaining how the geography directly impacts your story. Specify which features create obstacles, influence conflicts, affect plot pacing, and serve as key settings for major scenes."
     )
+
+    @field_validator("locations", "climate", "landmarks", "relevance")
+    @classmethod
+    def validate_content_quality(cls, v: str, info) -> str:
+        if not v or len(v.strip()) < 100:
+            raise ValueError(
+                f"{info.field_name} must contain substantial content (at least 100 characters of actual content)"
+            )
+        if v.strip().lower() in [
+            "n/a",
+            "none",
+            "not applicable",
+            "tbd",
+            "to be determined",
+        ]:
+            raise ValueError(
+                f"{info.field_name} must contain actual content, not placeholders"
+            )
+        return v
 
 
 class History(BaseModel):
     """Historical elements of the world."""
 
-    timeline: str = Field(description="Key historical events in chronological order")
-    figures: Optional[str] = Field(
-        default="", description="Important historical figures and their impact"
+    timeline: str = Field(
+        description="Generate 4-5 detailed paragraphs presenting key historical events in chronological order. Include founding events, golden ages, dark periods, revolutions, and recent history. Provide specific dates or eras, describe causes and effects, and show how events connect to create a coherent historical narrative."
     )
-    conflicts: Optional[str] = Field(
-        default="", description="Major historical conflicts and their resolutions"
+    figures: str = Field(
+        description="Generate 3-4 detailed paragraphs about important historical figures including founders, rulers, revolutionaries, inventors, and villains. Describe their achievements, failures, personalities, and lasting legacies. Explain how their actions still influence the present day."
     )
-    relevance: Optional[str] = Field(
-        default="", description="How history impacts the current story"
+    conflicts: str = Field(
+        description="Generate 3-4 detailed paragraphs about major wars, rebellions, and social upheavals. Detail the causes, key battles or turning points, resolution, and long-term consequences. Include information about alliances, betrayals, and how these conflicts shaped current borders and relationships."
     )
+    relevance: str = Field(
+        description="Generate 2-3 detailed paragraphs explaining how historical events directly impact your story. Identify old grudges, inherited conflicts, historical mysteries, and traditions that influence character motivations and plot developments."
+    )
+
+    @field_validator("timeline", "figures", "conflicts", "relevance")
+    @classmethod
+    def validate_content_quality(cls, v: str, info) -> str:
+        if not v or len(v.strip()) < 100:
+            raise ValueError(
+                f"{info.field_name} must contain substantial content (at least 100 characters of actual content)"
+            )
+        if v.strip().lower() in [
+            "n/a",
+            "none",
+            "not applicable",
+            "tbd",
+            "to be determined",
+        ]:
+            raise ValueError(
+                f"{info.field_name} must contain actual content, not placeholders"
+            )
+        return v
 
 
 class Culture(BaseModel):
     """Cultural elements of the world."""
 
-    languages: str = Field(description="Languages and communication methods")
-    traditions: Optional[str] = Field(
-        default="", description="Important traditions, customs, and arts"
+    languages: str = Field(
+        description="Generate 3-4 detailed paragraphs about languages, dialects, and communication methods. Include naming conventions, common phrases, how language reflects social status, and any magical or technological communication systems. Describe writing systems and literacy rates."
     )
-    values: Optional[str] = Field(
-        default="", description="Cultural values, taboos, and diversity"
+    traditions: str = Field(
+        description="Generate 4-5 detailed paragraphs about important customs, festivals, rites of passage, and artistic traditions. Describe specific ceremonies, traditional foods, music, dance, and storytelling. Include both everyday customs and special occasions."
     )
-    relevance: Optional[str] = Field(
-        default="", description="How culture influences characters and plot"
+    values: str = Field(
+        description="Generate 3-4 detailed paragraphs about core cultural values, social hierarchies, taboos, and attitudes toward outsiders. Explain concepts of honor, family structures, gender roles, and how different cultures within your world view each other."
     )
+    relevance: str = Field(
+        description="Generate 2-3 detailed paragraphs explaining how cultural elements create conflicts, misunderstandings, or bonds between characters. Identify specific traditions or values that drive plot points or character development."
+    )
+
+    @field_validator("languages", "traditions", "values", "relevance")
+    @classmethod
+    def validate_content_quality(cls, v: str, info) -> str:
+        if not v or len(v.strip()) < 100:
+            raise ValueError(
+                f"{info.field_name} must contain substantial content (at least 100 characters of actual content)"
+            )
+        if v.strip().lower() in [
+            "n/a",
+            "none",
+            "not applicable",
+            "tbd",
+            "to be determined",
+        ]:
+            raise ValueError(
+                f"{info.field_name} must contain actual content, not placeholders"
+            )
+        return v
 
 
 class Politics(BaseModel):
     """Political elements of the world."""
 
-    government: str = Field(description="Government systems and power structures")
-    factions: Optional[str] = Field(
-        default="", description="Political factions and their relationships"
+    government: str = Field(
+        description="Generate 4-5 detailed paragraphs about government systems, power structures, and how leaders are chosen. Describe the balance of power, bureaucracy, corruption levels, and how different regions are governed. Include information about succession, councils, and administrative divisions."
     )
-    laws: Optional[str] = Field(
-        default="", description="Important laws and justice systems"
+    factions: str = Field(
+        description="Generate 3-4 detailed paragraphs about political parties, noble houses, guilds, or other power groups. Describe their goals, methods, leaders, and relationships with each other. Include secret societies, reformers, and traditionalists."
     )
-    relevance: Optional[str] = Field(
-        default="", description="How politics affects the story"
+    laws: str = Field(
+        description="Generate 3-4 detailed paragraphs about legal systems, important laws, enforcement methods, and concepts of justice. Describe courts, punishments, rights of citizens, and how laws differ between regions or social classes."
     )
+    relevance: str = Field(
+        description="Generate 2-3 detailed paragraphs explaining how political elements drive your story. Identify power struggles, unjust laws, or political machinations that create obstacles or opportunities for characters."
+    )
+
+    @field_validator("government", "factions", "laws", "relevance")
+    @classmethod
+    def validate_content_quality(cls, v: str, info) -> str:
+        if not v or len(v.strip()) < 100:
+            raise ValueError(
+                f"{info.field_name} must contain substantial content (at least 100 characters of actual content)"
+            )
+        if v.strip().lower() in [
+            "n/a",
+            "none",
+            "not applicable",
+            "tbd",
+            "to be determined",
+        ]:
+            raise ValueError(
+                f"{info.field_name} must contain actual content, not placeholders"
+            )
+        return v
 
 
 class Economics(BaseModel):
     """Economic elements of the world."""
 
-    resources: str = Field(description="Key resources and their distribution")
-    trade: Optional[str] = Field(
-        default="", description="Trade systems, currencies, and markets"
+    resources: str = Field(
+        description="Generate 3-4 detailed paragraphs about natural resources, their locations, extraction methods, and who controls them. Include scarce resources that drive conflict, abundant resources that enable prosperity, and unique materials specific to your world."
     )
-    classes: Optional[str] = Field(
-        default="", description="Economic classes and inequality"
+    trade: str = Field(
+        description="Generate 4-5 detailed paragraphs about trade routes, merchant guilds, currencies, banking systems, and markets. Describe major trade goods, caravan routes or shipping lanes, and how trade connects different regions. Include black markets and smuggling."
     )
-    relevance: Optional[str] = Field(
-        default="", description="How economics drives conflict or cooperation"
+    classes: str = Field(
+        description="Generate 3-4 detailed paragraphs about wealth distribution, social mobility, and economic classes. Describe the lifestyles of rich and poor, middle class occupations, and how economic status affects daily life and opportunities."
     )
+    relevance: str = Field(
+        description="Generate 2-3 detailed paragraphs explaining how economic factors create plot tensions. Identify resource scarcities, trade disputes, or class conflicts that motivate characters or create obstacles."
+    )
+
+    @field_validator("resources", "trade", "classes", "relevance")
+    @classmethod
+    def validate_content_quality(cls, v: str, info) -> str:
+        if not v or len(v.strip()) < 100:
+            raise ValueError(
+                f"{info.field_name} must contain substantial content (at least 100 characters of actual content)"
+            )
+        if v.strip().lower() in [
+            "n/a",
+            "none",
+            "not applicable",
+            "tbd",
+            "to be determined",
+        ]:
+            raise ValueError(
+                f"{info.field_name} must contain actual content, not placeholders"
+            )
+        return v
 
 
 class TechnologyMagic(BaseModel):
     """Technology or magic elements of the world."""
 
-    systems: str = Field(description="Available technologies or magic systems")
-    limitations: Optional[str] = Field(
-        default="", description="Limitations and costs of technology/magic"
+    systems: str = Field(
+        description="Generate 4-5 detailed paragraphs about available technologies or magic systems. For technology: describe key inventions, power sources, and technological level. For magic: explain how it works, who can use it, and different schools or types. Include specific examples and applications."
     )
-    impact: Optional[str] = Field(
-        default="", description="Impact on society and daily life"
+    limitations: str = Field(
+        description="Generate 3-4 detailed paragraphs about the constraints, costs, and dangers of technology or magic. Describe what's impossible, what requires rare materials or extensive training, and potential catastrophic failures or side effects."
     )
-    relevance: Optional[str] = Field(
-        default="",
-        description="How technology/magic creates opportunities or challenges",
+    impact: str = Field(
+        description="Generate 3-4 detailed paragraphs about how technology or magic shapes society, from transportation and communication to warfare and medicine. Describe how it affects different social classes and professions differently."
     )
+    relevance: str = Field(
+        description="Generate 2-3 detailed paragraphs explaining how technology or magic creates specific plot opportunities or challenges. Identify key abilities or limitations that enable or constrain character actions."
+    )
+
+    @field_validator("systems", "limitations", "impact", "relevance")
+    @classmethod
+    def validate_content_quality(cls, v: str, info) -> str:
+        if not v or len(v.strip()) < 100:
+            raise ValueError(
+                f"{info.field_name} must contain substantial content (at least 100 characters of actual content)"
+            )
+        if v.strip().lower() in [
+            "n/a",
+            "none",
+            "not applicable",
+            "tbd",
+            "to be determined",
+        ]:
+            raise ValueError(
+                f"{info.field_name} must contain actual content, not placeholders"
+            )
+        return v
 
 
 class Religion(BaseModel):
     """Religious elements of the world."""
 
-    beliefs: str = Field(description="Belief systems and deities")
-    practices: Optional[str] = Field(
-        default="", description="Religious practices and rituals"
+    beliefs: str = Field(
+        description="Generate 4-5 detailed paragraphs about belief systems, pantheons, creation myths, and concepts of afterlife. Describe major and minor deities or spiritual forces, their domains, and relationships. Include competing or complementary belief systems."
     )
-    organizations: Optional[str] = Field(
-        default="", description="Religious organizations and leaders"
+    practices: str = Field(
+        description="Generate 3-4 detailed paragraphs about religious rituals, prayers, pilgrimages, and holy days. Describe temple services, personal devotions, sacrifices or offerings, and how religion intersects with major life events."
     )
-    relevance: Optional[str] = Field(
-        default="", description="How religion influences society and characters"
+    organizations: str = Field(
+        description="Generate 3-4 detailed paragraphs about religious hierarchies, monastic orders, and influential leaders. Describe their political power, wealth, internal conflicts, and relationships with secular authorities."
     )
+    relevance: str = Field(
+        description="Generate 2-3 detailed paragraphs explaining how religious elements influence your story. Identify faith-based conflicts, divine interventions, religious obligations, or crises of faith that affect characters."
+    )
+
+    @field_validator("beliefs", "practices", "organizations", "relevance")
+    @classmethod
+    def validate_content_quality(cls, v: str, info) -> str:
+        if not v or len(v.strip()) < 100:
+            raise ValueError(
+                f"{info.field_name} must contain substantial content (at least 100 characters of actual content)"
+            )
+        if v.strip().lower() in [
+            "n/a",
+            "none",
+            "not applicable",
+            "tbd",
+            "to be determined",
+        ]:
+            raise ValueError(
+                f"{info.field_name} must contain actual content, not placeholders"
+            )
+        return v
 
 
 class DailyLife(BaseModel):
     """Daily life elements of the world."""
 
-    food: str = Field(description="Food and cuisine")
-    clothing: Optional[str] = Field(default="", description="Clothing and fashion")
-    housing: Optional[str] = Field(default="", description="Housing and architecture")
-    relevance: Optional[str] = Field(
-        default="", description="How daily life reflects culture and status"
+    food: str = Field(
+        description="Generate 3-4 detailed paragraphs about cuisine, cooking methods, staple foods, and dining customs. Describe regional specialties, feast foods versus everyday meals, food preservation, and how different classes eat differently."
     )
+    clothing: str = Field(
+        description="Generate 3-4 detailed paragraphs about clothing styles, materials, colors, and what fashion signifies. Describe everyday wear versus formal attire, occupational clothing, and how climate and culture influence fashion."
+    )
+    housing: str = Field(
+        description="Generate 3-4 detailed paragraphs about architectural styles, building materials, and living arrangements. Describe urban versus rural homes, how the wealthy live differently, and communal versus private spaces."
+    )
+    relevance: str = Field(
+        description="Generate 2-3 detailed paragraphs explaining how daily life details enhance your story. Identify customs or living conditions that create atmosphere, reveal character, or provide plot opportunities."
+    )
+
+    @field_validator("food", "clothing", "housing", "relevance")
+    @classmethod
+    def validate_content_quality(cls, v: str, info) -> str:
+        if not v or len(v.strip()) < 100:
+            raise ValueError(
+                f"{info.field_name} must contain substantial content (at least 100 characters of actual content)"
+            )
+        if v.strip().lower() in [
+            "n/a",
+            "none",
+            "not applicable",
+            "tbd",
+            "to be determined",
+        ]:
+            raise ValueError(
+                f"{info.field_name} must contain actual content, not placeholders"
+            )
+        return v
 
 
 class MysteryAnalysisFlat(BaseModel):
@@ -281,144 +450,13 @@ def create_category_prompt(
             author=author,
         )
 
-        # Remove all hardcoded field instructions - they're now in the templates
-        if False:  # Keep structure for backwards compatibility but never execute
-            if category_name.lower() == "geography":
-                field_instructions = """
-                
-                FOCUS ON GEOGRAPHY:
-                    You MUST include ALL of these fields in your response:
-                - locations: Major locations (cities, countries, planets, etc.)
-                - climate: Climate and weather patterns
-                - landmarks: Notable landmarks and physical features
-                - relevance: How geography impacts the story
-                """
-            elif category_name.lower() == "history":
-                field_instructions = """
-            
-            FOCUS ON HISTORY:
-                You MUST include ALL of these fields in your response:
-            - timeline: Key historical events in chronological order
-            - figures: Important historical figures and their impact
-            - conflicts: Major historical conflicts and their resolutions
-            - relevance: How history impacts the current story
-            """
-            elif category_name.lower() == "culture":
-                field_instructions = """
-            
-            FOCUS ON CULTURE:
-                You MUST include ALL of these fields in your response:
-            - languages: Languages and communication methods
-            - traditions: Important traditions, customs, and arts
-            - values: Cultural values, taboos, and diversity
-            - relevance: How culture influences characters and plot
-            """
-            elif category_name.lower() == "politics":
-                field_instructions = """
-            
-            FOCUS ON POLITICS:
-                You MUST include ALL of these fields in your response:
-            - government: Government systems and power structures
-            - factions: Political factions and their relationships
-            - laws: Important laws and justice systems
-            - relevance: How politics affects the story
-            """
-            elif category_name.lower() == "economics":
-                field_instructions = """
-            
-            FOCUS ON ECONOMICS:
-                You MUST include ALL of these fields in your response:
-            - resources: Key resources and their distribution
-            - trade: Trade systems, currencies, and markets
-            - classes: Economic classes and inequality
-            - relevance: How economics drives conflict or cooperation
-            """
-            elif category_name.lower() == "technology_magic":
-                field_instructions = """
-            
-            FOCUS ON TECHNOLOGY/MAGIC:
-                You MUST include ALL of these fields in your response:
-            - systems: Available technologies or magic systems
-            - limitations: Limitations and costs of technology/magic
-            - impact: Impact on society and daily life
-            - relevance: How technology/magic creates opportunities or challenges
-            """
-            elif category_name.lower() == "religion":
-                field_instructions = """
-            
-            FOCUS ON RELIGION:
-                You MUST include ALL of these fields in your response:
-            - beliefs: Belief systems and deities
-            - practices: Religious practices and rituals
-            - organizations: Religious organizations and leaders
-            - relevance: How religion influences society and characters
-            """
-            elif category_name.lower() == "daily_life":
-                field_instructions = """
-                
-                FOCUS ON DAILY LIFE:
-                    You MUST include ALL of these fields in your response:
-                - food: Food and cuisine
-                - clothing: Clothing and fashion
-                - housing: Housing and architecture
-                - relevance: How daily life reflects culture and status
-                """
 
         return prompt
 
     except Exception as e:
-        # Fallback to the original implementation if template fails
-        logger.warning(f"Failed to use template for worldbuilding: {e}")
-
-        # Original implementation as fallback
-        language_instruction = ""
-        if language.lower() != DEFAULT_LANGUAGE:
-            language_instruction = f"""
-            CRITICAL LANGUAGE INSTRUCTION:
-                You MUST generate ALL content ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
-            ALL elements, descriptions, names, and terms must be authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking cultures.
-            DO NOT use English or any other language at any point.
-            """
-
-        # Field instructions (same as above)
-        field_instructions = ""
-        if category_name.lower() == "geography":
-            field_instructions = """
-            You MUST include ALL of these fields in your response:
-            - locations: Major locations (cities, countries, planets, etc.)
-            - climate: Climate and weather patterns
-            - landmarks: Notable landmarks and physical features
-            - relevance: How geography impacts the story
-            """
-        # ... rest of field instructions ...
-
-        return f"""
-        Generate {category_name} elements for a {genre} story with a {tone} tone,
-        written in the style of {author}, based on this initial idea:
-        
-        {initial_idea}
-        
-        And this story outline:
-        
-        {global_story}
-        
-        {language_instruction}
-        {language_guidance}
-        
-        {field_instructions}
-        
-        IMPORTANT: You MUST include ALL the fields listed above in your response. Do not omit any fields.
-        
-        Focus ONLY on {category_name} elements. Be detailed and specific.
-        
-        Ensure the elements are:
-        - Consistent with the {genre} genre conventions
-        - Appropriate for the {tone} tone
-        - Aligned with {author}'s style
-        - Directly relevant to the initial story idea
-        - Detailed enough to support rich storytelling
-        - {"Authentic to " + SUPPORTED_LANGUAGES[language.lower()] + "-speaking cultures" if language.lower() != DEFAULT_LANGUAGE else ""}
-        """
+        # No fallback - fail fast if template is missing
+        logger.error(f"Failed to use template for worldbuilding: {e}")
+        raise ValueError(f"Required worldbuilding template not found: {e}")
 
 
 def generate_category(

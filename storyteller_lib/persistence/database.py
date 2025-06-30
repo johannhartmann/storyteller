@@ -1010,14 +1010,23 @@ class StoryDatabaseManager:
             return
 
         try:
+            # List of metadata fields to skip
+            metadata_fields = {'stored_in_db', 'research_sources', 'research_context', 
+                             'error', 'source_urls', 'search_queries'}
+            
             for category, elements in world_elements.items():
-                if category == "stored_in_db":  # Skip our marker
+                if category in metadata_fields:  # Skip metadata
                     continue
                 if isinstance(elements, dict):
                     for key, value in elements.items():
-                        self._db.create_world_element(
-                            category=category, element_key=key, element_value=value
-                        )
+                        # Skip any metadata fields within categories
+                        if key in metadata_fields:
+                            continue
+                        # Only save if value is substantial
+                        if value and isinstance(value, str) and len(value.strip()) > 50:
+                            self._db.create_world_element(
+                                category=category, element_key=key, element_value=value
+                            )
             logger.info("Saved worldbuilding elements")
         except Exception as e:
             logger.error(f"Failed to save worldbuilding: {e}")
