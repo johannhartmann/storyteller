@@ -97,7 +97,8 @@ class WorldBuildingResearcher:
         search_results = await execute_parallel_searches(
             queries,
             search_api=self.config.search_apis[0],
-            max_results_per_query=self.config.get_depth_params()["max_results_per_query"]
+            max_results_per_query=self.config.get_depth_params()["max_results_per_query"],
+            use_cache=self.config.tavily_cache_enabled
         )
         
         # Synthesize initial insights
@@ -151,7 +152,8 @@ class WorldBuildingResearcher:
         search_results = await execute_parallel_searches(
             queries,
             search_api=self.config.search_apis[0],
-            max_results_per_query=self.config.get_depth_params()["max_results_per_query"]
+            max_results_per_query=self.config.get_depth_params()["max_results_per_query"],
+            use_cache=self.config.tavily_cache_enabled
         )
         
         # Collect all results

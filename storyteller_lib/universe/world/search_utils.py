@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 from tavily import AsyncTavilyClient
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.universe.world.research_models import SearchResult
+from storyteller_lib.universe.world.cache import TavilyCache
 
 logger = get_logger(__name__)
 
@@ -23,7 +24,8 @@ class SearchAPIError(Exception):
 async def search_with_tavily(
     query: str,
     max_results: int = 5,
-    api_key: Optional[str] = None
+    api_key: Optional[str] = None,
+    use_cache: Optional[bool] = None
 ) -> List[SearchResult]:
     """
     Execute a search using Tavily API with two-step approach:
@@ -34,6 +36,7 @@ async def search_with_tavily(
         query: Search query
         max_results: Maximum number of results
         api_key: Tavily API key (uses env var if not provided)
+        use_cache: Whether to use cache (defaults to env var TAVILY_CACHE_ENABLED)
         
     Returns:
         List of SearchResult objects
@@ -44,16 +47,40 @@ async def search_with_tavily(
         if not api_key:
             raise SearchAPIError("Tavily API key not found. Set TAVILY_API_KEY environment variable.")
         
+        # Check if caching is enabled
+        if use_cache is None:
+            use_cache = os.getenv("TAVILY_CACHE_ENABLED", "true").lower() == "true"
+        
+        # Initialize cache if enabled
+        cache = None
+        if use_cache:
+            cache_path = os.getenv("TAVILY_CACHE_PATH")
+            cache_ttl = int(os.getenv("TAVILY_CACHE_TTL_DAYS", "30"))
+            cache = TavilyCache(cache_path=cache_path, ttl_days=cache_ttl)
+        
         # Initialize Tavily client
         client = AsyncTavilyClient(api_key=api_key)
         
         # Step 1: Search (only get snippets, not full content)
-        response = await client.search(
-            query=query,
-            max_results=max_results,
-            search_depth="advanced",
-            include_raw_content=False  # Don't get raw content in search
-        )
+        search_depth = "advanced"
+        
+        # Check cache first
+        response = None
+        if cache:
+            response = cache.get_search_cache(query, max_results, search_depth)
+        
+        if not response:
+            # Cache miss - make API call
+            response = await client.search(
+                query=query,
+                max_results=max_results,
+                search_depth=search_depth,
+                include_raw_content=False  # Don't get raw content in search
+            )
+            
+            # Cache the response
+            if cache and response:
+                cache.set_search_cache(query, max_results, search_depth, response)
         
         # Extract results array from the response
         results = response.get("results", [])
@@ -82,13 +109,24 @@ async def search_with_tavily(
         if urls_to_extract and len(search_results) > 0:
             # Only extract from top 3 most relevant results
             extract_urls = urls_to_extract[:3]
+            extract_format = "markdown"
             
             try:
-                # Extract content using Tavily Extract API
-                extract_response = await client.extract(
-                    urls=extract_urls,
-                    format="markdown"  # Get content in markdown format
-                )
+                # Check cache first for extract
+                extract_response = None
+                if cache:
+                    extract_response = cache.get_extract_cache(extract_urls, extract_format)
+                
+                if not extract_response:
+                    # Cache miss - make API call
+                    extract_response = await client.extract(
+                        urls=extract_urls,
+                        format=extract_format  # Get content in markdown format
+                    )
+                    
+                    # Cache the response
+                    if cache and extract_response:
+                        cache.set_extract_cache(extract_urls, extract_format, extract_response)
                 
                 # Process extracted content
                 extracted_results = extract_response.get("results", [])
@@ -254,7 +292,8 @@ async def execute_parallel_searches(
     queries: List[str],
     search_api: str = "tavily",
     max_results_per_query: int = 5,
-    api_config: Optional[Dict[str, Any]] = None
+    api_config: Optional[Dict[str, Any]] = None,
+    use_cache: Optional[bool] = None
 ) -> Dict[str, List[SearchResult]]:
     """
     Execute multiple searches in parallel.
@@ -264,10 +303,16 @@ async def execute_parallel_searches(
         search_api: Which search API to use
         max_results_per_query: Maximum results per query
         api_config: Additional API configuration
+        use_cache: Whether to use cache (for Tavily API)
         
     Returns:
         Dictionary mapping queries to their results
     """
+    # Add cache setting to api_config if using Tavily
+    if search_api.lower() == "tavily" and use_cache is not None:
+        api_config = api_config or {}
+        api_config["use_cache"] = use_cache
+    
     # Create tasks for parallel execution
     tasks = []
     for query in queries:
