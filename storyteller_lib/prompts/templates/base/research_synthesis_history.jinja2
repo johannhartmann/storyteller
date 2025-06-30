@@ -1,0 +1,30 @@
+Based on the following research findings for history worldbuilding, synthesize key insights that would be valuable for the story.
+
+Story concept: {{ initial_idea }}
+
+Story context:
+- Genre: {{ context.genre }}
+- Tone: {{ context.tone }}
+{% if context.story_outline %}- Outline: {{ context.story_outline }}{% endif %}
+
+Research findings:
+{{ research_findings }}
+
+Extract and synthesize insights about history that focus on:
+1. **Historical Parallels**: Real-world events that mirror your story's conflicts or themes
+2. **Rise and Fall of Civilizations**: Patterns of growth, peak, and decline that inform your world's past
+3. **Turning Points**: Critical moments, revolutions, discoveries that changed everything
+4. **Conflicts and Wars**: Major battles, long rivalries, unresolved tensions from the past
+5. **Cultural Evolution**: How societies changed over time, migrations, cultural exchanges
+6. **Lost Knowledge**: Technologies, magic, or wisdom from earlier eras now forgotten
+
+Provide your insights in the following format:
+- insight_keys: A pipe-separated list of short descriptor names (e.g., "empire_collapse|technological_dark_age|ancient_war|cultural_renaissance")
+- insight_values: A pipe-separated list of detailed descriptions corresponding to each key
+
+Focus on historical insights that:
+- Create depth and backstory for current conflicts
+- Explain why the world is the way it is now
+- Provide mysteries or secrets from the past
+- Generate plot hooks and character motivations
+- Support the genre (e.g., ancient prophecies for fantasy, corporate wars for cyberpunk)

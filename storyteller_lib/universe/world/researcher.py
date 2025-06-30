@@ -8,7 +8,7 @@ search execution, and result synthesis.
 
 import asyncio
 from typing import Dict, Any, List, Optional
-from storyteller_lib.core.config import llm
+from storyteller_lib.core.config import llm, get_current_provider
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.prompts.renderer import render_prompt
 from storyteller_lib.universe.world.research_config import WorldBuildingResearchConfig
@@ -28,18 +28,22 @@ logger = get_logger(__name__)
 
 
 # Pydantic models for structured output
-class SearchQueries(BaseModel):
-    """Search queries for research."""
-    queries: ListType[str] = Field(
-        description="List of search queries",
-        min_items=1
+class SearchQueriesList(BaseModel):
+    """Search queries for research as a flattened list."""
+    query1: str = Field(description="First search query")
+    query2: str = Field(description="Second search query")
+    query3: str = Field(description="Third search query")
+    query4: Optional[str] = Field(default="", description="Fourth search query (optional)")
+    query5: Optional[str] = Field(default="", description="Fifth search query (optional)")
+
+
+class ResearchInsightsFlat(BaseModel):
+    """Flattened insights from research synthesis."""
+    insight_keys: str = Field(
+        description="Pipe-separated list of insight category names (e.g. 'historical_parallel|cultural_detail|geographic_inspiration')"
     )
-
-
-class ResearchInsights(BaseModel):
-    """Insights from research synthesis."""
-    insights: Dict[str, str] = Field(
-        description="Key-value pairs of insights from research"
+    insight_values: str = Field(
+        description="Pipe-separated list of insight descriptions corresponding to the keys"
     )
 
 
@@ -140,27 +144,20 @@ class WorldBuildingResearcher:
             category, strategy, context, existing_research
         )
         
-        # Execute searches with iteration
+        # Execute searches (single iteration for simplicity and efficiency)
+        logger.info(f"Executing search for {category}")
+        
+        # Execute searches
+        search_results = await execute_parallel_searches(
+            queries,
+            search_api=self.config.search_apis[0],
+            max_results_per_query=self.config.get_depth_params()["max_results_per_query"]
+        )
+        
+        # Collect all results
         all_results = []
-        for iteration in range(self.config.max_search_iterations):
-            logger.info(f"Search iteration {iteration + 1} for {category}")
-            
-            # Execute searches
-            search_results = await execute_parallel_searches(
-                queries,
-                search_api=self.config.search_apis[0],
-                max_results_per_query=self.config.get_depth_params()["max_results_per_query"]
-            )
-            
-            # Collect results
-            for query_results in search_results.values():
-                all_results.extend(query_results)
-            
-            # Refine queries based on results if not last iteration
-            if iteration < self.config.max_search_iterations - 1:
-                queries = await self._refine_queries(
-                    category, strategy, context, all_results
-                )
+        for query_results in search_results.values():
+            all_results.extend(query_results)
         
         # Process and filter results
         filtered_results = filter_results_by_relevance(all_results, min_relevance=0.5)
@@ -225,9 +222,15 @@ class WorldBuildingResearcher:
             logger.error(f"Failed to render research_initial_queries template: {e}")
             raise
         
-        structured_llm = llm.with_structured_output(SearchQueries)
+        structured_llm = llm.with_structured_output(SearchQueriesList)
         result = await structured_llm.ainvoke(prompt)
-        return result.queries[:self.config.queries_per_category]
+        # Convert to list
+        queries = []
+        for attr in ['query1', 'query2', 'query3', 'query4', 'query5']:
+            query = getattr(result, attr, '')
+            if query and query.strip():
+                queries.append(query.strip())
+        return queries[:self.config.queries_per_category]
     
     async def _generate_category_queries(
         self,
@@ -249,9 +252,15 @@ class WorldBuildingResearcher:
             num_queries=self.config.queries_per_category
         )
         
-        structured_llm = llm.with_structured_output(SearchQueries)
+        structured_llm = llm.with_structured_output(SearchQueriesList)
         result = await structured_llm.ainvoke(prompt)
-        return result.queries[:self.config.queries_per_category]
+        # Convert to list
+        queries = []
+        for attr in ['query1', 'query2', 'query3', 'query4', 'query5']:
+            query = getattr(result, attr, '')
+            if query and query.strip():
+                queries.append(query.strip())
+        return queries[:self.config.queries_per_category]
     
     async def _synthesize_initial_insights(
         self,
@@ -288,9 +297,19 @@ class WorldBuildingResearcher:
             logger.error(f"Failed to render research_synthesis_initial template: {e}")
             raise
         
-        structured_llm = llm.with_structured_output(ResearchInsights)
+        structured_llm = llm.with_structured_output(ResearchInsightsFlat)
         result = await structured_llm.ainvoke(prompt)
-        return result.insights
+        
+        # Convert flattened structure to dictionary
+        keys = [k.strip() for k in result.insight_keys.split("|")]
+        values = [v.strip() for v in result.insight_values.split("|")]
+        
+        insights = {}
+        for key, value in zip(keys, values):
+            if key and value:
+                insights[key] = value
+        
+        return insights
     
     async def _synthesize_category_insights(
         self,
@@ -309,20 +328,43 @@ class WorldBuildingResearcher:
             # Get language from context or use default
             language = context.language if hasattr(context, 'language') else context.get('language', 'english')
             
-            prompt = render_prompt(
-                f"research_synthesis_{category}",
-                language,
-                category=category,
-                research_findings=results_text,
-                context=context
-            )
+            # Try category-specific template first, then fall back to generic
+            try:
+                prompt = render_prompt(
+                    f"research_synthesis_{category}",
+                    language,
+                    category=category,
+                    research_findings=results_text,
+                    context=context,
+                    initial_idea=context.initial_idea
+                )
+            except Exception as category_error:
+                logger.warning(f"Category-specific template not found, using generic: {category_error}")
+                prompt = render_prompt(
+                    "research_synthesis",
+                    language,
+                    category=category,
+                    research_findings=results_text,
+                    context=context,
+                    initial_idea=context.initial_idea
+                )
         except Exception as e:
-            logger.error(f"Failed to render research_synthesis_{category} template: {e}")
+            logger.error(f"Failed to render research synthesis template: {e}")
             raise
         
-        structured_llm = llm.with_structured_output(ResearchInsights)
+        structured_llm = llm.with_structured_output(ResearchInsightsFlat)
         result = await structured_llm.ainvoke(prompt)
-        return result.insights
+        
+        # Convert flattened structure to dictionary
+        keys = [k.strip() for k in result.insight_keys.split("|")]
+        values = [v.strip() for v in result.insight_values.split("|")]
+        
+        insights = {}
+        for key, value in zip(keys, values):
+            if key and value:
+                insights[key] = value
+        
+        return insights
     
     def _format_results_for_synthesis(self, results: List[SearchResult]) -> str:
         """Format search results for LLM synthesis."""
@@ -332,9 +374,10 @@ class WorldBuildingResearcher:
             # Use full content from extraction if available, otherwise use snippet
             content = result.metadata.get("raw_content", result.content)
             # For extracted content (markdown), we want to preserve much more
-            # Only limit if it's extremely long (>10k chars)
-            if len(content) > 10000:
-                content = content[:10000] + "\n\n[Content truncated...]"
+            # Only limit if it's extremely long (>50k chars)
+            if len(content) > 50000:
+                # Keep first 45k chars to leave room for multiple results
+                content = content[:45000] + "\n\n[Content truncated...]"
             formatted.append(f"   {content}")
             if result.url:
                 formatted.append(f"   Source: {result.url}")
@@ -365,9 +408,15 @@ class WorldBuildingResearcher:
             num_queries=self.config.queries_per_category
         )
         
-        structured_llm = llm.with_structured_output(SearchQueries)
+        structured_llm = llm.with_structured_output(SearchQueriesList)
         result = await structured_llm.ainvoke(prompt)
-        return result.queries[:self.config.queries_per_category]
+        # Convert to list
+        queries = []
+        for attr in ['query1', 'query2', 'query3', 'query4', 'query5']:
+            query = getattr(result, attr, '')
+            if query and query.strip():
+                queries.append(query.strip())
+        return queries[:self.config.queries_per_category]
     
     def _extract_relevant_examples(
         self,

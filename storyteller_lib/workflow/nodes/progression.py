@@ -399,15 +399,6 @@ def update_character_knowledge(state: StoryState) -> Dict:
                     update.knowledge_source,
                 )
 
-    # Process presence updates
-    if updates_response and updates_response.presence_updates:
-        for update in updates_response.presence_updates:
-            knowledge_manager.update_character_presence(
-                update.character_name,
-                update.location,
-                update.status,
-                f"Chapter {current_chapter}, Scene {current_scene}",
-            )
 
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]

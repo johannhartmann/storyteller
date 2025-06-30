@@ -1,28 +1,30 @@
-Based on the following research findings, synthesize key insights about daily life and customs that would be valuable for creating a {{ genre }} story with {{ tone }} tone.
+Based on the following research findings for daily life worldbuilding, synthesize key insights that would be valuable for the story.
 
 Story concept: {{ initial_idea }}
+
+Story context:
+- Genre: {{ context.genre }}
+- Tone: {{ context.tone }}
+{% if context.story_outline %}- Outline: {{ context.story_outline }}{% endif %}
 
 Research findings:
 {{ research_findings }}
 
-Extract and synthesize insights about:
-1. Daily routines and activities for different social classes
-2. Food, clothing, and material culture
-3. Housing and architecture styles
-4. Social customs, etiquette, and taboos
-5. Entertainment, leisure activities, and celebrations
-6. Work life, professions, and economic activities
-7. Family structures and domestic arrangements
-8. Health, hygiene, and medical practices
+Extract and synthesize insights about daily life that focus on:
+1. **Food and Cuisine**: What people eat, how meals are prepared, dining customs
+2. **Clothing and Fashion**: Dress codes, materials, status symbols, practical needs
+3. **Housing and Living**: Architecture styles, living arrangements, comfort levels
+4. **Work and Routines**: Daily schedules, common professions, work culture
+5. **Social Interactions**: Greetings, etiquette, public behavior, personal space
+6. **Leisure and Entertainment**: How people relax, games, arts, celebrations
 
-Format your response as key-value pairs, with the key being a short descriptor and the value being the insight.
-Example format:
-morning_ritual: Citizens begin each day with communal singing on rooftops at sunrise
-social_taboo: Direct eye contact between strangers is considered aggressive
-clothing_status: The number of buttons on a coat indicates social rank
+Provide your insights in the following format:
+- insight_keys: A pipe-separated list of short descriptor names (e.g., "communal_dining|status_clothing|morning_rituals|market_culture")
+- insight_values: A pipe-separated list of detailed descriptions corresponding to each key
 
-Focus on insights that:
-- Create vivid, sensory details for scenes
-- Establish social dynamics and hierarchies
-- Provide opportunities for character interactions
-- Support the world's internal logic and consistency
+Focus on daily life insights that:
+- Add authentic texture to scenes
+- Create opportunities for character moments
+- Establish class and cultural distinctions
+- Support immersive worldbuilding
+- Provide sensory details for vivid writing

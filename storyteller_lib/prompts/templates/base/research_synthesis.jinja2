@@ -1,0 +1,35 @@
+Based on the following research findings for {{ category }} worldbuilding, extract detailed information that can be used to create rich, authentic {{ category }} elements for the story.
+
+Story concept: {{ initial_idea }}
+
+Story context:
+- Genre: {{ context.genre }}
+- Tone: {{ context.tone }}
+{% if context.story_outline %}- Outline: {{ context.story_outline }}{% endif %}
+
+Research findings:
+{{ research_findings }}
+
+Extract comprehensive findings about {{ category }}, focusing on:
+1. Concrete examples with specific details, names, and mechanisms
+2. Historical or contemporary patterns that can inspire fictional equivalents
+3. Interesting systems, structures, or phenomena relevant to {{ category }}
+4. Cultural variations and unique approaches to {{ category }}
+5. Conflicts, tensions, or dynamics within {{ category }} systems
+6. Real-world complexity that can add authenticity to the fictional world
+
+Provide your findings in the following format:
+- insight_keys: A pipe-separated list of descriptive category names relevant to {{ category }}
+- insight_values: A pipe-separated list of DETAILED, PARAGRAPH-LENGTH descriptions with specific examples, context, and rich details
+
+Your insight values should be comprehensive paragraphs (150-300 words each) that provide:
+- Specific examples and case studies
+- Names, dates, and concrete details where relevant
+- Explanations of how systems work
+- Cultural or historical context
+- Potential story applications
+
+Example level of detail for a geography insight:
+"The Danakil Depression in Ethiopia represents one of Earth's most extreme environments, lying 125 meters below sea level with temperatures regularly exceeding 50°C (122°F). This volcanic region features permanent lava lakes, sulfur springs that create alien yellow-green pools, and vast salt flats where Afar people have mined salt for centuries using traditional methods unchanged since ancient times. The extreme conditions create a natural barrier that historically protected the Ethiopian highlands from invasion. The unique geology results from the intersection of three tectonic plates, creating constant seismic activity and new volcanic formations. Despite the harsh conditions, specialized life forms thrive here, including extremophile bacteria that scientists study for insights into potential life on other planets."
+
+Extract findings with THIS level of concrete, usable detail for {{ category }} worldbuilding.

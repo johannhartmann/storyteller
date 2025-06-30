@@ -1,0 +1,24 @@
+Basierend auf den folgenden Forschungsergebnissen für {{ category }} Weltenbau, synthetisiere wichtige Erkenntnisse, die für die Geschichte wertvoll wären.
+
+Geschichtskonzept: {{ initial_idea }}
+
+Geschichtskontext:
+- Genre: {{ context.genre }}
+- Ton: {{ context.tone }}
+{% if context.story_outline %}- Überblick: {{ context.story_outline }}{% endif %}
+
+Forschungsergebnisse:
+{{ research_findings }}
+
+Extrahiere und synthetisiere Erkenntnisse über {{ category }}, die:
+1. Spezifisch und detailliert genug sind, um kreative Elemente zu inspirieren
+2. Direkt relevant für das Geschichtskonzept und die Umgebung sind
+3. Mit dem Genre und Ton übereinstimmen
+4. In realen Beispielen oder Forschung begründet sind
+5. Einzigartig oder interessant genug sind, um die Erzählung zu bereichern
+
+Gib deine Erkenntnisse im folgenden Format an:
+- insight_keys: Eine durch Pipes getrennte Liste von kurzen Beschreibungsnamen, die für {{ category }} relevant sind (z.B. "geografisches_merkmal|klima_einfluss|regionale_kultur")
+- insight_values: Eine durch Pipes getrennte Liste von detaillierten Beschreibungen, die jedem Schlüssel entsprechen
+
+Konzentriere dich auf Erkenntnisse, die direkt den {{ category }} Weltenbau für dieses spezifische Geschichtskonzept unterstützen.

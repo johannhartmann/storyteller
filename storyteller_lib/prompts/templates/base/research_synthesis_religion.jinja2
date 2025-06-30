@@ -1,28 +1,29 @@
-Based on the following research findings, synthesize key insights about religious and spiritual systems that would be valuable for creating a {{ genre }} story with {{ tone }} tone.
+Based on the following research findings for religion worldbuilding, extract detailed information that can be used to create rich religious systems for the story.
 
 Story concept: {{ initial_idea }}
+
+Story context:
+- Genre: {{ context.genre }}
+- Tone: {{ context.tone }}
+{% if context.story_outline %}- Outline: {{ context.story_outline }}{% endif %}
 
 Research findings:
 {{ research_findings }}
 
-Extract and synthesize insights about:
-1. Belief systems, deities, or spiritual forces
-2. Religious practices, rituals, and observances
-3. Sacred texts, prophecies, or oral traditions
-4. Religious hierarchies and institutions
-5. Holy sites, pilgrimage traditions, and sacred objects
-6. Religious conflicts, schisms, or reformations
-7. How religion influences law, politics, and daily life
-8. Mystical experiences, miracles, or divine interventions
+Extract comprehensive findings about religion, focusing on:
+1. **Belief Systems**: Detailed examples of religious philosophies, pantheons, creation myths, and spiritual worldviews
+2. **Religious Practices**: Specific rituals, ceremonies, prayer methods, and devotional activities
+3. **Sacred Elements**: Actual religious texts, historical prophecies, pilgrimage sites, and holy artifacts
+4. **Religious Organizations**: Real-world examples of religious hierarchies, monastic orders, and institutional structures
+5. **Faith and Power**: How religions have influenced governments, laws, and social structures
+6. **Religious Dynamics**: Historical religious conflicts, reformations, syncretism, and interfaith relations
 
-Format your response as key-value pairs, with the key being a short descriptor and the value being the insight.
-Example format:
-dual_worship: Citizens publicly worship the state religion but maintain secret household shrines
-prophecy_interpretation: Religious texts are deliberately ambiguous, leading to competing sects
-divine_mandate: Rulers must undergo a spiritual trial in the sacred caves to claim legitimacy
+Provide your findings in the following format:
+- insight_keys: A pipe-separated list of descriptive category names (e.g., "buddhist_monastery_structure|medieval_pilgrimage_practices|religious_syncretism_examples|prophecy_traditions")
+- insight_values: A pipe-separated list of DETAILED, PARAGRAPH-LENGTH descriptions with specific examples, historical context, and rich details that can inspire worldbuilding
 
-Focus on insights that:
-- Create moral and philosophical depth
-- Provide motivation for character actions
-- Generate conflicts between faith and other values
-- Feel authentic and internally consistent
+Example of the level of detail needed:
+- Key: "medieval_monastery_life"
+- Value: "Medieval Benedictine monasteries followed the Rule of St. Benedict, organizing daily life around eight prayer services called the Divine Office. Monks rose at 2 AM for Matins, the longest service lasting 1-2 hours. The monastery operated as a self-sufficient community with its own farms, workshops, scriptoriums for copying texts, and infirmaries. Abbots wielded significant political power, controlling vast lands and serving as advisors to kings. Monasteries preserved classical knowledge through their libraries and scriptoriums, with monks spending hours each day copying manuscripts by hand. The vow of stability meant monks remained at one monastery for life, creating deep institutional memory and continuity."
+
+Extract findings that provide this level of concrete, usable detail for worldbuilding.

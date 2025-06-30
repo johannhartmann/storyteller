@@ -1,28 +1,30 @@
-Based on the following research findings, synthesize key insights about political systems and governance that would be valuable for creating a {{ genre }} story with {{ tone }} tone.
+Based on the following research findings for politics worldbuilding, synthesize key insights that would be valuable for the story.
 
 Story concept: {{ initial_idea }}
+
+Story context:
+- Genre: {{ context.genre }}
+- Tone: {{ context.tone }}
+{% if context.story_outline %}- Outline: {{ context.story_outline }}{% endif %}
 
 Research findings:
 {{ research_findings }}
 
-Extract and synthesize insights about:
-1. Forms of government and power structures
-2. How leaders are chosen or come to power
-3. Political factions, parties, or competing interests
-4. Laws, justice systems, and enforcement mechanisms
-5. International relations and diplomacy
-6. Power struggles and succession issues
-7. Corruption, reform movements, or resistance
-8. How politics affects ordinary citizens
+Extract and synthesize insights about politics that focus on:
+1. **Power Structures**: Forms of government, hierarchies, checks and balances, shadow powers
+2. **Leadership**: How leaders gain power, succession systems, legitimacy sources
+3. **Factions and Parties**: Political groups, ideologies, competing interests, coalitions
+4. **Law and Justice**: Legal systems, enforcement, corruption, reform movements
+5. **International Relations**: Diplomacy, alliances, trade agreements, conflicts
+6. **Political Tensions**: Power struggles, succession crises, revolutionary movements
 
-Format your response as key-value pairs, with the key being a short descriptor and the value being the insight.
-Example format:
-succession_crisis: The throne passes to the eldest child who can solve the ancient riddle
-shadow_government: Merchant guilds secretly control policy through economic leverage
-justice_system: Trials by combat determine guilt for crimes against the nobility
+Provide your insights in the following format:
+- insight_keys: A pipe-separated list of short descriptor names (e.g., "oligarchy_control|succession_crisis|shadow_cabinet|diplomatic_tensions")
+- insight_values: A pipe-separated list of detailed descriptions corresponding to each key
 
-Focus on insights that:
-- Create natural sources of conflict and tension
-- Establish power dynamics between characters
-- Provide obstacles and opportunities for protagonists
-- Feel authentic to the world's culture and history
+Focus on political insights that:
+- Create sources of conflict and power struggles
+- Establish obstacles for characters to navigate
+- Provide opportunities for intrigue and manipulation
+- Reflect real-world political dynamics appropriately
+- Support the story's themes and plot needs

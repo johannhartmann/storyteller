@@ -1,28 +1,30 @@
-Based on the following research findings, synthesize key insights about cultural elements that would be valuable for creating a {{ genre }} story with {{ tone }} tone.
+Based on the following research findings for culture worldbuilding, synthesize key insights that would be valuable for the story.
 
 Story concept: {{ initial_idea }}
+
+Story context:
+- Genre: {{ context.genre }}
+- Tone: {{ context.tone }}
+{% if context.story_outline %}- Outline: {{ context.story_outline }}{% endif %}
 
 Research findings:
 {{ research_findings }}
 
-Extract and synthesize insights about:
-1. Languages, dialects, and communication styles
-2. Art forms, music, literature, and creative expression
-3. Values, beliefs, and philosophical systems
-4. Social hierarchies and class structures
-5. Traditions, rituals, and ceremonies
-6. Education systems and knowledge transmission
-7. Cultural taboos and social norms
-8. Intercultural relationships and conflicts
+Extract and synthesize insights about culture that focus on:
+1. **Social Structures**: Class systems, family structures, community organization, social mobility
+2. **Customs and Traditions**: Rituals, ceremonies, coming-of-age practices, seasonal celebrations
+3. **Arts and Expression**: Music, literature, visual arts, performance traditions, storytelling
+4. **Values and Taboos**: Core beliefs, forbidden practices, honor codes, social expectations
+5. **Communication**: Languages, dialects, non-verbal communication, written systems
+6. **Cultural Conflicts**: Clashing values between groups, generational differences, tradition vs. progress
 
-Format your response as key-value pairs, with the key being a short descriptor and the value being the insight.
-Example format:
-naming_tradition: Children receive their adult names only after completing a pilgrimage
-artistic_expression: Poetry is considered the highest art form and poets hold noble rank
-cultural_divide: Northern and southern regions have incompatible concepts of hospitality
+Provide your insights in the following format:
+- insight_keys: A pipe-separated list of short descriptor names (e.g., "honor_culture|matriarchal_society|oral_tradition|artistic_renaissance")
+- insight_values: A pipe-separated list of detailed descriptions corresponding to each key
 
-Focus on insights that:
-- Create rich cultural depth and authenticity
-- Provide sources of misunderstanding or conflict
-- Influence character motivations and behaviors
-- Support the story's themes and emotional resonance
+Focus on cultural insights that:
+- Create believable societies with internal logic
+- Generate character motivations and conflicts
+- Add richness to dialogue and interactions
+- Provide cultural obstacles or advantages
+- Match genre expectations while adding unique elements

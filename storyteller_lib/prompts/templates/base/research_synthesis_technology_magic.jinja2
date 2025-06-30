@@ -1,27 +1,30 @@
-Based on the following research findings, synthesize key insights about technology/magic systems that would be valuable for creating a {{ genre }} story with {{ tone }} tone.
+Based on the following research findings for technology/magic worldbuilding, synthesize key insights that would be valuable for the story.
 
 Story concept: {{ initial_idea }}
+
+Story context:
+- Genre: {{ context.genre }}
+- Tone: {{ context.tone }}
+{% if context.story_outline %}- Outline: {{ context.story_outline }}{% endif %}
 
 Research findings:
 {{ research_findings }}
 
-Extract and synthesize insights about:
-1. Technological or magical systems that could exist in your world
-2. How these systems work and their underlying principles
-3. Limitations, costs, or consequences of using technology/magic
-4. Who has access to these systems and why
-5. How technology/magic shapes society, warfare, communication, or daily life
-6. Historical development or discovery of these systems
-7. Potential conflicts arising from technology/magic use or control
+Extract and synthesize insights about technology/magic that focus on:
+1. **Core Systems**: Fundamental technologies or magical principles that shape the world
+2. **Power Sources**: What fuels technology/magic, how it's obtained or generated
+3. **Limitations and Costs**: Restrictions, side effects, resource requirements
+4. **Access and Control**: Who can use it, training required, social restrictions
+5. **Societal Impact**: How it changes warfare, communication, transportation, daily life
+6. **Dangers and Conflicts**: Risks of misuse, ethical dilemmas, arms races
 
-Format your response as key-value pairs, with the key being a short descriptor and the value being the insight.
-Example format:
-power_source: Crystals that store ambient energy must be recharged during lunar eclipses
-access_restriction: Only those with specific genetic markers can interface with the technology
-societal_impact: Teleportation networks have eliminated traditional borders between nations
+Provide your insights in the following format:
+- insight_keys: A pipe-separated list of short descriptor names (e.g., "quantum_computing|neural_implants|energy_crisis|tech_divide")
+- insight_values: A pipe-separated list of detailed descriptions corresponding to each key
 
-Focus on insights that:
-- Create interesting limitations and costs
-- Generate natural conflicts and tensions
-- Support the story's themes and genre conventions
-- Feel internally consistent and logical
+Focus on technology/magic insights that:
+- Create plot opportunities and obstacles
+- Generate ethical dilemmas and conflicts
+- Establish clear rules and limitations
+- Support genre expectations (hard sci-fi accuracy, fantasy consistency)
+- Enable unique story moments and solutions

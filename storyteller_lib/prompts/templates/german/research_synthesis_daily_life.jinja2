@@ -1,0 +1,30 @@
+Basierend auf den folgenden Forschungsergebnissen für den Alltagsleben-Weltenbau, synthetisiere wichtige Erkenntnisse, die für die Geschichte wertvoll wären.
+
+Geschichtskonzept: {{ initial_idea }}
+
+Geschichtskontext:
+- Genre: {{ context.genre }}
+- Ton: {{ context.tone }}
+{% if context.story_outline %}- Überblick: {{ context.story_outline }}{% endif %}
+
+Forschungsergebnisse:
+{{ research_findings }}
+
+Extrahiere und synthetisiere Erkenntnisse über das tägliche Leben, die sich konzentrieren auf:
+1. **Essen und Küche**: Was Menschen essen, wie Mahlzeiten zubereitet werden, Essensbräuche
+2. **Kleidung und Mode**: Kleiderordnungen, Materialien, Statussymbole, praktische Bedürfnisse
+3. **Wohnen und Leben**: Architekturstile, Wohnarrangements, Komfortniveaus
+4. **Arbeit und Routinen**: Tagesabläufe, häufige Berufe, Arbeitskultur
+5. **Soziale Interaktionen**: Begrüßungen, Etikette, öffentliches Verhalten, persönlicher Raum
+6. **Freizeit und Unterhaltung**: Wie Menschen sich entspannen, Spiele, Künste, Feiern
+
+Gib deine Erkenntnisse im folgenden Format an:
+- insight_keys: Eine durch Pipes getrennte Liste von kurzen Beschreibungsnamen (z.B. "gemeinsames_essen|statuskleidung|morgenrituale|marktkultur")
+- insight_values: Eine durch Pipes getrennte Liste von detaillierten Beschreibungen, die jedem Schlüssel entsprechen
+
+Konzentriere dich auf Alltagsleben-Erkenntnisse, die:
+- Authentische Textur zu Szenen hinzufügen
+- Gelegenheiten für Charaktermomente schaffen
+- Klassen- und kulturelle Unterschiede etablieren
+- Immersiven Weltenbau unterstützen
+- Sensorische Details für lebendiges Schreiben bieten
