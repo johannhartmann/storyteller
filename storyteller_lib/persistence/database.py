@@ -1022,8 +1022,13 @@ class StoryDatabaseManager:
                         # Skip any metadata fields within categories
                         if key in metadata_fields:
                             continue
-                        # Only save if value is substantial
-                        if value and isinstance(value, str) and len(value.strip()) > 50:
+                        # Save any non-empty content
+                        if value and isinstance(value, str) and len(value.strip()) > 0:
+                            # Log warning for very short content
+                            if len(value.strip()) < 50:
+                                logger.warning(
+                                    f"Short worldbuilding content for {category}.{key}: {len(value.strip())} chars"
+                                )
                             self._db.create_world_element(
                                 category=category, element_key=key, element_value=value
                             )
