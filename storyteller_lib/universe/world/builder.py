@@ -665,6 +665,14 @@ def generate_category(
     # Use structured output only - no fallback
     structured_llm = llm.with_structured_output(model)
     
+    # Extract field-specific instructions from the Pydantic model
+    field_instructions = []
+    for field_name, field_info in model.model_fields.items():
+        if hasattr(field_info, 'json_schema_extra') and field_info.json_schema_extra:
+            instruction = field_info.json_schema_extra.get('instruction', '')
+            if instruction:
+                field_instructions.append(f"- {field_name}: {instruction}")
+    
     # Add explicit pre-processing instructions
     pre_instructions = """
 CRITICAL INSTRUCTIONS:
@@ -680,9 +688,16 @@ locations: "description: Major locations in the world"
 Example of CORRECT output:
 locations: "The city of Eldenhaven rises from the mist-shrouded valleys..."
 
-Now generate the actual worldbuilding content:
-
+SPECIFIC FIELD REQUIREMENTS:
 """
+    
+    # Add field-specific instructions if available
+    if field_instructions:
+        pre_instructions += "\n".join(field_instructions) + "\n\n"
+    else:
+        pre_instructions += "Each field must contain multiple paragraphs of detailed content.\n\n"
+    
+    pre_instructions += "Now generate the actual worldbuilding content:\n\n"
     
     base_prompt = create_category_prompt(
         category_name,
