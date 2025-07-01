@@ -1,0 +1,41 @@
+{# Template for selecting worldbuilding elements #}
+Select the most relevant worldbuilding elements for this scene:
+
+SCENE CONTEXT:
+{{ scene_description }}
+Location: {{ location }}
+Type: {{ scene_type }}
+Purpose: {{ dramatic_purpose }}
+{% if characters %}
+Characters: {{ characters|join(', ') }}
+{% endif %}
+{% if plot_threads %}
+Plot threads: {{ plot_threads|join(', ') }}
+{% endif %}
+{% if chapter_themes %}
+Chapter themes: {{ chapter_themes|join(', ') }}
+{% endif %}
+
+AVAILABLE WORLDBUILDING:
+{{ wb_summary }}
+
+Select up to {{ max_elements }} worldbuilding elements from the above content that would best serve this scene.
+
+PROVIDE ONLY THE RELEVANT CONTENT:
+Select portions from the worldbuilding above that are relevant and useful for this specific scene.
+
+EXAMPLE SELECTION:
+{
+  "content": "The narrow, winding alleys crisscross the old town like a living labyrinth, hiding secrets and intrigues as well as small craft shops and inns. At the center stands the imposing St. John's Church, home to the notorious choir."
+}
+
+Prioritize elements that:
+- Directly support the scene's action or dialogue
+- Provide necessary context for character motivations
+- Enhance the atmosphere without overwhelming
+- Add authentic detail that serves the story
+
+Avoid elements that:
+- Are tangentially related but not actually useful
+- Would distract from the scene's focus
+- Have already been extensively covered

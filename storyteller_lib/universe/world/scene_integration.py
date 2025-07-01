@@ -9,58 +9,18 @@ from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from pydantic import BaseModel, Field
 
-from storyteller_lib.core.config import llm
+from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.persistence.database import get_db_manager
+from storyteller_lib.prompts.renderer import get_prompt_template, render_prompt
 
 logger = get_logger(__name__)
 
 
-class SceneWorldbuildingNeeds(BaseModel):
-    """Analysis of what worldbuilding elements would enhance a scene."""
-    
-    location_details: List[str] = Field(
-        default_factory=list,
-        description="Specific location/geography information needed"
-    )
-    cultural_context: List[str] = Field(
-        default_factory=list,
-        description="Cultural norms, customs, or social dynamics relevant to the scene"
-    )
-    historical_references: List[str] = Field(
-        default_factory=list,
-        description="Historical events or context that would inform the scene"
-    )
-    economic_factors: List[str] = Field(
-        default_factory=list,
-        description="Economic elements visible or relevant to the action"
-    )
-    political_elements: List[str] = Field(
-        default_factory=list,
-        description="Power structures, laws, or political tensions affecting the scene"
-    )
-    religious_aspects: List[str] = Field(
-        default_factory=list,
-        description="Religious practices, beliefs, or institutions relevant"
-    )
-    technology_magic_usage: List[str] = Field(
-        default_factory=list,
-        description="Technology or magic systems that might appear or influence"
-    )
-    daily_life_details: List[str] = Field(
-        default_factory=list,
-        description="Everyday life elements that add authenticity"
-    )
-
-
 class WorldbuildingSelection(BaseModel):
-    """A selected worldbuilding element with relevance explanation."""
+    """A selected worldbuilding element."""
     
-    category: str = Field(description="Worldbuilding category")
-    element_key: str = Field(description="Specific element within category")
-    relevance_reason: str = Field(description="Why this element is relevant to the scene")
-    suggested_usage: str = Field(description="How to incorporate this element")
-    priority: str = Field(description="Priority level: essential, important, or atmospheric")
+    content: str = Field(description="The relevant worldbuilding content for this scene")
 
 
 class WorldbuildingSelections(BaseModel):
@@ -68,20 +28,6 @@ class WorldbuildingSelections(BaseModel):
     
     selections: List[WorldbuildingSelection] = Field(
         description="Selected worldbuilding elements ordered by relevance"
-    )
-
-
-class RelevantWorldbuildingSnippet(BaseModel):
-    """Extracted relevant portion of worldbuilding content."""
-    
-    category: str
-    element_key: str
-    full_content: str
-    relevant_excerpt: str = Field(
-        description="The specific portion most relevant to this scene"
-    )
-    integration_note: str = Field(
-        description="Brief note on how to integrate this into the scene"
     )
 
 
@@ -104,17 +50,54 @@ class WorldbuildingSelector:
     def __init__(self):
         self.db_manager = get_db_manager()
         self._worldbuilding_cache = None
+        self._language = None
         if not self.db_manager:
             logger.error("Database manager not available in WorldbuildingSelector!")
+        elif not self.db_manager._db:
+            logger.error("Database manager has no database connection!")
         else:
             logger.info("WorldbuildingSelector initialized with database connection")
+            # Try to load worldbuilding immediately to test
+            test_wb = self.get_all_worldbuilding()
+            logger.info(f"Test load on init: {len(test_wb)} categories, {sum(len(v) for v in test_wb.values())} elements")
+    
+    def _get_language(self) -> str:
+        """Get the language from the database config."""
+        if self._language is None:
+            self._language = DEFAULT_LANGUAGE
+            if self.db_manager and self.db_manager._db:
+                with self.db_manager._db._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT language FROM story_config WHERE id = 1")
+                    result = cursor.fetchone()
+                    if result and result['language']:
+                        self._language = result['language']
+        return self._language
+    
+    def refresh_worldbuilding_cache(self):
+        """Force refresh the worldbuilding cache from database."""
+        self._worldbuilding_cache = None
+        logger.info("Cleared worldbuilding cache, will reload on next access")
         
     def get_all_worldbuilding(self) -> Dict[str, Dict[str, str]]:
         """Retrieve all worldbuilding from database."""
-        if self._worldbuilding_cache is not None:
+        # If cache exists and has content, return it
+        if self._worldbuilding_cache is not None and self._worldbuilding_cache:
             return self._worldbuilding_cache
+        
+        # If cache is empty or None, try to load from database
+        logger.info("Loading worldbuilding from database (cache miss or empty)")
             
         worldbuilding = {}
+        
+        if not self.db_manager:
+            logger.error("No database manager available!")
+            return {}
+            
+        if not self.db_manager._db:
+            logger.error("Database manager has no database connection!")
+            return {}
+            
         try:
             with self.db_manager._db._get_connection() as conn:
                 cursor = conn.cursor()
@@ -127,13 +110,17 @@ class WorldbuildingSelector:
                 rows = cursor.fetchall()
                 logger.info(f"Found {len(rows)} worldbuilding elements in database")
                 
+                if not rows:
+                    logger.warning("No worldbuilding elements found in world_elements table!")
+                
                 for row in rows:
                     category = row['category']
                     if category not in worldbuilding:
                         worldbuilding[category] = {}
                     worldbuilding[category][row['element_key']] = row['element_value']
+                    logger.debug(f"Loaded {category}.{row['element_key']}: {row['element_value'][:50]}...")
         except Exception as e:
-            logger.error(f"Failed to load worldbuilding from database: {str(e)}")
+            logger.error(f"Failed to load worldbuilding from database: {str(e)}", exc_info=True)
             return {}
         
         self._worldbuilding_cache = worldbuilding
@@ -141,98 +128,75 @@ class WorldbuildingSelector:
                    f"{sum(len(v) for v in worldbuilding.values())} total elements")
         return worldbuilding
     
-    def analyze_scene_needs(self, scene_context: SceneContext) -> SceneWorldbuildingNeeds:
-        """Analyze what worldbuilding elements would enhance the scene."""
-        logger.info(f"Analyzing worldbuilding needs for scene: {scene_context.description[:100]}...")
-        
-        prompt = f"""
-Analyze what worldbuilding context would enhance this scene:
-
-Scene Description: {scene_context.description}
-Scene Type: {scene_context.scene_type}
-Location: {scene_context.location}
-Characters Involved: {', '.join(scene_context.characters)}
-Plot Threads: {', '.join(scene_context.plot_threads)}
-Dramatic Purpose: {scene_context.dramatic_purpose}
-Chapter Themes: {', '.join(scene_context.chapter_themes)}
-
-Based on this scene, identify what specific worldbuilding information would be most valuable:
-
-1. What location/geography details would help visualize the setting?
-2. What cultural norms or customs might influence character behavior?
-3. What historical context might add depth or irony?
-4. What economic factors might be visible or influence actions?
-5. What political elements might create tension or obstacles?
-6. What religious aspects might affect the scene?
-7. What technology/magic might be used or referenced?
-8. What daily life details would add authenticity?
-
-Be specific about what information would actually enhance THIS PARTICULAR SCENE.
-Don't list generic needs - focus on what's relevant to the actual events and characters.
-"""
-        
-        try:
-            structured_llm = llm.with_structured_output(SceneWorldbuildingNeeds)
-            needs = structured_llm.invoke(prompt)
-            
-            logger.debug(f"Identified needs: {needs.model_dump()}")
-            return needs
-        except Exception as e:
-            logger.error(f"Failed to analyze scene needs: {str(e)}", exc_info=True)
-            # Return empty needs rather than failing completely
-            return SceneWorldbuildingNeeds()
-    
     def select_relevant_elements(
         self, 
         scene_context: SceneContext,
-        scene_needs: SceneWorldbuildingNeeds,
         max_elements: int = 7
     ) -> WorldbuildingSelections:
         """Select the most relevant worldbuilding elements for the scene."""
-        worldbuilding = self.get_all_worldbuilding()
+        # Get worldbuilding directly from database
+        wb_summary = []
         
-        # Create a summary of available worldbuilding
-        wb_summary = self._create_worldbuilding_summary(worldbuilding)
+        if not self.db_manager or not self.db_manager._db:
+            logger.error("No database connection available")
+            return WorldbuildingSelections(selections=[])
+            
+        try:
+            # Debug database connection
+            logger.info(f"DB Manager: {self.db_manager}")
+            logger.info(f"DB Manager._db: {self.db_manager._db}")
+            if self.db_manager._db:
+                logger.info(f"DB path: {self.db_manager._db.db_path}")
+            
+            with self.db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # First check if table exists
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='world_elements'")
+                table_exists = cursor.fetchone()
+                logger.info(f"world_elements table exists: {table_exists is not None}")
+                
+                cursor.execute("""
+                    SELECT category, element_key, element_value
+                    FROM world_elements
+                    ORDER BY category, element_key
+                """)
+                
+                rows = cursor.fetchall()
+                logger.info(f"Loading {len(rows)} worldbuilding elements for selection")
+                
+                current_category = None
+                for row in rows:
+                    category = row['category']
+                    if category != current_category:
+                        current_category = category
+                        wb_summary.append(f"\n{category.upper()}:")
+                        wb_summary.append("=" * 50)
+                    
+                    wb_summary.append(f"\n[{category}/{row['element_key']}]")
+                    wb_summary.append(row['element_value'].strip())
+                    wb_summary.append("")  # Empty line between elements
+                
+                wb_content = "\n".join(wb_summary)
+                logger.info(f"Created worldbuilding summary with {len(wb_content)} chars")
+                
+        except Exception as e:
+            logger.error(f"Failed to load worldbuilding from database: {str(e)}", exc_info=True)
+            return WorldbuildingSelections(selections=[])
         
-        prompt = f"""
-Given this scene context and identified needs, select the most relevant worldbuilding elements:
-
-SCENE CONTEXT:
-{scene_context.description}
-Location: {scene_context.location}
-Type: {scene_context.scene_type}
-Purpose: {scene_context.dramatic_purpose}
-
-IDENTIFIED NEEDS:
-- Location details: {', '.join(scene_needs.location_details) or 'None identified'}
-- Cultural context: {', '.join(scene_needs.cultural_context) or 'None identified'}
-- Historical references: {', '.join(scene_needs.historical_references) or 'None identified'}
-- Economic factors: {', '.join(scene_needs.economic_factors) or 'None identified'}
-- Political elements: {', '.join(scene_needs.political_elements) or 'None identified'}
-- Religious aspects: {', '.join(scene_needs.religious_aspects) or 'None identified'}
-- Technology/Magic: {', '.join(scene_needs.technology_magic_usage) or 'None identified'}
-- Daily life: {', '.join(scene_needs.daily_life_details) or 'None identified'}
-
-AVAILABLE WORLDBUILDING:
-{wb_summary}
-
-Select up to {max_elements} worldbuilding elements that would best serve this scene.
-For each selection, explain:
-1. Why it's relevant to this specific scene
-2. How it should be incorporated
-3. Whether it's essential, important, or just atmospheric
-
-Prioritize elements that:
-- Directly support the scene's action or dialogue
-- Provide necessary context for character motivations
-- Enhance the atmosphere without overwhelming
-- Add authentic detail that serves the story
-
-Avoid elements that:
-- Are tangentially related but not actually useful
-- Would distract from the scene's focus
-- Have already been extensively covered
-"""
+        prompt = render_prompt(
+            "select_worldbuilding_elements",
+            language=self._get_language(),
+            scene_description=scene_context.description,
+            location=scene_context.location,
+            scene_type=scene_context.scene_type,
+            dramatic_purpose=scene_context.dramatic_purpose,
+            characters=scene_context.characters,
+            plot_threads=scene_context.plot_threads,
+            chapter_themes=scene_context.chapter_themes,
+            wb_summary=wb_content,
+            max_elements=max_elements
+        )
         
         try:
             structured_llm = llm.with_structured_output(WorldbuildingSelections)
@@ -249,74 +213,24 @@ Avoid elements that:
         self,
         selections: WorldbuildingSelections,
         scene_context: SceneContext
-    ) -> List[RelevantWorldbuildingSnippet]:
+    ) -> List[str]:
         """Extract only the relevant portions of selected worldbuilding."""
-        worldbuilding = self.get_all_worldbuilding()
-        snippets = []
-        
-        for selection in selections.selections:
-            full_content = worldbuilding.get(selection.category, {}).get(selection.element_key, "")
-            
-            if not full_content:
-                logger.warning(f"No content found for {selection.category}.{selection.element_key}")
-                continue
-            
-            prompt = f"""
-Extract the most relevant portion of this worldbuilding content for the scene:
-
-SCENE CONTEXT: {scene_context.description}
-RELEVANCE REASON: {selection.relevance_reason}
-SUGGESTED USAGE: {selection.suggested_usage}
-
-FULL WORLDBUILDING CONTENT:
-{full_content}
-
-Extract 1-3 sentences that are most relevant to this specific scene.
-Also provide a brief note on how to naturally integrate this information.
-
-Focus on:
-- Information that directly supports the scene's action
-- Details that enhance understanding without exposition
-- Elements that can be shown through action/dialogue rather than told
-"""
-            
-            class SnippetExtraction(BaseModel):
-                relevant_excerpt: str = Field(description="Most relevant 1-3 sentences")
-                integration_note: str = Field(description="How to naturally include this")
-            
-            try:
-                structured_llm = llm.with_structured_output(SnippetExtraction)
-                extraction = structured_llm.invoke(prompt)
-                
-                snippets.append(RelevantWorldbuildingSnippet(
-                    category=selection.category,
-                    element_key=selection.element_key,
-                    full_content=full_content,
-                    relevant_excerpt=extraction.relevant_excerpt,
-                    integration_note=extraction.integration_note
-                ))
-            except Exception as e:
-                logger.error(f"Failed to extract snippet for {selection.category}.{selection.element_key}: {str(e)}")
-                # Skip this element rather than failing completely
-                continue
-        
-        return snippets
+        return [selection.content for selection in selections.selections]
     
     def _create_worldbuilding_summary(self, worldbuilding: Dict[str, Dict[str, str]]) -> str:
-        """Create a concise summary of available worldbuilding elements."""
+        """Create a COMPLETE listing of all available worldbuilding elements with full content."""
         summary_lines = []
         
         for category, elements in worldbuilding.items():
             if elements:
-                element_list = []
-                for key, content in elements.items():
-                    # First 100 chars of content as preview
-                    preview = content[:100].replace('\n', ' ') + "..." if len(content) > 100 else content
-                    element_list.append(f"  - {key}: {preview}")
+                summary_lines.append(f"\n{category.upper()}:")
+                summary_lines.append("=" * 50)
                 
-                summary_lines.append(f"{category.upper()}:")
-                summary_lines.extend(element_list[:5])  # Limit to 5 per category
-                summary_lines.append("")
+                for key, content in elements.items():
+                    # Include FULL content, not just a preview
+                    summary_lines.append(f"\n[{category}/{key}]")
+                    summary_lines.append(content.strip())
+                    summary_lines.append("")  # Empty line between elements
         
         return "\n".join(summary_lines)
     
@@ -341,8 +255,7 @@ Focus on:
         if not all_wb:
             logger.warning("No worldbuilding data found in database!")
             return {
-                'elements': {},
-                'needs_analysis': {},
+                'elements': [],
                 'selection_count': 0
             }
         
@@ -359,46 +272,24 @@ Focus on:
         )
         
         try:
-            # Step 1: Analyze what the scene needs
-            logger.info("Step 1: Analyzing scene needs...")
-            scene_needs = self.analyze_scene_needs(scene_context)
-            logger.info(f"Identified needs for {sum(len(getattr(scene_needs, field)) for field in scene_needs.model_fields)} categories")
-            
-            # Step 2: Select relevant elements
-            logger.info("Step 2: Selecting relevant elements...")
-            selections = self.select_relevant_elements(scene_context, scene_needs)
+            # Direct selection of relevant elements
+            logger.info("Selecting relevant worldbuilding elements...")
+            selections = self.select_relevant_elements(scene_context)
             logger.info(f"Selected {len(selections.selections)} worldbuilding elements")
             
-            # Step 3: Extract relevant snippets
-            logger.info("Step 3: Extracting relevant snippets...")
+            # Extract just the content
             snippets = self.extract_relevant_snippets(selections, scene_context)
             
-            # Format for use in scene generation
-            formatted_elements = {}
-            for snippet in snippets:
-                if snippet.category not in formatted_elements:
-                    formatted_elements[snippet.category] = {}
-                
-                formatted_elements[snippet.category][snippet.element_key] = {
-                    'content': snippet.relevant_excerpt,
-                    'integration': snippet.integration_note,
-                    'full_content': snippet.full_content  # Keep full content for reference
-                }
-            
-            logger.info(f"Successfully selected {len(snippets)} worldbuilding elements across {len(formatted_elements)} categories")
-            for cat, elems in formatted_elements.items():
-                logger.info(f"  - {cat}: {list(elems.keys())}")
+            logger.info(f"Successfully selected {len(snippets)} worldbuilding elements")
             
             return {
-                'elements': formatted_elements,
-                'needs_analysis': scene_needs.model_dump(),
+                'elements': snippets,  # Just return the list of content strings
                 'selection_count': len(snippets)
             }
         except Exception as e:
             logger.error(f"Error in worldbuilding selection: {str(e)}", exc_info=True)
             return {
-                'elements': {},
-                'needs_analysis': {},
+                'elements': [],
                 'selection_count': 0
             }
 

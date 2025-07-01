@@ -107,16 +107,10 @@ SETTING:
 {% endif %}
 
 {% if world_elements %}
-WORLD CONTEXT:
-{% for category, elements in world_elements.items() %}
-{% if elements %}
+RELEVANT WORLDBUILDING ELEMENTS:
+{% for element in world_elements %}
+{{ element }}
 
-{{ category|upper|replace('_', ' ') }}:
-{% for key, data in elements.items() %}
-- {{ key|title|replace('_', ' ') }}: {{ data.content if data is mapping else data|truncate(200) }}
-  {%- if data is mapping and data.integration %} ({{ data.integration }}){% endif %}
-{% endfor %}
-{% endif %}
 {% endfor %}
 {% endif %}
 

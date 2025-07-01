@@ -132,13 +132,47 @@ def generate_scene_level_instructions(
 
     # 5. Get character context
     character_context = _get_character_context(
-        db_manager, scene_specs["required_characters"], scene_specs["description"]
+        db_manager, scene_specs["required_characters"], scene_specs["description"], state
     )
 
-    # 6. Get world context
-    world_context = _get_world_context(
-        db_manager, scene_specs["description"], character_context["locations"]
-    )
+    # 6. Get world context using intelligent selection
+    try:
+        from storyteller_lib.universe.world.scene_integration import get_intelligent_world_context
+        
+        # Extract plot thread descriptions
+        plot_thread_descriptions = [thread['name'] for thread in plot_context.get('active_threads', [])]
+        
+        # Get intelligent world context
+        logger.info(f"Getting intelligent worldbuilding for scene {scene}")
+        intelligent_world = get_intelligent_world_context(
+            scene_description=scene_specs['description'],
+            scene_type=scene_specs['scene_type'],
+            location=character_context['locations'][0]['name'] if character_context['locations'] else "Unknown",
+            characters=scene_specs['required_characters'],
+            plot_threads=plot_thread_descriptions,
+            dramatic_purpose=scene_specs['dramatic_purpose'],
+            chapter_themes=chapter_context['themes'],
+            chapter=chapter,
+            scene=scene
+        )
+        
+        # Still get basic location data
+        world_context = _get_world_context(
+            db_manager, scene_specs["description"], character_context["locations"]
+        )
+        
+        # Merge intelligent worldbuilding with location data
+        world_context['elements'] = intelligent_world.get('elements', [])
+        
+        logger.info(f"Selected {len(world_context['elements'])} worldbuilding elements with content")
+        
+    except Exception as e:
+        logger.error(f"Failed to get intelligent worldbuilding: {str(e)}")
+        logger.error(f"Falling back to basic world context")
+        # Fallback to basic world context
+        world_context = _get_world_context(
+            db_manager, scene_specs["description"], character_context["locations"]
+        )
 
     # 7. Get sequence context
     sequence_context = _get_sequence_context(db_manager, chapter, scene, state)
@@ -152,9 +186,13 @@ def generate_scene_level_instructions(
     story_so_far = get_story_so_far(chapter, scene)
     
     # Debug: Log worldbuilding content
-    logger.debug(f"World context elements: {len(world_context.get('elements', {}))} categories")
-    for cat, elems in world_context.get('elements', {}).items():
-        logger.debug(f"  - {cat}: {list(elems.keys())}")
+    logger.debug(f"World context elements: {len(world_context.get('elements', []))} items")
+    for idx, elem in enumerate(world_context.get('elements', [])):
+        if isinstance(elem, str):
+            content_preview = elem[:100] + '...' if elem else 'No content'
+        else:
+            content_preview = str(elem)[:100] + '...'
+        logger.debug(f"  Element {idx+1}: {content_preview}")
 
     # Prepare all data for synthesis
     template_vars = {

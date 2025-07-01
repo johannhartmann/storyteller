@@ -1,0 +1,37 @@
+Wähle anhand dieses Szenenkontexts und der identifizierten Bedürfnisse die relevantesten Weltenbau-Elemente aus:
+
+SZENENKONTEXT:
+{{ scene_description }}
+Ort: {{ location }}
+Typ: {{ scene_type }}
+Zweck: {{ dramatic_purpose }}
+
+IDENTIFIZIERTE BEDÜRFNISSE:
+- Ortsdetails: {{ scene_needs.location_details|join(', ') or 'Keine identifiziert' }}
+- Kultureller Kontext: {{ scene_needs.cultural_context|join(', ') or 'Keine identifiziert' }}
+- Historische Bezüge: {{ scene_needs.historical_references|join(', ') or 'Keine identifiziert' }}
+- Wirtschaftliche Faktoren: {{ scene_needs.economic_factors|join(', ') or 'Keine identifiziert' }}
+- Politische Elemente: {{ scene_needs.political_elements|join(', ') or 'Keine identifiziert' }}
+- Religiöse Aspekte: {{ scene_needs.religious_aspects|join(', ') or 'Keine identifiziert' }}
+- Technologie/Magie: {{ scene_needs.technology_magic_usage|join(', ') or 'Keine identifiziert' }}
+- Alltag: {{ scene_needs.daily_life_details|join(', ') or 'Keine identifiziert' }}
+
+VERFÜGBARER WELTENBAU:
+{{ worldbuilding_summary }}
+
+Wähle bis zu {{ max_elements }} Weltenbau-Elemente aus, die dieser Szene am besten dienen würden.
+Erkläre für jede Auswahl:
+1. Warum sie für diese spezifische Szene relevant ist
+2. Wie sie eingebaut werden sollte
+3. Ob sie essenziell, wichtig oder nur atmosphärisch ist
+
+Priorisiere Elemente, die:
+- Die Handlung oder Dialoge der Szene direkt unterstützen
+- Notwendigen Kontext für Charaktermotivationen bieten
+- Die Atmosphäre verstärken, ohne zu überwältigen
+- Authentische Details hinzufügen, die der Geschichte dienen
+
+Vermeide Elemente, die:
+- Nur am Rande verwandt, aber nicht wirklich nützlich sind
+- Vom Fokus der Szene ablenken würden
+- Bereits ausführlich behandelt wurden
