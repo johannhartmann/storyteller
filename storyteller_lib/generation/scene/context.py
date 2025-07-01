@@ -108,12 +108,35 @@ def build_comprehensive_scene_context(
         state
     )
     
-    # 6. Get world context
+    # 6. Get world context using intelligent selection
+    from storyteller_lib.universe.world.scene_integration import get_intelligent_world_context
+    
+    # Extract plot thread descriptions
+    plot_thread_descriptions = [thread['name'] for thread in plot_context.get('active_threads', [])]
+    
+    # Get intelligent world context
+    intelligent_world = get_intelligent_world_context(
+        scene_description=scene_specs['description'],
+        scene_type=scene_specs['scene_type'],
+        location=character_context['locations'][0]['name'] if character_context['locations'] else "Unknown",
+        characters=scene_specs['required_characters'],
+        plot_threads=plot_thread_descriptions,
+        dramatic_purpose=scene_specs['dramatic_purpose'],
+        chapter_themes=chapter_context['themes'],
+        chapter=chapter,
+        scene=scene
+    )
+    
+    # Still get basic location data
     world_context = _get_world_context(
         db_manager,
         scene_specs['description'],
         character_context['locations']
     )
+    
+    # Merge intelligent worldbuilding with location data
+    world_context['elements'] = intelligent_world['elements']
+    world_context['worldbuilding_analysis'] = intelligent_world.get('needs_analysis', {})
     
     # 7. Get previous/next scene context
     sequence_context = _get_sequence_context(db_manager, chapter, scene, state)
@@ -537,7 +560,7 @@ def _get_character_context(db_manager, required_chars: List[str], scene_desc: st
 
 
 def _get_world_context(db_manager, scene_desc: str, character_locations: List[Dict]) -> Dict[str, Any]:
-    """Get relevant world elements for the scene."""
+    """Get relevant world elements for the scene using intelligent selection."""
     # Get locations mentioned in scene or associated with characters
     relevant_locations = character_locations.copy()
     
@@ -556,37 +579,12 @@ def _get_world_context(db_manager, scene_desc: str, character_locations: List[Di
                         'association': 'scene_location'
                     })
     
-    # Get relevant world elements based on scene content
-    world_elements = {}
-    keywords = _extract_world_keywords(scene_desc)
-    
-    with db_manager._db._get_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT category, element_key, element_value
-            FROM world_elements
-            WHERE category IN ('geography', 'culture', 'magic_system', 
-                        'technology', 'history', 'politics')
-        """)
-        
-        for row in cursor.fetchall():
-            # Include if relevant to scene
-            if any(kw in row['element_key'].lower() or kw in row['element_value'].lower() 
-                for kw in keywords):
-                if row['category'] not in world_elements:
-                    world_elements[row['category']] = {}
-                world_elements[row['category']][row['element_key']] = row['element_value']
-    
-    # Limit to most relevant elements
-    for category in world_elements:
-        if len(world_elements[category]) > 5:
-            # Keep only first 5 elements per category
-            items = list(world_elements[category].items())[:5]
-            world_elements[category] = dict(items)
-    
+    # Use intelligent worldbuilding selection instead of keyword matching
+    # This will be properly integrated when called from build_comprehensive_scene_context
+    # For now, return the locations we found
     return {
         'locations': relevant_locations[:5],  # Limit to 5 locations
-        'elements': world_elements
+        'elements': {}  # Will be populated by intelligent selector
     }
 
 

@@ -106,6 +106,20 @@ SCHAUPLATZ:
 {% endfor %}
 {% endif %}
 
+{% if world_elements %}
+WELTKONTEXT:
+{% for category, elements in world_elements.items() %}
+{% if elements %}
+
+{{ category|upper|replace('_', ' ')|replace('TECHNOLOGY MAGIC', 'TECHNOLOGIE/MAGIE')|replace('DAILY LIFE', 'ALLTAG') }}:
+{% for key, data in elements.items() %}
+- {{ key|title|replace('_', ' ') }}: {{ data.content if data is mapping else data|truncate(200) }}
+  {%- if data is mapping and data.integration %} ({{ data.integration }}){% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
 KONTINUITÄT:
 {% if previous_ending %}
 Vorherige Szene endete: {{ previous_ending|truncate(200) }}
