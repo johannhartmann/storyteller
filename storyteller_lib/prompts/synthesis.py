@@ -150,6 +150,11 @@ def generate_scene_level_instructions(
     from storyteller_lib.output.summary import get_story_so_far
 
     story_so_far = get_story_so_far(chapter, scene)
+    
+    # Debug: Log worldbuilding content
+    logger.debug(f"World context elements: {len(world_context.get('elements', {}))} categories")
+    for cat, elems in world_context.get('elements', {}).items():
+        logger.debug(f"  - {cat}: {list(elems.keys())}")
 
     # Prepare all data for synthesis
     template_vars = {

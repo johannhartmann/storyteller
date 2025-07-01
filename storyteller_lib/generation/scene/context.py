@@ -109,34 +109,48 @@ def build_comprehensive_scene_context(
     )
     
     # 6. Get world context using intelligent selection
-    from storyteller_lib.universe.world.scene_integration import get_intelligent_world_context
-    
-    # Extract plot thread descriptions
-    plot_thread_descriptions = [thread['name'] for thread in plot_context.get('active_threads', [])]
-    
-    # Get intelligent world context
-    intelligent_world = get_intelligent_world_context(
-        scene_description=scene_specs['description'],
-        scene_type=scene_specs['scene_type'],
-        location=character_context['locations'][0]['name'] if character_context['locations'] else "Unknown",
-        characters=scene_specs['required_characters'],
-        plot_threads=plot_thread_descriptions,
-        dramatic_purpose=scene_specs['dramatic_purpose'],
-        chapter_themes=chapter_context['themes'],
-        chapter=chapter,
-        scene=scene
-    )
-    
-    # Still get basic location data
-    world_context = _get_world_context(
-        db_manager,
-        scene_specs['description'],
-        character_context['locations']
-    )
-    
-    # Merge intelligent worldbuilding with location data
-    world_context['elements'] = intelligent_world['elements']
-    world_context['worldbuilding_analysis'] = intelligent_world.get('needs_analysis', {})
+    try:
+        from storyteller_lib.universe.world.scene_integration import get_intelligent_world_context
+        
+        # Extract plot thread descriptions
+        plot_thread_descriptions = [thread['name'] for thread in plot_context.get('active_threads', [])]
+        
+        # Get intelligent world context
+        logger.info(f"Getting intelligent worldbuilding for scene {scene}")
+        intelligent_world = get_intelligent_world_context(
+            scene_description=scene_specs['description'],
+            scene_type=scene_specs['scene_type'],
+            location=character_context['locations'][0]['name'] if character_context['locations'] else "Unknown",
+            characters=scene_specs['required_characters'],
+            plot_threads=plot_thread_descriptions,
+            dramatic_purpose=scene_specs['dramatic_purpose'],
+            chapter_themes=chapter_context['themes'],
+            chapter=chapter,
+            scene=scene
+        )
+        
+        # Still get basic location data
+        world_context = _get_world_context(
+            db_manager,
+            scene_specs['description'],
+            character_context['locations']
+        )
+        
+        # Merge intelligent worldbuilding with location data
+        world_context['elements'] = intelligent_world.get('elements', {})
+        world_context['worldbuilding_analysis'] = intelligent_world.get('needs_analysis', {})
+        
+        logger.info(f"Selected {len(world_context['elements'])} worldbuilding categories with content")
+        
+    except Exception as e:
+        logger.error(f"Failed to get intelligent worldbuilding: {str(e)}")
+        logger.error(f"Falling back to basic world context")
+        # Fallback to basic world context
+        world_context = _get_world_context(
+            db_manager,
+            scene_specs['description'],
+            character_context['locations']
+        )
     
     # 7. Get previous/next scene context
     sequence_context = _get_sequence_context(db_manager, chapter, scene, state)

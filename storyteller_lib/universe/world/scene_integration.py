@@ -126,6 +126,8 @@ class WorldbuildingSelector:
                 worldbuilding[category][row['element_key']] = row['element_value']
         
         self._worldbuilding_cache = worldbuilding
+        logger.info(f"Loaded worldbuilding from database: {len(worldbuilding)} categories, "
+                   f"{sum(len(v) for v in worldbuilding.values())} total elements")
         return worldbuilding
     
     def analyze_scene_needs(self, scene_context: SceneContext) -> SceneWorldbuildingNeeds:
