@@ -104,6 +104,10 @@ class WorldbuildingSelector:
     def __init__(self):
         self.db_manager = get_db_manager()
         self._worldbuilding_cache = None
+        if not self.db_manager:
+            logger.error("Database manager not available in WorldbuildingSelector!")
+        else:
+            logger.info("WorldbuildingSelector initialized with database connection")
         
     def get_all_worldbuilding(self) -> Dict[str, Dict[str, str]]:
         """Retrieve all worldbuilding from database."""
@@ -111,19 +115,26 @@ class WorldbuildingSelector:
             return self._worldbuilding_cache
             
         worldbuilding = {}
-        with self.db_manager._db._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT category, element_key, element_value
-                FROM world_elements
-                ORDER BY category, element_key
-            """)
-            
-            for row in cursor.fetchall():
-                category = row['category']
-                if category not in worldbuilding:
-                    worldbuilding[category] = {}
-                worldbuilding[category][row['element_key']] = row['element_value']
+        try:
+            with self.db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT category, element_key, element_value
+                    FROM world_elements
+                    ORDER BY category, element_key
+                """)
+                
+                rows = cursor.fetchall()
+                logger.info(f"Found {len(rows)} worldbuilding elements in database")
+                
+                for row in rows:
+                    category = row['category']
+                    if category not in worldbuilding:
+                        worldbuilding[category] = {}
+                    worldbuilding[category][row['element_key']] = row['element_value']
+        except Exception as e:
+            logger.error(f"Failed to load worldbuilding from database: {str(e)}")
+            return {}
         
         self._worldbuilding_cache = worldbuilding
         logger.info(f"Loaded worldbuilding from database: {len(worldbuilding)} categories, "
@@ -160,11 +171,16 @@ Be specific about what information would actually enhance THIS PARTICULAR SCENE.
 Don't list generic needs - focus on what's relevant to the actual events and characters.
 """
         
-        structured_llm = llm.with_structured_output(SceneWorldbuildingNeeds)
-        needs = structured_llm.invoke(prompt)
-        
-        logger.debug(f"Identified needs: {needs.model_dump()}")
-        return needs
+        try:
+            structured_llm = llm.with_structured_output(SceneWorldbuildingNeeds)
+            needs = structured_llm.invoke(prompt)
+            
+            logger.debug(f"Identified needs: {needs.model_dump()}")
+            return needs
+        except Exception as e:
+            logger.error(f"Failed to analyze scene needs: {str(e)}", exc_info=True)
+            # Return empty needs rather than failing completely
+            return SceneWorldbuildingNeeds()
     
     def select_relevant_elements(
         self, 
@@ -218,11 +234,16 @@ Avoid elements that:
 - Have already been extensively covered
 """
         
-        structured_llm = llm.with_structured_output(WorldbuildingSelections)
-        selections = structured_llm.invoke(prompt)
-        
-        logger.info(f"Selected {len(selections.selections)} worldbuilding elements")
-        return selections
+        try:
+            structured_llm = llm.with_structured_output(WorldbuildingSelections)
+            selections = structured_llm.invoke(prompt)
+            
+            logger.info(f"Selected {len(selections.selections)} worldbuilding elements")
+            return selections
+        except Exception as e:
+            logger.error(f"Failed to select worldbuilding elements: {str(e)}", exc_info=True)
+            # Return empty selections rather than failing completely
+            return WorldbuildingSelections(selections=[])
     
     def extract_relevant_snippets(
         self,
@@ -263,16 +284,21 @@ Focus on:
                 relevant_excerpt: str = Field(description="Most relevant 1-3 sentences")
                 integration_note: str = Field(description="How to naturally include this")
             
-            structured_llm = llm.with_structured_output(SnippetExtraction)
-            extraction = structured_llm.invoke(prompt)
-            
-            snippets.append(RelevantWorldbuildingSnippet(
-                category=selection.category,
-                element_key=selection.element_key,
-                full_content=full_content,
-                relevant_excerpt=extraction.relevant_excerpt,
-                integration_note=extraction.integration_note
-            ))
+            try:
+                structured_llm = llm.with_structured_output(SnippetExtraction)
+                extraction = structured_llm.invoke(prompt)
+                
+                snippets.append(RelevantWorldbuildingSnippet(
+                    category=selection.category,
+                    element_key=selection.element_key,
+                    full_content=full_content,
+                    relevant_excerpt=extraction.relevant_excerpt,
+                    integration_note=extraction.integration_note
+                ))
+            except Exception as e:
+                logger.error(f"Failed to extract snippet for {selection.category}.{selection.element_key}: {str(e)}")
+                # Skip this element rather than failing completely
+                continue
         
         return snippets
     
@@ -308,6 +334,18 @@ Focus on:
         previous_scene_summary: Optional[str] = None
     ) -> Dict[str, Any]:
         """Main entry point for selecting worldbuilding for a scene."""
+        logger.info(f"=== Starting worldbuilding selection for Chapter {chapter}, Scene {scene} ===")
+        
+        # Check if we have worldbuilding data
+        all_wb = self.get_all_worldbuilding()
+        if not all_wb:
+            logger.warning("No worldbuilding data found in database!")
+            return {
+                'elements': {},
+                'needs_analysis': {},
+                'selection_count': 0
+            }
+        
         # Create scene context
         scene_context = SceneContext(
             description=scene_description,
@@ -320,32 +358,49 @@ Focus on:
             previous_scene_summary=previous_scene_summary
         )
         
-        # Step 1: Analyze what the scene needs
-        scene_needs = self.analyze_scene_needs(scene_context)
-        
-        # Step 2: Select relevant elements
-        selections = self.select_relevant_elements(scene_context, scene_needs)
-        
-        # Step 3: Extract relevant snippets
-        snippets = self.extract_relevant_snippets(selections, scene_context)
-        
-        # Format for use in scene generation
-        formatted_elements = {}
-        for snippet in snippets:
-            if snippet.category not in formatted_elements:
-                formatted_elements[snippet.category] = {}
+        try:
+            # Step 1: Analyze what the scene needs
+            logger.info("Step 1: Analyzing scene needs...")
+            scene_needs = self.analyze_scene_needs(scene_context)
+            logger.info(f"Identified needs for {sum(len(getattr(scene_needs, field)) for field in scene_needs.model_fields)} categories")
             
-            formatted_elements[snippet.category][snippet.element_key] = {
-                'content': snippet.relevant_excerpt,
-                'integration': snippet.integration_note,
-                'full_content': snippet.full_content  # Keep full content for reference
+            # Step 2: Select relevant elements
+            logger.info("Step 2: Selecting relevant elements...")
+            selections = self.select_relevant_elements(scene_context, scene_needs)
+            logger.info(f"Selected {len(selections.selections)} worldbuilding elements")
+            
+            # Step 3: Extract relevant snippets
+            logger.info("Step 3: Extracting relevant snippets...")
+            snippets = self.extract_relevant_snippets(selections, scene_context)
+            
+            # Format for use in scene generation
+            formatted_elements = {}
+            for snippet in snippets:
+                if snippet.category not in formatted_elements:
+                    formatted_elements[snippet.category] = {}
+                
+                formatted_elements[snippet.category][snippet.element_key] = {
+                    'content': snippet.relevant_excerpt,
+                    'integration': snippet.integration_note,
+                    'full_content': snippet.full_content  # Keep full content for reference
+                }
+            
+            logger.info(f"Successfully selected {len(snippets)} worldbuilding elements across {len(formatted_elements)} categories")
+            for cat, elems in formatted_elements.items():
+                logger.info(f"  - {cat}: {list(elems.keys())}")
+            
+            return {
+                'elements': formatted_elements,
+                'needs_analysis': scene_needs.model_dump(),
+                'selection_count': len(snippets)
             }
-        
-        return {
-            'elements': formatted_elements,
-            'needs_analysis': scene_needs.model_dump(),
-            'selection_count': len(snippets)
-        }
+        except Exception as e:
+            logger.error(f"Error in worldbuilding selection: {str(e)}", exc_info=True)
+            return {
+                'elements': {},
+                'needs_analysis': {},
+                'selection_count': 0
+            }
 
 
 # Convenience function for use in existing code
