@@ -90,9 +90,28 @@ async def generate_category_with_research(
     # Use structured output with research context
     structured_llm = llm.with_structured_output(model)
     
+    # Add explicit pre-processing instructions (same as in generate_category)
+    pre_instructions = """
+CRITICAL INSTRUCTIONS:
+1. You must generate ACTUAL CONTENT for each field, not descriptions or metadata
+2. DO NOT start any field with 'description:', 'Description:', 'beschreibung:', or similar prefixes
+3. DO NOT return field descriptions or explanations of what should be written
+4. Each field should contain the actual worldbuilding content as multiple paragraphs
+5. Write the content directly - imagine you are writing the worldbuilding document itself
+
+Example of WRONG output:
+locations: "description: Major locations in the world"
+
+Example of CORRECT output:
+locations: "The city of Eldenhaven rises from the mist-shrouded valleys..."
+
+Now generate the actual worldbuilding content:
+
+"""
+    
     try:
         # Try to use a research-specific template
-        prompt = render_prompt(
+        base_prompt = render_prompt(
             f"worldbuilding_research_{category_name.lower()}",
             language=language,
             story_outline=global_story,
@@ -108,7 +127,7 @@ async def generate_category_with_research(
     except:
         # Fall back to regular template with research added
         try:
-            prompt = render_prompt(
+            base_prompt = render_prompt(
                 "worldbuilding",
                 language=language,
                 story_outline=global_story,
@@ -121,7 +140,7 @@ async def generate_category_with_research(
             )
         except:
             # Ultimate fallback
-            prompt = f"""
+            base_prompt = f"""
             Generate {category_name} elements for a {genre} story with a {tone} tone,
             written in the style of {author}, based on this initial idea:
             
@@ -135,7 +154,10 @@ async def generate_category_with_research(
             that feel real and detailed. Include all required fields for the category.
             """
     
-    result = structured_llm.invoke(prompt)
+    # Combine pre-instructions with the base prompt
+    full_prompt = pre_instructions + base_prompt
+    
+    result = structured_llm.invoke(full_prompt)
     data = result.model_dump()
     
     # Add research citations if enabled

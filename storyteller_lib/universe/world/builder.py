@@ -30,16 +30,28 @@ class Geography(BaseModel):
     """Geography elements of the world."""
 
     locations: str = Field(
-        description="Generate 4-6 detailed paragraphs describing major locations including cities, regions, territories, and settlements. Include specific names, unique characteristics, architectural styles, population details, and how they connect to each other. Describe the atmosphere and feeling of each place."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 4-6 detailed paragraphs describing major locations including cities, regions, territories, and settlements. Include specific names, unique characteristics, architectural styles, population details, and how they connect to each other. Describe the atmosphere and feeling of each place."
+        }
     )
     climate: str = Field(
-        description="Generate 3-4 detailed paragraphs about climate zones, seasonal variations, weather patterns, and extreme events. Explain how climate affects agriculture, architecture, daily life, and migration patterns. Include specific details about temperature ranges, precipitation, and unique atmospheric phenomena."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about climate zones, seasonal variations, weather patterns, and extreme events. Explain how climate affects agriculture, architecture, daily life, and migration patterns. Include specific details about temperature ranges, precipitation, and unique atmospheric phenomena."
+        }
     )
     landmarks: str = Field(
-        description="Generate 3-5 detailed paragraphs about notable physical features including mountain ranges, rivers, forests, deserts, and natural wonders. Give them evocative names and describe their strategic importance, local legends, and how they shape travel and trade routes."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-5 detailed paragraphs about notable physical features including mountain ranges, rivers, forests, deserts, and natural wonders. Give them evocative names and describe their strategic importance, local legends, and how they shape travel and trade routes."
+        }
     )
     relevance: str = Field(
-        description="Generate 2-3 detailed paragraphs explaining how the geography directly impacts your story. Specify which features create obstacles, influence conflicts, affect plot pacing, and serve as key settings for major scenes."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 2-3 detailed paragraphs explaining how the geography directly impacts your story. Specify which features create obstacles, influence conflicts, affect plot pacing, and serve as key settings for major scenes."
+        }
     )
 
     @field_validator("locations", "climate", "landmarks", "relevance")
@@ -49,17 +61,15 @@ class Geography(BaseModel):
         if not v:
             return ""  # Return empty string instead of failing
 
-        # If it looks like a description field, try to extract content after colon
-        if v.strip().startswith("description:"):
-            # Log warning but don't fail
-            logger.warning(
+        # If it looks like a description field, raise an error to trigger retry
+        if v.strip().lower().startswith(("description:", "beschreibung:", "desc:", "field:")):
+            logger.error(
                 f"{info.field_name} received description instead of content: {v[:50]}..."
             )
-            # Try to extract any content after the description
-            parts = v.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
-            return ""
+            raise ValueError(
+                f"{info.field_name} contains description/metadata instead of actual content. "
+                f"Please generate the actual worldbuilding content, not field descriptions."
+            )
 
         # Only reject obvious placeholders
         if v.strip().lower() in [
@@ -78,16 +88,28 @@ class History(BaseModel):
     """Historical elements of the world."""
 
     timeline: str = Field(
-        description="Generate 4-5 detailed paragraphs presenting key historical events in chronological order. Include founding events, golden ages, dark periods, revolutions, and recent history. Provide specific dates or eras, describe causes and effects, and show how events connect to create a coherent historical narrative."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 4-5 detailed paragraphs presenting key historical events in chronological order. Include founding events, golden ages, dark periods, revolutions, and recent history. Provide specific dates or eras, describe causes and effects, and show how events connect to create a coherent historical narrative."
+        }
     )
     figures: str = Field(
-        description="Generate 3-4 detailed paragraphs about important historical figures including founders, rulers, revolutionaries, inventors, and villains. Describe their achievements, failures, personalities, and lasting legacies. Explain how their actions still influence the present day."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about important historical figures including founders, rulers, revolutionaries, inventors, and villains. Describe their achievements, failures, personalities, and lasting legacies. Explain how their actions still influence the present day."
+        }
     )
     conflicts: str = Field(
-        description="Generate 3-4 detailed paragraphs about major wars, rebellions, and social upheavals. Detail the causes, key battles or turning points, resolution, and long-term consequences. Include information about alliances, betrayals, and how these conflicts shaped current borders and relationships."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about major wars, rebellions, and social upheavals. Detail the causes, key battles or turning points, resolution, and long-term consequences. Include information about alliances, betrayals, and how these conflicts shaped current borders and relationships."
+        }
     )
     relevance: str = Field(
-        description="Generate 2-3 detailed paragraphs explaining how historical events directly impact your story. Identify old grudges, inherited conflicts, historical mysteries, and traditions that influence character motivations and plot developments."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 2-3 detailed paragraphs explaining how historical events directly impact your story. Identify old grudges, inherited conflicts, historical mysteries, and traditions that influence character motivations and plot developments."
+        }
     )
 
     @field_validator("timeline", "figures", "conflicts", "relevance")
@@ -97,17 +119,15 @@ class History(BaseModel):
         if not v:
             return ""  # Return empty string instead of failing
 
-        # If it looks like a description field, try to extract content after colon
-        if v.strip().startswith("description:"):
-            # Log warning but don't fail
-            logger.warning(
+        # If it looks like a description field, raise an error to trigger retry
+        if v.strip().lower().startswith(("description:", "beschreibung:", "desc:", "field:")):
+            logger.error(
                 f"{info.field_name} received description instead of content: {v[:50]}..."
             )
-            # Try to extract any content after the description
-            parts = v.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
-            return ""
+            raise ValueError(
+                f"{info.field_name} contains description/metadata instead of actual content. "
+                f"Please generate the actual worldbuilding content, not field descriptions."
+            )
 
         # Only reject obvious placeholders
         if v.strip().lower() in [
@@ -126,16 +146,28 @@ class Culture(BaseModel):
     """Cultural elements of the world."""
 
     languages: str = Field(
-        description="Generate 3-4 detailed paragraphs about languages, dialects, and communication methods. Include naming conventions, common phrases, how language reflects social status, and any magical or technological communication systems. Describe writing systems and literacy rates."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about languages, dialects, and communication methods. Include naming conventions, common phrases, how language reflects social status, and any magical or technological communication systems. Describe writing systems and literacy rates."
+        }
     )
     traditions: str = Field(
-        description="Generate 4-5 detailed paragraphs about important customs, festivals, rites of passage, and artistic traditions. Describe specific ceremonies, traditional foods, music, dance, and storytelling. Include both everyday customs and special occasions."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 4-5 detailed paragraphs about important customs, festivals, rites of passage, and artistic traditions. Describe specific ceremonies, traditional foods, music, dance, and storytelling. Include both everyday customs and special occasions."
+        }
     )
     values: str = Field(
-        description="Generate 3-4 detailed paragraphs about core cultural values, social hierarchies, taboos, and attitudes toward outsiders. Explain concepts of honor, family structures, gender roles, and how different cultures within your world view each other."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about core cultural values, social hierarchies, taboos, and attitudes toward outsiders. Explain concepts of honor, family structures, gender roles, and how different cultures within your world view each other."
+        }
     )
     relevance: str = Field(
-        description="Generate 2-3 detailed paragraphs explaining how cultural elements create conflicts, misunderstandings, or bonds between characters. Identify specific traditions or values that drive plot points or character development."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 2-3 detailed paragraphs explaining how cultural elements create conflicts, misunderstandings, or bonds between characters. Identify specific traditions or values that drive plot points or character development."
+        }
     )
 
     @field_validator("languages", "traditions", "values", "relevance")
@@ -145,17 +177,15 @@ class Culture(BaseModel):
         if not v:
             return ""  # Return empty string instead of failing
 
-        # If it looks like a description field, try to extract content after colon
-        if v.strip().startswith("description:"):
-            # Log warning but don't fail
-            logger.warning(
+        # If it looks like a description field, raise an error to trigger retry
+        if v.strip().lower().startswith(("description:", "beschreibung:", "desc:", "field:")):
+            logger.error(
                 f"{info.field_name} received description instead of content: {v[:50]}..."
             )
-            # Try to extract any content after the description
-            parts = v.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
-            return ""
+            raise ValueError(
+                f"{info.field_name} contains description/metadata instead of actual content. "
+                f"Please generate the actual worldbuilding content, not field descriptions."
+            )
 
         # Only reject obvious placeholders
         if v.strip().lower() in [
@@ -174,16 +204,28 @@ class Politics(BaseModel):
     """Political elements of the world."""
 
     government: str = Field(
-        description="Generate 4-5 detailed paragraphs about government systems, power structures, and how leaders are chosen. Describe the balance of power, bureaucracy, corruption levels, and how different regions are governed. Include information about succession, councils, and administrative divisions."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 4-5 detailed paragraphs about government systems, power structures, and how leaders are chosen. Describe the balance of power, bureaucracy, corruption levels, and how different regions are governed. Include information about succession, councils, and administrative divisions."
+        }
     )
     factions: str = Field(
-        description="Generate 3-4 detailed paragraphs about political parties, noble houses, guilds, or other power groups. Describe their goals, methods, leaders, and relationships with each other. Include secret societies, reformers, and traditionalists."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about political parties, noble houses, guilds, or other power groups. Describe their goals, methods, leaders, and relationships with each other. Include secret societies, reformers, and traditionalists."
+        }
     )
     laws: str = Field(
-        description="Generate 3-4 detailed paragraphs about legal systems, important laws, enforcement methods, and concepts of justice. Describe courts, punishments, rights of citizens, and how laws differ between regions or social classes."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about legal systems, important laws, enforcement methods, and concepts of justice. Describe courts, punishments, rights of citizens, and how laws differ between regions or social classes."
+        }
     )
     relevance: str = Field(
-        description="Generate 2-3 detailed paragraphs explaining how political elements drive your story. Identify power struggles, unjust laws, or political machinations that create obstacles or opportunities for characters."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 2-3 detailed paragraphs explaining how political elements drive your story. Identify power struggles, unjust laws, or political machinations that create obstacles or opportunities for characters."
+        }
     )
 
     @field_validator("government", "factions", "laws", "relevance")
@@ -193,17 +235,15 @@ class Politics(BaseModel):
         if not v:
             return ""  # Return empty string instead of failing
 
-        # If it looks like a description field, try to extract content after colon
-        if v.strip().startswith("description:"):
-            # Log warning but don't fail
-            logger.warning(
+        # If it looks like a description field, raise an error to trigger retry
+        if v.strip().lower().startswith(("description:", "beschreibung:", "desc:", "field:")):
+            logger.error(
                 f"{info.field_name} received description instead of content: {v[:50]}..."
             )
-            # Try to extract any content after the description
-            parts = v.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
-            return ""
+            raise ValueError(
+                f"{info.field_name} contains description/metadata instead of actual content. "
+                f"Please generate the actual worldbuilding content, not field descriptions."
+            )
 
         # Only reject obvious placeholders
         if v.strip().lower() in [
@@ -222,16 +262,28 @@ class Economics(BaseModel):
     """Economic elements of the world."""
 
     resources: str = Field(
-        description="Generate 3-4 detailed paragraphs about natural resources, their locations, extraction methods, and who controls them. Include scarce resources that drive conflict, abundant resources that enable prosperity, and unique materials specific to your world."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about natural resources, their locations, extraction methods, and who controls them. Include scarce resources that drive conflict, abundant resources that enable prosperity, and unique materials specific to your world."
+        }
     )
     trade: str = Field(
-        description="Generate 4-5 detailed paragraphs about trade routes, merchant guilds, currencies, banking systems, and markets. Describe major trade goods, caravan routes or shipping lanes, and how trade connects different regions. Include black markets and smuggling."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 4-5 detailed paragraphs about trade routes, merchant guilds, currencies, banking systems, and markets. Describe major trade goods, caravan routes or shipping lanes, and how trade connects different regions. Include black markets and smuggling."
+        }
     )
     classes: str = Field(
-        description="Generate 3-4 detailed paragraphs about wealth distribution, social mobility, and economic classes. Describe the lifestyles of rich and poor, middle class occupations, and how economic status affects daily life and opportunities."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about wealth distribution, social mobility, and economic classes. Describe the lifestyles of rich and poor, middle class occupations, and how economic status affects daily life and opportunities."
+        }
     )
     relevance: str = Field(
-        description="Generate 2-3 detailed paragraphs explaining how economic factors create plot tensions. Identify resource scarcities, trade disputes, or class conflicts that motivate characters or create obstacles."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 2-3 detailed paragraphs explaining how economic factors create plot tensions. Identify resource scarcities, trade disputes, or class conflicts that motivate characters or create obstacles."
+        }
     )
 
     @field_validator("resources", "trade", "classes", "relevance")
@@ -241,17 +293,15 @@ class Economics(BaseModel):
         if not v:
             return ""  # Return empty string instead of failing
 
-        # If it looks like a description field, try to extract content after colon
-        if v.strip().startswith("description:"):
-            # Log warning but don't fail
-            logger.warning(
+        # If it looks like a description field, raise an error to trigger retry
+        if v.strip().lower().startswith(("description:", "beschreibung:", "desc:", "field:")):
+            logger.error(
                 f"{info.field_name} received description instead of content: {v[:50]}..."
             )
-            # Try to extract any content after the description
-            parts = v.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
-            return ""
+            raise ValueError(
+                f"{info.field_name} contains description/metadata instead of actual content. "
+                f"Please generate the actual worldbuilding content, not field descriptions."
+            )
 
         # Only reject obvious placeholders
         if v.strip().lower() in [
@@ -270,16 +320,28 @@ class TechnologyMagic(BaseModel):
     """Technology or magic elements of the world."""
 
     systems: str = Field(
-        description="Generate 4-5 detailed paragraphs about available technologies or magic systems. For technology: describe key inventions, power sources, and technological level. For magic: explain how it works, who can use it, and different schools or types. Include specific examples and applications."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 4-5 detailed paragraphs about available technologies or magic systems. For technology: describe key inventions, power sources, and technological level. For magic: explain how it works, who can use it, and different schools or types. Include specific examples and applications."
+        }
     )
     limitations: str = Field(
-        description="Generate 3-4 detailed paragraphs about the constraints, costs, and dangers of technology or magic. Describe what's impossible, what requires rare materials or extensive training, and potential catastrophic failures or side effects."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about the constraints, costs, and dangers of technology or magic. Describe what's impossible, what requires rare materials or extensive training, and potential catastrophic failures or side effects."
+        }
     )
     impact: str = Field(
-        description="Generate 3-4 detailed paragraphs about how technology or magic shapes society, from transportation and communication to warfare and medicine. Describe how it affects different social classes and professions differently."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about how technology or magic shapes society, from transportation and communication to warfare and medicine. Describe how it affects different social classes and professions differently."
+        }
     )
     relevance: str = Field(
-        description="Generate 2-3 detailed paragraphs explaining how technology or magic creates specific plot opportunities or challenges. Identify key abilities or limitations that enable or constrain character actions."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 2-3 detailed paragraphs explaining how technology or magic creates specific plot opportunities or challenges. Identify key abilities or limitations that enable or constrain character actions."
+        }
     )
 
     @field_validator("systems", "limitations", "impact", "relevance")
@@ -289,17 +351,15 @@ class TechnologyMagic(BaseModel):
         if not v:
             return ""  # Return empty string instead of failing
 
-        # If it looks like a description field, try to extract content after colon
-        if v.strip().startswith("description:"):
-            # Log warning but don't fail
-            logger.warning(
+        # If it looks like a description field, raise an error to trigger retry
+        if v.strip().lower().startswith(("description:", "beschreibung:", "desc:", "field:")):
+            logger.error(
                 f"{info.field_name} received description instead of content: {v[:50]}..."
             )
-            # Try to extract any content after the description
-            parts = v.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
-            return ""
+            raise ValueError(
+                f"{info.field_name} contains description/metadata instead of actual content. "
+                f"Please generate the actual worldbuilding content, not field descriptions."
+            )
 
         # Only reject obvious placeholders
         if v.strip().lower() in [
@@ -318,16 +378,28 @@ class Religion(BaseModel):
     """Religious elements of the world."""
 
     beliefs: str = Field(
-        description="Generate 4-5 detailed paragraphs about belief systems, pantheons, creation myths, and concepts of afterlife. Describe major and minor deities or spiritual forces, their domains, and relationships. Include competing or complementary belief systems."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 4-5 detailed paragraphs about belief systems, pantheons, creation myths, and concepts of afterlife. Describe major and minor deities or spiritual forces, their domains, and relationships. Include competing or complementary belief systems."
+        }
     )
     practices: str = Field(
-        description="Generate 3-4 detailed paragraphs about religious rituals, prayers, pilgrimages, and holy days. Describe temple services, personal devotions, sacrifices or offerings, and how religion intersects with major life events."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about religious rituals, prayers, pilgrimages, and holy days. Describe temple services, personal devotions, sacrifices or offerings, and how religion intersects with major life events."
+        }
     )
     organizations: str = Field(
-        description="Generate 3-4 detailed paragraphs about religious hierarchies, monastic orders, and influential leaders. Describe their political power, wealth, internal conflicts, and relationships with secular authorities."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about religious hierarchies, monastic orders, and influential leaders. Describe their political power, wealth, internal conflicts, and relationships with secular authorities."
+        }
     )
     relevance: str = Field(
-        description="Generate 2-3 detailed paragraphs explaining how religious elements influence your story. Identify faith-based conflicts, divine interventions, religious obligations, or crises of faith that affect characters."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 2-3 detailed paragraphs explaining how religious elements influence your story. Identify faith-based conflicts, divine interventions, religious obligations, or crises of faith that affect characters."
+        }
     )
 
     @field_validator("beliefs", "practices", "organizations", "relevance")
@@ -337,17 +409,15 @@ class Religion(BaseModel):
         if not v:
             return ""  # Return empty string instead of failing
 
-        # If it looks like a description field, try to extract content after colon
-        if v.strip().startswith("description:"):
-            # Log warning but don't fail
-            logger.warning(
+        # If it looks like a description field, raise an error to trigger retry
+        if v.strip().lower().startswith(("description:", "beschreibung:", "desc:", "field:")):
+            logger.error(
                 f"{info.field_name} received description instead of content: {v[:50]}..."
             )
-            # Try to extract any content after the description
-            parts = v.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
-            return ""
+            raise ValueError(
+                f"{info.field_name} contains description/metadata instead of actual content. "
+                f"Please generate the actual worldbuilding content, not field descriptions."
+            )
 
         # Only reject obvious placeholders
         if v.strip().lower() in [
@@ -366,16 +436,28 @@ class DailyLife(BaseModel):
     """Daily life elements of the world."""
 
     food: str = Field(
-        description="Generate 3-4 detailed paragraphs about cuisine, cooking methods, staple foods, and dining customs. Describe regional specialties, feast foods versus everyday meals, food preservation, and how different classes eat differently."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about cuisine, cooking methods, staple foods, and dining customs. Describe regional specialties, feast foods versus everyday meals, food preservation, and how different classes eat differently."
+        }
     )
     clothing: str = Field(
-        description="Generate 3-4 detailed paragraphs about clothing styles, materials, colors, and what fashion signifies. Describe everyday wear versus formal attire, occupational clothing, and how climate and culture influence fashion."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about clothing styles, materials, colors, and what fashion signifies. Describe everyday wear versus formal attire, occupational clothing, and how climate and culture influence fashion."
+        }
     )
     housing: str = Field(
-        description="Generate 3-4 detailed paragraphs about architectural styles, building materials, and living arrangements. Describe urban versus rural homes, how the wealthy live differently, and communal versus private spaces."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 3-4 detailed paragraphs about architectural styles, building materials, and living arrangements. Describe urban versus rural homes, how the wealthy live differently, and communal versus private spaces."
+        }
     )
     relevance: str = Field(
-        description="Generate 2-3 detailed paragraphs explaining how daily life details enhance your story. Identify customs or living conditions that create atmosphere, reveal character, or provide plot opportunities."
+        ...,
+        json_schema_extra={
+            "instruction": "Generate 2-3 detailed paragraphs explaining how daily life details enhance your story. Identify customs or living conditions that create atmosphere, reveal character, or provide plot opportunities."
+        }
     )
 
     @field_validator("food", "clothing", "housing", "relevance")
@@ -385,17 +467,15 @@ class DailyLife(BaseModel):
         if not v:
             return ""  # Return empty string instead of failing
 
-        # If it looks like a description field, try to extract content after colon
-        if v.strip().startswith("description:"):
-            # Log warning but don't fail
-            logger.warning(
+        # If it looks like a description field, raise an error to trigger retry
+        if v.strip().lower().startswith(("description:", "beschreibung:", "desc:", "field:")):
+            logger.error(
                 f"{info.field_name} received description instead of content: {v[:50]}..."
             )
-            # Try to extract any content after the description
-            parts = v.split(":", 1)
-            if len(parts) > 1:
-                return parts[1].strip()
-            return ""
+            raise ValueError(
+                f"{info.field_name} contains description/metadata instead of actual content. "
+                f"Please generate the actual worldbuilding content, not field descriptions."
+            )
 
         # Only reject obvious placeholders
         if v.strip().lower() in [
@@ -584,7 +664,27 @@ def generate_category(
     """
     # Use structured output only - no fallback
     structured_llm = llm.with_structured_output(model)
-    prompt = create_category_prompt(
+    
+    # Add explicit pre-processing instructions
+    pre_instructions = """
+CRITICAL INSTRUCTIONS:
+1. You must generate ACTUAL CONTENT for each field, not descriptions or metadata
+2. DO NOT start any field with 'description:', 'Description:', 'beschreibung:', or similar prefixes
+3. DO NOT return field descriptions or explanations of what should be written
+4. Each field should contain the actual worldbuilding content as multiple paragraphs
+5. Write the content directly - imagine you are writing the worldbuilding document itself
+
+Example of WRONG output:
+locations: "description: Major locations in the world"
+
+Example of CORRECT output:
+locations: "The city of Eldenhaven rises from the mist-shrouded valleys..."
+
+Now generate the actual worldbuilding content:
+
+"""
+    
+    base_prompt = create_category_prompt(
         category_name,
         genre,
         tone,
@@ -594,8 +694,11 @@ def generate_category(
         language,
         language_guidance,
     )
+    
+    # Combine pre-instructions with the base prompt
+    full_prompt = pre_instructions + base_prompt
 
-    result = structured_llm.invoke(prompt)
+    result = structured_llm.invoke(full_prompt)
     return result.model_dump()
 
 
