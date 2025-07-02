@@ -1,0 +1,32 @@
+{# Template for checking if locations exist in worldbuilding #}
+You need to check if the following locations from the story scenes already exist in the worldbuilding.
+
+LOCATIONS TO CHECK:
+{% for location in locations %}
+- {{ location }}
+{% endfor %}
+
+EXISTING WORLDBUILDING CONTENT:
+{{ existing_worldbuilding }}
+
+For each location, determine:
+1. Whether it semantically exists in the worldbuilding (not just keyword matching - understand if "The old church" refers to "St. Johannis Church" for example)
+2. If it exists, what is the key of the existing entry
+3. Whether a new location entry should be created
+4. If new, suggest a brief description based on the location name
+
+IMPORTANT: Use semantic understanding, not keyword matching. Consider:
+- A room inside a building exists if the building is in worldbuilding
+- Different names might refer to the same place
+- Additional descriptive details don't make it a different location
+- Time qualifiers (dawn, night, winter) don't create new locations
+
+CRITICAL: Before marking a location as new, check if it's just a variation of an existing location:
+- More detailed versions (adding "above the shop" to a room name)
+- Abbreviated versions (dropping descriptive details)
+- Different terms for the same type of place (room/chamber/quarters)
+- Same location at different times or conditions
+
+Group all variations of the same physical location together.
+
+Provide your analysis for each location.

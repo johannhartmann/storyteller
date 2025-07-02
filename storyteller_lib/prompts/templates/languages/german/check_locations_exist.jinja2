@@ -1,0 +1,32 @@
+{# Template for checking if locations exist in worldbuilding - German #}
+Du musst überprüfen, ob die folgenden Orte aus den Geschichtsszenen bereits im Weltenbau existieren.
+
+ZU ÜBERPRÜFENDE ORTE:
+{% for location in locations %}
+- {{ location }}
+{% endfor %}
+
+VORHANDENER WELTENBAU-INHALT:
+{{ existing_worldbuilding }}
+
+Bestimme für jeden Ort:
+1. Ob er semantisch im Weltenbau existiert (nicht nur Schlüsselwort-Abgleich - verstehe ob "Die alte Kirche" sich auf "St. Johannis Kirche" bezieht zum Beispiel)
+2. Falls er existiert, was ist der Schlüssel des vorhandenen Eintrags
+3. Ob ein neuer Ortseintrag erstellt werden sollte
+4. Falls neu, schlage eine kurze Beschreibung basierend auf dem Ortsnamen vor
+
+WICHTIG: Verwende semantisches Verständnis, nicht Schlüsselwort-Abgleich. Beachte:
+- Ein Raum innerhalb eines Gebäudes existiert, wenn das Gebäude im Weltenbau ist
+- Verschiedene Namen können sich auf denselben Ort beziehen
+- Zusätzliche beschreibende Details machen es nicht zu einem anderen Ort
+- Zeitqualifizierer (Morgengrauen, Nacht, Winter) erstellen keine neuen Orte
+
+KRITISCH: Bevor du einen Ort als neu markierst, prüfe ob es nur eine Variation eines existierenden Ortes ist:
+- Detailliertere Versionen (Hinzufügen von "über dem Laden" zu einem Raumnamen)
+- Abgekürzte Versionen (Weglassen beschreibender Details)
+- Verschiedene Begriffe für denselben Ortstyp (Zimmer/Kammer/Quartier)
+- Derselbe Ort zu verschiedenen Zeiten oder unter verschiedenen Bedingungen
+
+Gruppiere alle Variationen desselben physischen Ortes zusammen.
+
+Liefere deine Analyse für jeden Ort.

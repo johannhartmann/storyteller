@@ -117,10 +117,14 @@ def build_comprehensive_scene_context(
         
         # Get intelligent world context
         logger.info(f"Getting intelligent worldbuilding for scene {scene}")
+        
+        # Use location from scene specifications
+        scene_location = scene_specs.get('location', 'Unknown')
+        
         intelligent_world = get_intelligent_world_context(
             scene_description=scene_specs['description'],
             scene_type=scene_specs['scene_type'],
-            location=character_context['locations'][0]['name'] if character_context['locations'] else "Unknown",
+            location=scene_location,
             characters=scene_specs['required_characters'],
             plot_threads=plot_thread_descriptions,
             dramatic_purpose=scene_specs['dramatic_purpose'],
@@ -308,7 +312,8 @@ def _get_scene_specifications(state: StoryState, chapter: int, scene: int) -> Di
         'dramatic_purpose': scene_data.get('dramatic_purpose', 'development'),
         'tension_level': scene_data.get('tension_level', 5),
         'ends_with': scene_data.get('ends_with', 'transition'),
-        'scene_type': scene_data.get('scene_type', 'exploration')
+        'scene_type': scene_data.get('scene_type', 'exploration'),
+        'location': scene_data.get('location', 'Unknown')
     }
 
 

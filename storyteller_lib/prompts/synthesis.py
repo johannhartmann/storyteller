@@ -144,10 +144,15 @@ def generate_scene_level_instructions(
         
         # Get intelligent world context
         logger.info(f"Getting intelligent worldbuilding for scene {scene}")
+        
+        # Use location from scene specifications
+        scene_location = scene_specs.get('location', 'Unknown')
+        logger.info(f"Scene location: {scene_location}")
+        
         intelligent_world = get_intelligent_world_context(
             scene_description=scene_specs['description'],
             scene_type=scene_specs['scene_type'],
-            location=character_context['locations'][0]['name'] if character_context['locations'] else "Unknown",
+            location=scene_location,
             characters=scene_specs['required_characters'],
             plot_threads=plot_thread_descriptions,
             dramatic_purpose=scene_specs['dramatic_purpose'],

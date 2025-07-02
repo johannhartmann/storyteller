@@ -102,6 +102,7 @@ class FlatSceneSpec(BaseModel):
     scene_number: int = Field(..., description="The scene number within the chapter")
     description: str = Field(..., description="Brief description of what happens in this scene")
     scene_type: str = Field(..., description="Type of scene: action, dialogue, exploration, revelation, character_moment, transition, conflict, resolution")
+    location: Optional[str] = Field(default=None, description="Primary location where this scene takes place (be specific if known)")
     plot_progressions_csv: str = Field(default="", description="Comma-separated list of plot points that MUST happen")
     character_learns_csv: str = Field(default="", description="Comma-separated list of what characters learn")
     required_characters_csv: str = Field(default="", description="Comma-separated list of characters who must appear")
@@ -697,6 +698,12 @@ def plan_chapters(state: StoryState) -> Dict:
     # Generate chapter plan
     chapter_plan_text = llm.invoke([HumanMessage(content=prompt)]).content
     
+    # Debug: Check how many chapters are mentioned in the text
+    import re
+    chapter_mentions = len(re.findall(r'Chapter \d+|Kapitel \d+', chapter_plan_text, re.IGNORECASE))
+    logger.info(f"Chapter plan text contains approximately {chapter_mentions} chapter mentions")
+    logger.info(f"Chapter plan text length: {len(chapter_plan_text)} characters")
+    
     # No language validation needed - templates ensure correct language
     
     # Use direct LLM structured output with simplified Pydantic model
@@ -730,6 +737,9 @@ def plan_chapters(state: StoryState) -> Dict:
             
             # Get structured output
             result = structured_output_llm.invoke(structured_prompt)
+            
+            # Debug logging
+            logger.info(f"Structured output received: {len(result.chapters)} chapters, {len(result.total_scenes)} total scenes")
             
             # Convert from flattened structure
             chapters_dict = {}
@@ -765,6 +775,7 @@ def plan_chapters(state: StoryState) -> Dict:
                         "content": "",
                         "description": scene.description,
                         "scene_type": scene.scene_type,
+                        "location": scene.location if scene.location else "Unknown",
                         "plot_progressions": [s.strip() for s in scene.plot_progressions_csv.split(",") if s.strip()] if scene.plot_progressions_csv else [],
                         "character_learns": [s.strip() for s in scene.character_learns_csv.split(",") if s.strip()] if scene.character_learns_csv else [],
                         "required_characters": [s.strip() for s in scene.required_characters_csv.split(",") if s.strip()] if scene.required_characters_csv else [],
@@ -820,6 +831,19 @@ def plan_chapters(state: StoryState) -> Dict:
             # The full chapter plan is part of the state and doesn't need separate storage
             logger.info(f"Generated chapter plan with {actual_chapter_count} chapters")
             
+            # Process locations - extract unique locations from all scenes
+            unique_locations = set()
+            for chapter_data in chapters_dict.values():
+                for scene_data in chapter_data.get("scenes", {}).values():
+                    location = scene_data.get("location", "")
+                    if location and location != "Unknown" and location != "":
+                        unique_locations.add(location)
+            
+            if unique_locations:
+                logger.info(f"Found {len(unique_locations)} unique locations in chapter plan")
+                # Check which locations need to be created using LLM
+                _process_scene_locations(list(unique_locations), db_manager, language)
+            
             return {
                 "chapters": chapters_dict,
                 "current_chapter": "1",
@@ -837,3 +861,277 @@ def plan_chapters(state: StoryState) -> Dict:
     
     # Should not reach here, but just in case
     raise Exception("Failed to generate chapter plan")
+
+
+def _process_scene_locations(locations: List[str], db_manager, language: str) -> None:
+    """
+    Process scene locations using LLM to check if they exist and create new ones if needed.
+    Uses semantic matching, NOT keyword matching.
+    Integrates research when available.
+    """
+    from storyteller_lib.core.logger import get_logger
+    logger = get_logger(__name__)
+    
+    if not db_manager:
+        logger.warning("No database manager available for location processing")
+        return
+        
+    logger.info(f"Processing {len(locations)} locations from scene planning")
+    
+    # Check if research worldbuilding is enabled
+    research_enabled = False
+    try:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT research_worldbuilding FROM story_config WHERE id = 1")
+            result = cursor.fetchone()
+            if result:
+                research_enabled = bool(result['research_worldbuilding'])
+                logger.info(f"Research worldbuilding enabled: {research_enabled}")
+    except Exception as e:
+        logger.error(f"Failed to check research worldbuilding setting: {e}")
+    
+    # Get existing worldbuilding from database
+    existing_world = {}
+    try:
+        existing_world = db_manager._db.get_world_elements(category="geography")
+    except Exception as e:
+        logger.error(f"Failed to get existing worldbuilding: {e}")
+        existing_world = {}
+    
+    # Prepare worldbuilding content for LLM
+    worldbuilding_text = ""
+    if existing_world:
+        for key, value in existing_world.items():
+            worldbuilding_text += f"\n[{key}]\n{value}\n"
+    
+    # Use LLM to check each location semantically
+    from storyteller_lib.prompts.renderer import render_prompt
+    from pydantic import BaseModel, Field
+    from typing import Optional
+    
+    class LocationCheck(BaseModel):
+        """Result of checking if a location exists in worldbuilding."""
+        location_name: str = Field(description="The location name from the scene")
+        exists_in_worldbuilding: bool = Field(description="Whether this location semantically exists in the worldbuilding")
+        existing_location_key: Optional[str] = Field(description="The key of the existing location if found")
+        needs_creation: bool = Field(description="Whether a new location entry should be created")
+        suggested_description: Optional[str] = Field(description="Brief description if new location needs creation")
+    
+    class LocationCheckBatch(BaseModel):
+        """Batch check of multiple locations."""
+        location_checks: List[LocationCheck] = Field(description="Results for each location")
+    
+    # Create template for location checking
+    check_prompt = render_prompt(
+        "check_locations_exist",
+        language=language,
+        locations=locations,
+        existing_worldbuilding=worldbuilding_text if worldbuilding_text else "No existing worldbuilding found."
+    )
+    
+    # Get structured output from LLM
+    structured_llm = llm.with_structured_output(LocationCheckBatch)
+    check_results = structured_llm.invoke(check_prompt)
+    
+    # Process locations that need creation
+    locations_to_create = [
+        check for check in check_results.location_checks 
+        if check.needs_creation
+    ]
+    
+    if locations_to_create:
+        logger.info(f"Creating {len(locations_to_create)} new location entries")
+        
+        # We don't need LocationDetailsBatch - just use the research directly!
+        
+        # Get story context for location generation
+        story_outline = ""
+        genre = ""
+        tone = ""
+        initial_idea = ""
+        try:
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT global_story, genre, tone, initial_idea FROM story_config WHERE id = 1")
+                result = cursor.fetchone()
+                if result:
+                    story_outline = result['global_story'] or ""
+                    genre = result['genre'] or ""
+                    tone = result['tone'] or ""
+                    initial_idea = result['initial_idea'] or ""
+        except:
+            pass
+        
+        # If research is enabled, gather research for locations
+        research_context = {}
+        if research_enabled:
+            logger.info("Using research to enhance location descriptions")
+            try:
+                # Use asyncio to run the research
+                import asyncio
+                research_context = asyncio.run(_research_locations(
+                    [loc.location_name for loc in locations_to_create],
+                    genre, tone, initial_idea, story_outline, language
+                ))
+            except Exception as e:
+                logger.error(f"Failed to research locations: {e}")
+                research_context = {}
+        
+        # Store new locations in worldbuilding using research
+        for loc in locations_to_create:
+            try:
+                location_name = loc.location_name
+                # Create a key for the location
+                location_key = location_name.lower().replace(" ", "_").replace("'", "")
+                
+                # Build description based on research if available
+                if research_enabled and location_name in research_context:
+                    # Use research findings as the basis
+                    research_info = research_context[location_name]
+                    
+                    # Generate full description incorporating research
+                    synthesis_prompt = f"""
+Based on this research about similar historical/architectural examples:
+{research_info}
+
+And knowing this is for a {genre} story with {tone} tone:
+{story_outline[:500]}
+
+Create a rich description for "{location_name}" that incorporates the researched details.
+Include physical appearance, atmosphere, and significance to the story.
+Write 3-4 detailed paragraphs.
+"""
+                    description_response = llm.invoke(synthesis_prompt)
+                    full_description = description_response.content
+                    
+                else:
+                    # No research available - use suggested description or create basic one
+                    if loc.suggested_description:
+                        # Expand the suggestion into a full description
+                        expansion_prompt = f"""
+Expand this brief description into 3-4 detailed paragraphs for a {genre} story:
+"{loc.suggested_description}"
+
+Location name: {location_name}
+Include physical details, atmosphere, and significance.
+"""
+                        expansion_response = llm.invoke(expansion_prompt)
+                        full_description = expansion_response.content
+                    else:
+                        # Create a basic description
+                        full_description = f"A location in the story: {location_name}. Details to be developed during scene writing."
+                
+                # Store in world_elements table
+                db_manager._db.create_world_element(
+                    category="geography",
+                    element_key=f"location_{location_key}",
+                    element_value=full_description
+                )
+                
+                logger.info(f"Created worldbuilding entry for location: {location_name}")
+                
+            except Exception as e:
+                logger.error(f"Failed to create location {location_name}: {e}")
+    
+    else:
+        logger.info("All locations already exist in worldbuilding (semantically matched)")
+
+
+async def _research_locations(
+    location_names: List[str],
+    genre: str,
+    tone: str,
+    initial_idea: str,
+    story_outline: str,
+    language: str
+) -> Dict[str, str]:
+    """
+    Research locations using the WorldBuildingResearcher.
+    Returns a dictionary mapping location names to research findings.
+    """
+    from storyteller_lib.universe.world.research_config import WorldBuildingResearchConfig
+    from storyteller_lib.universe.world.researcher import WorldBuildingResearcher
+    from storyteller_lib.universe.world.research_models import ResearchContext
+    from storyteller_lib.core.logger import get_logger
+    
+    logger = get_logger(__name__)
+    logger.info(f"Researching {len(location_names)} locations")
+    
+    # Create research config
+    config = WorldBuildingResearchConfig()
+    researcher = WorldBuildingResearcher(config)
+    
+    # Create research context
+    context = ResearchContext(
+        genre=genre,
+        tone=tone,
+        initial_idea=initial_idea,
+        story_outline=story_outline[:1000] if story_outline else "",
+        language=language,
+        specific_queries=[]
+    )
+    
+    # Research each location
+    research_results = {}
+    
+    for location_name in location_names:
+        try:
+            logger.info(f"Researching location: {location_name}")
+            
+            # Use LLM to generate appropriate search queries for this location
+            query_prompt = f"""
+For a {genre} story with {tone} tone, generate 2 specific research queries 
+to find historical and architectural inspiration for this location:
+
+Location: {location_name}
+Story context: {initial_idea[:200]}
+
+Generate 2 search queries that would find:
+1. Historical examples and architectural details
+2. Atmosphere and cultural context
+
+Format: Return just the 2 queries, one per line.
+"""
+            
+            query_response = llm.invoke(query_prompt)
+            queries = [q.strip() for q in query_response.content.strip().split('\n') if q.strip()][:2]
+            
+            if not queries:
+                # Fallback to generic queries
+                queries = [
+                    f"{genre} location design {location_name}",
+                    f"historical inspiration {location_name} setting"
+                ]
+            
+            # Execute searches using the researcher's methods
+            if queries:
+                from storyteller_lib.universe.world.search_utils import execute_parallel_searches
+                
+                search_results = await execute_parallel_searches(
+                    queries[:2],  # Limit to 2 queries per location to control costs
+                    search_api=config.search_apis[0],
+                    max_results=3
+                )
+                
+                # Summarize findings
+                if search_results:
+                    summary_prompt = f"""
+Based on these research findings about location design and atmosphere,
+provide a brief summary of key details that would be useful for creating
+a vivid description of "{location_name}" in a {genre} story:
+
+Research findings:
+{chr(10).join([f"- {result.get('summary', result.get('title', ''))}" for result in search_results[:3]])}
+
+Provide a 2-3 sentence summary of the most relevant details.
+"""
+                    summary_response = llm.invoke(summary_prompt)
+                    research_results[location_name] = summary_response.content
+                    logger.info(f"Research summary for {location_name}: {len(summary_response.content)} chars")
+                    
+        except Exception as e:
+            logger.error(f"Failed to research location {location_name}: {e}")
+            research_results[location_name] = ""
+    
+    return research_results
