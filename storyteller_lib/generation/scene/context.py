@@ -443,15 +443,15 @@ def _get_character_context(db_manager, required_chars: List[str], scene_desc: st
                         # Merge personality data, preferring state data when richer
                         if 'traits' in state_personality:
                             char_data['personality']['traits'] = state_personality.get('traits', [])
-                    if 'strengths' in state_personality:
+                        if 'strengths' in state_personality:
                             char_data['personality']['strengths'] = state_personality.get('strengths', [])
-                    if 'flaws' in state_personality:
+                        if 'flaws' in state_personality:
                             char_data['personality']['flaws'] = state_personality.get('flaws', [])
-                    if 'fears' in state_personality:
+                        if 'fears' in state_personality:
                             char_data['personality']['fears'] = state_personality.get('fears', [])
-                    if 'desires' in state_personality:
+                        if 'desires' in state_personality:
                             char_data['personality']['desires'] = state_personality.get('desires', [])
-                    if 'values' in state_personality:
+                        if 'values' in state_personality:
                             char_data['personality']['values'] = state_personality.get('values', [])
                 
                     # Add emotional journey if available

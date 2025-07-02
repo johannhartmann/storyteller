@@ -1133,18 +1133,23 @@ Format: Return just the 2 queries, one per line.
                 search_results = await execute_parallel_searches(
                     queries[:2],  # Limit to 2 queries per location to control costs
                     search_api=config.search_apis[0],
-                    max_results=3
+                    max_results_per_query=3
                 )
                 
                 # Summarize findings
-                if search_results:
+                # Flatten all results from the dictionary
+                all_results = []
+                for query_results in search_results.values():
+                    all_results.extend(query_results)
+                
+                if all_results:
                     summary_prompt = f"""
 Based on these research findings about location design and atmosphere,
 provide a brief summary of key details that would be useful for creating
 a vivid description of "{location_name}" in a {genre} story:
 
 Research findings:
-{chr(10).join([f"- {result.get('summary', result.get('title', ''))}" for result in search_results[:3]])}
+{chr(10).join([f"- {result.title}: {result.content[:200]}..." for result in all_results[:3]])}
 
 Provide a 2-3 sentence summary of the most relevant details.
 """
