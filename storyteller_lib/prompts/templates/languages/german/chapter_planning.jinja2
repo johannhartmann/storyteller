@@ -7,6 +7,13 @@ Basierend auf dieser Geschichtsübersicht:
 
 {{ global_story }}
 
+{% if story_phase_descriptions %}
+GESCHICHTSPHASEN ZUM ABDECKEN:
+{{ story_phase_descriptions }}
+
+WICHTIG: Verteile deine Kapitel so, dass jede oben beschriebene Phase gemäß der {{ narrative_structure | replace('_', ' ') | title }}-Struktur angemessen abgedeckt wird.
+{% endif %}
+
 Und diesen Figuren:
 
 {{ characters }}

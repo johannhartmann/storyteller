@@ -589,6 +589,19 @@ def generate_story_outline(state: StoryState) -> Dict:
     if db_manager:
         db_manager.update_global_story(story_outline)
         logger.info(f"Stored story outline in database (length: {len(story_outline)})")
+        
+        # Also store the individual components for easier access
+        db_manager._db.create_world_element(
+            category="story_structure",
+            element_key="title",
+            element_value=outline_flat.title
+        )
+        db_manager._db.create_world_element(
+            category="story_structure",
+            element_key="phase_descriptions",
+            element_value=outline_flat.story_phase_descriptions
+        )
+        logger.info("Stored story title and phase descriptions separately in world_elements")
     else:
         logger.warning("Database manager not available - outline not stored")
 
@@ -681,11 +694,20 @@ def plan_chapters(state: StoryState) -> Dict:
     
     # No language instruction or guidance needed - templates are already in the correct language
     
+    # Get story phase descriptions from database
+    story_phase_descriptions = ""
+    if db_manager and db_manager._db:
+        world_elements = db_manager._db.get_world_elements(category="story_structure")
+        story_phase_descriptions = world_elements.get("phase_descriptions", "")
+        if story_phase_descriptions:
+            logger.info(f"Retrieved story phase descriptions from database")
+    
     # Render the chapter planning prompt
     prompt = render_prompt(
         'chapter_planning',
         language=language,
         global_story=global_story,
+        story_phase_descriptions=story_phase_descriptions,
         characters=characters,
         tone=tone,
         genre=genre,

@@ -7,6 +7,13 @@ Based on this story outline:
 
 {{ global_story }}
 
+{% if story_phase_descriptions %}
+STORY PHASES TO COVER:
+{{ story_phase_descriptions }}
+
+IMPORTANT: Distribute your chapters to properly cover each phase described above according to the {{ narrative_structure | replace('_', ' ') | title }} structure.
+{% endif %}
+
 And these characters:
 
 {{ characters }}

@@ -1617,15 +1617,16 @@ class StoryDatabaseManager:
                     if row["chapter_number"] != current_chapter:
                         current_chapter = row["chapter_number"]
                         chapter_title = (
-                            row["chapter_title"] or f"Chapter {current_chapter}"
+                            row["chapter_title"] or f"{current_chapter}"
                         )
+                        # Only use chapter title, no "Chapter X:" prefix
                         story_parts.append(
-                            f"\n## Chapter {current_chapter}: {chapter_title}\n"
+                            f"\n## {chapter_title}\n"
                         )
 
-                    # Add scene content
+                    # Add scene content with just separator, no "Scene X" label
                     if row["content"]:
-                        story_parts.append(f"\n### Scene {row['scene_number']}\n")
+                        story_parts.append("\n### \n")
                         story_parts.append(row["content"])
                         story_parts.append("\n")
 
