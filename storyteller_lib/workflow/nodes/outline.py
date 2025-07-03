@@ -996,11 +996,14 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
                     [loc.location_name for loc in locations_to_create],
                     genre, tone, initial_idea, story_outline, language
                 ))
+                logger.info(f"Research completed for {len(research_context)} locations")
             except Exception as e:
-                logger.error(f"Failed to research locations: {e}")
+                logger.error(f"Failed to research locations: {e}", exc_info=True)
                 research_context = {}
         
         # Store new locations in worldbuilding using research
+        from storyteller_lib.prompts.renderer import render_template
+        
         for loc in locations_to_create:
             try:
                 location_name = loc.location_name
@@ -1008,22 +1011,22 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
                 location_key = location_name.lower().replace(" ", "_").replace("'", "")
                 
                 # Build description based on research if available
-                if research_enabled and location_name in research_context:
+                if research_enabled and location_name in research_context and research_context[location_name]:
                     # Use research findings as the basis
                     research_info = research_context[location_name]
                     
                     # Generate full description incorporating research
-                    synthesis_prompt = f"""
-Based on this research about similar historical/architectural examples:
-{research_info}
-
-And knowing this is for a {genre} story with {tone} tone:
-{story_outline[:500]}
-
-Create a rich description for "{location_name}" that incorporates the researched details.
-Include physical appearance, atmosphere, and significance to the story.
-Write 3-4 detailed paragraphs.
-"""
+                    
+                    synthesis_prompt = render_template(
+                        'location_synthesis',
+                        language=language,
+                        research_info=research_info,
+                        genre=genre,
+                        tone=tone,
+                        story_context=story_outline[:500],
+                        location_name=location_name
+                    )
+                    
                     description_response = llm.invoke(synthesis_prompt)
                     full_description = description_response.content
                     
@@ -1031,13 +1034,14 @@ Write 3-4 detailed paragraphs.
                     # No research available - use suggested description or create basic one
                     if loc.suggested_description:
                         # Expand the suggestion into a full description
-                        expansion_prompt = f"""
-Expand this brief description into 3-4 detailed paragraphs for a {genre} story:
-"{loc.suggested_description}"
-
-Location name: {location_name}
-Include physical details, atmosphere, and significance.
-"""
+                        expansion_prompt = render_template(
+                            'location_expansion',
+                            language=language,
+                            genre=genre,
+                            suggested_description=loc.suggested_description,
+                            location_name=location_name
+                        )
+                        
                         expansion_response = llm.invoke(expansion_prompt)
                         full_description = expansion_response.content
                     else:
@@ -1080,6 +1084,9 @@ async def _research_locations(
     logger = get_logger(__name__)
     logger.info(f"Researching {len(location_names)} locations")
     
+    # Get LLM for generating queries and summaries
+    from storyteller_lib.core.config import llm
+    
     # Create research config
     config = WorldBuildingResearchConfig()
     researcher = WorldBuildingResearcher(config)
@@ -1102,63 +1109,102 @@ async def _research_locations(
             logger.info(f"Researching location: {location_name}")
             
             # Use LLM to generate appropriate search queries for this location
-            query_prompt = f"""
-For a {genre} story with {tone} tone, generate 2 specific research queries 
-to find historical and architectural inspiration for this location:
-
-Location: {location_name}
-Story context: {initial_idea[:200]}
-
-Generate 2 search queries that would find:
-1. Historical examples and architectural details
-2. Atmosphere and cultural context
-
-Format: Return just the 2 queries, one per line.
-"""
+            from storyteller_lib.prompts.renderer import render_template
+            
+            query_prompt = render_template(
+                'location_research_query',
+                language=language,
+                genre=genre,
+                tone=tone,
+                location_name=location_name,
+                initial_idea=initial_idea
+            )
             
             query_response = llm.invoke(query_prompt)
             queries = [q.strip() for q in query_response.content.strip().split('\n') if q.strip()][:2]
             
             if not queries:
-                # Fallback to generic queries
+                # Fallback to generic queries based on location name
                 queries = [
-                    f"{genre} location design {location_name}",
-                    f"historical inspiration {location_name} setting"
+                    f"{location_name}",
+                    f"{location_name} architecture history"
                 ]
             
             # Execute searches using the researcher's methods
             if queries:
                 from storyteller_lib.universe.world.search_utils import execute_parallel_searches
                 
+                logger.info(f"Executing searches for {location_name} with queries: {queries}")
                 search_results = await execute_parallel_searches(
                     queries[:2],  # Limit to 2 queries per location to control costs
                     search_api=config.search_apis[0],
-                    max_results_per_query=3
+                    max_results_per_query=3,
+                    use_cache=config.tavily_cache_enabled
                 )
+                logger.info(f"Search returned {len(search_results)} query results for {location_name}")
                 
                 # Summarize findings
                 # Flatten all results from the dictionary
                 all_results = []
-                for query_results in search_results.values():
+                for query, query_results in search_results.items():
+                    logger.debug(f"Query '{query}' returned {len(query_results)} results")
                     all_results.extend(query_results)
                 
                 if all_results:
-                    summary_prompt = f"""
-Based on these research findings about location design and atmosphere,
-provide a brief summary of key details that would be useful for creating
-a vivid description of "{location_name}" in a {genre} story:
-
-Research findings:
-{chr(10).join([f"- {result.title}: {result.content[:200]}..." for result in all_results[:3]])}
-
-Provide a 2-3 sentence summary of the most relevant details.
-"""
+                    # Create detailed research findings without truncation
+                    research_findings = []
+                    for result in all_results[:3]:
+                        # Use full content for better summaries
+                        content = result.content[:1000] if len(result.content) > 1000 else result.content
+                        research_findings.append(f"- {result.title}: {content}")
+                    
+                    summary_prompt = render_template(
+                        'location_research_summary',
+                        language=language,
+                        location_name=location_name,
+                        genre=genre,
+                        research_findings=chr(10).join(research_findings)
+                    )
+                    
                     summary_response = llm.invoke(summary_prompt)
                     research_results[location_name] = summary_response.content
                     logger.info(f"Research summary for {location_name}: {len(summary_response.content)} chars")
+                else:
+                    # No search results found - generate description based on context
+                    logger.warning(f"No search results for {location_name}, using LLM generation")
+                    
+                    fallback_prompt = render_template(
+                        'location_synthesis',
+                        language=language,
+                        research_info="",  # No research available
+                        genre=genre,
+                        tone=tone,
+                        story_context=f"{initial_idea}\n\nLocation needed: {location_name}",
+                        location_name=location_name
+                    )
+                    
+                    fallback_response = llm.invoke(fallback_prompt)
+                    research_results[location_name] = fallback_response.content
                     
         except Exception as e:
             logger.error(f"Failed to research location {location_name}: {e}")
-            research_results[location_name] = ""
+            # Use LLM fallback even on exceptions
+            try:
+                fallback_prompt = render_template(
+                    'location_synthesis',
+                    language=language,
+                    research_info="",  # No research available
+                    genre=genre,
+                    tone=tone,
+                    story_context=f"{initial_idea}\n\nLocation needed: {location_name}",
+                    location_name=location_name
+                )
+                
+                fallback_response = llm.invoke(fallback_prompt)
+                research_results[location_name] = fallback_response.content
+                logger.info(f"Generated fallback description for {location_name}")
+            except Exception as fallback_error:
+                logger.error(f"Fallback generation also failed for {location_name}: {fallback_error}")
+                research_results[location_name] = f"Location: {location_name} - Description to be developed during scene writing."
     
     return research_results
