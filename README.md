@@ -1,560 +1,369 @@
 # StoryCraft Agent
 
-An autonomous AI agent designed to write engaging, multi-chapter stories using flexible narrative structures, powered by LangGraph for orchestration and SQLite database for state and memory management.
+An autonomous AI-powered story writing system that generates complete, multi-chapter stories following flexible narrative structures. Built with LangGraph for orchestration, SQLite database for state and memory management, and support for multiple LLM providers.
 
-**Version 2.1** - Now with flexible narrative structures, intelligent scene context, enhanced consistency management, and simplified page-based length control.
+**Version 3.0** - Now with research-driven worldbuilding, comprehensive plot thread tracking, character knowledge management, multi-language support, and professional audiobook generation.
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up your API key
-echo "GEMINI_API_KEY=your_key_here" > .env
+# Using Nix development environment (recommended)
+nix develop
 
 # Generate your first story
 python run_storyteller.py --genre fantasy --tone epic
 
 # Let AI choose everything for you
 python run_storyteller.py --idea "A story about a detective who solves crimes using dreams"
+
+# Generate a research-enhanced story
+python run_storyteller.py --genre "science fiction" --tone philosophical --research-worldbuilding
 ```
 
 ## Features
 
-- **Flexible Narrative Structures**: Intelligently selects from 6 narrative structures (Hero's Journey, Three-Act, Kishōtenketsu, In Medias Res, Circular, Nonlinear/Mosaic) based on genre and story concept
-- **Dynamic Story Length**: Automatically determines optimal chapter count and scene distribution based on story complexity
-- **Autonomous Storyline Generation**: Creates a granular storyline subdivided into chapters and scenes
-- **Multi-Character Management**: Tracks each character's backstory, evolution, relationships, and knowledge
-- **Iterative Self-Reflection & Revision**: Each chapter and scene undergoes a self-reflection process for quality
-- **Continuity & Reader Engagement**: Flags inconsistencies and controls the timing of key plot revelations
-- **Creative Brainstorming**: Generates multiple creative ideas and evaluates them to enhance story elements
+### Core Story Generation
+- **Flexible Narrative Structures**: Intelligently selects from 6 narrative structures (Hero's Journey, Three-Act, Kishōtenketsu, In Medias Res, Circular, Nonlinear/Mosaic)
+- **Dynamic Story Length**: Page-based control with automatic chapter and scene distribution
+- **Multi-Language Support**: Generate stories in 12 languages with language-specific templates
 - **Author Style Emulation**: Analyzes and mimics the writing style of specified authors
-- **Real-time Progress Tracking**: Provides detailed progress updates at each step of the generation process
-- **Robust Error Handling**: Includes safety mechanisms to prevent infinite loops and gracefully handle edge cases
-- **LLM Response Caching**: Improves performance and reduces API costs by caching LLM responses
-- **Multi-language Support**: Generate stories in 12 different languages
-- **Intelligent Scene Context**: Provides comprehensive "what happened until now" summaries for consistent narrative flow
+
+### Advanced Story Management
+- **Plot Thread Tracking**: Active management system that tracks, develops, and ensures resolution of narrative threads
+- **Character Knowledge System**: Tracks what each character knows at any point to prevent inconsistencies
+- **Scene Context Management**: Comprehensive "what happened until now" summaries for narrative coherence
+- **Research-Driven Worldbuilding**: Optional web research integration for authentic world elements
+- **Multi-Level Corrections**: Scene, chapter, style, and minor text corrections for polished output
+
+### Technical Features
+- **LangGraph Orchestration**: Robust workflow management with conditional edges and state transitions
+- **SQLite State Persistence**: Complete story state saved to database for consistency
+- **Multi-LLM Support**: Works with OpenAI, Anthropic, and Google Gemini models
+- **Response Caching**: SQLite-based caching for improved performance and reduced API costs
+- **Real-time Progress Tracking**: Detailed progress updates throughout generation
+- **Professional Audiobook Generation**: SSML-based text-to-speech with Azure Cognitive Services
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.12+
+- Nix (recommended) for development environment
 - At least one of the following API keys:
-  - Google Gemini API key
+  - Google Gemini API key (recommended)
   - OpenAI API key
   - Anthropic API key
+- Optional:
+  - Tavily API key (for research-driven worldbuilding)
+  - Azure Speech Service credentials (for audiobook generation)
 
 ## Installation
 
-1. Clone this repository
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-3. Create a `.env` file in the project root:
-   ```
-   cp .env.example .env
-   ```
-4. Edit the `.env` file and add your API key(s)
-   ```
-   GEMINI_API_KEY=your_gemini_api_key_here
-   OPENAI_API_KEY=your_openai_api_key_here
-   ANTHROPIC_API_KEY=your_anthropic_api_key_here
-   
-   # Optional: Set your default model provider and model
-   DEFAULT_MODEL_PROVIDER=gemini
-   DEFAULT_MODEL=gemini-2.0-flash-thinking-exp-1219  # Optional: specific model
-   ```
+### Using Nix (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/storyteller.git
+cd storyteller
+
+# Enter the Nix development environment
+nix develop
+
+# Dependencies are automatically installed via Nix
+```
+
+### Manual Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/johannhartmann/storyteller.git
+cd storyteller
+
+pip install poetry
+
+# Install dependencies
+poetry install
+
+# Create and configure .env file
+cp .env.example .env
+# Edit .env and add your API keys
+```
+
+## Configuration
+
+Create a `.env` file in the project root:
+
+```bash
+# LLM Provider API Keys (at least one required)
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+
+# Default Model Configuration
+DEFAULT_MODEL_PROVIDER=gemini
+DEFAULT_MODEL=gemini-2.5-flash
+
+# Optional: Research Enhancement
+TAVILY_API_KEY=your_tavily_api_key_here
+
+# Optional: Audiobook Generation
+SPEECH_KEY=your-azure-speech-key-here
+SPEECH_REGION=your-azure-region-here  # e.g., eastus, westeurope
+
+# Optional: Advanced Configuration
+LANGGRAPH_RECURSION_LIMIT=200  # Increase for very complex stories
+```
 
 ## Usage
 
-Run the story generation script:
+### Basic Story Generation
 
 ```bash
+# Generate a fantasy epic
 python run_storyteller.py --genre fantasy --tone epic --output my_story.md
+
+# Generate a mystery with specific author style
+python run_storyteller.py --genre mystery --tone dark --author "Edgar Allan Poe"
+
+# Generate a story in German
+python run_storyteller.py --genre fantasy --tone epic --language german
+
+# Generate with research-enhanced worldbuilding
+python run_storyteller.py --genre "science fiction" --research-worldbuilding
 ```
 
-### Options
+### Command Line Options
 
-- `--genre`: The genre of the story (e.g., fantasy, sci-fi, mystery)
-- `--tone`: The tone of the story (e.g., epic, dark, humorous)
-- `--author`: Author whose style to emulate (e.g., Tolkien, Rowling, Martin)
-- `--language`: Target language for story generation (default: english)
-- `--idea`: Initial story idea to use as a starting point (e.g., 'A detective story set in a zoo')
-- `--output`: Output file to save the generated story
-- `--structure`: Narrative structure to use (choices: auto, hero_journey, three_act, kishotenketsu, in_medias_res, circular, nonlinear_mosaic; default: auto)
-- `--pages`: Target number of pages for the story (e.g., 200 for a short novel, 400 for standard)
-- `--verbose`: Display detailed information about the story elements as they're generated
-- `--cache`: LLM cache type to use (choices: memory, sqlite, none; default: sqlite)
-- `--cache-path`: Path to the cache file (for sqlite cache)
-- `--recursion-limit`: LangGraph recursion limit for complex stories (default: 200)
-- `--model-provider`: LLM provider to use (choices: openai, anthropic, gemini; default: gemini)
-- `--model`: Specific model to use (defaults to provider's default model)
+#### Required (at least one):
+- `--genre`: Story genre (e.g., fantasy, sci-fi, mystery, thriller, horror)
+- `--idea`: Initial story idea (alternative to genre/tone)
+
+#### Story Configuration:
+- `--tone`: Story tone (e.g., epic, dark, humorous, philosophical)
+- `--author`: Author style to emulate
+- `--language`: Target language (default: english)
+- `--structure`: Narrative structure (auto, hero_journey, three_act, kishotenketsu, in_medias_res, circular, nonlinear_mosaic)
+- `--pages`: Target story length in pages (e.g., 200 for short novel, 400 for standard)
+
+#### Technical Options:
+- `--output`: Output file path (default: generated filename)
+- `--model-provider`: LLM provider (openai, anthropic, gemini)
+- `--model`: Specific model to use
+- `--cache`: Cache type (memory, sqlite, none)
+- `--cache-path`: Custom cache location
+- `--recursion-limit`: LangGraph recursion limit (default: 200)
+- `--verbose`: Show detailed progress
+
+#### Advanced Features:
+- `--research-worldbuilding`: Enable web research for worldbuilding
+- `--audio-book`: Generate SSML markup for audiobook creation
+- `--convert-existing`: Add SSML to existing story in database
 
 ### Supported Languages
 
-The system supports generating stories in the following languages:
 - English (default)
-- Spanish
-- French
-- German
-- Italian
-- Portuguese
-- Russian
-- Japanese
-- Chinese
-- Korean
-- Arabic
-- Hindi
+- German (full template support)
 
-### Examples
+### Example Workflows
 
+#### Standard Novel with Research
 ```bash
-# Generate a fantasy story in an epic tone
-python run_storyteller.py --genre fantasy --tone epic
-
-# Generate a mystery story in a dark tone inspired by Edgar Allan Poe
-python run_storyteller.py --genre mystery --tone dark --author "Edgar Allan Poe"
-
-# Generate a sci-fi story in the style of Isaac Asimov and save to a custom file
-python run_storyteller.py --genre "science fiction" --tone philosophical --author "Isaac Asimov" --output asimov_story.md
-
-# Generate a story with detailed progress updates and in-memory caching
-python run_storyteller.py --genre fantasy --tone epic --verbose --cache memory
-
-# Generate a story with no LLM caching (useful for testing or when you want fresh responses)
-python run_storyteller.py --genre mystery --tone suspenseful --cache none
-
-# Use a custom cache location
-python run_storyteller.py --genre fantasy --tone heroic --cache sqlite --cache-path ~/.cache/storyteller/my_custom_cache.db
-
-# Generate a complex story with higher recursion limit for large number of chapters
-python run_storyteller.py --genre fantasy --tone epic --recursion-limit 300
-
-# Generate a story in Spanish
-python run_storyteller.py --genre fantasy --tone epic --language spanish
-
-# Generate a story based on a specific idea
-python run_storyteller.py --idea "A detective story set in a zoo" --tone mysterious
-
-# Generate a story using OpenAI's GPT-4o model
-python run_storyteller.py --genre fantasy --tone epic --model-provider openai
-
-# Generate a story using Anthropic's Claude 3.5 Sonnet model
-python run_storyteller.py --genre mystery --tone dark --model-provider anthropic
-
-# Generate a story using a specific model from Google
-python run_storyteller.py --genre sci-fi --tone futuristic --model-provider gemini --model gemini-2.0-pro
-
-# Let AI choose the best narrative structure for a mystery
-python run_storyteller.py --genre mystery --tone dark --structure auto
-
-# Force a three-act structure for a thriller
-python run_storyteller.py --genre thriller --tone suspenseful --structure three_act
-
-# Generate a contemplative story using Kishōtenketsu (4-act Japanese structure)
-python run_storyteller.py --genre "literary fiction" --tone contemplative --structure kishotenketsu
-
-# Create a short novel (~200 pages)
-python run_storyteller.py --genre horror --tone atmospheric --pages 200
-
-# Generate a standard length novel (~400 pages)
-python run_storyteller.py --genre fantasy --tone epic --pages 400
-
-# Start the story in the middle of action
-python run_storyteller.py --genre action --tone "fast-paced" --structure in_medias_res
-
-# Create a 300-page mystery using three-act structure
-python run_storyteller.py --genre mystery --tone suspenseful --structure three_act --pages 300
+# Generate a 400-page sci-fi novel with research-enhanced worldbuilding
+python run_storyteller.py \
+  --genre "science fiction" \
+  --tone philosophical \
+  --pages 400 \
+  --research-worldbuilding \
+  --verbose
 ```
 
-## How It Works
-
-StoryCraft uses LangGraph to orchestrate the story generation process through several stages:
-
-1. **Initialization**: Sets up the story parameters and selects the optimal narrative structure
-2. **Creative Brainstorming**: Generates and evaluates multiple creative story concepts
-3. **Narrative Structure Selection**: AI analyzes genre, tone, and concept to choose the best structure
-4. **Story Outline Generation**: Creates the overall story structure using the selected narrative framework
-5. **Character Development**: Generates detailed character profiles
-6. **Chapter Planning**: Divides the story into chapters based on the narrative structure
-7. **Scene Brainstorming**: Generates creative elements for each scene
-8. **Scene Writing**: Generates detailed content with comprehensive context
-9. **Reflection & Revision**: Reviews scenes for quality and consistency
-10. **Character Updates**: Manages character evolution throughout the story
-11. **Story Compilation**: Assembles the final complete story
-
-The agent maintains state throughout the process using LangGraph's state management and SQLite database for memory operations to ensure consistency and continuity.
-
-## Story Length Control
-
-The `--pages` parameter provides an intuitive way to control story length:
-- **100-200 pages**: Short novel or novella
-- **200-300 pages**: Short to medium novel  
-- **300-400 pages**: Standard novel length
-- **400-500 pages**: Long novel
-- **500+ pages**: Epic length
-
-The system automatically calculates the optimal number of chapters and scenes based on:
-- Your chosen narrative structure
-- The complexity of your story idea
-- Genre conventions
-
-For example, a 300-page mystery using three-act structure might result in 15 chapters with 5 scenes each, while a 300-page literary fiction using Kishōtenketsu might have 16 chapters (divisible by 4) with 4-6 scenes each.
-
-## Narrative Structures
-
-StoryCraft supports multiple narrative structures, each suited to different types of stories:
-
-### Hero's Journey
-- **Best for**: Fantasy, adventure, coming-of-age stories
-- **Structure**: 12 phases from ordinary world through transformation and return
-- **Example genres**: Epic fantasy, space opera, mythological tales
-
-### Three-Act Structure
-- **Best for**: Mystery, thriller, romance, drama
-- **Structure**: Setup (25%), Confrontation (50%), Resolution (25%)
-- **Example genres**: Detective stories, psychological thrillers, romantic comedies
-
-### Kishōtenketsu (起承転結)
-- **Best for**: Literary fiction, slice-of-life, contemplative stories
-- **Structure**: Introduction, Development, Twist (non-conflict), Conclusion
-- **Example genres**: Character studies, philosophical narratives, Eastern-influenced stories
-
-### In Medias Res
-- **Best for**: Action, thriller, noir
-- **Structure**: Start in action, flashback for context, return to present
-- **Example genres**: Heist stories, war narratives, action thrillers
-
-### Circular/Cyclical
-- **Best for**: Philosophical, literary, time-based narratives
-- **Structure**: Ending mirrors beginning with transformation
-- **Example genres**: Time loop stories, character transformation arcs
-
-### Nonlinear/Mosaic
-- **Best for**: Literary fiction, mystery, psychological narratives
-- **Structure**: Interconnected vignettes revealing pattern
-- **Example genres**: Multi-perspective mysteries, experimental fiction
-
-The system automatically selects the most appropriate structure based on your genre and story concept, or you can specify one using the `--structure` parameter.
-
-## Audiobook Generation
-
-StoryCraft can generate professional audiobooks using Azure Text-to-Speech with SSML (Speech Synthesis Markup Language) support.
-
-### Prerequisites
-
-1. **Azure Speech Service Account**: You need an Azure account with Speech Service enabled
-2. **API Credentials**: Add to your `.env` file:
-   ```
-   SPEECH_KEY=your-azure-speech-key-here
-   SPEECH_REGION=your-azure-region-here  # e.g., eastus, westeurope
-   ```
-
-### Generating Audiobooks
-
-1. **Generate a story with SSML support**:
-   ```bash
-   python run_storyteller.py --genre fantasy --tone epic --audio-book
-   ```
-   This generates the story and prepares SSML content for each scene.
-
-2. **Convert existing story to audiobook**:
-   ```bash
-   python run_storyteller.py --convert-existing --audio-book
-   ```
-   This adds SSML markup to an existing story in the database.
-
-3. **Generate audio files**:
-   ```bash
-   # Test with first scene only
-   python generate_audiobook.py --test
-   
-   # Generate complete audiobook
-   python generate_audiobook.py
-   
-   # Use a different voice
-   python generate_audiobook.py --voice "en-US-AvaMultilingualNeural"
-   ```
-
-### Audio File Organization
-
-Audio files are generated in a folder named after your story title:
-```
-audiobook_output/
-└── Your_Story_Title/
-    ├── 01-01-chapter_title.mp3  # Chapter 1, Scene 1
-    ├── 01-02-chapter_title.mp3  # Chapter 1, Scene 2
-    ├── 02-01-chapter_title.mp3  # Chapter 2, Scene 1
-    └── ...
+#### Multi-Language Story
+```bash
+# Generate a German fantasy story in the style of Michael Ende
+python run_storyteller.py \
+  --genre fantasy \
+  --tone whimsical \
+  --author "Michael Ende" \
+  --language german \
+  --output "die_unendliche_geschichte_2.md"
 ```
 
-File naming format: `[chapter]-[scene]-[chapter_title].mp3`
+#### Complete Audiobook Production
+```bash
+# Step 1: Generate story with SSML
+python run_storyteller.py \
+  --genre mystery \
+  --tone suspenseful \
+  --audio-book
 
-### SSML Features
-
-The generated SSML includes:
-- **Book and chapter announcements**: First scene includes book title, each chapter starts with chapter title
-- **Prosody control**: Variable speech rates for atmosphere (slower for dramatic scenes, faster for action)
-- **Emphasis**: Important words and phrases are emphasized
-- **Pauses**: Natural pauses between paragraphs and dramatic pauses for effect
-- **Voice variations**: Different pitch for dialogue, quotes, and narrative
-
-### Supported Voices
-
-- **English**: en-US-JennyNeural (default), en-US-AvaMultilingualNeural, en-US-GuyNeural
-- **German**: de-DE-SeraphinaMultilingualNeural (default), de-DE-KatjaNeural, de-DE-ConradNeural
-- **Other languages**: Automatically selected based on story language
-
-### Cost Estimation
-
-Azure Text-to-Speech pricing is approximately $16 per 1 million characters. The system shows cost estimates before generation.
-
-## System Components
-
-### Plot Thread Tracking
-
-The plot tracking system manages narrative threads throughout the story generation process:
-
-1. **Thread Identification**:
-   - After each scene is written, the system analyzes it to identify plot threads
-   - Uses LLM with structured output to extract thread information
-   - Recognizes various types of threads: mysteries, quests, relationships, conflicts, secrets
-
-2. **Thread Management**:
-   - `PlotThread` class represents individual threads with properties like name, description, importance, and status
-   - `PlotThreadRegistry` maintains all threads and provides filtering methods
-   - Threads have statuses (INTRODUCED, DEVELOPED, RESOLVED, ABANDONED) and importance levels (MAJOR, MINOR, BACKGROUND)
-
-3. **Thread Integration**:
-   - When writing new scenes, the system provides guidance on active threads that need attention
-   - Major threads must be addressed, minor threads should be addressed if relevant
-   - At story completion, the system verifies all major threads are resolved
-
-### Scene Generation
-
-The scene generation process combines creativity with structural coherence:
-
-1. **Brainstorming**:
-   - `brainstorm_scene_elements` generates creative elements and potential surprises
-   - Evaluates ideas based on criteria like visual impact, character development, and plot advancement
-
-2. **Writing**:
-   - `write_scene` uses comprehensive context including plot threads, character information, and worldbuilding
-   - Incorporates author style, language considerations, and emotional guidance
-   - Ensures scene serves both character and plot development
-
-3. **Reflection & Revision**:
-   - `reflect_on_scene` evaluates the scene against quality criteria
-   - `revise_scene_if_needed` addresses identified issues
-   - Ensures consistency with established world elements and character traits
-
-### Character Management
-
-Characters evolve dynamically throughout the story:
-
-1. **Profile Creation**:
-   - Generates detailed character profiles with backstory, motivations, and traits
-   - Establishes relationships between characters
-   - Defines inner conflicts and character arcs
-
-2. **Knowledge Tracking**:
-   - Maintains what each character knows at any point in the story
-   - Prevents knowledge inconsistencies (characters knowing things they shouldn't)
-
-3. **Profile Updates**:
-   - After each scene, character profiles are updated to reflect developments
-   - Tracks character growth, relationship changes, and new knowledge
-
-### Worldbuilding System
-
-The worldbuilding system creates and maintains a consistent story world:
-
-1. **Element Generation**:
-   - Creates detailed world elements across categories (geography, politics, culture, etc.)
-   - Tailors elements to the story's genre and tone
-
-2. **Scene Integration**:
-   - Identifies which world elements are relevant to each scene
-   - Provides worldbuilding guidance to ensure consistency
-
-3. **Dynamic Updates**:
-   - World elements evolve as the story progresses
-   - New locations, cultural details, and world rules can be added organically
-
-### Consistency Management
-
-The system maintains narrative consistency through several mechanisms:
-
-1. **Continuity Review**:
-   - After each chapter, reviews for continuity issues
-   - Identifies plot holes, character inconsistencies, and worldbuilding contradictions
-
-2. **Issue Resolution**:
-   - Resolves identified issues through targeted revisions
-   - Updates relevant state elements to maintain consistency
-
-3. **Memory Integration**:
-   - Uses SQLite database to store and retrieve important story elements
-   - Creates memory records for critical elements that must be preserved
+# Step 2: Generate audio files
+python generate_audiobook.py --voice "en-US-JennyNeural"
+```
 
 ## Architecture
 
-The agent is built using:
+### Core Components
 
-- **LangGraph**: For orchestration and state management
-- **SQLite Database**: For persistent memory storage and retrieval
-- **Multiple LLM Providers**: Support for OpenAI, Anthropic, and Google Gemini models
-- **LangChain Caching**: For improved performance and cost efficiency
+The system is organized into distinct modules under `storyteller_lib/`:
 
-The architecture follows a graph structure with nodes for each step of the story generation process, connected by conditional edges that determine the flow based on the current state.
+1. **API Layer** (`api/`): Public interface for story generation
+2. **Workflow Nodes** (`workflow/nodes/`): LangGraph workflow components
+3. **Generation Modules** (`generation/`): Creative content generation
+4. **Analysis Tools** (`analysis/`): Consistency and quality checks
+5. **Persistence Layer** (`persistence/`): Database and memory management
+6. **Universe Building** (`universe/`): World and character management
+7. **Prompt System** (`prompts/`): Multi-language template rendering
 
-### Model Interchangeability
+### LangGraph Workflow
 
-The system supports multiple LLM providers that can be selected at runtime:
+The story generation follows a sophisticated graph-based workflow:
 
-- **OpenAI**: GPT-4o and other OpenAI models
-- **Anthropic**: Claude 3.5 Sonnet and other Claude models
-- **Google Gemini**: Gemini 2.0 Flash (default) and other Gemini models
-
-Each provider has its own default model, but specific models can be specified using the `--model` parameter. The system will automatically use the appropriate API key from the .env file based on the selected provider.
-
-### Core Modules
-
-1. **Initialization (`initialization.py`)**:
-   - Sets up initial state based on user parameters
-   - Analyzes story concept to select optimal narrative structure
-   - Generates author style guidance if an author is specified
-   - Determines story length and chapter distribution
-
-2. **Narrative Structures (`narrative_structures.py`)**:
-   - Defines 6 different narrative structure classes
-   - Provides structure selection logic based on genre/tone
-   - Calculates optimal chapter and scene distributions
-   - Manages structure-specific tension curves and pacing
-
-3. **Outline Generation (`outline.py`)**:
-   - Creates the global story structure using selected narrative framework
-   - Adapts outline generation to chosen structure
-   - Generates character profiles with backstories and motivations
-   - Plans chapters with scene breakdowns based on structure
-
-4. **Worldbuilding (`worldbuilding.py`)**:
-   - Generates detailed world elements across multiple categories
-   - Creates geography, politics, culture, history, and more
-   - Ensures world elements align with genre conventions
-
-5. **Scene Management (`scenes.py` and `scenes_v2.py`)**:
-   - Handles scene brainstorming, writing, reflection, and revision
-   - Integrates plot threads, character information, and world elements
-   - Provides comprehensive scene context with "what happened until now" summaries
-   - Ensures scenes advance both character arcs and plot development
-
-6. **Plot Thread Tracking (`plot_threads.py`)**:
-   - Identifies and manages narrative threads throughout the story
-   - Tracks thread status (introduced, developed, resolved, abandoned)
-   - Ensures major plot threads are properly resolved
-
-7. **Progression Management (`progression.py`)**:
-   - Handles transitions between scenes and chapters
-   - Updates character profiles and world elements
-   - Reviews continuity and resolves issues
-
-8. **Graph Construction (`graph.py` and `graph_v2.py`)**:
-   - Defines the LangGraph workflow with nodes and conditional edges
-   - Implements decision functions that determine the flow
-   - Manages state transitions between components
-   - V2 workflow provides enhanced scene context and consistency
-
-9. **Storyteller Core (`storyteller.py` and `storyteller_v2.py`)**:
-   - Provides the main entry point for story generation
-   - Handles initial idea parsing and genre element extraction
-   - Manages database integration and state coordination
-   - V2 version includes enhanced memory management
-
-## LangGraph Workflow
-
-```mermaid
-flowchart TD
-    START((Start)) --> INIT[Initialize State]
-    
-    INIT --> |no concepts| BRAINSTORM[Brainstorm Story Concepts]
-    INIT --> |has concepts| OUTLINE[Generate Story Outline]
-    
-    BRAINSTORM --> |has concepts| OUTLINE
-    BRAINSTORM --> |no concepts| BRAINSTORM
-    
-    OUTLINE --> |has outline| CHARS[Generate Characters]
-    OUTLINE --> |no outline| OUTLINE
-    
-    CHARS --> |has characters| PLAN[Plan Chapters]
-    CHARS --> |no characters| CHARS
-    
-    PLAN --> SCENE_BRAINSTORM[Brainstorm Scene Elements]
-    
-    SCENE_BRAINSTORM --> WRITE[Write Scene]
-    WRITE --> REFLECT[Reflect on Scene]
-    REFLECT --> REVISE[Revise Scene if Needed]
-    
-    REVISE --> UPDATE_CHARS[Update Character Profiles]
-    
-    UPDATE_CHARS --> |chapter complete| REVIEW[Review Continuity]
-    UPDATE_CHARS --> |chapter incomplete| ADVANCE[Advance to Next Scene/Chapter]
-    
-    REVIEW --> |needs resolution| RESOLVE[Resolve Continuity Issues]
-    REVIEW --> |no issues| ADVANCE
-    
-    RESOLVE --> |more issues| RESOLVE
-    RESOLVE --> |resolved| ADVANCE
-    
-    ADVANCE --> |story complete| COMPILE[Compile Final Story]
-    ADVANCE --> |more chapters/scenes| SCENE_BRAINSTORM
-    
-    COMPILE --> END((End))
+```
+Initialize → Brainstorm → Select Structure → Generate Outline → 
+Build World → Create Characters → Plan Chapters → 
+[For each scene: Brainstorm → Write → Reflect → Revise → Update] →
+Review Continuity → Compile Story
 ```
 
-The diagram shows the current LangGraph implementation with explicit conditional edges between nodes. Unlike earlier versions that used a central router, this version uses LangGraph's native edge system for state transitions. Each conditional edge evaluates the current state to determine the next node to execute, creating a more reliable and maintainable flow that prevents recursion issues.
+Key workflow features:
+- **Conditional Edges**: Dynamic flow based on state
+- **No Recursion**: Explicit state transitions prevent loops
+- **State Persistence**: Every step saved to database
+- **Error Recovery**: Graceful handling of failures
 
-## State Management
+### State Management
 
-The agent uses a structured state schema with TypedDict classes to manage the evolving state of the story:
+Uses TypedDict classes for structured state:
+- `StoryState`: Top-level container
+- `CharacterProfile`: Character information and evolution
+- `ChapterState`: Chapter structure and scenes
+- `SceneState`: Scene content and metadata
+- `PlotThread`: Narrative thread tracking
 
-- **StoryState**: The top-level state container
-- **CharacterProfile**: Tracks character information and development
-- **ChapterState**: Manages chapter outlines and scenes
-- **SceneState**: Contains scene content and reflection notes
+### Database Schema
 
-State updates follow LangGraph's immutable state update pattern:
-1. Only the changed keys are returned from node functions
-2. The state is never modified directly
-3. Nested structures are copied before modification
-4. LangGraph handles merging the changes into the state
+SQLite database with tables for:
+- Story configuration and metadata
+- Chapters and scenes with full content
+- Character profiles and knowledge states
+- World elements and locations
+- Plot threads and their status
+- Memory anchors for consistency
+- Progress tracking and logs
+
+## Advanced Features
+
+### Plot Thread Management
+
+The system actively tracks narrative threads:
+- **Identification**: Automatic extraction from written scenes
+- **Classification**: Major, minor, and background threads
+- **Status Tracking**: Introduced, developed, resolved, or abandoned
+- **Integration**: Influences scene generation and ensures resolution
+
+### Character Knowledge System
+
+Prevents inconsistencies by tracking:
+- What each character knows at any point
+- How they learned the information
+- Knowledge updates after each scene
+- Prevents characters knowing things they shouldn't
+
+### Research-Driven Worldbuilding
+
+When enabled with `--research-worldbuilding`:
+- Uses Tavily API for web research
+- Creates authentic world elements based on real information
+- Particularly useful for historical or technical accuracy
+- Requires `TAVILY_API_KEY` in environment
+
+### Correction Systems
+
+Multiple levels of quality assurance:
+1. **Scene Corrections**: Grammar, consistency, flow
+2. **Chapter Corrections**: Overall coherence, pacing
+3. **Style Corrections**: Maintain author voice throughout
+4. **Minor Corrections**: Final polish and cleanup
+
+## Audiobook Generation
+
+### Setup
+
+1. Get Azure Speech Service credentials
+2. Add to `.env`:
+   ```
+   SPEECH_KEY=your-key
+   SPEECH_REGION=your-region
+   ```
+
+### Generation Process
+
+1. Generate story with SSML:
+   ```bash
+   python run_storyteller.py --genre fantasy --audio-book
+   ```
+
+2. Create audio files:
+   ```bash
+   python generate_audiobook.py
+   ```
+
+### Features
+
+- Professional narration with voice modulation
+- Chapter and scene organization
+- Automatic voice selection by language
+- Cost estimation before generation
+- SSML markup for emphasis and pacing
+
+## Development
+
+### Using Nix Environment
+
+```bash
+# Enter development shell
+nix develop
+
+# Run with proper environment
+nix develop -c python run_storyteller.py --genre fantasy
+```
+
+### Project Structure
+
+```
+storyteller/
+├── run_storyteller.py          # Main CLI entry point
+├── generate_audiobook.py       # TTS generation
+├── storyteller_lib/            # Core library
+│   ├── api/                    # Public API
+│   ├── workflow/               # LangGraph nodes
+│   ├── generation/             # Content generation
+│   ├── analysis/               # Quality checks
+│   └── ...                     # Other modules
+├── flake.nix                   # Nix configuration
+├── pyproject.toml              # Poetry dependencies
+└── .env.example                # Environment template
+```
+
+### Debugging
+
+- Story progress: `~/.storyteller/logs/story_progress.log`
+- Database inspection: `~/.storyteller/story_database.db`
+- Enable verbose mode with `--verbose` flag
+- LangSmith integration available for tracing
+
+## Contributing
+
+When contributing:
+1. Use the Nix development environment
+2. Follow existing code patterns and conventions
+3. Run formatters: `black storyteller_lib/`
+4. Test changes with various story configurations
+5. Update documentation as needed
 
 
-## Component Interactions
+## Acknowledgments
 
-### Plot Tracking Integration with Story Flow
-
-The plot tracking system interacts with other components throughout the story generation process:
-
-1. **Scene Generation Integration**:
-   - Before writing a scene, the system retrieves active plot threads using `get_active_plot_threads_for_scene`
-   - These threads are incorporated into the scene writing prompt via `_prepare_plot_thread_guidance`
-   - This ensures the writer is aware of which threads need development or resolution
-
-2. **State Management Integration**:
-   - After a scene is written, `update_plot_threads` analyzes the scene and updates the thread registry
-   - The updated registry is stored in the state and passed to subsequent nodes
-   - This creates a feedback loop where each scene influences future scenes
-
-3. **Continuity Review Integration**:
-   - During continuity review, `check_plot_thread_resolution` verifies all major threads are resolved
-   - Unresolved threads are flagged as continuity issues that need resolution
-   - This prevents the story from ending with unresolved major plot elements
-
-4. **Story Compilation Integration**:
-   - Before final compilation, a final check ensures all major threads are resolved
-   - This provides a safeguard against plot holes in the finished story
-
-This integrated approach ensures that plot threads are not just tracked passively but actively influence the story generation process at multiple points, creating a coherent narrative with properly developed and resolved plot elements.
-
+Built with:
+- [LangGraph](https://github.com/langchain-ai/langgraph) for workflow orchestration
+- [LangChain](https://github.com/langchain-ai/langchain) for LLM integration
+- Multiple LLM providers for content generation
+- Azure Cognitive Services for text-to-speech
