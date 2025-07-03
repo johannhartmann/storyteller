@@ -1002,7 +1002,7 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
                 research_context = {}
         
         # Store new locations in worldbuilding using research
-        from storyteller_lib.prompts.renderer import render_template
+        from storyteller_lib.prompts.renderer import render_prompt
         
         for loc in locations_to_create:
             try:
@@ -1017,7 +1017,7 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
                     
                     # Generate full description incorporating research
                     
-                    synthesis_prompt = render_template(
+                    synthesis_prompt = render_prompt(
                         'location_synthesis',
                         language=language,
                         research_info=research_info,
@@ -1034,7 +1034,7 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
                     # No research available - use suggested description or create basic one
                     if loc.suggested_description:
                         # Expand the suggestion into a full description
-                        expansion_prompt = render_template(
+                        expansion_prompt = render_prompt(
                             'location_expansion',
                             language=language,
                             genre=genre,
@@ -1109,9 +1109,9 @@ async def _research_locations(
             logger.info(f"Researching location: {location_name}")
             
             # Use LLM to generate appropriate search queries for this location
-            from storyteller_lib.prompts.renderer import render_template
+            from storyteller_lib.prompts.renderer import render_prompt
             
-            query_prompt = render_template(
+            query_prompt = render_prompt(
                 'location_research_query',
                 language=language,
                 genre=genre,
@@ -1158,7 +1158,7 @@ async def _research_locations(
                         content = result.content[:1000] if len(result.content) > 1000 else result.content
                         research_findings.append(f"- {result.title}: {content}")
                     
-                    summary_prompt = render_template(
+                    summary_prompt = render_prompt(
                         'location_research_summary',
                         language=language,
                         location_name=location_name,
@@ -1173,7 +1173,7 @@ async def _research_locations(
                     # No search results found - generate description based on context
                     logger.warning(f"No search results for {location_name}, using LLM generation")
                     
-                    fallback_prompt = render_template(
+                    fallback_prompt = render_prompt(
                         'location_synthesis',
                         language=language,
                         research_info="",  # No research available
@@ -1190,7 +1190,7 @@ async def _research_locations(
             logger.error(f"Failed to research location {location_name}: {e}")
             # Use LLM fallback even on exceptions
             try:
-                fallback_prompt = render_template(
+                fallback_prompt = render_prompt(
                     'location_synthesis',
                     language=language,
                     research_info="",  # No research available
