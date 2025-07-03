@@ -25,7 +25,7 @@ from storyteller_lib.api.storyteller import generate_story_simplified
 from storyteller_lib.analysis.statistics import display_progress_report
 from storyteller_lib.core.logger import setup_logging
 
-#setup_logging(level="DEBUG", log_file="storyteller_debug.log")
+setup_logging(level="DEBUG", log_file="storyteller_debug.log")
 
 # Load environment variables from .env file
 load_dotenv()
