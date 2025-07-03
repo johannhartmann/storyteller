@@ -1110,6 +1110,13 @@ async def _research_locations(
             
             # Use LLM to generate appropriate search queries for this location
             from storyteller_lib.prompts.renderer import render_prompt
+            from pydantic import BaseModel, Field
+            from typing import List
+            
+            class LocationSearchQueries(BaseModel):
+                """Search queries for researching a location."""
+                historical_query: str = Field(description="Search query for historical/architectural information")
+                atmosphere_query: str = Field(description="Search query for atmosphere/cultural context")
             
             query_prompt = render_prompt(
                 'location_research_query',
@@ -1120,8 +1127,10 @@ async def _research_locations(
                 initial_idea=initial_idea
             )
             
-            query_response = llm.invoke(query_prompt)
-            queries = [q.strip() for q in query_response.content.strip().split('\n') if q.strip()][:2]
+            # Use structured output to get search queries
+            structured_llm = llm.with_structured_output(LocationSearchQueries)
+            query_result = structured_llm.invoke(query_prompt)
+            queries = [query_result.historical_query, query_result.atmosphere_query]
             
             if not queries:
                 # Fallback to generic queries based on location name
