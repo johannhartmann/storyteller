@@ -1,28 +1,30 @@
-Basierend auf den folgenden Forschungsergebnissen, synthetisiere wichtige Erkenntnisse über kulturelle Elemente, die wertvoll für die Erstellung einer {{ genre }}-Geschichte mit {{ tone }} Ton wären.
+Basierend auf den folgenden Forschungsergebnissen für den Kultur-Weltenbau, synthetisiere wichtige Erkenntnisse, die für die Geschichte wertvoll wären.
 
 Geschichtskonzept: {{ initial_idea }}
+
+Geschichtskontext:
+- Genre: {{ context.genre }}
+- Ton: {{ context.tone }}
+{% if context.story_outline %}- Überblick: {{ context.story_outline }}{% endif %}
 
 Forschungsergebnisse:
 {{ research_findings }}
 
-Extrahiere und synthetisiere Erkenntnisse über:
-1. Sprachen, Dialekte und Kommunikationsstile
-2. Kunstformen, Musik, Literatur und kreativer Ausdruck
-3. Werte, Überzeugungen und philosophische Systeme
-4. Soziale Hierarchien und Klassenstrukturen
-5. Traditionen, Rituale und Zeremonien
-6. Bildungssysteme und Wissensübertragung
-7. Kulturelle Tabus und soziale Normen
-8. Interkulturelle Beziehungen und Konflikte
+Extrahiere und synthetisiere Erkenntnisse über Kultur, die sich konzentrieren auf:
+1. **Soziale Strukturen**: Klassensysteme, Familienstrukturen, Gemeinschaftsorganisation, soziale Mobilität
+2. **Bräuche und Traditionen**: Rituale, Zeremonien, Initiationsriten, saisonale Feiern
+3. **Kunst und Ausdruck**: Musik, Literatur, bildende Kunst, Aufführungstraditionen, Geschichtenerzählen
+4. **Werte und Tabus**: Kernüberzeugungen, verbotene Praktiken, Ehrenkodizes, soziale Erwartungen
+5. **Kommunikation**: Sprachen, Dialekte, nonverbale Kommunikation, Schriftsysteme
+6. **Kulturelle Konflikte**: Zusammenstoßende Werte zwischen Gruppen, Generationenunterschiede, Tradition vs. Fortschritt
 
-Formatiere deine Antwort als Schlüssel-Wert-Paare, wobei der Schlüssel ein kurzer Deskriptor und der Wert die Erkenntnis ist.
-Beispielformat:
-namenstradition: Kinder erhalten ihre Erwachsenennamen erst nach Abschluss einer Pilgerreise
-künstlerischer_ausdruck: Poesie gilt als höchste Kunstform und Dichter haben Adelsstatus
-kulturelle_kluft: Nord- und Südregionen haben unvereinbare Konzepte von Gastfreundschaft
+Gib deine Erkenntnisse im folgenden Format an:
+- insight_keys: Eine durch Pipes getrennte Liste von kurzen Beschreibungsnamen (z.B. "ehrenkultur|matriarchalische_gesellschaft|mündliche_tradition|künstlerische_renaissance")
+- insight_values: Eine durch Pipes getrennte Liste von detaillierten Beschreibungen, die jedem Schlüssel entsprechen
 
-Konzentriere dich auf Erkenntnisse, die:
-- Reiche kulturelle Tiefe und Authentizität schaffen
-- Quellen für Missverständnisse oder Konflikte bieten
-- Charaktermotivationen und -verhalten beeinflussen
-- Die Themen und emotionale Resonanz der Geschichte unterstützen
+Konzentriere dich auf kulturelle Erkenntnisse, die:
+- Glaubwürdige Gesellschaften mit interner Logik schaffen
+- Charaktermotivationen und Konflikte generieren
+- Dialoge und Interaktionen bereichern
+- Kulturelle Hindernisse oder Vorteile bieten
+- Genre-Erwartungen erfüllen und gleichzeitig einzigartige Elemente hinzufügen

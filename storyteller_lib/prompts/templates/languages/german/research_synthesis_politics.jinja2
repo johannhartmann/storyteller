@@ -1,28 +1,30 @@
-Basierend auf den folgenden Forschungsergebnissen, synthetisiere wichtige Erkenntnisse über politische Systeme und Regierungsführung, die wertvoll für die Erstellung einer {{ genre }}-Geschichte mit {{ tone }} Ton wären.
+Basierend auf den folgenden Forschungsergebnissen für den Politik-Weltenbau, synthetisiere wichtige Erkenntnisse, die für die Geschichte wertvoll wären.
 
 Geschichtskonzept: {{ initial_idea }}
+
+Geschichtskontext:
+- Genre: {{ context.genre }}
+- Ton: {{ context.tone }}
+{% if context.story_outline %}- Überblick: {{ context.story_outline }}{% endif %}
 
 Forschungsergebnisse:
 {{ research_findings }}
 
-Extrahiere und synthetisiere Erkenntnisse über:
-1. Regierungsformen und Machtstrukturen
-2. Wie Führer gewählt werden oder an die Macht kommen
-3. Politische Fraktionen, Parteien oder konkurrierende Interessen
-4. Gesetze, Rechtssysteme und Durchsetzungsmechanismen
-5. Internationale Beziehungen und Diplomatie
-6. Machtkämpfe und Nachfolgeprobleme
-7. Korruption, Reformbewegungen oder Widerstand
-8. Wie Politik gewöhnliche Bürger beeinflusst
+Extrahiere und synthetisiere Erkenntnisse über Politik, die sich konzentrieren auf:
+1. **Machtstrukturen**: Regierungsformen, Hierarchien, Kontrollmechanismen, Schattenmächte
+2. **Führung**: Wie Führer an die Macht kommen, Nachfolgesysteme, Legitimitätsquellen
+3. **Fraktionen und Parteien**: Politische Gruppen, Ideologien, konkurrierende Interessen, Koalitionen
+4. **Recht und Gerechtigkeit**: Rechtssysteme, Durchsetzung, Korruption, Reformbewegungen
+5. **Internationale Beziehungen**: Diplomatie, Allianzen, Handelsabkommen, Konflikte
+6. **Politische Spannungen**: Machtkämpfe, Nachfolgekrisen, revolutionäre Bewegungen
 
-Formatiere deine Antwort als Schlüssel-Wert-Paare, wobei der Schlüssel ein kurzer Deskriptor und der Wert die Erkenntnis ist.
-Beispielformat:
-nachfolgekrise: Der Thron geht an das älteste Kind, das das uralte Rätsel lösen kann
-schattenregierung: Kaufmannsgilden kontrollieren heimlich die Politik durch wirtschaftliche Hebelwirkung
-rechtssystem: Gerichtskämpfe bestimmen die Schuld bei Verbrechen gegen den Adel
+Gib deine Erkenntnisse im folgenden Format an:
+- insight_keys: Eine durch Pipes getrennte Liste von kurzen Beschreibungsnamen (z.B. "oligarchie_kontrolle|nachfolgekrise|schattenkabinett|diplomatische_spannungen")
+- insight_values: Eine durch Pipes getrennte Liste von detaillierten Beschreibungen, die jedem Schlüssel entsprechen
 
-Konzentriere dich auf Erkenntnisse, die:
-- Natürliche Konflikt- und Spannungsquellen schaffen
-- Machtdynamiken zwischen Charakteren etablieren
-- Hindernisse und Chancen für Protagonisten bieten
-- Sich authentisch zur Kultur und Geschichte der Welt anfühlen
+Konzentriere dich auf politische Erkenntnisse, die:
+- Konfliktquellen und Machtkämpfe schaffen
+- Hindernisse für Charaktere etablieren
+- Möglichkeiten für Intrigen und Manipulation bieten
+- Reale politische Dynamiken angemessen widerspiegeln
+- Die Themen und Handlung der Geschichte unterstützen

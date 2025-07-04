@@ -1,28 +1,29 @@
-Basierend auf den folgenden Forschungsergebnissen, synthetisiere wichtige Erkenntnisse über religiöse und spirituelle Systeme, die wertvoll für die Erstellung einer {{ genre }}-Geschichte mit {{ tone }} Ton wären.
+Basierend auf den folgenden Forschungsergebnissen für den Religions-Weltenbau, extrahiere detaillierte Informationen, die zur Schaffung reichhaltiger Religionssysteme für die Geschichte verwendet werden können.
 
 Geschichtskonzept: {{ initial_idea }}
+
+Geschichtskontext:
+- Genre: {{ context.genre }}
+- Ton: {{ context.tone }}
+{% if context.story_outline %}- Überblick: {{ context.story_outline }}{% endif %}
 
 Forschungsergebnisse:
 {{ research_findings }}
 
-Extrahiere und synthetisiere Erkenntnisse über:
-1. Glaubenssysteme, Gottheiten oder spirituelle Kräfte
-2. Religiöse Praktiken, Rituale und Observanzen
-3. Heilige Texte, Prophezeiungen oder mündliche Überlieferungen
-4. Religiöse Hierarchien und Institutionen
-5. Heilige Stätten, Pilgertradition und sakrale Objekte
-6. Religiöse Konflikte, Schismen oder Reformationen
-7. Wie Religion Recht, Politik und Alltag beeinflusst
-8. Mystische Erfahrungen, Wunder oder göttliche Interventionen
+Extrahiere umfassende Erkenntnisse über Religion, mit Fokus auf:
+1. **Glaubenssysteme**: Detaillierte Beispiele religiöser Philosophien, Pantheons, Schöpfungsmythen und spiritueller Weltanschauungen
+2. **Religiöse Praktiken**: Spezifische Rituale, Zeremonien, Gebetsmethoden und Andachtsaktivitäten
+3. **Heilige Elemente**: Tatsächliche religiöse Texte, historische Prophezeiungen, Pilgerstätten und heilige Artefakte
+4. **Religiöse Organisationen**: Reale Beispiele religiöser Hierarchien, Mönchsorden und institutioneller Strukturen
+5. **Glaube und Macht**: Wie Religionen Regierungen, Gesetze und soziale Strukturen beeinflusst haben
+6. **Religiöse Dynamiken**: Historische religiöse Konflikte, Reformationen, Synkretismus und interreligiöse Beziehungen
 
-Formatiere deine Antwort als Schlüssel-Wert-Paare, wobei der Schlüssel ein kurzer Deskriptor und der Wert die Erkenntnis ist.
-Beispielformat:
-doppelverehrung: Bürger verehren öffentlich die Staatsreligion, unterhalten aber geheime Hausschreine
-prophezeiungsinterpretation: Religiöse Texte sind absichtlich mehrdeutig, was zu konkurrierenden Sekten führt
-göttliches_mandat: Herrscher müssen sich einer spirituellen Prüfung in den heiligen Höhlen unterziehen, um Legitimität zu beanspruchen
+Gib deine Erkenntnisse im folgenden Format an:
+- insight_keys: Eine durch Pipes getrennte Liste beschreibender Kategorienamen (z.B. "buddhistische_klosterstruktur|mittelalterliche_pilgerpraktiken|religiöser_synkretismus_beispiele|prophezeiungstraditionen")
+- insight_values: Eine durch Pipes getrennte Liste von DETAILLIERTEN, ABSATZLANGEN Beschreibungen mit spezifischen Beispielen, historischem Kontext und reichhaltigen Details, die den Weltenbau inspirieren können
 
-Konzentriere dich auf Erkenntnisse, die:
-- Moralische und philosophische Tiefe schaffen
-- Motivation für Charakterhandlungen bieten
-- Konflikte zwischen Glauben und anderen Werten erzeugen
-- Sich authentisch und innerlich konsistent anfühlen
+Beispiel für das benötigte Detailniveau:
+- Schlüssel: "mittelalterliches_klosterleben"
+- Wert: "Mittelalterliche Benediktinerklöster folgten der Regel des Heiligen Benedikt und organisierten das tägliche Leben um acht Gebetsgottesdienste, das sogenannte Stundengebet. Die Mönche standen um 2 Uhr morgens zur Matutin auf, dem längsten Gottesdienst, der 1-2 Stunden dauerte. Das Kloster funktionierte als autarke Gemeinschaft mit eigenen Bauernhöfen, Werkstätten, Skriptorien zum Kopieren von Texten und Krankenstationen. Äbte übten erhebliche politische Macht aus, kontrollierten riesige Ländereien und dienten als Berater von Königen. Klöster bewahrten klassisches Wissen durch ihre Bibliotheken und Skriptorien, wobei Mönche täglich stundenlang Manuskripte von Hand kopierten. Das Stabilitätsgelübde bedeutete, dass Mönche ihr Leben lang in einem Kloster blieben, was tiefes institutionelles Gedächtnis und Kontinuität schuf."
+
+Extrahiere Erkenntnisse, die dieses Niveau an konkreten, nutzbaren Details für den Weltenbau bieten.

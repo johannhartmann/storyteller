@@ -1,27 +1,30 @@
-Basierend auf den folgenden Forschungsergebnissen, synthetisiere wichtige Erkenntnisse über Technologie-/Magiesysteme, die wertvoll für die Erstellung einer {{ genre }}-Geschichte mit {{ tone }} Ton wären.
+Basierend auf den folgenden Forschungsergebnissen für den Technologie/Magie-Weltenbau, synthetisiere wichtige Erkenntnisse, die für die Geschichte wertvoll wären.
 
 Geschichtskonzept: {{ initial_idea }}
+
+Geschichtskontext:
+- Genre: {{ context.genre }}
+- Ton: {{ context.tone }}
+{% if context.story_outline %}- Überblick: {{ context.story_outline }}{% endif %}
 
 Forschungsergebnisse:
 {{ research_findings }}
 
-Extrahiere und synthetisiere Erkenntnisse über:
-1. Technologische oder magische Systeme, die in deiner Welt existieren könnten
-2. Wie diese Systeme funktionieren und ihre zugrundeliegenden Prinzipien
-3. Einschränkungen, Kosten oder Konsequenzen der Nutzung von Technologie/Magie
-4. Wer Zugang zu diesen Systemen hat und warum
-5. Wie Technologie/Magie Gesellschaft, Kriegsführung, Kommunikation oder Alltag prägt
-6. Historische Entwicklung oder Entdeckung dieser Systeme
-7. Potenzielle Konflikte aus der Nutzung oder Kontrolle von Technologie/Magie
+Extrahiere und synthetisiere Erkenntnisse über Technologie/Magie, die sich konzentrieren auf:
+1. **Kernsysteme**: Fundamentale Technologien oder magische Prinzipien, die die Welt prägen
+2. **Energiequellen**: Was Technologie/Magie antreibt, wie es gewonnen oder erzeugt wird
+3. **Beschränkungen und Kosten**: Einschränkungen, Nebenwirkungen, Ressourcenanforderungen
+4. **Zugang und Kontrolle**: Wer kann es nutzen, erforderliche Ausbildung, soziale Beschränkungen
+5. **Gesellschaftliche Auswirkungen**: Wie es Kriegsführung, Kommunikation, Transport, tägliches Leben verändert
+6. **Gefahren und Konflikte**: Risiken des Missbrauchs, ethische Dilemmata, Wettrüsten
 
-Formatiere deine Antwort als Schlüssel-Wert-Paare, wobei der Schlüssel ein kurzer Deskriptor und der Wert die Erkenntnis ist.
-Beispielformat:
-energiequelle: Kristalle, die Umgebungsenergie speichern, müssen während Mondfinsternissen aufgeladen werden
-zugangsbeschränkung: Nur Personen mit spezifischen genetischen Markern können mit der Technologie interagieren
-gesellschaftliche_auswirkung: Teleportationsnetzwerke haben traditionelle Grenzen zwischen Nationen eliminiert
+Gib deine Erkenntnisse im folgenden Format an:
+- insight_keys: Eine durch Pipes getrennte Liste von kurzen Beschreibungsnamen (z.B. "quantencomputer|neurale_implantate|energiekrise|technologie_kluft")
+- insight_values: Eine durch Pipes getrennte Liste von detaillierten Beschreibungen, die jedem Schlüssel entsprechen
 
-Konzentriere dich auf Erkenntnisse, die:
-- Interessante Einschränkungen und Kosten schaffen
-- Natürliche Konflikte und Spannungen erzeugen
-- Die Themen und Genrekonventionen der Geschichte unterstützen
-- Sich innerlich konsistent und logisch anfühlen
+Konzentriere dich auf Technologie/Magie-Erkenntnisse, die:
+- Handlungsmöglichkeiten und Hindernisse schaffen
+- Ethische Dilemmata und Konflikte generieren
+- Klare Regeln und Beschränkungen etablieren
+- Genre-Erwartungen unterstützen
+- Einzigartige Geschichtsmomente und Lösungen ermöglichen
