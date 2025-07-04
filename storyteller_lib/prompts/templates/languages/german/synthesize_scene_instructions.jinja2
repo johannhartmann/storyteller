@@ -1,8 +1,40 @@
 {# Template für die Synthese von Szenenanweisungen #}
-Analysiere den folgenden Kontext für Kapitel {{ chapter_number }}, Szene {{ scene_number }} und erstelle klare, spezifische Anweisungen für das Schreiben dieser Szene.
+Du erstellst spezifische Schreibanweisungen für Kapitel {{ chapter_number }}, Szene {{ scene_number }}.
 
+============ INHALT DIESER SZENE ============
+WAS IN DIESER SZENE GESCHEHEN MUSS:
+{{ scene_description }}
+
+SZENENTYP: {{ scene_type }}
+DRAMATISCHER ZWECK: {{ dramatic_purpose }}
+SPANNUNGSLEVEL: Aufbau auf {{ tension_level }}/10
+SZENENENDE: {{ ends_with }}
+==============================================
+
+============ SZENENGRENZEN ============
+STARTPUNKT:
+{% if previous_ending %}
+- Vorherige Szene endete mit: {{ previous_ending|truncate(200) }}
+- Diese Szene setzt dort an
+{% else %}
+- Dies ist die erste Szene
+{% endif %}
+
+ENDPUNKT:
+{% if next_preview %}
+- Nächste Szene wird behandeln: {{ next_preview }}
+- Diese Szene MUSS VOR diesen Ereignissen ENDEN
+- NICHT den Inhalt der nächsten Szene einbeziehen oder vorwegnehmen
+{% else %}
+- Diese Szene endet wie oben angegeben
+{% endif %}
+
+KRITISCH: Diese Szene behandelt NUR das, was in "WAS IN DIESER SZENE GESCHEHEN MUSS" oben beschrieben ist.
+=======================================
+
+============ KONTEXT FÜR DIESE SZENE ============
 {% if previous_chapters %}
-WAS BISHER GESCHAH:
+BISHERIGER VERLAUF:
 {% for chapter in previous_chapters %}
 Kapitel {{ chapter.chapter }}: {{ chapter.title }}
 {{ chapter.summary }}
@@ -11,56 +43,39 @@ Kapitel {{ chapter.chapter }}: {{ chapter.title }}
 {% endif %}
 
 {% if previous_scenes_current_chapter %}
-WAS IN DIESEM KAPITEL BISHER GESCHAH:
+DIESES KAPITEL BISHER:
 {% for scene in previous_scenes_current_chapter %}
 Szene {{ scene.scene }}: {{ scene.summary }}
 {% endfor %}
 
 {% endif %}
 
-GESCHICHTENKONTEXT:
+GESCHICHTENGRUNDLAGE:
 - Prämisse: {{ story_premise }}
 {% if initial_idea %}
 - Ursprüngliche Idee: {{ initial_idea }}
 {% endif %}
-
-KAPITEL {{ chapter_number }}: {{ chapter_title }}
-{{ chapter_outline }}
+- Kapitel {{ chapter_number }}: {{ chapter_title }}
+- Kapitelübersicht: {{ chapter_outline }}
 {% if chapter_themes %}
-Themen: {{ chapter_themes|join(', ') }}
+- Themen: {{ chapter_themes|join(', ') }}
 {% endif %}
 
-SZENENZWECK:
-- Typ: {{ scene_type }}-Szene
-- Dramatischer Zweck: {{ dramatic_purpose }}
-- Spannungslevel: Aufbau auf {{ tension_level }}/10
-- Ende: {{ ends_with }}
-
-WICHTIGE SZENENGRENZEN:
-Diese Szene MUSS sich NUR auf die unten beschriebenen Ereignisse konzentrieren. Die nächste Szene wird die nachfolgenden Ereignisse behandeln. Nehmen Sie keine Ereignisse aus zukünftigen Szenen vorweg.
-
-============ PRIMÄRER FOKUS ============
-WAS IN DIESER SZENE GESCHEHEN MUSS:
-{{ scene_description }}
-
-Dies ist der KERNINHALT, der geschrieben werden muss. Alles andere bietet Kontext und Anleitung dafür, WIE es geschrieben werden soll.
-========================================
-
 {% if plot_progressions %}
-HANDLUNGSKONTEXT ZU BERÜCKSICHTIGEN:
+HANDLUNGSSTRÄNGE ZUM VORANTREIBEN:
 {% for prog in plot_progressions %}
 - {{ prog.description }}{% if prog.already_occurred %} [Bereits geschehen - nur erwähnen]{% endif %}
 {% endfor %}
 {% endif %}
 
 {% if active_threads %}
-AKTIVE HANDLUNGSSTRÄNGE:
+AKTIVE GESCHICHTSELEMENTE:
 {% for thread in active_threads[:3] %}
 - {{ thread.name }}: {{ thread.description }} (Zuletzt: {{ thread.last_development }})
 {% endfor %}
 {% endif %}
 
-CHARAKTERE IN DER SZENE: {{ required_characters|join(', ') }}
+CHARAKTERE IN DIESER SZENE: {{ required_characters|join(', ') }}
 {% for char in characters[:4] %}
 - {{ char.name }} ({{ char.role }}): Derzeit {{ char.emotional_state }}
   {%- if char.personality.get('traits') %} | Charakterzüge: {{ char.personality.get('traits')[:3]|join(', ') }}{% endif %}
@@ -68,35 +83,10 @@ CHARAKTERE IN DER SZENE: {{ required_characters|join(', ') }}
   {%- if char.personality.get('fears') %} | Ängste: {{ char.personality.get('fears')[0] }}{% endif %}
   {%- if char.inner_conflicts %} | Innerer Konflikt: {{ char.inner_conflicts[0].description if char.inner_conflicts[0] is mapping else char.inner_conflicts[0] }}{% endif %}
   {%- if char.character_arc %} | Entwicklung: {{ char.character_arc.type }} ({{ char.character_arc.current_stage }}){% endif %}
-  {%- if char.physical_description %} | Erscheinung: {{ char.physical_description }}{% endif %}
 {% endfor %}
-
-{% if characters %}
-CHARAKTERTIEFE FÜR DIESE SZENE:
-{% for char in characters[:4] %}
-{{ char.name }}:
-{%- if char.personality.get('strengths') %}
-  - Stärken: {{ char.personality.get('strengths')[:2]|join(', ') }}{% endif %}
-{%- if char.personality.get('flaws') %}
-  - Schwächen: {{ char.personality.get('flaws')[:2]|join(', ') }}{% endif %}
-{%- if char.personality.get('values') %}
-  - Werte: {{ char.personality.get('values')[:2]|join(', ') }}{% endif %}
-{%- if char.evolution %}
-  - Jüngste Entwicklung: {{ char.evolution[-1] }}{% endif %}
-{%- if char.recent_knowledge %}
-  - Kürzlich erfahren: {{ char.recent_knowledge[0].content }}{% endif %}
-{% endfor %}
-{% endif %}
-
-{% if relationships %}
-WICHTIGE BEZIEHUNGEN:
-{% for rel in relationships[:3] %}
-- {{ rel.character1 }} & {{ rel.character2 }}: {{ rel.type }} - {{ rel.description }}
-{% endfor %}
-{% endif %}
 
 {% if character_learns %}
-CHARAKTERE MÜSSEN LERNEN: {{ character_learns|join(', ') }}
+CHARAKTERE MÜSSEN IN DIESER SZENE LERNEN: {{ character_learns|join(', ') }}
 {% endif %}
 
 {% if locations %}
@@ -107,46 +97,63 @@ SCHAUPLATZ:
 {% endif %}
 
 {% if world_elements %}
-RELEVANTE WELTENBAU-ELEMENTE:
+WELTENBAU-ELEMENTE:
 {% for element in world_elements %}
 {{ element }}
 
 {% endfor %}
 {% endif %}
+=================================================
 
-KONTINUITÄT:
-{% if previous_ending %}
-Vorherige Szene endete: {{ previous_ending|truncate(200) }}
-{% endif %}
-{% if previous_summary %}
-Jüngste Ereignisse: {{ previous_summary|truncate(300) }}
-{% endif %}
-{% if next_preview %}
-Nächste Szenenvorschau: {{ next_preview }}
-{% endif %}
-
+============ NICHT EINBEZIEHEN ============
 {% if forbidden_repetitions or recent_scene_types %}
-VERMEIDEN:
+VERBOTENE ELEMENTE:
 {% if forbidden_repetitions %}
-- Wiederholungen: {{ forbidden_repetitions[:3]|join(', ') }}
+- NICHT diese Phrasen/Konzepte wiederholen: {{ forbidden_repetitions[:3]|join(', ') }}
 {% endif %}
 {% if recent_scene_types %}
-- Kürzliche Szenentypen: {{ recent_scene_types[:3]|join(', ') }}
+- NICHT noch eine: {{ recent_scene_types[:3]|join(', ') }} Szene schreiben
 {% endif %}
 {% endif %}
 
-Erstelle basierend auf diesem gesamten Kontext spezifische Anweisungen für das Schreiben dieser Szene, die:
+{% if next_preview %}
+FÜR NÄCHSTE SZENE RESERVIERT (NICHT EINBEZIEHEN):
+- {{ next_preview }}
+- Alle Ereignisse, die direkt in den Inhalt der nächsten Szene führen
+- Jegliche Vorwegnahme oder Vorbereitung dessen, was als nächstes kommt
+{% endif %}
 
-WICHTIGSTE PRIORITÄT: Die Szene MUSS den Inhalt liefern, der in "WAS IN DIESER SZENE GESCHEHEN MUSS" oben beschrieben ist. Das ist das primäre Ziel.
+ALLGEMEINE AUSSCHLÜSSE:
+- Keine Meta-Kommentare über das Schreiben
+- Keine Zusammenfassung dessen, was gerade passiert ist
+- Keine Vorschau auf zukünftige Ereignisse
+- Keine Wiederholung etablierter Informationen
+==========================================
 
-Die Anweisungen sollten:
-1. Sich ZUERST darauf konzentrieren, wie die Szenenbeschreibung effektiv umgesetzt wird
-2. Identifizieren, aus wessen POV diese Szene geschrieben werden soll
-3. Erklären, wie sich Charaktere basierend auf ihrem aktuellen Zustand verhalten sollten, um die Szene zu unterstützen
-4. Die emotionale Reise und den Spannungsbogen beschreiben, der die Hauptereignisse unterstützt
-5. Schlüsselmomente aus der Szenenbeschreibung spezifizieren, die auftreten müssen
-6. Klären, wie die Verbindung zu vorherigen/nächsten Szenen hergestellt wird, während der Fokus auf dem Inhalt dieser Szene bleibt
-7. Hervorheben, was diese Szene einzigartig und notwendig für die Geschichte macht
-8. Die genauen Grenzen definieren - wo diese Szene beginnt und wo sie enden muss
+============ DEINE AUFGABE ============
+Erstelle spezifische, umsetzbare Anweisungen für das Schreiben dieser Szene. Deine Anweisungen müssen in diese Abschnitte organisiert sein:
 
-Formatiere als klare, umsetzbare Anweisungen, die sich auf DEN INHALT DIESER SPEZIFISCHEN SZENE konzentrieren. Alle anderen Elemente (Handlungsstränge, Charakterzustände usw.) sollten die primäre Szenenbeschreibung unterstützen, nicht überschatten.
+1. **WAS ZU SCHREIBEN IST** (Primärer Fokus)
+   - Zerlege die Szenenbeschreibung in spezifische Beats
+   - Identifiziere die Kernereignisse, die GESCHEHEN MÜSSEN
+   - Spezifiziere den zu verwendenden POV-Charakter
+   - Definiere Schlüsselmomente und Wendepunkte
+
+2. **WIE ES ZU SCHREIBEN IST** (Ausführung)
+   - Emotionaler Bogen von Anfang bis Ende
+   - Wie die Spannung auf Level {{ tension_level }}/10 aufgebaut wird
+   - Charakterverhalten basierend auf ihren aktuellen Zuständen
+   - Spezifische Dialog- oder Handlungsanforderungen
+
+3. **SZENENGRENZEN** (Kritisch)
+   - Genau wo zu beginnen ist (anknüpfend an vorherige Szene)
+   - Genau wo zu enden ist (vor dem Inhalt der nächsten Szene)
+   - Was einzubeziehen ist vs. was für später aufzuheben ist
+
+4. **WAS NICHT EINZUBEZIEHEN IST** (Ausschlüsse)
+   - Liste spezifische zu vermeidende Elemente auf
+   - Kläre, was in die nächste Szene gehört
+   - Hebe verbotene Wiederholungen hervor
+
+Deine Anweisungen sollten klar, spezifisch und auf die Ausführung NUR DIESER SZENE fokussiert sein. Jedes Element sollte der primären Szenenbeschreibung dienen.
+==================================

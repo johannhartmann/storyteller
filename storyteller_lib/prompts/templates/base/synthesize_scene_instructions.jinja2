@@ -1,8 +1,40 @@
 {# Template for synthesizing scene-level instructions #}
-Analyze the following context for Chapter {{ chapter_number }}, Scene {{ scene_number }} and create clear, specific instructions for writing this scene.
+You are creating specific writing instructions for Chapter {{ chapter_number }}, Scene {{ scene_number }}.
 
+============ THIS SCENE'S CONTENT ============
+WHAT MUST HAPPEN IN THIS SCENE:
+{{ scene_description }}
+
+SCENE TYPE: {{ scene_type }}
+DRAMATIC PURPOSE: {{ dramatic_purpose }}
+TENSION LEVEL: Build to {{ tension_level }}/10
+SCENE ENDING: {{ ends_with }}
+==============================================
+
+============ SCENE BOUNDARIES ============
+START POINT:
+{% if previous_ending %}
+- Previous scene ended with: {{ previous_ending|truncate(200) }}
+- This scene picks up from there
+{% else %}
+- This is the first scene
+{% endif %}
+
+END POINT:
+{% if next_preview %}
+- Next scene will cover: {{ next_preview }}
+- This scene MUST END BEFORE these events
+- DO NOT include or anticipate next scene's content
+{% else %}
+- This scene ends as specified above
+{% endif %}
+
+CRITICAL: This scene covers ONLY what's described in "WHAT MUST HAPPEN IN THIS SCENE" above.
+=========================================
+
+============ CONTEXT FOR THIS SCENE ============
 {% if previous_chapters %}
-WHAT HAPPENED UNTIL NOW:
+STORY PROGRESS:
 {% for chapter in previous_chapters %}
 Chapter {{ chapter.chapter }}: {{ chapter.title }}
 {{ chapter.summary }}
@@ -11,56 +43,39 @@ Chapter {{ chapter.chapter }}: {{ chapter.title }}
 {% endif %}
 
 {% if previous_scenes_current_chapter %}
-WHAT HAPPENED IN THIS CHAPTER SO FAR:
+THIS CHAPTER SO FAR:
 {% for scene in previous_scenes_current_chapter %}
 Scene {{ scene.scene }}: {{ scene.summary }}
 {% endfor %}
 
 {% endif %}
 
-STORY CONTEXT:
+STORY FOUNDATION:
 - Premise: {{ story_premise }}
 {% if initial_idea %}
 - Original idea: {{ initial_idea }}
 {% endif %}
-
-CHAPTER {{ chapter_number }}: {{ chapter_title }}
-{{ chapter_outline }}
+- Chapter {{ chapter_number }}: {{ chapter_title }}
+- Chapter outline: {{ chapter_outline }}
 {% if chapter_themes %}
-Themes: {{ chapter_themes|join(', ') }}
+- Themes: {{ chapter_themes|join(', ') }}
 {% endif %}
 
-SCENE PURPOSE:
-- Type: {{ scene_type }} scene
-- Dramatic purpose: {{ dramatic_purpose }}
-- Tension level: Build to {{ tension_level }}/10
-- Ending: {{ ends_with }}
-
-IMPORTANT SCENE BOUNDARIES:
-This scene MUST focus ONLY on the events described below. The next scene will handle subsequent events. Do not anticipate or include events from future scenes.
-
-============ PRIMARY FOCUS ============
-WHAT MUST HAPPEN IN THIS SCENE:
-{{ scene_description }}
-
-This is the CORE CONTENT that must be written. Everything else provides context and guidance for HOW to write it.
-======================================
-
 {% if plot_progressions %}
-PLOT CONTEXT TO CONSIDER:
+PLOT THREADS TO ADVANCE:
 {% for prog in plot_progressions %}
 - {{ prog.description }}{% if prog.already_occurred %} [Already occurred - reference only]{% endif %}
 {% endfor %}
 {% endif %}
 
 {% if active_threads %}
-ACTIVE STORY THREADS:
+ACTIVE STORY ELEMENTS:
 {% for thread in active_threads[:3] %}
 - {{ thread.name }}: {{ thread.description }} (Last: {{ thread.last_development }})
 {% endfor %}
 {% endif %}
 
-CHARACTERS IN SCENE: {{ required_characters|join(', ') }}
+CHARACTERS IN THIS SCENE: {{ required_characters|join(', ') }}
 {% for char in characters[:4] %}
 - {{ char.name }} ({{ char.role }}): Currently {{ char.emotional_state }}
   {%- if char.personality.get('traits') %} | Key traits: {{ char.personality.get('traits')[:3]|join(', ') }}{% endif %}
@@ -68,35 +83,10 @@ CHARACTERS IN SCENE: {{ required_characters|join(', ') }}
   {%- if char.personality.get('fears') %} | Fears: {{ char.personality.get('fears')[0] }}{% endif %}
   {%- if char.inner_conflicts %} | Inner conflict: {{ char.inner_conflicts[0].description if char.inner_conflicts[0] is mapping else char.inner_conflicts[0] }}{% endif %}
   {%- if char.character_arc %} | Arc: {{ char.character_arc.type }} ({{ char.character_arc.current_stage }}){% endif %}
-  {%- if char.physical_description %} | Appearance: {{ char.physical_description }}{% endif %}
 {% endfor %}
-
-{% if characters %}
-CHARACTER DEPTH FOR THIS SCENE:
-{% for char in characters[:4] %}
-{{ char.name }}:
-{%- if char.personality.get('strengths') %}
-  - Strengths: {{ char.personality.get('strengths')[:2]|join(', ') }}{% endif %}
-{%- if char.personality.get('flaws') %}
-  - Flaws: {{ char.personality.get('flaws')[:2]|join(', ') }}{% endif %}
-{%- if char.personality.get('values') %}
-  - Values: {{ char.personality.get('values')[:2]|join(', ') }}{% endif %}
-{%- if char.evolution %}
-  - Recent development: {{ char.evolution[-1] }}{% endif %}
-{%- if char.recent_knowledge %}
-  - Recently learned: {{ char.recent_knowledge[0].content }}{% endif %}
-{% endfor %}
-{% endif %}
-
-{% if relationships %}
-KEY RELATIONSHIPS:
-{% for rel in relationships[:3] %}
-- {{ rel.character1 }} & {{ rel.character2 }}: {{ rel.type }} - {{ rel.description }}
-{% endfor %}
-{% endif %}
 
 {% if character_learns %}
-CHARACTERS MUST LEARN: {{ character_learns|join(', ') }}
+CHARACTERS MUST LEARN IN THIS SCENE: {{ character_learns|join(', ') }}
 {% endif %}
 
 {% if locations %}
@@ -107,46 +97,63 @@ SETTING:
 {% endif %}
 
 {% if world_elements %}
-RELEVANT WORLDBUILDING ELEMENTS:
+WORLDBUILDING ELEMENTS:
 {% for element in world_elements %}
 {{ element }}
 
 {% endfor %}
 {% endif %}
+=================================================
 
-CONTINUITY:
-{% if previous_ending %}
-Previous scene ended: {{ previous_ending|truncate(200) }}
-{% endif %}
-{% if previous_summary %}
-Recent events: {{ previous_summary|truncate(300) }}
-{% endif %}
-{% if next_preview %}
-Next scene preview: {{ next_preview }}
-{% endif %}
-
+============ DO NOT INCLUDE ============
 {% if forbidden_repetitions or recent_scene_types %}
-AVOID:
+FORBIDDEN ELEMENTS:
 {% if forbidden_repetitions %}
-- Repetitions: {{ forbidden_repetitions[:3]|join(', ') }}
+- Do NOT repeat these phrases/concepts: {{ forbidden_repetitions[:3]|join(', ') }}
 {% endif %}
 {% if recent_scene_types %}
-- Recent scene types: {{ recent_scene_types[:3]|join(', ') }}
+- Do NOT write another: {{ recent_scene_types[:3]|join(', ') }} scene
 {% endif %}
 {% endif %}
 
-Based on all this context, create specific instructions for writing this scene that:
+{% if next_preview %}
+RESERVED FOR NEXT SCENE (DO NOT INCLUDE):
+- {{ next_preview }}
+- Any events that lead directly into the next scene's content
+- Any anticipation or setup for what comes next
+{% endif %}
 
-MOST IMPORTANT: The scene MUST deliver the content described in "WHAT MUST HAPPEN IN THIS SCENE" above. That is the primary objective.
+GENERAL EXCLUSIONS:
+- No meta-commentary about the writing
+- No summary of what just happened
+- No preview of future events
+- No repetition of established information
+========================================
 
-The instructions should:
-1. Focus FIRST on how to execute the scene description effectively
-2. Identify which character's POV to use for this scene
-3. Explain how characters should behave based on their current state to serve the scene
-4. Describe the emotional journey and tension arc that supports the main events
-5. Specify key moments from the scene description that must occur
-6. Clarify how to connect with previous/next scenes while maintaining focus on this scene's content
-7. Highlight what makes this scene unique and necessary for the story
-8. Define the exact boundaries - where this scene starts and where it must end
+============ YOUR TASK ============
+Create specific, actionable instructions for writing this scene. Your instructions must be organized into these sections:
 
-Format as clear, actionable instructions focused on THIS SPECIFIC SCENE'S CONTENT. All other elements (plot threads, character states, etc.) should support the primary scene description, not overshadow it.
+1. **WHAT TO WRITE** (Primary Focus)
+   - Break down the scene description into specific beats
+   - Identify the core events that MUST happen
+   - Specify the POV character to use
+   - Define key moments and turning points
+
+2. **HOW TO WRITE IT** (Execution)
+   - Emotional arc from start to finish
+   - How to build tension to level {{ tension_level }}/10
+   - Character behaviors based on their current states
+   - Specific dialogue or action requirements
+
+3. **SCENE BOUNDARIES** (Critical)
+   - Exactly where to start (picking up from previous scene)
+   - Exactly where to end (before next scene's content)
+   - What to include vs. what to save for later
+
+4. **WHAT NOT TO INCLUDE** (Exclusions)
+   - List specific elements to avoid
+   - Clarify what belongs in the next scene
+   - Highlight any forbidden repetitions
+
+Your instructions should be clear, specific, and focused on executing THIS SCENE ONLY. Every element should serve the primary scene description.
+==================================
