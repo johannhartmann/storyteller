@@ -17,18 +17,34 @@ STYLE REQUIREMENTS:
 - FRESH DESCRIPTIONS: Each mention of an object, character, or location should add new information or perspective.
 - NO REDUNDANCY: Never use multiple words that mean the same thing together (e.g., "dark black", "wet rain", "faded pale").
 
-PACING AND CLARITY REQUIREMENTS:
-- METAPHOR RESTRAINT: Use metaphors sparingly (maximum 1-2 per scene). Reserve them for key emotional or thematic moments.
-- CONCRETE IMAGERY: Prefer direct, sensory descriptions over abstract comparisons. Ground the reader in physical reality.
-- BRISK PACING: Start scenes in action. Maintain momentum. Cut any description that doesn't advance plot or reveal character.
-- DESCRIPTION BALANCE: Follow a 30/70 ratio - maximum 30% description, minimum 70% action/dialogue/progression.
-- ECONOMY OF LANGUAGE: Every sentence must earn its place. If it can be cut without losing meaning, cut it.
+GENRE-AWARE WRITING GUIDELINES:
+Based on the genre "{{ genre }}", consider:
+- What emotional experience should readers have? (tension for thrillers, warmth for romance, wonder for fantasy, contemplation for literary fiction)
+- What pacing serves this genre best? (breakneck for action, leisurely for literary, varied for epics, comedic timing for humor)
+- What are the key conventions and reader expectations for {{ genre }}?
+- What language style and descriptive approach fits this genre?
+
+APPLY GENRE-APPROPRIATE STYLE:
+- Balance dialogue, action, and description according to what serves {{ genre }} best
+- Use metaphorical language as appropriate for the genre's conventions (sparse for thrillers, rich for literary fiction)
+  - Limit metaphors to 1-2 per scene to avoid purple prose
+  - Maintain approximately 70/30 ratio of action/dialogue to description
+- Create momentum through genre-appropriate means (tension for thrillers, emotional connection for romance, discovery for mysteries)
+- Focus on what readers of {{ genre }} value most
+- Allow scenes appropriate breathing room (action scenes can be fast, romantic moments can linger)
 
 NARRATIVE PERSPECTIVE REQUIREMENTS:
 - POV CONSISTENCY: Maintain a single point of view per scene. No head-hopping.
 - POV FILTERING: All descriptions must be filtered through the POV character's perspective, knowledge, and emotional state.
 - SCENE OPENING: Clearly establish the POV character within the first paragraph of each scene.
 - LIMITED OMNISCIENCE: The narrator can only know what the POV character knows, sees, feels, or reasonably infers.
+- SCENE BEGINNINGS: Start in media res - no scenic throat-clearing or lengthy setups.
+
+GENRE-SPECIFIC SCENE CONSTRUCTION:
+- Each scene should fulfill {{ genre }} expectations (not universal "conflict" requirements)
+- Scene endings should serve the story type (cliffhangers for thrillers, emotional beats for romance, revelations for mysteries)
+- Include tension/conflict only where genre-appropriate
+- Let {{ genre }} conventions guide scene structure, not one-size-fits-all rules
 
 GENRE: {{ genre }}
 TONE: {{ tone }}
@@ -36,15 +52,15 @@ TONE: {{ tone }}
 Your task is to synthesize all of this information into clear, actionable writing instructions that will guide the writing of every scene in this book. Focus on:
 
 1. The specific narrative voice and perspective to use (maintaining single POV per scene)
-2. How to handle descriptions (sparse metaphors, concrete imagery, sensory focus)
-3. Dialogue conventions and character voice patterns
-4. Pacing and rhythm guidelines (emphasize forward momentum)
-5. The emotional atmosphere to maintain
+2. How to handle descriptions based on {{ genre }} conventions
+3. Dialogue conventions and character voice patterns appropriate for {{ genre }}
+4. Pacing and rhythm guidelines that serve {{ genre }} (not forcing "forward momentum" if inappropriate)
+5. The emotional atmosphere that {{ genre }} readers expect
 6. Specific techniques unique to {% if author %}{{ author }}'s style and {% endif %}the {{ genre }} genre
 7. How to balance {{ tone }} elements throughout scenes
 8. Any recurring motifs or thematic elements to weave in
 
-Remember: Every instruction should support brisk pacing, metaphor restraint, and POV consistency
+Remember: Let the genre guide the style. A {{ genre }} story has different needs than a thriller
 
 Create a coherent guide that explains HOW to write this story, not WHAT happens in it. The instructions should be specific enough that any scene written following them will feel consistent with the overall style and tone.
 
