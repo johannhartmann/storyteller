@@ -355,7 +355,10 @@ storyteller/
 When contributing:
 1. Use the Nix development environment
 2. Follow existing code patterns and conventions
-3. Run formatters: `black storyteller_lib/`
+3. Run code quality tools:
+   - Format code: `black storyteller_lib/`
+   - Lint code: `ruff check . --fix`
+   - Find dead code: `vulture . vulture_whitelist.py --min-confidence 80`
 4. Test changes with various story configurations
 5. Update documentation as needed
 
