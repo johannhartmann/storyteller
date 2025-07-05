@@ -67,7 +67,9 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     if not db_manager:
         raise RuntimeError("Database manager not available")
 
-    logger.info(f"Attempting to retrieve scene instructions from database for Ch{current_chapter}/Sc{current_scene}")
+    logger.info(
+        f"Attempting to retrieve scene instructions from database for Ch{current_chapter}/Sc{current_scene}"
+    )
     scene_instructions = db_manager.get_scene_instructions(
         current_chapter, current_scene
     )
@@ -87,7 +89,9 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
             current_chapter, current_scene, scene_instructions
         )
     else:
-        logger.info(f"Successfully retrieved scene instructions from database (length: {len(scene_instructions)} chars)")
+        logger.info(
+            f"Successfully retrieved scene instructions from database (length: {len(scene_instructions)} chars)"
+        )
 
     # Get scene content
     scene_content = db_manager.get_scene_content(current_chapter, current_scene)
