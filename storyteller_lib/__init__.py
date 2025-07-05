@@ -26,7 +26,7 @@ def track_progress(node_func: Callable) -> Callable:
     """
 
     @functools.wraps(node_func)
-    def wrapper(state: dict[str, Any]) -> dict[str, Any]:
+    def wrapper(params: dict[str, Any]) -> dict[str, Any]:
         global _progress_callback, _start_time, _node_counts
 
         # Initialize tracking if needed
@@ -42,21 +42,21 @@ def track_progress(node_func: Callable) -> Callable:
         _node_counts[node_name] += 1
 
         # Execute the node function
-        result = node_func(state)
+        result = node_func(params)
 
         # Report progress if callback is set
         if _progress_callback:
             # Calculate elapsed time
             time.time() - _start_time
 
-            # Create updated state by merging result into the original state
-            # This ensures we always have the full state context for reporting
-            updated_state = {**state}
+            # Create updated params by merging result into the original params
+            # This ensures we always have the full context for reporting
+            updated_params = {**params}
             if isinstance(result, dict):
-                updated_state.update(result)
+                updated_params.update(result)
 
-            # Call the progress callback with node name and updated state
-            _progress_callback(node_name, updated_state)
+            # Call the progress callback with node name and updated params
+            _progress_callback(node_name, updated_params)
 
         return result
 
