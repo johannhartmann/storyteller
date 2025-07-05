@@ -78,6 +78,12 @@ def set_progress_callback(
     _node_counts = {}
 
 
+def get_progress_callback() -> Callable[[str, dict[str, Any]], None] | None:
+    """Get the current progress tracking callback."""
+    global _progress_callback
+    return _progress_callback
+
+
 def reset_progress_tracking() -> None:
     """Reset all progress tracking variables."""
     global _progress_callback, _start_time, _node_counts
@@ -96,6 +102,7 @@ __all__ = [
     "generate_story",
     "track_progress",
     "set_progress_callback",
+    "get_progress_callback",
     "reset_progress_tracking",
     "correct_scene",
     "correct_scene_with_validation",
