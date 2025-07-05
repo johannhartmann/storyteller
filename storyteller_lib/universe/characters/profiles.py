@@ -924,7 +924,7 @@ def generate_characters(state: StoryState) -> Dict:
             for char_id, char_data in characters_dict.items():
                 db_manager.save_character(char_id, char_data)
             logger.info(f"Stored {len(characters_dict)} characters in database")
-            
+
             # Second pass: Now save all relationships after all characters exist
             for char_id, char_data in characters_dict.items():
                 if "relationships" in char_data:
