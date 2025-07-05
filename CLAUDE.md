@@ -115,15 +115,11 @@ No formal test suite currently exists. Testing is done through running the story
 
 ## Memories and Known Issues
 
-- Gemini's structured output has a problem with nested dictionaries - it's returning them as JSON strings instead of properly parsed objects.
 - NEVER USE JSON parsing, ALWAYs use structured output.
 - Always use `nix develop =c python` when starting python scripts
-- You can directly look into the database in ~/.storyteller/story_database.db
-- Use this command to run the storyteller for testing to reuse llm caching: `nix develop -c python run_storyteller.py --genre sci-fi --tone adventurous`
 - Never evaluate texts based on keywords, since they are not reliable. Use LLM based evaluations instead.
 - NEVER share state in LangGraph and the database. Never invent your own state management.
 - We do not need any migrations. All data is temporary per run.
-- NEVER IMPLEMENT A FALLBACK FOR UNSTRUCTURED GENERATION
 - Never truncate texts, rather generate a summary using the llm
 - Make sure you provide the LLM well structured prompts with a clear intent and properly structured information. Do not just put JSON dumps into the prompt.
 - Create each template in english (base language) and german
@@ -136,10 +132,6 @@ No formal test suite currently exists. Testing is done through running the story
 - Never run the storyteller on your own, it takes hours
 - Never add generated markdown files to git.
 - never simply add all files (git add -A)
-- After refactoring: all Python files have been moved to subdirectories, update imports accordingly
-- The `plan_chapters` function was missing and has been added to `workflow/nodes/outline.py`
-- Story outline must be stored in database using `db_manager.update_global_story()` after generation
-- Character relationships require two-pass saving: first save all characters, then update relationships
 - Do not write about every change and fix into the claude.md
 - For indentation errors: first try to fix them using black
-- You can analyze data database in /home/johann/.storyteller/story_database.db
+- never add all files in a directory to a commit

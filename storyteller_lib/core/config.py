@@ -63,9 +63,10 @@ DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", None)  # Specific model override
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_CACHE_TYPE = "sqlite"  # Only sqlite cache is supported
 CACHE_LOCATION = os.environ.get(
-    "CACHE_PATH", os.environ.get(
+    "CACHE_PATH",
+    os.environ.get(
         "CACHE_LOCATION", str(Path.home() / ".storyteller" / "cache" / "llm_cache.db")
-    )
+    ),
 )
 # Define the path for the SQLite memory database
 MEMORY_DB_PATH = os.environ.get(

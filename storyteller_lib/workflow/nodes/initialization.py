@@ -381,7 +381,7 @@ def initialize_state(state: StoryState) -> Dict:
 
     # Log story parameters to progress log
     from storyteller_lib.utils.progress_logger import log_progress
-    
+
     log_progress(
         "story_params",
         genre=genre,
