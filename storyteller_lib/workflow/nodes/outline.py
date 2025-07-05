@@ -657,7 +657,7 @@ def generate_story_outline(params: dict) -> dict:
     logger.info("Generating book-level writing instructions...")
     from storyteller_lib.prompts.synthesis import generate_book_level_instructions
 
-    book_instructions = generate_book_level_instructions(state)
+    book_instructions = generate_book_level_instructions(params)
 
     # Store them in database for future use
     if db_manager:
