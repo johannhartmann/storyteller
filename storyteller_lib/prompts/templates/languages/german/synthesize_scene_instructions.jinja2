@@ -9,6 +9,9 @@ SZENENTYP: {{ scene_type }}
 DRAMATISCHER ZWECK: {{ dramatic_purpose }}
 SPANNUNGSLEVEL: Aufbau auf {{ tension_level }}/10
 SZENENENDE: {{ ends_with }}
+{% if pov_character %}
+POV-CHARAKTER: {{ pov_character }}
+{% endif %}
 ==============================================
 
 ============ SZENENGRENZEN ============
@@ -136,7 +139,11 @@ Erstelle spezifische, umsetzbare Anweisungen für das Schreiben dieser Szene. De
 1. **WAS ZU SCHREIBEN IST** (Primärer Fokus)
    - Zerlege die Szenenbeschreibung in spezifische Beats
    - Identifiziere die Kernereignisse, die GESCHEHEN MÜSSEN
-   - Spezifiziere den zu verwendenden POV-Charakter
+   {% if pov_character %}
+   - Schreibe aus {{ pov_character }}s POV während der gesamten Szene
+   {% else %}
+   - Spezifiziere, aus wessen POV die Szene geschrieben werden soll
+   {% endif %}
    - Definiere Schlüsselmomente und Wendepunkte
 
 2. **WIE ES ZU SCHREIBEN IST** (Ausführung)

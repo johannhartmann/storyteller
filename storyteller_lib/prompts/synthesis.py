@@ -126,51 +126,63 @@ def generate_scene_level_instructions(
 
     # 3. Get scene specifications
     scene_specs = _get_scene_specifications(state, chapter, scene)
+    
+    # Debug: Log POV character
+    logger.debug(f"Scene {scene} POV character: {scene_specs.get('pov_character', 'Not specified')}")
 
     # 4. Get plot context
     plot_context = _get_plot_context(db_manager, scene_specs)
 
     # 5. Get character context
     character_context = _get_character_context(
-        db_manager, scene_specs["required_characters"], scene_specs["description"], state
+        db_manager,
+        scene_specs["required_characters"],
+        scene_specs["description"],
+        state,
     )
 
     # 6. Get world context using intelligent selection
     try:
-        from storyteller_lib.universe.world.scene_integration import get_intelligent_world_context
-        
+        from storyteller_lib.universe.world.scene_integration import (
+            get_intelligent_world_context,
+        )
+
         # Extract plot thread descriptions
-        plot_thread_descriptions = [thread['name'] for thread in plot_context.get('active_threads', [])]
-        
+        plot_thread_descriptions = [
+            thread["name"] for thread in plot_context.get("active_threads", [])
+        ]
+
         # Get intelligent world context
         logger.info(f"Getting intelligent worldbuilding for scene {scene}")
-        
+
         # Use location from scene specifications
-        scene_location = scene_specs.get('location', 'Unknown')
+        scene_location = scene_specs.get("location", "Unknown")
         logger.info(f"Scene location: {scene_location}")
-        
+
         intelligent_world = get_intelligent_world_context(
-            scene_description=scene_specs['description'],
-            scene_type=scene_specs['scene_type'],
+            scene_description=scene_specs["description"],
+            scene_type=scene_specs["scene_type"],
             location=scene_location,
-            characters=scene_specs['required_characters'],
+            characters=scene_specs["required_characters"],
             plot_threads=plot_thread_descriptions,
-            dramatic_purpose=scene_specs['dramatic_purpose'],
-            chapter_themes=chapter_context['themes'],
+            dramatic_purpose=scene_specs["dramatic_purpose"],
+            chapter_themes=chapter_context["themes"],
             chapter=chapter,
-            scene=scene
+            scene=scene,
         )
-        
+
         # Still get basic location data
         world_context = _get_world_context(
             db_manager, scene_specs["description"], character_context["locations"]
         )
-        
+
         # Merge intelligent worldbuilding with location data
-        world_context['elements'] = intelligent_world.get('elements', [])
-        
-        logger.info(f"Selected {len(world_context['elements'])} worldbuilding elements with content")
-        
+        world_context["elements"] = intelligent_world.get("elements", [])
+
+        logger.info(
+            f"Selected {len(world_context['elements'])} worldbuilding elements with content"
+        )
+
     except Exception as e:
         logger.error(f"Failed to get intelligent worldbuilding: {str(e)}")
         logger.error(f"Falling back to basic world context")
@@ -189,14 +201,16 @@ def generate_scene_level_instructions(
     from storyteller_lib.output.summary import get_story_so_far
 
     story_so_far = get_story_so_far(chapter, scene)
-    
+
     # Debug: Log worldbuilding content
-    logger.debug(f"World context elements: {len(world_context.get('elements', []))} items")
-    for idx, elem in enumerate(world_context.get('elements', [])):
+    logger.debug(
+        f"World context elements: {len(world_context.get('elements', []))} items"
+    )
+    for idx, elem in enumerate(world_context.get("elements", [])):
         if isinstance(elem, str):
-            content_preview = elem[:100] + '...' if elem else 'No content'
+            content_preview = elem[:100] + "..." if elem else "No content"
         else:
-            content_preview = str(elem)[:100] + '...'
+            content_preview = str(elem)[:100] + "..."
         logger.debug(f"  Element {idx+1}: {content_preview}")
 
     # Prepare all data for synthesis
@@ -216,6 +230,7 @@ def generate_scene_level_instructions(
         "dramatic_purpose": scene_specs["dramatic_purpose"],
         "tension_level": scene_specs["tension_level"],
         "ends_with": scene_specs["ends_with"],
+        "pov_character": scene_specs.get("pov_character", ""),
         # Plot
         "plot_progressions": plot_context["progressions"],
         "active_threads": plot_context["active_threads"],

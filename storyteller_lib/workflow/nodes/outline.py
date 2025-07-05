@@ -98,33 +98,78 @@ class AuthorStyleAnalysis(BaseModel):
 # Flattened models to avoid nested dictionaries for chapter planning
 class FlatSceneSpec(BaseModel):
     """Flattened scene specification for structured output without nested dictionaries."""
-    chapter_number: str = Field(..., description="The chapter number this scene belongs to")
+
+    chapter_number: str = Field(
+        ..., description="The chapter number this scene belongs to"
+    )
     scene_number: int = Field(..., description="The scene number within the chapter")
-    description: str = Field(..., description="Brief description of what happens in this scene")
-    scene_type: str = Field(..., description="Type of scene: action, dialogue, exploration, revelation, character_moment, transition, conflict, resolution")
-    location: Optional[str] = Field(default=None, description="Primary location where this scene takes place (be specific if known)")
-    plot_progressions_csv: str = Field(default="", description="Comma-separated list of plot points that MUST happen")
-    character_learns_csv: str = Field(default="", description="Comma-separated list of what characters learn")
-    required_characters_csv: str = Field(default="", description="Comma-separated list of characters who must appear")
-    forbidden_repetitions_csv: str = Field(default="", description="Comma-separated list of plot points that must NOT be repeated")
-    dramatic_purpose: str = Field(default="development", description="Primary dramatic purpose: setup, rising_action, climax, falling_action, resolution")
-    tension_level: int = Field(default=5, ge=1, le=10, description="Tension level from 1 (calm) to 10 (maximum tension)")
-    ends_with: str = Field(default="transition", description="How scene should end: cliffhanger, resolution, soft_transition, hard_break")
-    connects_to_next: str = Field(default="", description="How this scene connects to the next one narratively")
+    description: str = Field(
+        ..., description="Brief description of what happens in this scene"
+    )
+    scene_type: str = Field(
+        ...,
+        description="Type of scene: action, dialogue, exploration, revelation, character_moment, transition, conflict, resolution",
+    )
+    pov_character: str = Field(
+        ...,
+        description="The character whose POV this scene is told from (must be one of the required characters)",
+    )
+    location: Optional[str] = Field(
+        default=None,
+        description="Primary location where this scene takes place (be specific if known)",
+    )
+    plot_progressions_csv: str = Field(
+        default="", description="Comma-separated list of plot points that MUST happen"
+    )
+    character_learns_csv: str = Field(
+        default="", description="Comma-separated list of what characters learn"
+    )
+    required_characters_csv: str = Field(
+        default="", description="Comma-separated list of characters who must appear"
+    )
+    forbidden_repetitions_csv: str = Field(
+        default="",
+        description="Comma-separated list of plot points that must NOT be repeated",
+    )
+    dramatic_purpose: str = Field(
+        default="development",
+        description="Primary dramatic purpose: setup, rising_action, climax, falling_action, resolution",
+    )
+    tension_level: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Tension level from 1 (calm) to 10 (maximum tension)",
+    )
+    ends_with: str = Field(
+        default="transition",
+        description="How scene should end: cliffhanger, resolution, soft_transition, hard_break",
+    )
+    connects_to_next: str = Field(
+        default="", description="How this scene connects to the next one narratively"
+    )
 
 
 class FlatChapter(BaseModel):
     """Flattened chapter model for structured output without nested dictionaries."""
+
     number: str = Field(..., description="The chapter number (as a string)")
     title: str = Field(..., description="The title of the chapter")
-    outline: str = Field(..., description="Detailed summary of the chapter (200-300 words)")
+    outline: str = Field(
+        ..., description="Detailed summary of the chapter (200-300 words)"
+    )
     scene_count: int = Field(..., description="Number of scenes in this chapter")
 
 
 class FlatChapterPlan(BaseModel):
     """Flattened chapter plan for structured output without nested dictionaries."""
-    chapters: List[FlatChapter] = Field(..., description="List of chapters without nested scenes")
-    total_scenes: List[FlatSceneSpec] = Field(..., description="All scenes in the story, flattened")
+
+    chapters: List[FlatChapter] = Field(
+        ..., description="List of chapters without nested scenes"
+    )
+    total_scenes: List[FlatSceneSpec] = Field(
+        ..., description="All scenes in the story, flattened"
+    )
 
 
 def generate_plot_threads_from_outline(
@@ -259,9 +304,9 @@ def generate_story_outline(state: StoryState) -> Dict:
                 descriptive_approach=style_analysis.descriptive_approach,
                 unique_elements=style_analysis.unique_elements,
                 emotional_tone=style_analysis.emotional_tone,
-                include_header=False  # Just the analysis, no header
+                include_header=False,  # Just the analysis, no header
             )
-            
+
             # Store the formatted analysis
             state["author_style_guidance"] = author_style_guidance
 
@@ -278,7 +323,7 @@ def generate_story_outline(state: StoryState) -> Dict:
             descriptive_approach=style_analysis.descriptive_approach,
             unique_elements=style_analysis.unique_elements,
             emotional_tone=style_analysis.emotional_tone,
-            include_header=True  # Include the full header and instructions
+            include_header=True,  # Include the full header and instructions
         )
 
     # Include brainstormed creative elements if available
@@ -311,16 +356,13 @@ def generate_story_outline(state: StoryState) -> Dict:
             language,
             story_concept=story_concept,
             world_building=world_building,
-            conflict=conflict
+            conflict=conflict,
         )
 
     # Prepare language guidance
     language_guidance = ""
     if language.lower() != DEFAULT_LANGUAGE:
-        language_guidance = render_prompt(
-            "language_guidance_outline",
-            language
-        )
+        language_guidance = render_prompt("language_guidance_outline", language)
 
     # Pass raw elements to template - let template handle formatting
     idea_elements = (
@@ -465,15 +507,15 @@ def generate_story_outline(state: StoryState) -> Dict:
 
     # Determine if we need to regenerate the outline based on validation results
     needs_regeneration = False
-    
+
     # Collect validation issues for template
     validation_context = {
         "idea_issues": False,
         "genre_issues": False,
         "setting_issues": False,
-        "all_issues": ""
+        "all_issues": "",
     }
-    
+
     improvement_guidance = ""
 
     # Language validation removed - templates ensure correct language
@@ -518,13 +560,11 @@ def generate_story_outline(state: StoryState) -> Dict:
 
         # Generate validation feedback using template
         improvement_guidance = render_prompt(
-            "validation_feedback",
-            language,
-            **validation_context
+            "validation_feedback", language, **validation_context
         )
-        
+
         validation_context["all_issues"] = improvement_guidance
-        
+
         # Add improvement guidance to the original prompt
         improvement_prompt = prompt + "\n\n" + improvement_guidance
 
@@ -576,7 +616,10 @@ def generate_story_outline(state: StoryState) -> Dict:
     )
 
     # Initialize PlotThreadRegistry with the generated threads
-    from storyteller_lib.generation.story.plot_threads import PlotThreadRegistry, PlotThread
+    from storyteller_lib.generation.story.plot_threads import (
+        PlotThreadRegistry,
+        PlotThread,
+    )
 
     registry = PlotThreadRegistry()
     for thread_name, thread_data in plot_threads.items():
@@ -585,28 +628,31 @@ def generate_story_outline(state: StoryState) -> Dict:
 
     # Store the outline in the database
     from storyteller_lib.persistence.database import get_db_manager
+
     db_manager = get_db_manager()
     if db_manager:
         db_manager.update_global_story(story_outline)
         logger.info(f"Stored story outline in database (length: {len(story_outline)})")
-        
+
         # Also store the individual components for easier access
         db_manager._db.create_world_element(
             category="story_structure",
             element_key="title",
-            element_value=outline_flat.title
+            element_value=outline_flat.title,
         )
         db_manager._db.create_world_element(
             category="story_structure",
             element_key="phase_descriptions",
-            element_value=outline_flat.story_phase_descriptions
+            element_value=outline_flat.story_phase_descriptions,
         )
-        logger.info("Stored story title and phase descriptions separately in world_elements")
+        logger.info(
+            "Stored story title and phase descriptions separately in world_elements"
+        )
     else:
         logger.warning("Database manager not available - outline not stored")
 
     # Log the generated outline details
-    # Note: log_progress doesn't have a handler for "outline_generated", 
+    # Note: log_progress doesn't have a handler for "outline_generated",
     # so we'll use "story_outline" instead
     if "outline_flat" in locals() and hasattr(outline_flat, "outline"):
         log_progress("story_outline", outline=outline_flat.outline)
@@ -614,19 +660,19 @@ def generate_story_outline(state: StoryState) -> Dict:
     # Generate and store book-level instructions now that we have the outline and author style
     logger.info("Generating book-level writing instructions...")
     from storyteller_lib.prompts.synthesis import generate_book_level_instructions
-    
+
     book_instructions = generate_book_level_instructions(state)
-    
+
     # Store them in database for future use
     if db_manager:
         db_manager.update_book_level_instructions(book_instructions)
         logger.info("Stored book-level instructions in database")
-    
+
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
 
     # Create language-specific messages using proper localization
-    structure_name = narrative_structure.replace('_', ' ').title()
+    structure_name = narrative_structure.replace("_", " ").title()
     if language.lower() == "german":
         new_msg = AIMessage(
             content=f"Ich habe eine detaillierte Geschichte mit der {structure_name} Struktur erstellt. Als Nächstes werde ich die Welt aufbauen, in der diese Geschichte stattfindet."
@@ -647,25 +693,27 @@ def generate_story_outline(state: StoryState) -> Dict:
 def plan_chapters(state: StoryState) -> Dict:
     """Divide the story into chapters with detailed outlines."""
     from storyteller_lib.prompts.renderer import render_prompt
-    from storyteller_lib.generation.story.narrative_structures import get_structure_by_name
-    
+    from storyteller_lib.generation.story.narrative_structures import (
+        get_structure_by_name,
+    )
+
     # Load configuration from database
     from storyteller_lib.core.config import get_story_config
     from storyteller_lib.persistence.database import get_db_manager
     from storyteller_lib.core.logger import get_logger
-    
+
     logger = get_logger(__name__)
-    
+
     config = get_story_config()
     genre = config["genre"]
     tone = config["tone"]
     language = config["language"]
-    
+
     # Get narrative structure and targets from state
     narrative_structure = state.get("narrative_structure", "hero_journey")
     target_chapters = state.get("target_chapters", 12)
     target_scenes_per_chapter = state.get("target_scenes_per_chapter", 5)
-    
+
     # Get global_story from database
     global_story = ""
     db_manager = get_db_manager()
@@ -675,25 +723,27 @@ def plan_chapters(state: StoryState) -> Dict:
             cursor.execute("SELECT global_story FROM story_config WHERE id = 1")
             result = cursor.fetchone()
             if result:
-                global_story = result['global_story'] or ""
-    
+                global_story = result["global_story"] or ""
+
     if not global_story:
         raise ValueError("No story outline found in database")
-    
+
     characters = state["characters"]
-    
+
     # Get the narrative structure object for guidance
     structure = get_structure_by_name(narrative_structure)
     chapter_distribution = {}
-    
+
     if structure:
         # Get chapter distribution for this structure
         distribution = structure.get_chapter_distribution()
         chapter_distribution = distribution.get_chapter_counts(target_chapters)
-        logger.info(f"Using {narrative_structure} structure with {target_chapters} chapters")
-    
+        logger.info(
+            f"Using {narrative_structure} structure with {target_chapters} chapters"
+        )
+
     # No language instruction or guidance needed - templates are already in the correct language
-    
+
     # Get story phase descriptions from database
     story_phase_descriptions = ""
     if db_manager and db_manager._db:
@@ -701,10 +751,10 @@ def plan_chapters(state: StoryState) -> Dict:
         story_phase_descriptions = world_elements.get("phase_descriptions", "")
         if story_phase_descriptions:
             logger.info(f"Retrieved story phase descriptions from database")
-    
+
     # Render the chapter planning prompt
     prompt = render_prompt(
-        'chapter_planning',
+        "chapter_planning",
         language=language,
         global_story=global_story,
         story_phase_descriptions=story_phase_descriptions,
@@ -719,53 +769,62 @@ def plan_chapters(state: StoryState) -> Dict:
     )
     # Generate chapter plan
     chapter_plan_text = llm.invoke([HumanMessage(content=prompt)]).content
-    
+
     # Debug: Check how many chapters are mentioned in the text
     import re
-    chapter_mentions = len(re.findall(r'Chapter \d+|Kapitel \d+', chapter_plan_text, re.IGNORECASE))
-    logger.info(f"Chapter plan text contains approximately {chapter_mentions} chapter mentions")
+
+    chapter_mentions = len(
+        re.findall(r"Chapter \d+|Kapitel \d+", chapter_plan_text, re.IGNORECASE)
+    )
+    logger.info(
+        f"Chapter plan text contains approximately {chapter_mentions} chapter mentions"
+    )
     logger.info(f"Chapter plan text length: {len(chapter_plan_text)} characters")
-    
+
     # No language validation needed - templates ensure correct language
-    
+
     # Use direct LLM structured output with simplified Pydantic model
     max_retries = 2
     retry_count = 0
-    
+
     while retry_count <= max_retries:
         try:
             # Create a structured output prompt that explicitly asks for chapter data with scenes
             # Render the chapter extraction prompt
             structured_prompt = render_prompt(
-                'chapter_extraction',
+                "chapter_extraction",
                 language=language,
-                chapter_plan_text=chapter_plan_text
+                chapter_plan_text=chapter_plan_text,
             )
-            
+
             # Add explicit instruction about chapter count if this is a retry
             if retry_count > 0:
                 retry_prompt = render_prompt(
-                    'chapter_retry',
+                    "chapter_retry",
                     language,
-                    chapter_count=len(chapters) if 'chapters' in locals() else 'too few',
+                    chapter_count=(
+                        len(chapters) if "chapters" in locals() else "too few"
+                    ),
                     min_chapters=max(5, target_chapters - 3),
                     target_chapters=target_chapters,
-                    original_prompt=structured_prompt
+                    original_prompt=structured_prompt,
                 )
                 structured_prompt = retry_prompt
-            
+
             # Always use flattened model to avoid nested dictionaries
             structured_output_llm = llm.with_structured_output(FlatChapterPlan)
-            
+
             # Get structured output
             result = structured_output_llm.invoke(structured_prompt)
-            
+
             # Debug logging
-            logger.info(f"Structured output received: {len(result.chapters)} chapters, {len(result.total_scenes)} total scenes")
-            
+            logger.info(
+                f"Structured output received: {len(result.chapters)} chapters, {len(result.total_scenes)} total scenes"
+            )
+
             # Convert from flattened structure
             chapters_dict = {}
-            
+
             # Convert from flattened structure
             # First, create chapters with sequential numbering
             # Also create a mapping from LLM chapter numbers to actual sequential numbers
@@ -775,58 +834,101 @@ def plan_chapters(state: StoryState) -> Dict:
                 actual_chapter_num = str(idx)
                 llm_chapter_num = str(chapter.number)
                 llm_to_actual_chapter[llm_chapter_num] = actual_chapter_num
-                
-                logger.info(f"Creating chapter {actual_chapter_num} (LLM labeled it as {llm_chapter_num}): {chapter.title}")
-                    
+
+                logger.info(
+                    f"Creating chapter {actual_chapter_num} (LLM labeled it as {llm_chapter_num}): {chapter.title}"
+                )
+
                 chapters_dict[actual_chapter_num] = {
                     "title": chapter.title,
                     "outline": chapter.outline,
                     "scenes": {},
-                    "reflection_notes": []
+                    "reflection_notes": [],
                 }
-            
+
             # Then add scenes to their respective chapters using the mapping
             for scene in result.total_scenes:
                 llm_chapter_num = scene.chapter_number
                 # Map the LLM's chapter number to our sequential number
-                actual_chapter_num = llm_to_actual_chapter.get(llm_chapter_num, llm_chapter_num)
+                actual_chapter_num = llm_to_actual_chapter.get(
+                    llm_chapter_num, llm_chapter_num
+                )
                 scene_num = str(scene.scene_number)
-                
+
                 if actual_chapter_num in chapters_dict:
                     chapters_dict[actual_chapter_num]["scenes"][scene_num] = {
                         "content": "",
                         "description": scene.description,
                         "scene_type": scene.scene_type,
+                        "pov_character": scene.pov_character,
                         "location": scene.location if scene.location else "Unknown",
-                        "plot_progressions": [s.strip() for s in scene.plot_progressions_csv.split(",") if s.strip()] if scene.plot_progressions_csv else [],
-                        "character_learns": [s.strip() for s in scene.character_learns_csv.split(",") if s.strip()] if scene.character_learns_csv else [],
-                        "required_characters": [s.strip() for s in scene.required_characters_csv.split(",") if s.strip()] if scene.required_characters_csv else [],
-                        "forbidden_repetitions": [s.strip() for s in scene.forbidden_repetitions_csv.split(",") if s.strip()] if scene.forbidden_repetitions_csv else [],
+                        "plot_progressions": (
+                            [
+                                s.strip()
+                                for s in scene.plot_progressions_csv.split(",")
+                                if s.strip()
+                            ]
+                            if scene.plot_progressions_csv
+                            else []
+                        ),
+                        "character_learns": (
+                            [
+                                s.strip()
+                                for s in scene.character_learns_csv.split(",")
+                                if s.strip()
+                            ]
+                            if scene.character_learns_csv
+                            else []
+                        ),
+                        "required_characters": (
+                            [
+                                s.strip()
+                                for s in scene.required_characters_csv.split(",")
+                                if s.strip()
+                            ]
+                            if scene.required_characters_csv
+                            else []
+                        ),
+                        "forbidden_repetitions": (
+                            [
+                                s.strip()
+                                for s in scene.forbidden_repetitions_csv.split(",")
+                                if s.strip()
+                            ]
+                            if scene.forbidden_repetitions_csv
+                            else []
+                        ),
                         "dramatic_purpose": scene.dramatic_purpose,
                         "tension_level": scene.tension_level,
                         "ends_with": scene.ends_with,
                         "connects_to_next": scene.connects_to_next,
                         "db_stored": False,
-                        "reflection": {}
+                        "reflection": {},
                     }
                 else:
-                    logger.warning(f"Scene {scene_num} references non-existent chapter {actual_chapter_num}. Skipping.")
-            
+                    logger.warning(
+                        f"Scene {scene_num} references non-existent chapter {actual_chapter_num}. Skipping."
+                    )
+
             # Validate we have enough chapters
             actual_chapter_count = len(chapters_dict)
             if actual_chapter_count < max(5, target_chapters - 3):
                 if retry_count < max_retries:
-                    logger.warning(f"Only generated {actual_chapter_count} chapters, need at least {max(5, target_chapters - 3)}. Retrying...")
+                    logger.warning(
+                        f"Only generated {actual_chapter_count} chapters, need at least {max(5, target_chapters - 3)}. Retrying..."
+                    )
                     retry_count += 1
                     chapters = chapters_dict  # Store for error message
                     continue
                 else:
-                    logger.error(f"Failed to generate minimum chapters after {max_retries} retries. Generated {actual_chapter_count} chapters.")
+                    logger.error(
+                        f"Failed to generate minimum chapters after {max_retries} retries. Generated {actual_chapter_count} chapters."
+                    )
                     # Continue with what we have rather than failing
-            
+
             # Success - log chapter creation
             logger.info(f"Successfully generated {actual_chapter_count} chapters")
-            
+
             # Validate scene count per chapter
             for chapter_num, chapter_data in chapters_dict.items():
                 scene_count = len(chapter_data.get("scenes", {}))
@@ -834,10 +936,10 @@ def plan_chapters(state: StoryState) -> Dict:
                     logger.warning(f"Chapter {chapter_num} has no scenes!")
                 else:
                     logger.info(f"Chapter {chapter_num}: {scene_count} scenes")
-            
+
             # Get existing message IDs to delete
             message_ids = [msg.id for msg in state.get("messages", [])]
-            
+
             # Create language-specific messages using proper localization
             if language.lower() == "german":
                 new_msg = AIMessage(
@@ -847,12 +949,12 @@ def plan_chapters(state: StoryState) -> Dict:
                 new_msg = AIMessage(
                     content=f"I've divided the story into {actual_chapter_count} chapters. Next, I'll begin writing the scenes."
                 )
-            
+
             # Store chapter plan in database
             # Note: We store the chapter outlines individually when saving chapters
             # The full chapter plan is part of the state and doesn't need separate storage
             logger.info(f"Generated chapter plan with {actual_chapter_count} chapters")
-            
+
             # Process locations - extract unique locations from all scenes
             unique_locations = set()
             for chapter_data in chapters_dict.values():
@@ -860,27 +962,38 @@ def plan_chapters(state: StoryState) -> Dict:
                     location = scene_data.get("location", "")
                     if location and location != "Unknown" and location != "":
                         unique_locations.add(location)
-            
+
             if unique_locations:
-                logger.info(f"Found {len(unique_locations)} unique locations in chapter plan")
+                logger.info(
+                    f"Found {len(unique_locations)} unique locations in chapter plan"
+                )
                 # Check which locations need to be created using LLM
                 _process_scene_locations(list(unique_locations), db_manager, language)
-            
+
             return {
                 "chapters": chapters_dict,
                 "current_chapter": "1",
                 "current_scene": "1",
-                "messages": [*[RemoveMessage(id=msg_id) for msg_id in message_ids], new_msg],
+                "messages": [
+                    *[RemoveMessage(id=msg_id) for msg_id in message_ids],
+                    new_msg,
+                ],
             }
-            
+
         except Exception as e:
-            logger.error(f"Error extracting chapters (attempt {retry_count + 1}): {str(e)}")
+            logger.error(
+                f"Error extracting chapters (attempt {retry_count + 1}): {str(e)}"
+            )
             if retry_count < max_retries:
                 retry_count += 1
-                logger.info(f"Retrying chapter extraction... (attempt {retry_count + 1}/{max_retries + 1})")
+                logger.info(
+                    f"Retrying chapter extraction... (attempt {retry_count + 1}/{max_retries + 1})"
+                )
             else:
-                raise Exception(f"Failed to extract chapters after {max_retries + 1} attempts: {str(e)}")
-    
+                raise Exception(
+                    f"Failed to extract chapters after {max_retries + 1} attempts: {str(e)}"
+                )
+
     # Should not reach here, but just in case
     raise Exception("Failed to generate chapter plan")
 
@@ -892,27 +1005,30 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
     Integrates research when available.
     """
     from storyteller_lib.core.logger import get_logger
+
     logger = get_logger(__name__)
-    
+
     if not db_manager:
         logger.warning("No database manager available for location processing")
         return
-        
+
     logger.info(f"Processing {len(locations)} locations from scene planning")
-    
+
     # Check if research worldbuilding is enabled
     research_enabled = False
     try:
         with db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT research_worldbuilding FROM story_config WHERE id = 1")
+            cursor.execute(
+                "SELECT research_worldbuilding FROM story_config WHERE id = 1"
+            )
             result = cursor.fetchone()
             if result:
-                research_enabled = bool(result['research_worldbuilding'])
+                research_enabled = bool(result["research_worldbuilding"])
                 logger.info(f"Research worldbuilding enabled: {research_enabled}")
     except Exception as e:
         logger.error(f"Failed to check research worldbuilding setting: {e}")
-    
+
     # Get existing worldbuilding from database
     existing_world = {}
     try:
@@ -920,53 +1036,68 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
     except Exception as e:
         logger.error(f"Failed to get existing worldbuilding: {e}")
         existing_world = {}
-    
+
     # Prepare worldbuilding content for LLM
     worldbuilding_text = ""
     if existing_world:
         for key, value in existing_world.items():
             worldbuilding_text += f"\n[{key}]\n{value}\n"
-    
+
     # Use LLM to check each location semantically
     from storyteller_lib.prompts.renderer import render_prompt
     from pydantic import BaseModel, Field
     from typing import Optional
-    
+
     class LocationCheck(BaseModel):
         """Result of checking if a location exists in worldbuilding."""
+
         location_name: str = Field(description="The location name from the scene")
-        exists_in_worldbuilding: bool = Field(description="Whether this location semantically exists in the worldbuilding")
-        existing_location_key: Optional[str] = Field(description="The key of the existing location if found")
-        needs_creation: bool = Field(description="Whether a new location entry should be created")
-        suggested_description: Optional[str] = Field(description="Brief description if new location needs creation")
-    
+        exists_in_worldbuilding: bool = Field(
+            description="Whether this location semantically exists in the worldbuilding"
+        )
+        existing_location_key: Optional[str] = Field(
+            description="The key of the existing location if found"
+        )
+        needs_creation: bool = Field(
+            description="Whether a new location entry should be created"
+        )
+        suggested_description: Optional[str] = Field(
+            description="Brief description if new location needs creation"
+        )
+
     class LocationCheckBatch(BaseModel):
         """Batch check of multiple locations."""
-        location_checks: List[LocationCheck] = Field(description="Results for each location")
-    
+
+        location_checks: List[LocationCheck] = Field(
+            description="Results for each location"
+        )
+
     # Create template for location checking
     check_prompt = render_prompt(
         "check_locations_exist",
         language=language,
         locations=locations,
-        existing_worldbuilding=worldbuilding_text if worldbuilding_text else "No existing worldbuilding found."
+        existing_worldbuilding=(
+            worldbuilding_text
+            if worldbuilding_text
+            else "No existing worldbuilding found."
+        ),
     )
-    
+
     # Get structured output from LLM
     structured_llm = llm.with_structured_output(LocationCheckBatch)
     check_results = structured_llm.invoke(check_prompt)
-    
+
     # Process locations that need creation
     locations_to_create = [
-        check for check in check_results.location_checks 
-        if check.needs_creation
+        check for check in check_results.location_checks if check.needs_creation
     ]
-    
+
     if locations_to_create:
         logger.info(f"Creating {len(locations_to_create)} new location entries")
-        
+
         # We don't need LocationDetailsBatch - just use the research directly!
-        
+
         # Get story context for location generation
         story_outline = ""
         genre = ""
@@ -975,16 +1106,18 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
         try:
             with db_manager._db._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT global_story, genre, tone, initial_idea FROM story_config WHERE id = 1")
+                cursor.execute(
+                    "SELECT global_story, genre, tone, initial_idea FROM story_config WHERE id = 1"
+                )
                 result = cursor.fetchone()
                 if result:
-                    story_outline = result['global_story'] or ""
-                    genre = result['genre'] or ""
-                    tone = result['tone'] or ""
-                    initial_idea = result['initial_idea'] or ""
+                    story_outline = result["global_story"] or ""
+                    genre = result["genre"] or ""
+                    tone = result["tone"] or ""
+                    initial_idea = result["initial_idea"] or ""
         except:
             pass
-        
+
         # If research is enabled, gather research for locations
         research_context = {}
         if research_enabled:
@@ -992,76 +1125,91 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
             try:
                 # Use asyncio to run the research
                 import asyncio
-                research_context = asyncio.run(_research_locations(
-                    [loc.location_name for loc in locations_to_create],
-                    genre, tone, initial_idea, story_outline, language
-                ))
+
+                research_context = asyncio.run(
+                    _research_locations(
+                        [loc.location_name for loc in locations_to_create],
+                        genre,
+                        tone,
+                        initial_idea,
+                        story_outline,
+                        language,
+                    )
+                )
                 logger.info(f"Research completed for {len(research_context)} locations")
             except Exception as e:
                 logger.error(f"Failed to research locations: {e}", exc_info=True)
                 research_context = {}
-        
+
         # Store new locations in worldbuilding using research
         from storyteller_lib.prompts.renderer import render_prompt
-        
+
         for loc in locations_to_create:
             try:
                 location_name = loc.location_name
                 # Create a key for the location
                 location_key = location_name.lower().replace(" ", "_").replace("'", "")
-                
+
                 # Build description based on research if available
-                if research_enabled and location_name in research_context and research_context[location_name]:
+                if (
+                    research_enabled
+                    and location_name in research_context
+                    and research_context[location_name]
+                ):
                     # Use research findings as the basis
                     research_info = research_context[location_name]
-                    
+
                     # Generate full description incorporating research
-                    
+
                     synthesis_prompt = render_prompt(
-                        'location_synthesis',
+                        "location_synthesis",
                         language=language,
                         research_info=research_info,
                         genre=genre,
                         tone=tone,
                         story_context=story_outline[:500],
-                        location_name=location_name
+                        location_name=location_name,
                     )
-                    
+
                     description_response = llm.invoke(synthesis_prompt)
                     full_description = description_response.content
-                    
+
                 else:
                     # No research available - use suggested description or create basic one
                     if loc.suggested_description:
                         # Expand the suggestion into a full description
                         expansion_prompt = render_prompt(
-                            'location_expansion',
+                            "location_expansion",
                             language=language,
                             genre=genre,
                             suggested_description=loc.suggested_description,
-                            location_name=location_name
+                            location_name=location_name,
                         )
-                        
+
                         expansion_response = llm.invoke(expansion_prompt)
                         full_description = expansion_response.content
                     else:
                         # Create a basic description
                         full_description = f"A location in the story: {location_name}. Details to be developed during scene writing."
-                
+
                 # Store in world_elements table
                 db_manager._db.create_world_element(
                     category="geography",
                     element_key=f"location_{location_key}",
-                    element_value=full_description
+                    element_value=full_description,
                 )
-                
-                logger.info(f"Created worldbuilding entry for location: {location_name}")
-                
+
+                logger.info(
+                    f"Created worldbuilding entry for location: {location_name}"
+                )
+
             except Exception as e:
                 logger.error(f"Failed to create location {location_name}: {e}")
-    
+
     else:
-        logger.info("All locations already exist in worldbuilding (semantically matched)")
+        logger.info(
+            "All locations already exist in worldbuilding (semantically matched)"
+        )
 
 
 async def _research_locations(
@@ -1070,27 +1218,29 @@ async def _research_locations(
     tone: str,
     initial_idea: str,
     story_outline: str,
-    language: str
+    language: str,
 ) -> Dict[str, str]:
     """
     Research locations using the WorldBuildingResearcher.
     Returns a dictionary mapping location names to research findings.
     """
-    from storyteller_lib.universe.world.research_config import WorldBuildingResearchConfig
+    from storyteller_lib.universe.world.research_config import (
+        WorldBuildingResearchConfig,
+    )
     from storyteller_lib.universe.world.researcher import WorldBuildingResearcher
     from storyteller_lib.universe.world.research_models import ResearchContext
     from storyteller_lib.core.logger import get_logger
-    
+
     logger = get_logger(__name__)
     logger.info(f"Researching {len(location_names)} locations")
-    
+
     # Get LLM for generating queries and summaries
     from storyteller_lib.core.config import llm
-    
+
     # Create research config
     config = WorldBuildingResearchConfig()
     researcher = WorldBuildingResearcher(config)
-    
+
     # Create research context
     context = ResearchContext(
         genre=genre,
@@ -1098,122 +1248,144 @@ async def _research_locations(
         initial_idea=initial_idea,
         story_outline=story_outline[:1000] if story_outline else "",
         language=language,
-        specific_queries=[]
+        specific_queries=[],
     )
-    
+
     # Research each location
     research_results = {}
-    
+
     for location_name in location_names:
         try:
             logger.info(f"Researching location: {location_name}")
-            
+
             # Use LLM to generate appropriate search queries for this location
             from storyteller_lib.prompts.renderer import render_prompt
             from pydantic import BaseModel, Field
             from typing import List
-            
+
             class LocationSearchQueries(BaseModel):
                 """Search queries for researching a location."""
-                historical_query: str = Field(description="Search query for historical/architectural information")
-                atmosphere_query: str = Field(description="Search query for atmosphere/cultural context")
-            
+
+                historical_query: str = Field(
+                    description="Search query for historical/architectural information"
+                )
+                atmosphere_query: str = Field(
+                    description="Search query for atmosphere/cultural context"
+                )
+
             query_prompt = render_prompt(
-                'location_research_query',
+                "location_research_query",
                 language=language,
                 genre=genre,
                 tone=tone,
                 location_name=location_name,
-                initial_idea=initial_idea
+                initial_idea=initial_idea,
             )
-            
+
             # Use structured output to get search queries
             structured_llm = llm.with_structured_output(LocationSearchQueries)
             query_result = structured_llm.invoke(query_prompt)
             queries = [query_result.historical_query, query_result.atmosphere_query]
-            
+
             if not queries:
                 # Fallback to generic queries based on location name
-                queries = [
-                    f"{location_name}",
-                    f"{location_name} architecture history"
-                ]
-            
+                queries = [f"{location_name}", f"{location_name} architecture history"]
+
             # Execute searches using the researcher's methods
             if queries:
-                from storyteller_lib.universe.world.search_utils import execute_parallel_searches
-                
-                logger.info(f"Executing searches for {location_name} with queries: {queries}")
+                from storyteller_lib.universe.world.search_utils import (
+                    execute_parallel_searches,
+                )
+
+                logger.info(
+                    f"Executing searches for {location_name} with queries: {queries}"
+                )
                 search_results = await execute_parallel_searches(
                     queries[:2],  # Limit to 2 queries per location to control costs
                     search_api=config.search_apis[0],
                     max_results_per_query=3,
-                    use_cache=config.tavily_cache_enabled
+                    use_cache=config.tavily_cache_enabled,
                 )
-                logger.info(f"Search returned {len(search_results)} query results for {location_name}")
-                
+                logger.info(
+                    f"Search returned {len(search_results)} query results for {location_name}"
+                )
+
                 # Summarize findings
                 # Flatten all results from the dictionary
                 all_results = []
                 for query, query_results in search_results.items():
-                    logger.debug(f"Query '{query}' returned {len(query_results)} results")
+                    logger.debug(
+                        f"Query '{query}' returned {len(query_results)} results"
+                    )
                     all_results.extend(query_results)
-                
+
                 if all_results:
                     # Create detailed research findings without truncation
                     research_findings = []
                     for result in all_results[:3]:
                         # Use full content for better summaries
-                        content = result.content[:1000] if len(result.content) > 1000 else result.content
+                        content = (
+                            result.content[:1000]
+                            if len(result.content) > 1000
+                            else result.content
+                        )
                         research_findings.append(f"- {result.title}: {content}")
-                    
+
                     summary_prompt = render_prompt(
-                        'location_research_summary',
+                        "location_research_summary",
                         language=language,
                         location_name=location_name,
                         genre=genre,
-                        research_findings=chr(10).join(research_findings)
+                        research_findings=chr(10).join(research_findings),
                     )
-                    
+
                     summary_response = llm.invoke(summary_prompt)
                     research_results[location_name] = summary_response.content
-                    logger.info(f"Research summary for {location_name}: {len(summary_response.content)} chars")
+                    logger.info(
+                        f"Research summary for {location_name}: {len(summary_response.content)} chars"
+                    )
                 else:
                     # No search results found - generate description based on context
-                    logger.warning(f"No search results for {location_name}, using LLM generation")
-                    
+                    logger.warning(
+                        f"No search results for {location_name}, using LLM generation"
+                    )
+
                     fallback_prompt = render_prompt(
-                        'location_synthesis',
+                        "location_synthesis",
                         language=language,
                         research_info="",  # No research available
                         genre=genre,
                         tone=tone,
                         story_context=f"{initial_idea}\n\nLocation needed: {location_name}",
-                        location_name=location_name
+                        location_name=location_name,
                     )
-                    
+
                     fallback_response = llm.invoke(fallback_prompt)
                     research_results[location_name] = fallback_response.content
-                    
+
         except Exception as e:
             logger.error(f"Failed to research location {location_name}: {e}")
             # Use LLM fallback even on exceptions
             try:
                 fallback_prompt = render_prompt(
-                    'location_synthesis',
+                    "location_synthesis",
                     language=language,
                     research_info="",  # No research available
                     genre=genre,
                     tone=tone,
                     story_context=f"{initial_idea}\n\nLocation needed: {location_name}",
-                    location_name=location_name
+                    location_name=location_name,
                 )
-                
+
                 fallback_response = llm.invoke(fallback_prompt)
                 research_results[location_name] = fallback_response.content
                 logger.info(f"Generated fallback description for {location_name}")
             except Exception as fallback_error:
-                logger.error(f"Fallback generation also failed for {location_name}: {fallback_error}")
-                research_results[location_name] = f"Location: {location_name} - Description to be developed during scene writing."
-    
+                logger.error(
+                    f"Fallback generation also failed for {location_name}: {fallback_error}"
+                )
+                research_results[location_name] = (
+                    f"Location: {location_name} - Description to be developed during scene writing."
+                )
+
     return research_results

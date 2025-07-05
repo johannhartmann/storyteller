@@ -9,6 +9,9 @@ SCENE TYPE: {{ scene_type }}
 DRAMATIC PURPOSE: {{ dramatic_purpose }}
 TENSION LEVEL: Build to {{ tension_level }}/10
 SCENE ENDING: {{ ends_with }}
+{% if pov_character %}
+POV CHARACTER: {{ pov_character }}
+{% endif %}
 ==============================================
 
 ============ SCENE BOUNDARIES ============
@@ -136,7 +139,11 @@ Create specific, actionable instructions for writing this scene. Your instructio
 1. **WHAT TO WRITE** (Primary Focus)
    - Break down the scene description into specific beats
    - Identify the core events that MUST happen
-   - Specify the POV character to use
+   {% if pov_character %}
+   - Write from {{ pov_character }}'s POV throughout the scene
+   {% else %}
+   - Specify which character's POV to use
+   {% endif %}
    - Define key moments and turning points
 
 2. **HOW TO WRITE IT** (Execution)
