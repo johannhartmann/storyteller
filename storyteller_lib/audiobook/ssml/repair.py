@@ -20,6 +20,7 @@ logger = get_logger(__name__)
 @dataclass
 class AzureError:
     """Parsed Azure TTS error information."""
+
     code: int
     message: str
     details: Optional[str] = None
@@ -27,40 +28,40 @@ class AzureError:
 
 class SSMLRepair:
     """Repairs SSML content based on Azure TTS error messages."""
-    
+
     # Known Azure TTS error patterns and their repair strategies
     ERROR_PATTERNS = {
         1007: {
             "pattern": r"Node \[(\w+)\] with type \[(\w+)\] should not contain node \[(\w+)\] with type \[(\w+)\]|Unsupported voice|node can only contain Element or Comment",
             "description": "Invalid SSML nesting or unsupported elements",
-            "repair_strategy": "fix_invalid_nesting"
+            "repair_strategy": "fix_invalid_nesting",
         },
         1001: {
             "pattern": r"Invalid SSML syntax",
             "description": "General SSML syntax error",
-            "repair_strategy": "fix_syntax_error"
+            "repair_strategy": "fix_syntax_error",
         },
         1002: {
             "pattern": r"Invalid attribute value",
             "description": "Invalid attribute value",
-            "repair_strategy": "fix_attribute_values"
+            "repair_strategy": "fix_attribute_values",
         },
         1003: {
             "pattern": r"Unsupported element",
             "description": "Unsupported SSML element",
-            "repair_strategy": "remove_unsupported_elements"
+            "repair_strategy": "remove_unsupported_elements",
         },
         1004: {
             "pattern": r"Invalid prosody",
             "description": "Invalid prosody values",
-            "repair_strategy": "fix_prosody_values"
-        }
+            "repair_strategy": "fix_prosody_values",
+        },
     }
-    
+
     def __init__(self, db_path: str, model_provider: str = None, model: str = None):
         """
         Initialize the SSML repair module.
-        
+
         Args:
             db_path: Path to the story database
             model_provider: LLM provider to use
@@ -68,49 +69,48 @@ class SSMLRepair:
         """
         self.db = StoryDatabase(db_path)
         self.llm = get_llm(provider=model_provider, model=model)
-        
+
     def parse_azure_error(self, error_message: str) -> AzureError:
         """
         Parse Azure TTS error message.
-        
+
         Args:
             error_message: Error message from Azure TTS
-            
+
         Returns:
             Parsed error information
         """
         # Pattern: "Error code: 1007. Error details: Node [prosody] with type [Others] should not contain node [voice] with type [Media]."
         code_match = re.search(r"Error code:\s*(\d+)", error_message)
         details_match = re.search(r"Error details:\s*(.+)", error_message)
-        
+
         error_code = int(code_match.group(1)) if code_match else 0
         error_details = details_match.group(1) if details_match else error_message
-        
-        return AzureError(
-            code=error_code,
-            message=error_message,
-            details=error_details
-        )
-        
-    def repair_ssml(self, scene_id: int, original_ssml: str, error_message: str, 
-                    attempt: int = 1) -> Optional[str]:
+
+        return AzureError(code=error_code, message=error_message, details=error_details)
+
+    def repair_ssml(
+        self, scene_id: int, original_ssml: str, error_message: str, attempt: int = 1
+    ) -> Optional[str]:
         """
         Repair SSML content based on error message.
-        
+
         Args:
             scene_id: Database scene ID
             original_ssml: Original SSML content
             error_message: Azure TTS error message
             attempt: Repair attempt number (1-3)
-            
+
         Returns:
             Repaired SSML or None if repair failed
         """
         try:
             # Parse error
             error = self.parse_azure_error(error_message)
-            logger.info(f"Repairing SSML for scene {scene_id}, error code: {error.code}, attempt: {attempt}")
-            
+            logger.info(
+                f"Repairing SSML for scene {scene_id}, error code: {error.code}, attempt: {attempt}"
+            )
+
             # Try specific repair strategy first
             if error.code in self.ERROR_PATTERNS:
                 strategy = self.ERROR_PATTERNS[error.code]["repair_strategy"]
@@ -119,10 +119,8 @@ class SSMLRepair:
                 )
             else:
                 # Use general LLM repair for unknown errors
-                repaired_ssml = self._repair_with_llm(
-                    original_ssml, error, attempt
-                )
-                
+                repaired_ssml = self._repair_with_llm(original_ssml, error, attempt)
+
             # Validate repaired SSML
             if repaired_ssml and self._validate_ssml(repaired_ssml):
                 # Log repair attempt
@@ -133,7 +131,7 @@ class SSMLRepair:
                     repair_attempt=attempt,
                     original_ssml=original_ssml,
                     repaired_ssml=repaired_ssml,
-                    successful=True
+                    successful=True,
                 )
                 return repaired_ssml
             else:
@@ -145,16 +143,17 @@ class SSMLRepair:
                     repair_attempt=attempt,
                     original_ssml=original_ssml,
                     repaired_ssml=repaired_ssml or "",
-                    successful=False
+                    successful=False,
                 )
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error repairing SSML for scene {scene_id}: {str(e)}")
             return None
-            
-    def _apply_repair_strategy(self, ssml: str, error: AzureError, 
-                                strategy: str, attempt: int) -> Optional[str]:
+
+    def _apply_repair_strategy(
+        self, ssml: str, error: AzureError, strategy: str, attempt: int
+    ) -> Optional[str]:
         """Apply specific repair strategy based on error type."""
         if strategy == "fix_invalid_nesting":
             return self._fix_invalid_nesting(ssml, error, attempt)
@@ -169,15 +168,20 @@ class SSMLRepair:
         else:
             # Fallback to LLM repair
             return self._repair_with_llm(ssml, error, attempt)
-            
-    def _fix_invalid_nesting(self, ssml: str, error: AzureError, attempt: int) -> Optional[str]:
+
+    def _fix_invalid_nesting(
+        self, ssml: str, error: AzureError, attempt: int
+    ) -> Optional[str]:
         """Fix invalid SSML nesting and structure errors."""
         error_details = error.details.lower() if error.details else ""
-        
+
         # Determine specific error type
         if "prosody" in error_details and "voice" in error_details:
             fix_type = "prosody_voice_nesting"
-        elif "voice" in error_details and "should not contain node [voice]" in error_details:
+        elif (
+            "voice" in error_details
+            and "should not contain node [voice]" in error_details
+        ):
             fix_type = "nested_voice"
         elif "speak" in error_details and "break" in error_details:
             fix_type = "break_in_speak"
@@ -187,7 +191,7 @@ class SSMLRepair:
             fix_type = "text_in_speak"
         else:
             fix_type = "general"
-            
+
         prompt = f"""Fix the following SSML based on this Azure TTS error: {error.details}
 
 Original SSML:
@@ -220,7 +224,7 @@ The voice name is not supported. Replace with a valid voice from the list above 
         elif fix_type == "text_in_speak":
             prompt += """
 There is text directly in <speak>. ALL text must be inside <voice> tags."""
-            
+
         prompt += """
 
 Return ONLY the fixed SSML without any explanation.
@@ -228,9 +232,11 @@ Return ONLY the fixed SSML without any explanation.
 Fixed SSML:"""
 
         response = self.llm.invoke(prompt)
-        return response.content if hasattr(response, 'content') else str(response)
-            
-    def _fix_syntax_error(self, ssml: str, error: AzureError, attempt: int) -> Optional[str]:
+        return response.content if hasattr(response, "content") else str(response)
+
+    def _fix_syntax_error(
+        self, ssml: str, error: AzureError, attempt: int
+    ) -> Optional[str]:
         """Fix general SSML syntax errors."""
         prompt = f"""Fix the following SSML that has a syntax error. Azure TTS error: {error.details}
 
@@ -249,9 +255,11 @@ Return only the fixed SSML without any explanation.
 Fixed SSML:"""
 
         response = self.llm.invoke(prompt)
-        return response.content if hasattr(response, 'content') else str(response)
-        
-    def _fix_attribute_values(self, ssml: str, error: AzureError, attempt: int) -> Optional[str]:
+        return response.content if hasattr(response, "content") else str(response)
+
+    def _fix_attribute_values(
+        self, ssml: str, error: AzureError, attempt: int
+    ) -> Optional[str]:
         """Fix invalid attribute values in SSML."""
         prompt = f"""Fix the following SSML that has invalid attribute values. Azure TTS error: {error.details}
 
@@ -269,9 +277,11 @@ Return only the fixed SSML without any explanation.
 Fixed SSML:"""
 
         response = self.llm.invoke(prompt)
-        return response.content if hasattr(response, 'content') else str(response)
-        
-    def _fix_prosody_values(self, ssml: str, error: AzureError, attempt: int) -> Optional[str]:
+        return response.content if hasattr(response, "content") else str(response)
+
+    def _fix_prosody_values(
+        self, ssml: str, error: AzureError, attempt: int
+    ) -> Optional[str]:
         """Fix invalid prosody values specifically."""
         prompt = f"""Fix the following SSML that has invalid prosody values. Azure TTS error: {error.details}
 
@@ -294,10 +304,11 @@ Return only the fixed SSML without any explanation.
 Fixed SSML:"""
 
         response = self.llm.invoke(prompt)
-        return response.content if hasattr(response, 'content') else str(response)
-        
-    def _remove_unsupported_elements(self, ssml: str, error: AzureError, 
-                                    attempt: int) -> Optional[str]:
+        return response.content if hasattr(response, "content") else str(response)
+
+    def _remove_unsupported_elements(
+        self, ssml: str, error: AzureError, attempt: int
+    ) -> Optional[str]:
         """Remove unsupported SSML elements."""
         prompt = f"""Fix the following SSML by removing unsupported elements. Azure TTS error: {error.details}
 
@@ -317,13 +328,15 @@ Return only the fixed SSML without any explanation.
 Fixed SSML:"""
 
         response = self.llm.invoke(prompt)
-        return response.content if hasattr(response, 'content') else str(response)
-        
-    def _repair_with_llm(self, ssml: str, error: AzureError, attempt: int) -> Optional[str]:
+        return response.content if hasattr(response, "content") else str(response)
+
+    def _repair_with_llm(
+        self, ssml: str, error: AzureError, attempt: int
+    ) -> Optional[str]:
         """General LLM-based SSML repair."""
         # More aggressive prompt for subsequent attempts
         aggressiveness = ["conservative", "moderate", "aggressive"][min(attempt - 1, 2)]
-        
+
         prompt = f"""Repair the following SSML content that Azure TTS rejected. This is attempt {attempt}/3.
 
 Azure TTS Error: {error.message}
@@ -348,24 +361,24 @@ Return only the repaired SSML without any explanation.
 Repaired SSML:"""
 
         response = self.llm.invoke(prompt)
-        return response.content if hasattr(response, 'content') else str(response)
-        
+        return response.content if hasattr(response, "content") else str(response)
+
     def _validate_ssml(self, ssml: str) -> bool:
         """Validate that the SSML is well-formed XML."""
         try:
             # Parse the XML to check if it's valid
             root = ET.fromstring(ssml)
-            
+
             # Check root element
-            tag_name = root.tag.split('}')[-1] if '}' in root.tag else root.tag
-            if tag_name != 'speak':
+            tag_name = root.tag.split("}")[-1] if "}" in root.tag else root.tag
+            if tag_name != "speak":
                 logger.error(f"SSML root element is <{tag_name}>, not <speak>")
                 return False
-                
+
             # Check for required attributes
-            if 'version' not in root.attrib:
+            if "version" not in root.attrib:
                 logger.warning("SSML missing version attribute")
-                
+
             return True
         except ET.ParseError as e:
             logger.error(f"SSML XML validation failed: {e}")
@@ -373,35 +386,55 @@ Repaired SSML:"""
         except Exception as e:
             logger.error(f"Unexpected error validating SSML: {e}")
             return False
-            
-    def _log_repair_attempt(self, scene_id: int, error_code: int, error_message: str,
-                        repair_attempt: int, original_ssml: str, repaired_ssml: str,
-                        successful: bool) -> None:
+
+    def _log_repair_attempt(
+        self,
+        scene_id: int,
+        error_code: int,
+        error_message: str,
+        repair_attempt: int,
+        original_ssml: str,
+        repaired_ssml: str,
+        successful: bool,
+    ) -> None:
         """Log repair attempt to database."""
         try:
             with self.db._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO ssml_repair_log 
                     (scene_id, error_code, error_message, repair_attempt, 
                      original_ssml, repaired_ssml, repair_successful)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (scene_id, error_code, error_message, repair_attempt,
-                      original_ssml, repaired_ssml, successful))
+                """,
+                    (
+                        scene_id,
+                        error_code,
+                        error_message,
+                        repair_attempt,
+                        original_ssml,
+                        repaired_ssml,
+                        successful,
+                    ),
+                )
                 conn.commit()
         except Exception as e:
             logger.error(f"Failed to log repair attempt: {str(e)}")
-            
+
     def get_repair_history(self, scene_id: int) -> list:
         """Get repair history for a scene."""
         try:
             with self.db._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT * FROM ssml_repair_log 
                     WHERE scene_id = ? 
                     ORDER BY created_at DESC
-                """, (scene_id,))
+                """,
+                    (scene_id,),
+                )
                 return cursor.fetchall()
         except Exception as e:
             logger.error(f"Failed to get repair history: {str(e)}")
