@@ -132,7 +132,7 @@ def load_story_info(info_filename: str) -> dict[str, Any]:
     return info
 
 
-def update_state_from_info(state: dict, info: dict[str, Any]) -> StoryState:
+def update_state_from_info(state: dict, info: dict[str, Any]) -> dict:
     """
     Update the state and database with information from the info dictionary.
 
@@ -228,7 +228,7 @@ def load_story_info_from_book(book_filename: str) -> dict[str, Any]:
     return load_story_info(info_filename)
 
 
-def update_state_from_book(state: dict, book_filename: str) -> StoryState:
+def update_state_from_book(state: dict, book_filename: str) -> dict:
     """
     Update the state with information from the info file corresponding to a book file.
 
