@@ -7,7 +7,7 @@ human-readable format, allowing users to monitor the story as it's being created
 
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from storyteller_lib.core.logger import get_logger
 
@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 class StoryProgressLogger:
     """Logs story generation progress to a human-readable file."""
 
-    def __init__(self, log_file_path: Optional[str] = None):
+    def __init__(self, log_file_path: str | None = None):
         """Initialize the story progress logger.
 
         Args:
@@ -75,9 +75,9 @@ and see the content being generated in real-time.
         self,
         genre: str,
         tone: str,
-        author: Optional[str] = None,
+        author: str | None = None,
         language: str = "english",
-        idea: Optional[str] = None,
+        idea: str | None = None,
     ):
         """Log the initial story parameters.
 
@@ -101,7 +101,7 @@ Initial Idea: {idea if idea else "None"}
 """
         self._write(content)
 
-    def log_creative_concepts(self, concepts: Dict[str, Any]):
+    def log_creative_concepts(self, concepts: dict[str, Any]):
         """Log the creative concepts brainstormed.
 
         Args:
@@ -142,7 +142,7 @@ CENTRAL CONFLICT:
 """
         self._write(content)
 
-    def log_world_elements(self, world_elements: Dict[str, Any]):
+    def log_world_elements(self, world_elements: dict[str, Any]):
         """Log worldbuilding elements.
 
         Args:
@@ -170,7 +170,7 @@ CENTRAL CONFLICT:
         content += "================================================================================\n\n"
         self._write(content)
 
-    def log_character(self, character: Dict[str, Any]):
+    def log_character(self, character: dict[str, Any]):
         """Log a character profile.
 
         Args:
@@ -198,7 +198,7 @@ CHARACTER ARC:
 """
         self._write(content)
 
-    def log_chapter_plan(self, chapter_num: str, chapter_data: Dict[str, Any]):
+    def log_chapter_plan(self, chapter_num: str, chapter_data: dict[str, Any]):
         """Log a chapter plan.
 
         Args:
@@ -253,7 +253,7 @@ Description: {description}
         self._write(content)
 
     def log_scene_reflection(
-        self, chapter_num: str, scene_num: str, reflection: Dict[str, Any]
+        self, chapter_num: str, scene_num: str, reflection: dict[str, Any]
     ):
         """Log scene reflection results.
 
@@ -334,7 +334,7 @@ Log File: {self.log_file_path}
 """
         self._write(content)
 
-    def log_error(self, error_msg: str, location: Optional[str] = None):
+    def log_error(self, error_msg: str, location: str | None = None):
         """Log an error.
 
         Args:
@@ -358,7 +358,7 @@ Log File: {self.log_file_path}
         """
         return self.log_file_path
 
-    def _extract_character_goals(self, character: Dict[str, Any]) -> str:
+    def _extract_character_goals(self, character: dict[str, Any]) -> str:
         """Extract character goals from various possible locations."""
         # Check if personality dict has desires
         personality = character.get("personality", {})
@@ -384,10 +384,10 @@ Log File: {self.log_file_path}
 
 
 # Global instance for easy access
-_progress_logger: Optional[StoryProgressLogger] = None
+_progress_logger: StoryProgressLogger | None = None
 
 
-def get_progress_logger() -> Optional[StoryProgressLogger]:
+def get_progress_logger() -> StoryProgressLogger | None:
     """Get the global progress logger instance.
 
     Returns:
@@ -400,7 +400,7 @@ def get_progress_logger() -> Optional[StoryProgressLogger]:
 
 
 def initialize_progress_logger(
-    log_file_path: Optional[str] = None,
+    log_file_path: str | None = None,
 ) -> StoryProgressLogger:
     """Initialize the global progress logger.
 

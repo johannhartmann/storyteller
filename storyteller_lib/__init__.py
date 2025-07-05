@@ -3,9 +3,10 @@ StoryCraft Agent Package - A multi-component story generation system using LangG
 """
 
 import functools
-import time
 import inspect
-from typing import Dict, Any, Callable, Optional
+import time
+from collections.abc import Callable
+from typing import Any, Dict, Optional
 
 # Global progress tracking
 _progress_callback = None
@@ -25,7 +26,7 @@ def track_progress(node_func: Callable) -> Callable:
     """
 
     @functools.wraps(node_func)
-    def wrapper(state: Dict[str, Any]) -> Dict[str, Any]:
+    def wrapper(state: dict[str, Any]) -> dict[str, Any]:
         global _progress_callback, _start_time, _node_counts
 
         # Initialize tracking if needed
@@ -46,7 +47,7 @@ def track_progress(node_func: Callable) -> Callable:
         # Report progress if callback is set
         if _progress_callback:
             # Calculate elapsed time
-            elapsed = time.time() - _start_time
+            time.time() - _start_time
 
             # Create updated state by merging result into the original state
             # This ensures we always have the full state context for reporting
@@ -63,7 +64,7 @@ def track_progress(node_func: Callable) -> Callable:
 
 
 def set_progress_callback(
-    callback: Optional[Callable[[str, Dict[str, Any]], None]]
+    callback: Callable[[str, dict[str, Any]], None] | None,
 ) -> None:
     """
     Set the global progress tracking callback.

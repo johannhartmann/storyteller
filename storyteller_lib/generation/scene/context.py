@@ -4,11 +4,12 @@ for scene writing and reflection. This ensures scenes are properly connected
 to the overall story, characters, world, and plot progression.
 """
 
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from typing import Any
+
+from storyteller_lib.core.logger import get_logger
 from storyteller_lib.core.models import StoryState
 from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.core.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -22,13 +23,13 @@ class ComprehensiveSceneContext:
     initial_idea: str
     genre: str
     tone: str
-    author_style: Optional[str]
+    author_style: str | None
 
     # Chapter context
     chapter_number: int
     chapter_title: str
     chapter_outline: str
-    chapter_themes: List[str]
+    chapter_themes: list[str]
 
     # Scene specifications
     scene_number: int
@@ -40,32 +41,32 @@ class ComprehensiveSceneContext:
     pov_character: str
 
     # Plot context
-    plot_progressions: List[Dict[str, Any]]
-    active_plot_threads: List[Dict[str, Any]]
+    plot_progressions: list[dict[str, Any]]
+    active_plot_threads: list[dict[str, Any]]
 
     # Character context
-    required_characters: List[str]
-    character_learns: List[str]
-    character_details: List[Dict[str, Any]]
-    character_relationships: List[Dict[str, Any]]
+    required_characters: list[str]
+    character_learns: list[str]
+    character_details: list[dict[str, Any]]
+    character_relationships: list[dict[str, Any]]
 
     # World context
-    relevant_locations: List[Dict[str, Any]]
-    relevant_world_elements: Dict[str, Any]
+    relevant_locations: list[dict[str, Any]]
+    relevant_world_elements: dict[str, Any]
 
     # Previous/Next context
     previous_scene_ending: str
     previous_scenes_summary: str
-    next_scene_preview: Optional[str]
+    next_scene_preview: str | None
 
     # Writing constraints
-    forbidden_repetitions: List[str]
-    recent_scene_types: List[str]
-    overused_phrases: List[str]
+    forbidden_repetitions: list[str]
+    recent_scene_types: list[str]
+    overused_phrases: list[str]
 
     # Style and language
     language: str
-    style_guide: Dict[str, Any]
+    style_guide: dict[str, Any]
 
 
 def build_comprehensive_scene_context(
@@ -155,7 +156,7 @@ def build_comprehensive_scene_context(
 
     except Exception as e:
         logger.error(f"Failed to get intelligent worldbuilding: {str(e)}")
-        logger.error(f"Falling back to basic world context")
+        logger.error("Falling back to basic world context")
         # Fallback to basic world context
         world_context = _get_world_context(
             db_manager, scene_specs["description"], character_context["locations"]
@@ -222,7 +223,7 @@ def build_comprehensive_scene_context(
     )
 
 
-def _get_story_context(db_manager, state: StoryState = None) -> Dict[str, Any]:
+def _get_story_context(db_manager, state: StoryState = None) -> dict[str, Any]:
     """Get story-level context from database and state."""
     with db_manager._db._get_connection() as conn:
         cursor = conn.cursor()
@@ -261,13 +262,13 @@ def _get_story_context(db_manager, state: StoryState = None) -> Dict[str, Any]:
         }
 
 
-def _get_chapter_context(db_manager, chapter: int) -> Dict[str, Any]:
+def _get_chapter_context(db_manager, chapter: int) -> dict[str, Any]:
     """Get chapter-level context from database."""
     with db_manager._db._get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT title, outline FROM chapters 
+            SELECT title, outline FROM chapters
             WHERE chapter_number = ?
         """,
             (chapter,),
@@ -297,7 +298,7 @@ def _get_chapter_context(db_manager, chapter: int) -> Dict[str, Any]:
 
 def _get_scene_specifications(
     state: StoryState, chapter: int, scene: int
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get scene specifications from state."""
     chapters = state.get("chapters", {})
     scene_data = {}
@@ -319,7 +320,7 @@ def _get_scene_specifications(
     }
 
 
-def _get_plot_context(db_manager, scene_specs: Dict[str, Any]) -> Dict[str, Any]:
+def _get_plot_context(db_manager, scene_specs: dict[str, Any]) -> dict[str, Any]:
     """Get plot-related context."""
     # Get existing plot progressions
     existing_progressions = db_manager.get_plot_progressions()
@@ -348,11 +349,11 @@ def _get_plot_context(db_manager, scene_specs: Dict[str, Any]) -> Dict[str, Any]
             LEFT JOIN plot_thread_developments ptd ON pt.id = ptd.plot_thread_id
             WHERE pt.status IN ('introduced', 'developing')
             AND pt.importance IN ('major', 'minor')
-            ORDER BY 
-                CASE pt.importance 
-                WHEN 'major' THEN 1 
-                WHEN 'minor' THEN 2 
-                ELSE 3 
+            ORDER BY
+                CASE pt.importance
+                WHEN 'major' THEN 1
+                WHEN 'minor' THEN 2
+                ELSE 3
                 END,
                 ptd.scene_id DESC
             LIMIT 5
@@ -374,8 +375,8 @@ def _get_plot_context(db_manager, scene_specs: Dict[str, Any]) -> Dict[str, Any]
 
 
 def _get_character_context(
-    db_manager, required_chars: List[str], scene_desc: str, state: StoryState = None
-) -> Dict[str, Any]:
+    db_manager, required_chars: list[str], scene_desc: str, state: StoryState = None
+) -> dict[str, Any]:
     """Get comprehensive character context including worldbuilding descriptions."""
     characters = []
     character_ids = []
@@ -600,7 +601,7 @@ def _get_character_context(
                                 state_char["relationships"], dict
                             ):
                                 # Look for relationship with the other character
-                                for rel_key, rel_info in state_char[
+                                for _rel_key, rel_info in state_char[
                                     "relationships"
                                 ].items():
                                     if isinstance(rel_info, dict):
@@ -665,8 +666,8 @@ def _get_character_context(
 
 
 def _get_world_context(
-    db_manager, scene_desc: str, character_locations: List[Dict]
-) -> Dict[str, Any]:
+    db_manager, scene_desc: str, character_locations: list[dict]
+) -> dict[str, Any]:
     """Get relevant world elements for the scene using intelligent selection."""
     # Get locations mentioned in scene or associated with characters
     relevant_locations = character_locations.copy()
@@ -697,7 +698,7 @@ def _get_world_context(
     }
 
 
-def _extract_world_keywords(text: str) -> List[str]:
+def _extract_world_keywords(text: str) -> list[str]:
     """Extract keywords that might relate to world elements."""
     # Common world element keywords
     keywords = []
@@ -739,7 +740,7 @@ def _extract_world_keywords(text: str) -> List[str]:
 
 def _get_sequence_context(
     db_manager, chapter: int, scene: int, state: StoryState
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get context from previous and next scenes."""
     # Get previous scene ending
     previous_ending = ""
@@ -819,7 +820,7 @@ def _get_sequence_context(
     }
 
 
-def _get_writing_constraints(db_manager, chapter: int, scene: int) -> Dict[str, Any]:
+def _get_writing_constraints(db_manager, chapter: int, scene: int) -> dict[str, Any]:
     """Get constraints to avoid repetition and maintain variety."""
     constraints = {
         "forbidden_repetitions": [],
@@ -883,10 +884,10 @@ def _get_writing_constraints(db_manager, chapter: int, scene: int) -> Dict[str, 
 def _get_comprehensive_style_guide(
     genre: str,
     tone: str,
-    author: Optional[str],
+    author: str | None,
     language: str,
     author_style_guidance: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a comprehensive style guide data structure for template use."""
     style_data = {
         "genre": genre,

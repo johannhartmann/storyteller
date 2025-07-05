@@ -6,9 +6,9 @@ and handle progress tracking throughout story generation.
 
 # Standard library imports
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 # Local imports
 from storyteller_lib.core.constants import NodeNames, ProgressMessages
@@ -32,12 +32,12 @@ class ProgressState:
         total_scenes_per_chapter: Number of scenes per chapter.
     """
 
-    start_time: Optional[float] = None
-    node_counts: Dict[str, int] = field(default_factory=dict)
-    current_chapter: Optional[int] = None
-    current_scene: Optional[int] = None
+    start_time: float | None = None
+    node_counts: dict[str, int] = field(default_factory=dict)
+    current_chapter: int | None = None
+    current_scene: int | None = None
     verbose_mode: bool = False
-    output_file: Optional[str] = None
+    output_file: str | None = None
     total_chapters: int = 0
     total_scenes_per_chapter: int = 0
 
@@ -81,7 +81,7 @@ class ProgressState:
         self.node_counts[node_name] = self.node_counts.get(node_name, 0) + 1
         return self.node_counts[node_name]
 
-    def get_progress_percentage(self) -> Optional[float]:
+    def get_progress_percentage(self) -> float | None:
         """Calculate overall progress percentage.
 
         Returns:
@@ -114,7 +114,7 @@ class ProgressManager:
         _write_chapter_callback: Optional callback for writing chapters.
     """
 
-    def __init__(self, verbose: bool = False, output_file: Optional[str] = None):
+    def __init__(self, verbose: bool = False, output_file: str | None = None):
         """Initialize the progress manager.
 
         Args:
@@ -122,8 +122,8 @@ class ProgressManager:
             output_file: Path to output file for writing chapters
         """
         self.state = ProgressState(verbose_mode=verbose, output_file=output_file)
-        self.callback: Optional[Callable] = None
-        self._write_chapter_callback: Optional[Callable] = None
+        self.callback: Callable | None = None
+        self._write_chapter_callback: Callable | None = None
 
     def reset(self, total_chapters: int = 0, scenes_per_chapter: int = 0) -> None:
         """Reset progress tracking for a new story.
@@ -136,7 +136,7 @@ class ProgressManager:
         self.state.total_chapters = total_chapters
         self.state.total_scenes_per_chapter = scenes_per_chapter
 
-    def set_progress_callback(self, callback: Callable[[str, Dict], None]) -> None:
+    def set_progress_callback(self, callback: Callable[[str, dict], None]) -> None:
         """Set the callback function for progress updates.
 
         Args:
@@ -145,7 +145,7 @@ class ProgressManager:
         self.callback = callback
 
     def set_write_chapter_callback(
-        self, callback: Callable[[int, Dict, str], None]
+        self, callback: Callable[[int, dict, str], None]
     ) -> None:
         """Set the callback function for writing chapters.
 
@@ -154,7 +154,7 @@ class ProgressManager:
         """
         self._write_chapter_callback = callback
 
-    def update_progress(self, node_name: str, state: Dict[str, Any]) -> None:
+    def update_progress(self, node_name: str, state: dict[str, Any]) -> None:
         """Update progress based on node execution.
 
         Args:
@@ -174,7 +174,7 @@ class ProgressManager:
         if self.callback:
             self.callback(node_name, state)
 
-    def write_chapter(self, chapter_num: int, chapter_data: Dict) -> None:
+    def write_chapter(self, chapter_num: int, chapter_data: dict) -> None:
         """Write a completed chapter to file.
 
         Args:
@@ -236,7 +236,7 @@ class ProgressManager:
         if not self.state.start_time:
             return
 
-        total_time = time.time() - self.state.start_time
+        time.time() - self.state.start_time
         print(f"\n{ProgressMessages.COMPLETE}")
         print(f"Total time: {self.state.get_elapsed_time()}")
 
@@ -250,7 +250,7 @@ class ProgressManager:
 
 
 def create_progress_manager(
-    verbose: bool = False, output_file: Optional[str] = None
+    verbose: bool = False, output_file: str | None = None
 ) -> ProgressManager:
     """Create a new progress manager instance.
 

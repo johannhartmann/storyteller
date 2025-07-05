@@ -2,23 +2,21 @@
 StoryCraft Agent - Character creation and management.
 """
 
-from typing import Dict, List, Any, Optional, Union, Set
-from pydantic import BaseModel, Field, validator
+from typing import Any
 
+from langchain_core.messages import AIMessage, RemoveMessage
+from pydantic import BaseModel, Field
+
+from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
-    llm,
-    MEMORY_NAMESPACE,
     DEFAULT_LANGUAGE,
-    SUPPORTED_LANGUAGES,
+    llm,
 )
 
 # Memory manager imports removed - using state and database instead
 from storyteller_lib.core.models import (
     StoryState,
-    CharacterProfile as CharacterProfileDict,
 )
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
-from storyteller_lib import track_progress
 
 # Default character data - simplified for fallback only
 DEFAULT_CHARACTERS = {
@@ -77,12 +75,12 @@ DEFAULT_CHARACTER_KNOWLEDGE = {
 class PersonalityTraits(BaseModel):
     """Character personality traits model."""
 
-    traits: List[str] = Field(default_factory=list)
-    strengths: List[str] = Field(default_factory=list)
-    flaws: List[str] = Field(default_factory=list)
-    fears: List[str] = Field(default_factory=list)
-    desires: List[str] = Field(default_factory=list)
-    values: List[str] = Field(default_factory=list)
+    traits: list[str] = Field(default_factory=list)
+    strengths: list[str] = Field(default_factory=list)
+    flaws: list[str] = Field(default_factory=list)
+    fears: list[str] = Field(default_factory=list)
+    desires: list[str] = Field(default_factory=list)
+    values: list[str] = Field(default_factory=list)
 
 
 class EmotionalState(BaseModel):
@@ -90,7 +88,7 @@ class EmotionalState(BaseModel):
 
     initial: str
     current: str
-    journey: List[str] = Field(default_factory=list)
+    journey: list[str] = Field(default_factory=list)
 
 
 class InnerConflict(BaseModel):
@@ -105,7 +103,7 @@ class CharacterArc(BaseModel):
     """Character arc model."""
 
     type: str
-    stages: List[str] = Field(default_factory=list)
+    stages: list[str] = Field(default_factory=list)
     current_stage: str
 
 
@@ -117,8 +115,8 @@ class RelationshipDynamics(BaseModel):
     )
     type: str
     dynamics: str
-    evolution: List[str] = Field(default_factory=list)
-    conflicts: List[str] = Field(default_factory=list)
+    evolution: list[str] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
 
 
 # Flattened model to avoid nested dictionaries
@@ -197,15 +195,15 @@ class CharacterProfile(BaseModel):
     name: str
     role: str
     backstory: str
-    personality: Optional[PersonalityTraits] = None
-    emotional_state: Optional[EmotionalState] = None
-    inner_conflicts: List[InnerConflict] = Field(default_factory=list)
-    character_arc: Optional[CharacterArc] = None
-    evolution: List[str] = Field(default_factory=list)
+    personality: PersonalityTraits | None = None
+    emotional_state: EmotionalState | None = None
+    inner_conflicts: list[InnerConflict] = Field(default_factory=list)
+    character_arc: CharacterArc | None = None
+    evolution: list[str] = Field(default_factory=list)
     # Changed from Dict[str, RelationshipDynamics] to List to avoid nested dict issues with Gemini
-    relationships: List[RelationshipDynamics] = Field(default_factory=list)
+    relationships: list[RelationshipDynamics] = Field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format compatible with the existing system."""
         data = self.dict(exclude_none=True)
         # Convert relationships list back to dict format for compatibility
@@ -230,7 +228,7 @@ class CharacterRole(BaseModel):
 class CharacterRoles(BaseModel):
     """Collection of character roles for the story."""
 
-    roles: List[CharacterRole]
+    roles: list[CharacterRole]
 
 
 class BasicCharacterInfo(BaseModel):
@@ -239,7 +237,7 @@ class BasicCharacterInfo(BaseModel):
     name: str
     role: str
     backstory: str
-    key_traits: List[str] = Field(default_factory=list)
+    key_traits: list[str] = Field(default_factory=list)
 
 
 class CharacterRelationship(BaseModel):
@@ -248,10 +246,10 @@ class CharacterRelationship(BaseModel):
     target_character: str
     relationship_type: str
     dynamics: str
-    conflicts: List[str] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
 
 
-def create_character(name: str, role: str, backstory: str = "", **kwargs) -> Dict:
+def create_character(name: str, role: str, backstory: str = "", **kwargs) -> dict:
     """
     Create a new character with the given attributes.
 
@@ -318,9 +316,9 @@ def generate_character_roles(
     story_outline: str,
     genre: str,
     tone: str,
-    required_characters: List[str] = None,
+    required_characters: list[str] = None,
     language: str = DEFAULT_LANGUAGE,
-) -> List[CharacterRole]:
+) -> list[CharacterRole]:
     """
     Generate a list of character roles needed for the story.
 
@@ -337,13 +335,12 @@ def generate_character_roles(
     # Language instruction no longer needed - prompting in target language
 
     # Prepare required characters instruction
-    required_chars_instruction = ""
     if required_characters and len(required_characters) > 0:
-        required_chars_instruction = f"""
+        f"""
         REQUIRED CHARACTERS (HIGHEST PRIORITY):
         The following characters MUST be included as they are central to the story:
         {', '.join(required_characters)}
-        
+
         These characters are non-negotiable and must be included in your list of roles.
         """
 
@@ -399,7 +396,7 @@ def generate_basic_character(
         style_guidance = f"""
         AUTHOR STYLE GUIDANCE:
         Consider these guidelines when creating the character:
-        
+
         {author_style_guidance}
         """
 
@@ -407,7 +404,6 @@ def generate_basic_character(
     from storyteller_lib.prompts.renderer import render_prompt
 
     # Use template system
-    from storyteller_lib.prompts.renderer import render_prompt
 
     # Create a simple template for basic character generation
     prompt = render_prompt(
@@ -506,7 +502,7 @@ def generate_inner_conflicts(
     character: BasicCharacterInfo,
     personality: PersonalityTraits,
     language: str = DEFAULT_LANGUAGE,
-) -> List[InnerConflict]:
+) -> list[InnerConflict]:
     """
     Generate inner conflicts for a character.
 
@@ -539,7 +535,7 @@ def generate_inner_conflicts(
 
     # Create a model for the response
     class InnerConflicts(BaseModel):
-        conflicts: List[InnerConflict]
+        conflicts: list[InnerConflict]
 
     # Use structured output with Pydantic
     structured_output_llm = llm.with_structured_output(InnerConflicts)
@@ -549,7 +545,7 @@ def generate_inner_conflicts(
 
 def generate_character_arc(
     character: BasicCharacterInfo,
-    inner_conflicts: List[InnerConflict],
+    inner_conflicts: list[InnerConflict],
     language: str = DEFAULT_LANGUAGE,
 ) -> CharacterArc:
     """
@@ -586,7 +582,7 @@ def generate_character_arc(
 
 def generate_character_facts(
     character: BasicCharacterInfo, story_outline: str, language: str = DEFAULT_LANGUAGE
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """
     Generate known and secret facts about a character.
 
@@ -614,7 +610,7 @@ def generate_character_facts(
 
     # Create a model for the response
     class CharacterEvolution(BaseModel):
-        evolution: List[str]
+        evolution: list[str]
 
     # Use structured output with Pydantic
     structured_output_llm = llm.with_structured_output(CharacterEvolution)
@@ -628,13 +624,13 @@ class SingleRelationship(BaseModel):
 
     relationship_type: str
     dynamics: str
-    evolution: List[str] = Field(default_factory=list)
-    conflicts: List[str] = Field(default_factory=list)
+    evolution: list[str] = Field(default_factory=list)
+    conflicts: list[str] = Field(default_factory=list)
 
 
 def generate_single_relationship(
-    character: Dict[str, Any],
-    other_character: Dict[str, Any],
+    character: dict[str, Any],
+    other_character: dict[str, Any],
     story_outline: str,
     language: str = DEFAULT_LANGUAGE,
 ) -> SingleRelationship:
@@ -673,10 +669,10 @@ def generate_single_relationship(
 
 
 def establish_character_relationships(
-    characters: Dict[str, Dict[str, Any]],
+    characters: dict[str, dict[str, Any]],
     story_outline: str,
     language: str = DEFAULT_LANGUAGE,
-) -> Dict[str, Dict[str, Any]]:
+) -> dict[str, dict[str, Any]]:
     """
     Establish relationships between characters one pair at a time.
 
@@ -728,7 +724,7 @@ def establish_character_relationships(
 
 
 @track_progress
-def generate_characters(state: StoryState) -> Dict:
+def generate_characters(state: StoryState) -> dict:
     """
     Generate detailed character profiles based on the story outline using a step-by-step approach.
 
@@ -773,7 +769,7 @@ def generate_characters(state: StoryState) -> Dict:
 
     genre = config["genre"]
     tone = config["tone"]
-    author = config["author"]
+    config["author"]
     initial_idea = config["initial_idea"]
     language = config["language"]
 
@@ -912,8 +908,8 @@ def generate_characters(state: StoryState) -> Dict:
     )
 
     # Store characters in database
-    from storyteller_lib.persistence.database import get_db_manager
     from storyteller_lib.core.logger import get_logger
+    from storyteller_lib.persistence.database import get_db_manager
 
     logger = get_logger(__name__)
 

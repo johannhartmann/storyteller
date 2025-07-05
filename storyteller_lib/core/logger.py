@@ -7,8 +7,6 @@ This module provides centralized logging configuration and utilities.
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
-
 
 # Define log levels
 LOG_LEVELS = {
@@ -22,8 +20,8 @@ LOG_LEVELS = {
 
 def setup_logging(
     level: str = "INFO",
-    log_file: Optional[str] = None,
-    format_string: Optional[str] = None,
+    log_file: str | None = None,
+    format_string: str | None = None,
 ) -> logging.Logger:
     """Set up logging configuration for the application.
 
@@ -75,7 +73,7 @@ def setup_logging(
     return logger
 
 
-def get_logger(name: Optional[str] = None) -> logging.Logger:
+def get_logger(name: str | None = None) -> logging.Logger:
     """Get a logger instance.
 
     Args:

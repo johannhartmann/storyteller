@@ -5,9 +5,10 @@ This module provides context information from the database to prompts,
 ensuring consistency across the story.
 """
 
-from typing import Dict, List, Optional, Any
-from storyteller_lib.persistence.database import StoryDatabaseManager
+from typing import Any
+
 from storyteller_lib.core.logger import get_logger
+from storyteller_lib.persistence.database import StoryDatabaseManager
 
 logger = get_logger(__name__)
 
@@ -18,7 +19,7 @@ _context_provider = None
 class StoryContextProvider:
     """Provides context information from the database for prompts."""
 
-    def __init__(self, db_manager: Optional[StoryDatabaseManager] = None):
+    def __init__(self, db_manager: StoryDatabaseManager | None = None):
         """Initialize with database manager."""
         self.db = db_manager
         self.story_id = None
@@ -33,7 +34,7 @@ class StoryContextProvider:
 
     def get_character_context(
         self, character_id: str, chapter_num: int, scene_num: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get comprehensive character context for a given scene.
 
@@ -80,8 +81,8 @@ class StoryContextProvider:
                     SELECT s.id, s.scene_number, c.chapter_number
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
-                    WHERE c.story_id = ? 
-                    AND (c.chapter_number < ? OR 
+                    WHERE c.story_id = ?
+                    AND (c.chapter_number < ? OR
                         (c.chapter_number = ? AND s.scene_number < ?))
                     ORDER BY c.chapter_number DESC, s.scene_number DESC
                     LIMIT 5
@@ -103,7 +104,7 @@ class StoryContextProvider:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT fact, source, chapter, scene 
+                    SELECT fact, source, chapter, scene
                     FROM character_knowledge
                     WHERE character_id = ?
                     AND (chapter < ? OR (chapter = ? AND scene < ?))
@@ -153,7 +154,7 @@ class StoryContextProvider:
             logger.error(f"Error getting character context: {e}")
             return {}
 
-    def get_scene(self, chapter_num: int, scene_num: int) -> Optional[Dict[str, Any]]:
+    def get_scene(self, chapter_num: int, scene_num: int) -> dict[str, Any] | None:
         """
         Get scene content and metadata.
 
@@ -175,7 +176,7 @@ class StoryContextProvider:
 
     def get_recent_scenes(
         self, chapter_num: int, scene_num: int, limit: int = 3
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get recent scenes before the current position.
 
@@ -199,7 +200,7 @@ class StoryContextProvider:
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
                     WHERE c.story_id = ?
-                    AND (c.chapter_number < ? OR 
+                    AND (c.chapter_number < ? OR
                         (c.chapter_number = ? AND s.scene_number < ?))
                     ORDER BY c.chapter_number DESC, s.scene_number DESC
                     LIMIT ?
@@ -223,7 +224,7 @@ class StoryContextProvider:
             logger.error(f"Error getting recent scenes: {e}")
             return []
 
-    def get_plot_thread_state(self, thread_name: str) -> Optional[Dict[str, Any]]:
+    def get_plot_thread_state(self, thread_name: str) -> dict[str, Any] | None:
         """
         Get the current state of a plot thread.
 
@@ -266,7 +267,7 @@ class StoryContextProvider:
             logger.error(f"Error getting plot thread state: {e}")
             return None
 
-    def get_world_elements(self, category: Optional[str] = None) -> Dict[str, Any]:
+    def get_world_elements(self, category: str | None = None) -> dict[str, Any]:
         """
         Get world elements, optionally filtered by category.
 
@@ -325,6 +326,6 @@ def initialize_context_provider(
     return _context_provider
 
 
-def get_context_provider() -> Optional[StoryContextProvider]:
+def get_context_provider() -> StoryContextProvider | None:
     """Get the global context provider instance."""
     return _context_provider

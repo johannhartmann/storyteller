@@ -2,23 +2,22 @@
 Node for generating scene and chapter summaries in the story workflow.
 """
 
-from typing import Dict
 
 from storyteller_lib import track_progress
-from storyteller_lib.core.models import StoryState
-from storyteller_lib.output.summary import (
-    generate_scene_summary,
-    generate_chapter_summary,
-)
-from storyteller_lib.persistence.database import get_db_manager
 from storyteller_lib.core.config import get_story_config
 from storyteller_lib.core.logger import get_logger
+from storyteller_lib.core.models import StoryState
+from storyteller_lib.output.summary import (
+    generate_chapter_summary,
+    generate_scene_summary,
+)
+from storyteller_lib.persistence.database import get_db_manager
 
 logger = get_logger(__name__)
 
 
 @track_progress
-def generate_summaries(state: StoryState) -> Dict:
+def generate_summaries(state: StoryState) -> dict:
     """
     Generate summaries for the current scene and chapter if needed.
     This is called after scene is finalized (written and potentially revised).

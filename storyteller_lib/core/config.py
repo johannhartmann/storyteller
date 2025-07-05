@@ -8,14 +8,12 @@ including LLM initialization, memory store setup, and other shared resources.
 # Standard library imports
 import gc
 import os
-import sqlite3
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any
 
 # Third party imports
 import psutil
 from dotenv import load_dotenv
-from langchain.embeddings import init_embeddings
 from langchain_anthropic import ChatAnthropic
 from langchain_community.cache import SQLiteCache
 from langchain_core.caches import BaseCache
@@ -23,12 +21,11 @@ from langchain_core.globals import set_llm_cache
 from langchain_core.language_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.sqlite import SqliteSaver
 
 # Local imports
 from storyteller_lib.core.logger import config_logger as logger
 from storyteller_lib.persistence.database import initialize_db_manager
-from storyteller_lib.persistence.memory import memory_manager as mm, MemoryManager
+from storyteller_lib.persistence.memory import MemoryManager
 
 # Load environment variables
 load_dotenv()
@@ -108,7 +105,7 @@ SUPPORTED_LANGUAGES = {
 }
 
 
-def setup_cache(cache_type: str = DEFAULT_CACHE_TYPE) -> Optional[BaseCache]:
+def setup_cache(cache_type: str = DEFAULT_CACHE_TYPE) -> BaseCache | None:
     """
     Set up the LLM cache based on the specified type.
 
@@ -137,10 +134,10 @@ cache = setup_cache()
 
 
 def get_llm(
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
+    provider: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
 ) -> BaseChatModel:
     """
     Get an instance of the LLM with the specified parameters.
@@ -234,11 +231,11 @@ def get_current_provider() -> str:
 
 
 def get_llm_with_structured_output(
-    response_schema: Dict[str, Any],
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
-    temperature: Optional[float] = None,
-    max_tokens: Optional[int] = None,
+    response_schema: dict[str, Any],
+    provider: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
 ) -> BaseChatModel:
     """
     Get an LLM instance configured for structured output using LangChain's with_structured_output.
@@ -265,7 +262,7 @@ MEMORY_NAMESPACE = "storyteller"
 
 
 # Memory profiling utility
-def log_memory_usage(label: str) -> Dict[str, Any]:
+def log_memory_usage(label: str) -> dict[str, Any]:
     """
     Log current memory usage with a descriptive label.
 
@@ -300,8 +297,8 @@ def log_memory_usage(label: str) -> Dict[str, Any]:
 
 # State cleanup utility
 def cleanup_old_state(
-    state: Dict[str, Any], current_chapter: str, current_scene: Optional[str] = None
-) -> Dict[str, Any]:
+    state: dict[str, Any], current_chapter: str, current_scene: str | None = None
+) -> dict[str, Any]:
     """
     Remove old state data that's no longer needed to reduce memory usage.
 
@@ -454,7 +451,7 @@ def translate_guidance(guidance_text: str, target_language: str) -> str:
         return guidance_text  # Fallback to original text if translation fails
 
 
-def get_story_config() -> Dict[str, Any]:
+def get_story_config() -> dict[str, Any]:
     """
     Load story configuration from database.
     This is a helper function to be used by nodes that need access to configuration.
@@ -480,7 +477,7 @@ def get_story_config() -> Dict[str, Any]:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT genre, tone, language, author, initial_idea, research_worldbuilding 
+                    SELECT genre, tone, language, author, initial_idea, research_worldbuilding
                     FROM story_config WHERE id = 1
                 """
                 )

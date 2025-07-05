@@ -6,8 +6,10 @@ to a YAML file, as well as load data from a YAML file back into the system.
 """
 
 import os
+from typing import Any
+
 import yaml
-from typing import Dict, Any, Optional
+
 from storyteller_lib.core.models import StoryState
 
 
@@ -25,7 +27,7 @@ def get_info_filename(book_filename: str) -> str:
     return f"{base}_info.md"
 
 
-def extract_story_info(state: StoryState) -> Dict[str, Any]:
+def extract_story_info(state: StoryState) -> dict[str, Any]:
     """
     Extract story information from the state and database.
 
@@ -108,7 +110,7 @@ def save_story_info(state: StoryState, book_filename: str) -> str:
     return info_filename
 
 
-def load_story_info(info_filename: str) -> Dict[str, Any]:
+def load_story_info(info_filename: str) -> dict[str, Any]:
     """
     Load story information from a YAML file.
 
@@ -121,7 +123,7 @@ def load_story_info(info_filename: str) -> Dict[str, Any]:
     if not os.path.exists(info_filename):
         return {}
 
-    with open(info_filename, "r", encoding="utf-8") as f:
+    with open(info_filename, encoding="utf-8") as f:
         yaml_content = f.read()
 
     # Parse YAML
@@ -130,7 +132,7 @@ def load_story_info(info_filename: str) -> Dict[str, Any]:
     return info
 
 
-def update_state_from_info(state: StoryState, info: Dict[str, Any]) -> StoryState:
+def update_state_from_info(state: StoryState, info: dict[str, Any]) -> StoryState:
     """
     Update the state and database with information from the info dictionary.
 
@@ -212,7 +214,7 @@ def update_state_from_info(state: StoryState, info: Dict[str, Any]) -> StoryStat
     return state
 
 
-def load_story_info_from_book(book_filename: str) -> Dict[str, Any]:
+def load_story_info_from_book(book_filename: str) -> dict[str, Any]:
     """
     Load story information from the info file corresponding to a book file.
 

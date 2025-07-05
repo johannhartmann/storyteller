@@ -3,35 +3,29 @@ Simplified graph construction using the refactored scene creation workflow.
 This version reduces complexity while maintaining story quality.
 """
 
-from operator import add
-from typing import Any, Dict, List, Optional
 
 from langgraph.graph import END, START, StateGraph
 
 from storyteller_lib import track_progress
+from storyteller_lib.core.config import DATABASE_PATH
+from storyteller_lib.core.logger import get_logger
+from storyteller_lib.core.models import StoryState
+from storyteller_lib.output.manuscript import review_and_polish_manuscript
+from storyteller_lib.persistence.database import (
+    initialize_db_manager,
+)
+from storyteller_lib.universe.characters.profiles import generate_characters
+from storyteller_lib.universe.world.builder import generate_worldbuilding
 from storyteller_lib.workflow.nodes.initialization import (
     brainstorm_story_concepts,
     initialize_state,
 )
-from storyteller_lib.core.config import DATABASE_PATH
-from storyteller_lib.core.constants import NodeNames
-from storyteller_lib.persistence.database import (
-    StoryDatabaseManager,
-    get_db_manager,
-    initialize_db_manager,
-)
-from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
 from storyteller_lib.workflow.nodes.outline import generate_story_outline, plan_chapters
 from storyteller_lib.workflow.nodes.progression import (
-    update_world_elements,
-    update_character_knowledge,
     check_plot_threads,
-    manage_character_arcs,
-    log_story_progress,
-    update_progress_status,
+    update_character_knowledge,
+    update_world_elements,
 )
-from storyteller_lib.output.manuscript import review_and_polish_manuscript
 
 # Use simplified scene modules
 from storyteller_lib.workflow.nodes.scenes import (
@@ -40,8 +34,6 @@ from storyteller_lib.workflow.nodes.scenes import (
     write_scene,
 )
 from storyteller_lib.workflow.nodes.summary_node import generate_summaries
-from storyteller_lib.universe.world.builder import generate_worldbuilding
-from storyteller_lib.universe.characters.profiles import generate_characters
 
 logger = get_logger(__name__)
 
@@ -110,7 +102,7 @@ def is_story_complete(state: StoryState) -> str:
 
 
 @track_progress
-def advance_to_next_scene_or_chapter(state: StoryState) -> Dict:
+def advance_to_next_scene_or_chapter(state: StoryState) -> dict:
     """Advance to the next scene or chapter in the story."""
     current_chapter = int(state.get("current_chapter", 1))
     current_scene = int(state.get("current_scene", 1))

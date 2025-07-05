@@ -4,13 +4,11 @@ This provides the main entry point for story generation with reduced complexity.
 """
 
 import time
-from typing import Dict, Optional, Tuple
 
-from storyteller_lib.core.config import get_story_config
-from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.workflow.graph import create_simplified_graph
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.core.models import StoryState
+from storyteller_lib.persistence.database import get_db_manager
+from storyteller_lib.workflow.graph import create_simplified_graph
 
 logger = get_logger(__name__)
 
@@ -19,18 +17,18 @@ def generate_story_simplified(
     genre: str,
     tone: str,
     num_chapters: int = 10,
-    author: Optional[str] = None,
+    author: str | None = None,
     language: str = "english",
-    initial_idea: Optional[str] = None,
-    progress_log_path: Optional[str] = None,
+    initial_idea: str | None = None,
+    progress_log_path: str | None = None,
     narrative_structure: str = "auto",
     story_length: str = "auto",
-    target_chapters: Optional[int] = None,
-    target_words_per_scene: Optional[int] = None,
-    target_pages: Optional[int] = None,
+    target_chapters: int | None = None,
+    target_words_per_scene: int | None = None,
+    target_pages: int | None = None,
     recursion_limit: int = 200,
     research_worldbuilding: bool = False,
-) -> Tuple[str, StoryState]:
+) -> tuple[str, StoryState]:
     """
     Generate a story using the simplified workflow.
 

@@ -5,13 +5,13 @@ This module provides persistent caching for Tavily search and extract API calls
 to reduce costs and improve performance.
 """
 
+import hashlib
+import json
 import os
 import sqlite3
-import json
-import hashlib
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Optional, List, Any
+from typing import Any
+
 from storyteller_lib.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 class TavilyCache:
     """Persistent cache for Tavily API calls using SQLite."""
 
-    def __init__(self, cache_path: Optional[str] = None, ttl_days: int = 30):
+    def __init__(self, cache_path: str | None = None, ttl_days: int = 30):
         """
         Initialize the Tavily cache.
 
@@ -78,14 +78,14 @@ class TavilyCache:
             # Create indexes for faster queries
             conn.execute(
                 """
-                CREATE INDEX IF NOT EXISTS idx_search_created 
+                CREATE INDEX IF NOT EXISTS idx_search_created
                 ON search_cache(created_at)
             """
             )
 
             conn.execute(
                 """
-                CREATE INDEX IF NOT EXISTS idx_extract_created 
+                CREATE INDEX IF NOT EXISTS idx_extract_created
                 ON extract_cache(created_at)
             """
             )
@@ -103,7 +103,7 @@ class TavilyCache:
 
     def get_search_cache(
         self, query: str, max_results: int, search_depth: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get cached search response if available.
 
@@ -124,14 +124,12 @@ class TavilyCache:
 
                 # Check for cache hit within TTL
                 cursor.execute(
-                    """
-                    SELECT response, created_at 
-                    FROM search_cache 
-                    WHERE cache_key = ? 
-                    AND created_at > datetime('now', '-{} days')
-                """.format(
-                        self.ttl_days
-                    ),
+                    f"""
+                    SELECT response, created_at
+                    FROM search_cache
+                    WHERE cache_key = ?
+                    AND created_at > datetime('now', '-{self.ttl_days} days')
+                """,
                     (cache_key,),
                 )
 
@@ -140,8 +138,8 @@ class TavilyCache:
                     # Update access time
                     cursor.execute(
                         """
-                        UPDATE search_cache 
-                        SET accessed_at = CURRENT_TIMESTAMP 
+                        UPDATE search_cache
+                        SET accessed_at = CURRENT_TIMESTAMP
                         WHERE cache_key = ?
                     """,
                         (cache_key,),
@@ -159,7 +157,7 @@ class TavilyCache:
             return None
 
     def set_search_cache(
-        self, query: str, max_results: int, search_depth: str, response: Dict[str, Any]
+        self, query: str, max_results: int, search_depth: str, response: dict[str, Any]
     ):
         """
         Cache a search response.
@@ -176,7 +174,7 @@ class TavilyCache:
             with sqlite3.connect(self.cache_path) as conn:
                 conn.execute(
                     """
-                    INSERT OR REPLACE INTO search_cache 
+                    INSERT OR REPLACE INTO search_cache
                     (cache_key, query, max_results, search_depth, response)
                     VALUES (?, ?, ?, ?, ?)
                 """,
@@ -190,8 +188,8 @@ class TavilyCache:
             logger.error(f"Error writing search cache: {e}")
 
     def get_extract_cache(
-        self, urls: List[str], format: str
-    ) -> Optional[Dict[str, Any]]:
+        self, urls: list[str], format: str
+    ) -> dict[str, Any] | None:
         """
         Get cached extract response if available.
 
@@ -213,14 +211,12 @@ class TavilyCache:
 
                 # Check for cache hit within TTL
                 cursor.execute(
-                    """
-                    SELECT response, created_at 
-                    FROM extract_cache 
-                    WHERE cache_key = ? 
-                    AND created_at > datetime('now', '-{} days')
-                """.format(
-                        self.ttl_days
-                    ),
+                    f"""
+                    SELECT response, created_at
+                    FROM extract_cache
+                    WHERE cache_key = ?
+                    AND created_at > datetime('now', '-{self.ttl_days} days')
+                """,
                     (cache_key,),
                 )
 
@@ -229,8 +225,8 @@ class TavilyCache:
                     # Update access time
                     cursor.execute(
                         """
-                        UPDATE extract_cache 
-                        SET accessed_at = CURRENT_TIMESTAMP 
+                        UPDATE extract_cache
+                        SET accessed_at = CURRENT_TIMESTAMP
                         WHERE cache_key = ?
                     """,
                         (cache_key,),
@@ -247,7 +243,7 @@ class TavilyCache:
             logger.error(f"Error reading extract cache: {e}")
             return None
 
-    def set_extract_cache(self, urls: List[str], format: str, response: Dict[str, Any]):
+    def set_extract_cache(self, urls: list[str], format: str, response: dict[str, Any]):
         """
         Cache an extract response.
 
@@ -264,7 +260,7 @@ class TavilyCache:
             with sqlite3.connect(self.cache_path) as conn:
                 conn.execute(
                     """
-                    INSERT OR REPLACE INTO extract_cache 
+                    INSERT OR REPLACE INTO extract_cache
                     (cache_key, urls, format, response)
                     VALUES (?, ?, ?, ?)
                 """,
@@ -277,7 +273,7 @@ class TavilyCache:
         except Exception as e:
             logger.error(f"Error writing extract cache: {e}")
 
-    def clear_old_entries(self, days: Optional[int] = None):
+    def clear_old_entries(self, days: int | None = None):
         """
         Clear cache entries older than specified days.
 
@@ -290,23 +286,19 @@ class TavilyCache:
             with sqlite3.connect(self.cache_path) as conn:
                 # Clear old search cache entries
                 cursor = conn.execute(
-                    """
-                    DELETE FROM search_cache 
-                    WHERE created_at < datetime('now', '-{} days')
-                """.format(
-                        days
-                    )
+                    f"""
+                    DELETE FROM search_cache
+                    WHERE created_at < datetime('now', '-{days} days')
+                """
                 )
                 search_deleted = cursor.rowcount
 
                 # Clear old extract cache entries
                 cursor = conn.execute(
-                    """
-                    DELETE FROM extract_cache 
-                    WHERE created_at < datetime('now', '-{} days')
-                """.format(
-                        days
-                    )
+                    f"""
+                    DELETE FROM extract_cache
+                    WHERE created_at < datetime('now', '-{days} days')
+                """
                 )
                 extract_deleted = cursor.rowcount
 
@@ -321,14 +313,14 @@ class TavilyCache:
         except Exception as e:
             logger.error(f"Error clearing old cache entries: {e}")
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get statistics about the cache."""
         try:
             with sqlite3.connect(self.cache_path) as conn:
                 # Get search cache stats
                 cursor = conn.execute(
                     """
-                    SELECT 
+                    SELECT
                         COUNT(*) as total_entries,
                         SUM(LENGTH(response)) as total_size,
                         MIN(created_at) as oldest_entry,
@@ -347,7 +339,7 @@ class TavilyCache:
                 # Get extract cache stats
                 cursor = conn.execute(
                     """
-                    SELECT 
+                    SELECT
                         COUNT(*) as total_entries,
                         SUM(LENGTH(response)) as total_size,
                         MIN(created_at) as oldest_entry,

@@ -5,10 +5,10 @@ This module provides functionality to convert story scenes and complete books
 to SSML (Speech Synthesis Markup Language) format for audiobook generation.
 """
 
-from typing import Dict
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 import os
 import xml.etree.ElementTree as ET
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from storyteller_lib.core.config import get_llm
 from storyteller_lib.core.logger import get_logger
@@ -172,14 +172,14 @@ class SSMLConverter:
         """Replace smart quotes with straight quotes to prevent XML parsing errors."""
         # Define replacements using Unicode escapes to avoid syntax issues
         replacements = {
-            "\u201C": '"',  # Left double quotation mark
-            "\u201D": '"',  # Right double quotation mark
-            "\u201E": '"',  # Double low-9 quotation mark (German)
-            "\u201F": '"',  # Double high-reversed-9 quotation mark
+            "\u201c": '"',  # Left double quotation mark
+            "\u201d": '"',  # Right double quotation mark
+            "\u201e": '"',  # Double low-9 quotation mark (German)
+            "\u201f": '"',  # Double high-reversed-9 quotation mark
             "\u2018": "'",  # Left single quotation mark
             "\u2019": "'",  # Right single quotation mark
-            "\u201A": "'",  # Single low-9 quotation mark
-            "\u201B": "'",  # Single high-reversed-9 quotation mark
+            "\u201a": "'",  # Single low-9 quotation mark
+            "\u201b": "'",  # Single high-reversed-9 quotation mark
         }
 
         for old, new in replacements.items():
@@ -299,7 +299,7 @@ class SSMLConverter:
 
                 cursor.execute(
                     """
-                    SELECT c.chapter_number, c.title as chapter_title, 
+                    SELECT c.chapter_number, c.title as chapter_title,
                         s.scene_number, s.content, s.description, s.id as scene_id
                     FROM chapters c
                     LEFT JOIN scenes s ON s.chapter_id = c.id

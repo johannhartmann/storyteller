@@ -5,7 +5,8 @@ This module provides a centralized interface for managing what characters know,
 their secrets, and knowledge revelations throughout the story.
 """
 
-from typing import List, Dict, Any, Optional, Literal
+from typing import Any, Literal
+
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.persistence.database import get_db_manager
 
@@ -30,7 +31,7 @@ class CharacterKnowledgeManager:
         scene_id: int,
         knowledge_type: str = "fact",
         visibility: KnowledgeVisibility = "public",
-        source: Optional[str] = None,
+        source: str | None = None,
     ) -> bool:
         """
         Add new knowledge for a character.
@@ -53,7 +54,7 @@ class CharacterKnowledgeManager:
                 # Check if this knowledge already exists
                 cursor.execute(
                     """
-                    SELECT id FROM character_knowledge 
+                    SELECT id FROM character_knowledge
                     WHERE character_id = ? AND knowledge_content = ?
                 """,
                     (character_id, knowledge),
@@ -68,7 +69,7 @@ class CharacterKnowledgeManager:
                 # Add the knowledge
                 cursor.execute(
                     """
-                    INSERT INTO character_knowledge 
+                    INSERT INTO character_knowledge
                     (character_id, scene_id, knowledge_type, knowledge_content, source)
                     VALUES (?, ?, ?, ?, ?)
                 """,
@@ -94,10 +95,10 @@ class CharacterKnowledgeManager:
     def get_character_knowledge(
         self,
         character_id: int,
-        scene_id: Optional[int] = None,
-        visibility: Optional[KnowledgeVisibility] = None,
-        knowledge_type: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        scene_id: int | None = None,
+        visibility: KnowledgeVisibility | None = None,
+        knowledge_type: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get all knowledge for a character.
 
@@ -169,7 +170,7 @@ class CharacterKnowledgeManager:
         character_id: int,
         secret_content: str,
         scene_id: int,
-        reveal_to: Optional[List[int]] = None,
+        reveal_to: list[int] | None = None,
     ) -> bool:
         """
         Reveal a character's secret.
@@ -191,7 +192,7 @@ class CharacterKnowledgeManager:
                 cursor.execute(
                     """
                     SELECT id FROM character_knowledge
-                    WHERE character_id = ? 
+                    WHERE character_id = ?
                     AND knowledge_content = ?
                     AND knowledge_type LIKE '%:secret'
                 """,
@@ -287,7 +288,7 @@ class CharacterKnowledgeManager:
 
     def get_character_secrets(
         self, character_id: int, include_revealed: bool = False
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get all secrets for a character.
 
@@ -312,7 +313,7 @@ class CharacterKnowledgeManager:
 
         return secrets
 
-    def get_character_id_by_name(self, character_name: str) -> Optional[int]:
+    def get_character_id_by_name(self, character_name: str) -> int | None:
         """
         Helper to get character database ID by name or identifier.
 
@@ -327,7 +328,7 @@ class CharacterKnowledgeManager:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT id FROM characters 
+                    SELECT id FROM characters
                     WHERE identifier = ? OR name = ?
                 """,
                     (character_name, character_name),

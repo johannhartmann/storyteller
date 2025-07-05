@@ -11,8 +11,6 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import sqlite3
 
 import azure.cognitiveservices.speech as speechsdk
 from dotenv import load_dotenv
@@ -114,7 +112,7 @@ class AudiobookGenerator:
         self.language = story_config.get("language", "english").lower()
         self._set_voice()
 
-    def _set_voice(self, voice_name: Optional[str] = None):
+    def _set_voice(self, voice_name: str | None = None):
         """Set the synthesis voice based on language or explicit name."""
         if voice_name:
             self.speech_config.speech_synthesis_voice_name = voice_name
@@ -199,7 +197,7 @@ class AudiobookGenerator:
         format: str = "mp3",
         force_regenerate: bool = False,
         max_repair_attempts: int = 3,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Generate audio for a single scene with automatic repair on failure.
 
@@ -303,7 +301,7 @@ class AudiobookGenerator:
 
                             if repaired_ssml:
                                 logger.info(
-                                    f"SSML repaired successfully, retrying synthesis"
+                                    "SSML repaired successfully, retrying synthesis"
                                 )
                                 current_ssml = repaired_ssml
 
@@ -346,9 +344,9 @@ class AudiobookGenerator:
     def generate_first_scene_only(
         self,
         format: str = "mp3",
-        voice: Optional[str] = None,
+        voice: str | None = None,
         force_regenerate: bool = False,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Generate audio for only the first scene (test mode).
 
@@ -368,7 +366,7 @@ class AudiobookGenerator:
             # Get Chapter 1, Scene 1 specifically
             cursor.execute(
                 """
-                SELECT s.id, s.content_ssml, s.scene_number, 
+                SELECT s.id, s.content_ssml, s.scene_number,
                        c.chapter_number, c.title as chapter_title,
                        s.description, s.content
                 FROM scenes s
@@ -388,7 +386,7 @@ class AudiobookGenerator:
                 )
                 return None
 
-            print(f"\n=== TEST MODE: Generating audio for Chapter 1, Scene 1 ===")
+            print("\n=== TEST MODE: Generating audio for Chapter 1, Scene 1 ===")
             print(f"Chapter Title: {scene['chapter_title']}")
             if scene["description"]:
                 print(f"Scene Description: {scene['description'][:100]}...")
@@ -428,23 +426,23 @@ class AudiobookGenerator:
                     16000 * 2
                 )  # Rough estimate based on 16kHz mono
 
-                print(f"\nTest audio generated successfully!")
+                print("\nTest audio generated successfully!")
                 print(f"File: {audio_path}")
                 print(f"Size: {file_size / 1024 / 1024:.2f} MB")
                 print(f"Estimated duration: {duration_estimate / 60:.1f} minutes")
 
-                print(f"\nYou can now listen to this file to check:")
-                print(f"- Voice quality and suitability for your story")
-                print(f"- SSML markup effectiveness (pauses, emphasis, etc.)")
-                print(f"- Pronunciation and pacing")
-                print(f"- Overall audio quality")
+                print("\nYou can now listen to this file to check:")
+                print("- Voice quality and suitability for your story")
+                print("- SSML markup effectiveness (pauses, emphasis, etc.)")
+                print("- Pronunciation and pacing")
+                print("- Overall audio quality")
 
-                print(f"\nTo try a different voice, run:")
+                print("\nTo try a different voice, run:")
                 print(
-                    f'  nix develop -c python generate_audiobook.py --test --voice "voice-name"'
+                    '  nix develop -c python generate_audiobook.py --test --voice "voice-name"'
                 )
-                print(f"\nTo generate all scenes, run without --test flag:")
-                print(f"  nix develop -c python generate_audiobook.py")
+                print("\nTo generate all scenes, run without --test flag:")
+                print("  nix develop -c python generate_audiobook.py")
             else:
                 print(" ✗ Failed")
 
@@ -453,9 +451,9 @@ class AudiobookGenerator:
     def generate_all_scenes(
         self,
         format: str = "mp3",
-        voice: Optional[str] = None,
+        voice: str | None = None,
         force_regenerate: bool = False,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Generate audio files for all scenes with SSML content.
 
@@ -477,7 +475,7 @@ class AudiobookGenerator:
             # Get all scenes with SSML content
             cursor.execute(
                 """
-                SELECT s.id, s.content_ssml, s.scene_number, 
+                SELECT s.id, s.content_ssml, s.scene_number,
                        c.chapter_number, c.title as chapter_title
                 FROM scenes s
                 JOIN chapters c ON s.chapter_id = c.id
@@ -533,8 +531,8 @@ class AudiobookGenerator:
         return generated_files
 
     def concatenate_chapter_audio(
-        self, chapter_num: int, scene_files: List[str], format: str = "mp3"
-    ) -> Optional[str]:
+        self, chapter_num: int, scene_files: list[str], format: str = "mp3"
+    ) -> str | None:
         """
         Concatenate scene audio files into a single chapter file.
 
@@ -558,7 +556,7 @@ class AudiobookGenerator:
 
         return None
 
-    def get_statistics(self) -> Dict[str, any]:
+    def get_statistics(self) -> dict[str, any]:
         """Get statistics about the audiobook generation."""
         stats = {
             "total_scenes": 0,
@@ -715,7 +713,7 @@ def main():
             print(f"Total audio size: {stats['total_audio_size_mb']:.1f} MB")
         else:
             # Generate audio files
-            print(f"\nAudiobook Generator")
+            print("\nAudiobook Generator")
             print(f"Database: {args.db_path}")
             print(f"Output directory: {args.output_dir}")
             print(f"Format: {args.format}")
@@ -729,9 +727,9 @@ def main():
                 )
 
                 if audio_file:
-                    print(f"\n✓ Test completed successfully")
-                    print(f"\nTo generate all scenes, run without --test flag:")
-                    print(f"  nix develop -c python generate_audiobook.py")
+                    print("\n✓ Test completed successfully")
+                    print("\nTo generate all scenes, run without --test flag:")
+                    print("  nix develop -c python generate_audiobook.py")
                 else:
                     print("\n✗ Test failed")
             else:

@@ -8,12 +8,12 @@ This module provides enhanced functionality for Azure TTS including:
 - Voice configuration management
 """
 
-import json
-import time
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Callable, Any
-from pathlib import Path
 import hashlib
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import azure.cognitiveservices.speech as speechsdk
 
@@ -29,10 +29,10 @@ class VoiceConfig:
     name: str
     language: str
     gender: str
-    style: Optional[str] = None
-    style_degree: Optional[float] = None
-    rate: Optional[str] = None
-    pitch: Optional[str] = None
+    style: str | None = None
+    style_degree: float | None = None
+    rate: str | None = None
+    pitch: str | None = None
 
 
 class VoiceManager:
@@ -132,11 +132,11 @@ class BatchSynthesizer:
 
     def synthesize_batch(
         self,
-        ssml_items: List[Dict[str, Any]],
+        ssml_items: list[dict[str, Any]],
         output_dir: Path,
-        progress_callback: Optional[Callable[[int, int], None]] = None,
-        error_callback: Optional[Callable[[str, Exception], None]] = None,
-    ) -> Dict[str, Any]:
+        progress_callback: Callable[[int, int], None] | None = None,
+        error_callback: Callable[[str, Exception], None] | None = None,
+    ) -> dict[str, Any]:
         """
         Synthesize a batch of SSML texts.
 
@@ -242,8 +242,8 @@ class SSMLEnhancer:
     def add_voice_wrapper(
         ssml: str,
         voice_name: str,
-        style: Optional[str] = None,
-        style_degree: Optional[float] = None,
+        style: str | None = None,
+        style_degree: float | None = None,
     ) -> str:
         """
         Wrap SSML content with voice and style tags.
@@ -320,7 +320,7 @@ class AudioCache:
         content = f"{ssml}|{voice}"
         return hashlib.sha256(content.encode()).hexdigest()
 
-    def get_cached_file(self, ssml: str, voice: str) -> Optional[Path]:
+    def get_cached_file(self, ssml: str, voice: str) -> Path | None:
         """Check if audio for this SSML exists in cache."""
         cache_key = self.get_cache_key(ssml, voice)
         cache_file = self.cache_dir / f"{cache_key}.mp3"

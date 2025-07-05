@@ -6,28 +6,27 @@ process for each world building category, including query generation,
 search execution, and result synthesis.
 """
 
-import asyncio
-from typing import Dict, Any, List, Optional
-from storyteller_lib.core.config import llm, get_current_provider
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+from storyteller_lib.core.config import llm
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.prompts.renderer import render_prompt
 from storyteller_lib.universe.world.research_config import WorldBuildingResearchConfig
 from storyteller_lib.universe.world.research_models import (
-    ResearchResults,
-    ResearchContext,
     CategoryResearchStrategy,
-    SearchResult,
     Citation,
-    ResearchInsight,
-)
-from pydantic import BaseModel, Field
-from typing import List as ListType
-from storyteller_lib.universe.world.search_utils import (
-    execute_parallel_searches,
-    filter_results_by_relevance,
-    deduplicate_results,
+    ResearchContext,
+    ResearchResults,
+    SearchResult,
 )
 from storyteller_lib.universe.world.research_strategies import get_category_strategy
+from storyteller_lib.universe.world.search_utils import (
+    deduplicate_results,
+    execute_parallel_searches,
+    filter_results_by_relevance,
+)
 
 logger = get_logger(__name__)
 
@@ -39,10 +38,10 @@ class SearchQueriesList(BaseModel):
     query1: str = Field(description="First search query")
     query2: str = Field(description="Second search query")
     query3: str = Field(description="Third search query")
-    query4: Optional[str] = Field(
+    query4: str | None = Field(
         default="", description="Fourth search query (optional)"
     )
-    query5: Optional[str] = Field(
+    query5: str | None = Field(
         default="", description="Fifth search query (optional)"
     )
 
@@ -84,8 +83,8 @@ class WorldBuildingResearcher:
         genre: str,
         tone: str,
         initial_idea: str,
-        story_outline: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        story_outline: str | None = None,
+    ) -> dict[str, Any]:
         """
         Research initial context for the story.
 
@@ -130,7 +129,7 @@ class WorldBuildingResearcher:
         self,
         category: str,
         context: ResearchContext,
-        existing_research: Optional[Dict[str, Any]] = None,
+        existing_research: dict[str, Any] | None = None,
     ) -> ResearchResults:
         """
         Research a specific world building category.
@@ -220,8 +219,8 @@ class WorldBuildingResearcher:
         genre: str,
         tone: str,
         initial_idea: str,
-        story_outline: Optional[str] = None,
-    ) -> List[str]:
+        story_outline: str | None = None,
+    ) -> list[str]:
         """Generate initial search queries."""
         try:
             # Get language from config (which comes from command line)
@@ -255,8 +254,8 @@ class WorldBuildingResearcher:
         category: str,
         strategy: CategoryResearchStrategy,
         context: ResearchContext,
-        existing_research: Optional[Dict[str, Any]] = None,
-    ) -> List[str]:
+        existing_research: dict[str, Any] | None = None,
+    ) -> list[str]:
         """Generate search queries for a specific category."""
         # Get language from context
         language = context.language
@@ -282,11 +281,11 @@ class WorldBuildingResearcher:
 
     async def _synthesize_initial_insights(
         self,
-        search_results: Dict[str, List[SearchResult]],
+        search_results: dict[str, list[SearchResult]],
         genre: str,
         tone: str,
         initial_idea: str,
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """Synthesize initial insights from search results."""
         # Combine all results
         all_results = []
@@ -323,15 +322,15 @@ class WorldBuildingResearcher:
         values = [v.strip() for v in result.insight_values.split("|")]
 
         insights = {}
-        for key, value in zip(keys, values):
+        for key, value in zip(keys, values, strict=False):
             if key and value:
                 insights[key] = value
 
         return insights
 
     async def _synthesize_category_insights(
-        self, category: str, results: List[SearchResult], context: ResearchContext
-    ) -> Dict[str, str]:
+        self, category: str, results: list[SearchResult], context: ResearchContext
+    ) -> dict[str, str]:
         """Synthesize insights for a specific category."""
         if not results:
             return {
@@ -383,13 +382,13 @@ class WorldBuildingResearcher:
         values = [v.strip() for v in result.insight_values.split("|")]
 
         insights = {}
-        for key, value in zip(keys, values):
+        for key, value in zip(keys, values, strict=False):
             if key and value:
                 insights[key] = value
 
         return insights
 
-    def _format_results_for_synthesis(self, results: List[SearchResult]) -> str:
+    def _format_results_for_synthesis(self, results: list[SearchResult]) -> str:
         """Format search results for LLM synthesis."""
         formatted = []
         for i, result in enumerate(results, 1):
@@ -412,8 +411,8 @@ class WorldBuildingResearcher:
         category: str,
         strategy: CategoryResearchStrategy,
         context: ResearchContext,
-        current_results: List[SearchResult],
-    ) -> List[str]:
+        current_results: list[SearchResult],
+    ) -> list[str]:
         """Refine search queries based on current results."""
         # Simple refinement - look for gaps in coverage
         results_summary = self._format_results_for_synthesis(current_results[:5])
@@ -446,8 +445,8 @@ class WorldBuildingResearcher:
         return queries[: self.config.queries_per_category]
 
     def _extract_relevant_examples(
-        self, results: List[SearchResult], category: str
-    ) -> List[Dict[str, Any]]:
+        self, results: list[SearchResult], category: str
+    ) -> list[dict[str, Any]]:
         """Extract concrete examples from search results."""
         examples = []
         for result in results[:10]:  # Limit examples
@@ -463,8 +462,8 @@ class WorldBuildingResearcher:
         return examples
 
     def _create_citations(
-        self, results: List[SearchResult], insights: Dict[str, str]
-    ) -> List[Citation]:
+        self, results: list[SearchResult], insights: dict[str, str]
+    ) -> list[Citation]:
         """Create citations from search results."""
         citations = []
 
@@ -485,8 +484,8 @@ class WorldBuildingResearcher:
     async def _create_research_summary(
         self,
         category: str,
-        insights: Dict[str, str],
-        examples: List[Dict[str, Any]],
+        insights: dict[str, str],
+        examples: list[dict[str, Any]],
         language: str,
     ) -> str:
         """Create a summary of research findings."""
@@ -508,7 +507,7 @@ class WorldBuildingResearcher:
         return result.summary
 
     def _calculate_confidence(
-        self, results: List[SearchResult], citations: List[Citation]
+        self, results: list[SearchResult], citations: list[Citation]
     ) -> float:
         """Calculate confidence score for research quality."""
         if not results:

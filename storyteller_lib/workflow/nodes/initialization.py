@@ -2,26 +2,24 @@
 StoryCraft Agent - Initialization nodes.
 """
 
-from typing import Dict
-
-from storyteller_lib.core.config import (
-    llm,
-    MEMORY_NAMESPACE,
-    DEFAULT_LANGUAGE,
-    SUPPORTED_LANGUAGES,
-)
-from storyteller_lib.core.models import StoryState
 
 # Memory manager imports removed - using state and database instead
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.messages.modifier import RemoveMessage
+
 from storyteller_lib import track_progress
+from storyteller_lib.core.config import (
+    DEFAULT_LANGUAGE,
+    SUPPORTED_LANGUAGES,
+    llm,
+)
+from storyteller_lib.core.models import StoryState
 
 
 @track_progress
-def initialize_state(state: StoryState) -> Dict:
+def initialize_state(state: StoryState) -> dict:
     """Initialize the story state with user input."""
-    messages = state["messages"]
+    state["messages"]
 
     # Load configuration from database
     from storyteller_lib.persistence.database import get_db_manager
@@ -41,7 +39,7 @@ def initialize_state(state: StoryState) -> Dict:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT genre, tone, language, author, initial_idea 
+                SELECT genre, tone, language, author, initial_idea
                 FROM story_config WHERE id = 1
             """
             )
@@ -68,7 +66,7 @@ def initialize_state(state: StoryState) -> Dict:
             # Check if we have stored idea elements
             cursor2.execute(
                 """
-                SELECT value FROM memories 
+                SELECT value FROM memories
                 WHERE key = 'initial_idea_elements' AND namespace = 'storyteller'
             """
             )
@@ -149,38 +147,39 @@ def initialize_state(state: StoryState) -> Dict:
         )
 
         # Get structured language elements directly
-        from storyteller_lib.core.config import get_llm_with_structured_output
+
         from pydantic import BaseModel, Field
-        from typing import Dict, List
+
+        from storyteller_lib.core.config import get_llm_with_structured_output
 
         class LanguageElements(BaseModel):
             """Language-specific cultural elements."""
 
-            common_names: List[str] = Field(
+            common_names: list[str] = Field(
                 description="Common character names for this culture"
             )
-            places: List[str] = Field(description="Typical place names")
-            cultural_items: List[str] = Field(description="Cultural items and concepts")
-            expressions: List[str] = Field(description="Common expressions and idioms")
+            places: list[str] = Field(description="Typical place names")
+            cultural_items: list[str] = Field(description="Cultural items and concepts")
+            expressions: list[str] = Field(description="Common expressions and idioms")
 
         structured_llm = get_llm_with_structured_output(LanguageElements)
         language_elements_response = structured_llm.invoke(language_elements_prompt)
 
         # Convert to dictionary format
-        language_elements = (
+        (
             language_elements_response.dict() if language_elements_response else {}
         )
 
         # Language elements will be passed through state instead of memory storage
 
         # Create a specific instruction to ensure language consistency
-        language_consistency_instruction = f"""
+        f"""
             CRITICAL LANGUAGE CONSISTENCY INSTRUCTION:
-            
+
             This story MUST be written ENTIRELY in {SUPPORTED_LANGUAGES[language.lower()]}.
             ALL content - including outlines, character descriptions, scene elements, reflections, and revisions - must be in {SUPPORTED_LANGUAGES[language.lower()]}.
             DO NOT switch to any other language at ANY point in the story generation process.
-            
+
             When writing in {SUPPORTED_LANGUAGES[language.lower()]}, ensure that:
             1. ALL text is in {SUPPORTED_LANGUAGES[language.lower()]} without ANY English phrases or words
             2. Character names must be authentic {SUPPORTED_LANGUAGES[language.lower()]} names
@@ -188,22 +187,21 @@ def initialize_state(state: StoryState) -> Dict:
             4. Cultural references must be appropriate for {SUPPORTED_LANGUAGES[language.lower()]}-speaking audiences
             5. Dialogue must use expressions and idioms natural to {SUPPORTED_LANGUAGES[language.lower()]}
             6. ALL planning, outlining, and internal notes are also in {SUPPORTED_LANGUAGES[language.lower()]}
-            
+
             CRITICAL: Maintain {SUPPORTED_LANGUAGES[language.lower()]} throughout ALL parts of the story and ALL stages of the generation process without ANY exceptions.
-            
+
             REMINDER: Even if you are analyzing, planning, or reflecting on the story, you MUST do so in {SUPPORTED_LANGUAGES[language.lower()]}.
             """
 
         # Language consistency instruction is temporary - no need to store
 
     # Select narrative structure after we have all the context
+    from storyteller_lib.core.logger import get_logger
     from storyteller_lib.generation.story.narrative_structures import (
         NarrativeStructureAnalysis,
         get_structure_by_name,
-        determine_story_length,
     )
     from storyteller_lib.prompts.renderer import render_prompt
-    from storyteller_lib.core.logger import get_logger
 
     logger = get_logger(__name__)
 
@@ -220,7 +218,7 @@ def initialize_state(state: StoryState) -> Dict:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT narrative_structure, story_length, target_chapters, 
+                SELECT narrative_structure, story_length, target_chapters,
                        target_scenes_per_chapter, target_words_per_scene, target_pages
                 FROM story_config WHERE id = 1
             """
@@ -315,7 +313,7 @@ def initialize_state(state: StoryState) -> Dict:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    UPDATE story_config SET 
+                    UPDATE story_config SET
                         narrative_structure = ?,
                         story_length = ?,
                         target_chapters = ?,
@@ -363,7 +361,7 @@ def initialize_state(state: StoryState) -> Dict:
                         cursor = conn.cursor()
                         cursor.execute(
                             """
-                            UPDATE story_config SET 
+                            UPDATE story_config SET
                                 story_length = ?,
                                 target_chapters = ?,
                                 target_scenes_per_chapter = ?,
@@ -413,13 +411,13 @@ def initialize_state(state: StoryState) -> Dict:
 
 
 @track_progress
-def brainstorm_story_concepts(state: StoryState) -> Dict:
+def brainstorm_story_concepts(state: StoryState) -> dict:
     """Brainstorm creative story concepts before generating the outline."""
     from storyteller_lib.generation.creative.brainstorming import creative_brainstorm
-    from storyteller_lib.utils.progress_logger import log_progress
 
     # Load configuration from database
     from storyteller_lib.persistence.database import get_db_manager
+    from storyteller_lib.utils.progress_logger import log_progress
 
     db_manager = get_db_manager()
 
@@ -435,7 +433,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT genre, tone, language, author, initial_idea 
+                SELECT genre, tone, language, author, initial_idea
                 FROM story_config WHERE id = 1
             """
             )
@@ -465,11 +463,11 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
     idea_context = ""
     if initial_idea:
         # Create a more detailed context using the structured idea elements
-        setting = initial_idea_elements.get("setting", "Unknown")
-        characters = initial_idea_elements.get("characters", [])
-        plot = initial_idea_elements.get("plot", "Unknown")
-        themes = initial_idea_elements.get("themes", [])
-        genre_elements = initial_idea_elements.get("genre_elements", [])
+        initial_idea_elements.get("setting", "Unknown")
+        initial_idea_elements.get("characters", [])
+        initial_idea_elements.get("plot", "Unknown")
+        initial_idea_elements.get("themes", [])
+        initial_idea_elements.get("genre_elements", [])
 
         # Just pass the initial idea - let templates handle formatting
         idea_context = initial_idea
@@ -628,7 +626,7 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
             ),
         )
 
-        validation_result = llm.invoke(
+        llm.invoke(
             [HumanMessage(content=validation_prompt)]
         ).content
 
@@ -647,12 +645,12 @@ def brainstorm_story_concepts(state: StoryState) -> Dict:
 
     # Create language-specific messages
     if language.lower() == "german":
-        idea_mention = f" basierend auf Ihrer Idee" if initial_idea else ""
+        idea_mention = " basierend auf Ihrer Idee" if initial_idea else ""
         new_msg = AIMessage(
             content=f"Ich habe mehrere kreative Konzepte für Ihre {tone} {genre}-Geschichte{idea_mention} entwickelt. Jetzt werde ich eine zusammenhängende Gliederung basierend auf den vielversprechendsten Ideen entwickeln."
         )
     else:
-        idea_mention = f" based on your idea" if initial_idea else ""
+        idea_mention = " based on your idea" if initial_idea else ""
         new_msg = AIMessage(
             content=f"I've brainstormed several creative concepts for your {tone} {genre} story{idea_mention}. Now I'll develop a cohesive outline based on the most promising ideas."
         )

@@ -2,19 +2,17 @@
 StoryCraft Agent - Creative tools and utilities.
 """
 
-from typing import Dict, List, Any, Optional, Union, Type, TypeVar
 import json
+from typing import Any, TypeVar
 
-from storyteller_lib.core.config import (
-    llm,
-    MEMORY_NAMESPACE,
-    DEFAULT_LANGUAGE,
-    SUPPORTED_LANGUAGES,
-)
-from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import PromptTemplate
 from pydantic import BaseModel, Field, create_model
+
+from storyteller_lib.core.config import (
+    DEFAULT_LANGUAGE,
+    llm,
+)
 from storyteller_lib.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -64,12 +62,12 @@ def creative_brainstorm(
     author_style_guidance: str = "",
     language: str = DEFAULT_LANGUAGE,
     num_ideas: int = 5,
-    evaluation_criteria: List[str] = None,
-    constraints: Dict[str, str] = None,
+    evaluation_criteria: list[str] = None,
+    constraints: dict[str, str] = None,
     strict_adherence: bool = True,
-    scene_specifications: Optional[Dict[str, Any]] = None,
-    chapter_outline: Optional[str] = None,
-) -> Dict:
+    scene_specifications: dict[str, Any] | None = None,
+    chapter_outline: str | None = None,
+) -> dict:
     """
     Generate and evaluate multiple creative ideas for a given story element.
 
@@ -171,7 +169,7 @@ def creative_brainstorm(
     # Format all ideas for display
     ideas_entries = []
     for i, (title, desc, enhance, challenge, score) in enumerate(
-        zip(titles, descriptions, enhancements, challenges, scores)
+        zip(titles, descriptions, enhancements, challenges, scores, strict=False)
     ):
         ideas_entries.append(
             f"{i+1}. {title}\n   {desc}\n   Enhancement: {enhance}\n   Challenges: {challenge}\n   Fit Score: {score}/10"
@@ -191,8 +189,8 @@ def creative_brainstorm(
 
 
 def create_pydantic_model_from_dict(
-    schema_dict: Dict, model_name: str = "DynamicModel"
-) -> Type[BaseModel]:
+    schema_dict: dict, model_name: str = "DynamicModel"
+) -> type[BaseModel]:
     """
     Create a Pydantic model from a dictionary schema description.
 
@@ -209,12 +207,12 @@ def create_pydantic_model_from_dict(
     for field_name, field_info in schema_dict.items():
         if isinstance(field_info, dict):
             # For nested objects
-            field_type = Dict[str, Any]
+            field_type = dict[str, Any]
             field_desc = field_info.get("description", "")
             field_definitions[field_name] = (field_type, Field(description=field_desc))
         elif isinstance(field_info, list):
             # For array fields
-            field_type = List[str]
+            field_type = list[str]
             field_definitions[field_name] = (
                 field_type,
                 Field(description=f"List of {field_name}"),
@@ -230,11 +228,11 @@ def create_pydantic_model_from_dict(
 
 def structured_output_with_pydantic(
     text_content: str,
-    schema_dict: Dict,
+    schema_dict: dict,
     description: str,
     model_name: str = "DynamicModel",
     language: str = DEFAULT_LANGUAGE,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Parse structured data from text using LangChain's structured output approach.
 
@@ -276,16 +274,16 @@ def structured_output_with_pydantic(
 class GeographyElements(BaseModel):
     """Geography category elements."""
 
-    major_locations: Optional[str] = Field(
+    major_locations: str | None = Field(
         None, description="Major locations in the world"
     )
-    physical_features: Optional[str] = Field(
+    physical_features: str | None = Field(
         None, description="Physical features and terrain"
     )
-    climate_weather: Optional[str] = Field(
+    climate_weather: str | None = Field(
         None, description="Climate and weather patterns"
     )
-    additional_info: Optional[str] = Field(
+    additional_info: str | None = Field(
         None, description="Any other geography-related information"
     )
 
@@ -293,12 +291,12 @@ class GeographyElements(BaseModel):
 class HistoryElements(BaseModel):
     """History category elements."""
 
-    timeline: Optional[str] = Field(None, description="Historical timeline")
-    past_conflicts: Optional[str] = Field(None, description="Past conflicts and wars")
-    important_events: Optional[str] = Field(
+    timeline: str | None = Field(None, description="Historical timeline")
+    past_conflicts: str | None = Field(None, description="Past conflicts and wars")
+    important_events: str | None = Field(
         None, description="Important historical events"
     )
-    additional_info: Optional[str] = Field(
+    additional_info: str | None = Field(
         None, description="Any other history-related information"
     )
 
@@ -306,10 +304,10 @@ class HistoryElements(BaseModel):
 class CultureElements(BaseModel):
     """Culture category elements."""
 
-    customs: Optional[str] = Field(None, description="Cultural customs and traditions")
-    values: Optional[str] = Field(None, description="Cultural values and beliefs")
-    arts: Optional[str] = Field(None, description="Arts and entertainment")
-    additional_info: Optional[str] = Field(
+    customs: str | None = Field(None, description="Cultural customs and traditions")
+    values: str | None = Field(None, description="Cultural values and beliefs")
+    arts: str | None = Field(None, description="Arts and entertainment")
+    additional_info: str | None = Field(
         None, description="Any other culture-related information"
     )
 
@@ -317,10 +315,10 @@ class CultureElements(BaseModel):
 class PoliticsElements(BaseModel):
     """Politics category elements."""
 
-    government: Optional[str] = Field(None, description="Government structure")
-    laws: Optional[str] = Field(None, description="Legal system and laws")
-    factions: Optional[str] = Field(None, description="Political factions and parties")
-    additional_info: Optional[str] = Field(
+    government: str | None = Field(None, description="Government structure")
+    laws: str | None = Field(None, description="Legal system and laws")
+    factions: str | None = Field(None, description="Political factions and parties")
+    additional_info: str | None = Field(
         None, description="Any other politics-related information"
     )
 
@@ -328,10 +326,10 @@ class PoliticsElements(BaseModel):
 class EconomicsElements(BaseModel):
     """Economics category elements."""
 
-    currency: Optional[str] = Field(None, description="Currency and monetary system")
-    trade: Optional[str] = Field(None, description="Trade and commerce")
-    resources: Optional[str] = Field(None, description="Natural resources")
-    additional_info: Optional[str] = Field(
+    currency: str | None = Field(None, description="Currency and monetary system")
+    trade: str | None = Field(None, description="Trade and commerce")
+    resources: str | None = Field(None, description="Natural resources")
+    additional_info: str | None = Field(
         None, description="Any other economics-related information"
     )
 
@@ -339,10 +337,10 @@ class EconomicsElements(BaseModel):
 class TechnologyMagicElements(BaseModel):
     """Technology/Magic category elements."""
 
-    level: Optional[str] = Field(None, description="Technology or magic level")
-    systems: Optional[str] = Field(None, description="Technology or magic systems")
-    limitations: Optional[str] = Field(None, description="Limitations and constraints")
-    additional_info: Optional[str] = Field(
+    level: str | None = Field(None, description="Technology or magic level")
+    systems: str | None = Field(None, description="Technology or magic systems")
+    limitations: str | None = Field(None, description="Limitations and constraints")
+    additional_info: str | None = Field(
         None, description="Any other technology/magic-related information"
     )
 
@@ -350,12 +348,12 @@ class TechnologyMagicElements(BaseModel):
 class ReligionElements(BaseModel):
     """Religion category elements."""
 
-    deities: Optional[str] = Field(None, description="Deities and divine beings")
-    practices: Optional[str] = Field(
+    deities: str | None = Field(None, description="Deities and divine beings")
+    practices: str | None = Field(
         None, description="Religious practices and rituals"
     )
-    beliefs: Optional[str] = Field(None, description="Core religious beliefs")
-    additional_info: Optional[str] = Field(
+    beliefs: str | None = Field(None, description="Core religious beliefs")
+    additional_info: str | None = Field(
         None, description="Any other religion-related information"
     )
 
@@ -363,10 +361,10 @@ class ReligionElements(BaseModel):
 class DailyLifeElements(BaseModel):
     """Daily life category elements."""
 
-    food: Optional[str] = Field(None, description="Food and cuisine")
-    clothing: Optional[str] = Field(None, description="Clothing and fashion")
-    housing: Optional[str] = Field(None, description="Housing and architecture")
-    additional_info: Optional[str] = Field(
+    food: str | None = Field(None, description="Food and cuisine")
+    clothing: str | None = Field(None, description="Clothing and fashion")
+    housing: str | None = Field(None, description="Housing and architecture")
+    additional_info: str | None = Field(
         None, description="Any other daily life information"
     )
 
@@ -374,27 +372,27 @@ class DailyLifeElements(BaseModel):
 class WorldElements(BaseModel):
     """Complete world elements structure."""
 
-    GEOGRAPHY: Optional[GeographyElements] = Field(
+    GEOGRAPHY: GeographyElements | None = Field(
         None, description="Geography elements"
     )
-    HISTORY: Optional[HistoryElements] = Field(None, description="History elements")
-    CULTURE: Optional[CultureElements] = Field(None, description="Culture elements")
-    POLITICS: Optional[PoliticsElements] = Field(None, description="Politics elements")
-    ECONOMICS: Optional[EconomicsElements] = Field(
+    HISTORY: HistoryElements | None = Field(None, description="History elements")
+    CULTURE: CultureElements | None = Field(None, description="Culture elements")
+    POLITICS: PoliticsElements | None = Field(None, description="Politics elements")
+    ECONOMICS: EconomicsElements | None = Field(
         None, description="Economics elements"
     )
-    TECHNOLOGY_MAGIC: Optional[TechnologyMagicElements] = Field(
+    TECHNOLOGY_MAGIC: TechnologyMagicElements | None = Field(
         None, alias="TECHNOLOGY/MAGIC", description="Technology or magic elements"
     )
-    RELIGION: Optional[ReligionElements] = Field(None, description="Religion elements")
-    DAILY_LIFE: Optional[DailyLifeElements] = Field(
+    RELIGION: ReligionElements | None = Field(None, description="Religion elements")
+    DAILY_LIFE: DailyLifeElements | None = Field(
         None, description="Daily life elements"
     )
 
 
 def generate_structured_json(
     text_content: str, schema: str, description: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate structured JSON from unstructured text using LangChain's approach.
 

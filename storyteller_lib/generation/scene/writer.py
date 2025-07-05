@@ -3,19 +3,19 @@ Simplified scene writer implementation using intelligent instruction synthesis.
 This module uses LLM to create coherent instructions instead of data concatenation.
 """
 
-from typing import Dict
+
 from langchain_core.messages import HumanMessage
 
 from storyteller_lib import track_progress
-from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE
+from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
+from storyteller_lib.core.logger import scene_logger as logger
 from storyteller_lib.core.models import StoryState
 from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.core.logger import scene_logger as logger
 from storyteller_lib.prompts.synthesis import generate_scene_level_instructions
 
 
 @track_progress
-def write_scene_simplified(state: StoryState) -> Dict:
+def write_scene_simplified(state: StoryState) -> dict:
     """
     Simplified scene writing function using intelligent instruction synthesis.
     """

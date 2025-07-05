@@ -2,24 +2,20 @@
 StoryCraft Agent - Story outline and planning nodes.
 """
 
-from typing import Dict, List, Optional
-from pydantic import BaseModel, Field
-
-from storyteller_lib.core.config import (
-    llm,
-    MEMORY_NAMESPACE,
-    DEFAULT_LANGUAGE,
-    SUPPORTED_LANGUAGES,
-)
-from storyteller_lib.core.models import StoryState
 
 # Memory manager imports removed - using state and database instead
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
+from pydantic import BaseModel, Field
+
 from storyteller_lib import track_progress
+from storyteller_lib.core.config import (
+    DEFAULT_LANGUAGE,
+    llm,
+)
+from storyteller_lib.core.models import StoryState
 from storyteller_lib.generation.story.plot_threads import (
-    PlotThread,
-    THREAD_IMPORTANCE,
     THREAD_STATUS,
+    PlotThread,
 )
 
 
@@ -59,7 +55,7 @@ class ValidationResult(BaseModel):
         description="Whether the validation passed (YES) or failed (NO)"
     )
     score: int = Field(ge=1, le=10, description="Validation score from 1-10")
-    issues: List[str] = Field(
+    issues: list[str] = Field(
         default_factory=list, description="List of specific issues found"
     )
     suggestions: str = Field(default="", description="Suggestions for improvement")
@@ -114,7 +110,7 @@ class FlatSceneSpec(BaseModel):
         ...,
         description="The character whose POV this scene is told from (must be one of the required characters)",
     )
-    location: Optional[str] = Field(
+    location: str | None = Field(
         default=None,
         description="Primary location where this scene takes place (be specific if known)",
     )
@@ -164,10 +160,10 @@ class FlatChapter(BaseModel):
 class FlatChapterPlan(BaseModel):
     """Flattened chapter plan for structured output without nested dictionaries."""
 
-    chapters: List[FlatChapter] = Field(
+    chapters: list[FlatChapter] = Field(
         ..., description="List of chapters without nested scenes"
     )
-    total_scenes: List[FlatSceneSpec] = Field(
+    total_scenes: list[FlatSceneSpec] = Field(
         ..., description="All scenes in the story, flattened"
     )
 
@@ -178,7 +174,7 @@ def generate_plot_threads_from_outline(
     tone: str,
     initial_idea: str,
     language: str = DEFAULT_LANGUAGE,
-) -> Dict[str, Dict]:
+) -> dict[str, dict]:
     """Generate initial plot threads from the story outline."""
     # Use template system
     from storyteller_lib.prompts.renderer import render_prompt
@@ -202,12 +198,12 @@ def generate_plot_threads_from_outline(
         importance: str = Field(
             description="Thread importance: major, minor, or background"
         )
-        related_characters: List[str] = Field(
+        related_characters: list[str] = Field(
             description="Character roles involved in this thread"
         )
 
     class PlotThreadsContainer(BaseModel):
-        threads: List[PlotThreadDefinition] = Field(description="List of plot threads")
+        threads: list[PlotThreadDefinition] = Field(description="List of plot threads")
 
     # Get structured output
     structured_llm = llm.with_structured_output(PlotThreadsContainer)
@@ -231,13 +227,13 @@ def generate_plot_threads_from_outline(
 
 
 @track_progress
-def generate_story_outline(state: StoryState) -> Dict:
+def generate_story_outline(state: StoryState) -> dict:
     """Generate the overall story outline using the selected narrative structure."""
     # Import dependencies at the start
     from storyteller_lib.core.logger import get_logger
     from storyteller_lib.persistence.database import get_db_manager
-    from storyteller_lib.utils.progress_logger import log_progress
     from storyteller_lib.prompts.renderer import render_prompt
+    from storyteller_lib.utils.progress_logger import log_progress
 
     logger = get_logger(__name__)
 
@@ -411,7 +407,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     descriptions = [
         d.strip() for d in outline_flat.main_character_descriptions.split("|")
     ]
-    for name, desc in zip(names, descriptions):
+    for name, desc in zip(names, descriptions, strict=False):
         story_outline += f"- {name}: {desc}\n"
 
     story_outline += f"\nCentral Conflict: {outline_flat.central_conflict}\n"
@@ -429,7 +425,7 @@ def generate_story_outline(state: StoryState) -> Dict:
     phase_descriptions = [
         d.strip() for d in outline_flat.story_phase_descriptions.split("|")
     ]
-    for i, (name, desc) in enumerate(zip(phase_names, phase_descriptions), 1):
+    for i, (name, desc) in enumerate(zip(phase_names, phase_descriptions, strict=False), 1):
         story_outline += f"\n{i}. {name}\n{desc}\n"
 
     print(f"[DEBUG] Story outline length: {len(story_outline)}")
@@ -580,7 +576,7 @@ def generate_story_outline(state: StoryState) -> Dict:
         descriptions = [
             d.strip() for d in outline_flat.main_character_descriptions.split("|")
         ]
-        for name, desc in zip(names, descriptions):
+        for name, desc in zip(names, descriptions, strict=False):
             story_outline += f"- {name}: {desc}\n"
 
         story_outline += f"\nCentral Conflict: {outline_flat.central_conflict}\n"
@@ -600,7 +596,7 @@ def generate_story_outline(state: StoryState) -> Dict:
         phase_descriptions = [
             d.strip() for d in outline_flat.story_phase_descriptions.split("|")
         ]
-        for i, (name, desc) in enumerate(zip(phase_names, phase_descriptions), 1):
+        for i, (name, desc) in enumerate(zip(phase_names, phase_descriptions, strict=False), 1):
             story_outline += f"\n{i}. {name}\n{desc}\n"
 
         print(f"[DEBUG] Regenerated story outline length: {len(story_outline)}")
@@ -617,12 +613,12 @@ def generate_story_outline(state: StoryState) -> Dict:
 
     # Initialize PlotThreadRegistry with the generated threads
     from storyteller_lib.generation.story.plot_threads import (
-        PlotThreadRegistry,
         PlotThread,
+        PlotThreadRegistry,
     )
 
     registry = PlotThreadRegistry()
-    for thread_name, thread_data in plot_threads.items():
+    for _thread_name, thread_data in plot_threads.items():
         thread = PlotThread(**thread_data)
         registry.add_thread(thread)
 
@@ -690,17 +686,16 @@ def generate_story_outline(state: StoryState) -> Dict:
 
 
 @track_progress
-def plan_chapters(state: StoryState) -> Dict:
+def plan_chapters(state: StoryState) -> dict:
     """Divide the story into chapters with detailed outlines."""
-    from storyteller_lib.prompts.renderer import render_prompt
+    # Load configuration from database
+    from storyteller_lib.core.config import get_story_config
+    from storyteller_lib.core.logger import get_logger
     from storyteller_lib.generation.story.narrative_structures import (
         get_structure_by_name,
     )
-
-    # Load configuration from database
-    from storyteller_lib.core.config import get_story_config
     from storyteller_lib.persistence.database import get_db_manager
-    from storyteller_lib.core.logger import get_logger
+    from storyteller_lib.prompts.renderer import render_prompt
 
     logger = get_logger(__name__)
 
@@ -750,7 +745,7 @@ def plan_chapters(state: StoryState) -> Dict:
         world_elements = db_manager._db.get_world_elements(category="story_structure")
         story_phase_descriptions = world_elements.get("phase_descriptions", "")
         if story_phase_descriptions:
-            logger.info(f"Retrieved story phase descriptions from database")
+            logger.info("Retrieved story phase descriptions from database")
 
     # Render the chapter planning prompt
     prompt = render_prompt(
@@ -998,7 +993,7 @@ def plan_chapters(state: StoryState) -> Dict:
     raise Exception("Failed to generate chapter plan")
 
 
-def _process_scene_locations(locations: List[str], db_manager, language: str) -> None:
+def _process_scene_locations(locations: list[str], db_manager, language: str) -> None:
     """
     Process scene locations using LLM to check if they exist and create new ones if needed.
     Uses semantic matching, NOT keyword matching.
@@ -1044,9 +1039,10 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
             worldbuilding_text += f"\n[{key}]\n{value}\n"
 
     # Use LLM to check each location semantically
-    from storyteller_lib.prompts.renderer import render_prompt
+
     from pydantic import BaseModel, Field
-    from typing import Optional
+
+    from storyteller_lib.prompts.renderer import render_prompt
 
     class LocationCheck(BaseModel):
         """Result of checking if a location exists in worldbuilding."""
@@ -1055,20 +1051,20 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
         exists_in_worldbuilding: bool = Field(
             description="Whether this location semantically exists in the worldbuilding"
         )
-        existing_location_key: Optional[str] = Field(
+        existing_location_key: str | None = Field(
             description="The key of the existing location if found"
         )
         needs_creation: bool = Field(
             description="Whether a new location entry should be created"
         )
-        suggested_description: Optional[str] = Field(
+        suggested_description: str | None = Field(
             description="Brief description if new location needs creation"
         )
 
     class LocationCheckBatch(BaseModel):
         """Batch check of multiple locations."""
 
-        location_checks: List[LocationCheck] = Field(
+        location_checks: list[LocationCheck] = Field(
             description="Results for each location"
         )
 
@@ -1213,23 +1209,23 @@ def _process_scene_locations(locations: List[str], db_manager, language: str) ->
 
 
 async def _research_locations(
-    location_names: List[str],
+    location_names: list[str],
     genre: str,
     tone: str,
     initial_idea: str,
     story_outline: str,
     language: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Research locations using the WorldBuildingResearcher.
     Returns a dictionary mapping location names to research findings.
     """
+    from storyteller_lib.core.logger import get_logger
     from storyteller_lib.universe.world.research_config import (
         WorldBuildingResearchConfig,
     )
-    from storyteller_lib.universe.world.researcher import WorldBuildingResearcher
     from storyteller_lib.universe.world.research_models import ResearchContext
-    from storyteller_lib.core.logger import get_logger
+    from storyteller_lib.universe.world.researcher import WorldBuildingResearcher
 
     logger = get_logger(__name__)
     logger.info(f"Researching {len(location_names)} locations")
@@ -1239,10 +1235,10 @@ async def _research_locations(
 
     # Create research config
     config = WorldBuildingResearchConfig()
-    researcher = WorldBuildingResearcher(config)
+    WorldBuildingResearcher(config)
 
     # Create research context
-    context = ResearchContext(
+    ResearchContext(
         genre=genre,
         tone=tone,
         initial_idea=initial_idea,
@@ -1259,9 +1255,10 @@ async def _research_locations(
             logger.info(f"Researching location: {location_name}")
 
             # Use LLM to generate appropriate search queries for this location
-            from storyteller_lib.prompts.renderer import render_prompt
+
             from pydantic import BaseModel, Field
-            from typing import List
+
+            from storyteller_lib.prompts.renderer import render_prompt
 
             class LocationSearchQueries(BaseModel):
                 """Search queries for researching a location."""

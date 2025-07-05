@@ -5,10 +5,9 @@ This module provides functionality to track, manage, and ensure resolution of pl
 throughout the story generation process, using LangGraph state management.
 """
 
-from typing import Dict, List, Any, Optional
-import json
-from langchain_core.messages import HumanMessage
-from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE
+from typing import Any
+
+from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
 from storyteller_lib.core.models import StoryState
 
 # Plot thread status options
@@ -36,8 +35,8 @@ class PlotThread:
         first_scene: str = "",
         last_chapter: str = "",
         last_scene: str = "",
-        related_characters: List[str] = None,
-        development_history: List[Dict[str, Any]] = None,
+        related_characters: list[str] = None,
+        development_history: list[dict[str, Any]] = None,
     ):
         self.name = name
         self.description = description
@@ -50,7 +49,7 @@ class PlotThread:
         self.related_characters = related_characters or []
         self.development_history = development_history or []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the plot thread to a dictionary."""
         return {
             "name": self.name,
@@ -66,7 +65,7 @@ class PlotThread:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "PlotThread":
+    def from_dict(cls, data: dict[str, Any]) -> "PlotThread":
         """Create a plot thread from a dictionary."""
         return cls(
             name=data.get("name", ""),
@@ -132,15 +131,15 @@ class PlotThreadRegistry:
         """Add a plot thread to the registry."""
         self.threads[thread.name] = thread
 
-    def get_thread(self, name: str) -> Optional[PlotThread]:
+    def get_thread(self, name: str) -> PlotThread | None:
         """Get a plot thread by name."""
         return self.threads.get(name)
 
-    def list_threads(self) -> List[PlotThread]:
+    def list_threads(self) -> list[PlotThread]:
         """List all plot threads."""
         return list(self.threads.values())
 
-    def list_active_threads(self) -> List[PlotThread]:
+    def list_active_threads(self) -> list[PlotThread]:
         """List all active (non-resolved, non-abandoned) plot threads."""
         return [
             thread
@@ -149,7 +148,7 @@ class PlotThreadRegistry:
             not in [THREAD_STATUS["RESOLVED"], THREAD_STATUS["ABANDONED"]]
         ]
 
-    def list_unresolved_major_threads(self) -> List[PlotThread]:
+    def list_unresolved_major_threads(self) -> list[PlotThread]:
         """List all unresolved major plot threads."""
         return [
             thread
@@ -159,15 +158,15 @@ class PlotThreadRegistry:
             not in [THREAD_STATUS["RESOLVED"], THREAD_STATUS["ABANDONED"]]
         ]
 
-    def to_dict(self) -> Dict[str, Dict[str, Any]]:
+    def to_dict(self) -> dict[str, dict[str, Any]]:
         """Convert the registry to a dictionary."""
         return {name: thread.to_dict() for name, thread in self.threads.items()}
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Dict[str, Any]]) -> "PlotThreadRegistry":
+    def from_dict(cls, data: dict[str, dict[str, Any]]) -> "PlotThreadRegistry":
         """Create a registry from a dictionary."""
         registry = cls()
-        for name, thread_data in data.items():
+        for _name, thread_data in data.items():
             registry.add_thread(PlotThread.from_dict(thread_data))
         return registry
 
@@ -179,7 +178,7 @@ class PlotThreadRegistry:
         # Get plot threads from state
         plot_threads = state.get("plot_threads", {})
 
-        for name, thread_data in plot_threads.items():
+        for _name, thread_data in plot_threads.items():
             registry.add_thread(PlotThread.from_dict(thread_data))
 
         return registry
@@ -189,9 +188,9 @@ def identify_plot_threads_in_scene(
     scene_content: str,
     chapter_num: str,
     scene_num: str,
-    characters: Dict[str, Any],
+    characters: dict[str, Any],
     language: str = DEFAULT_LANGUAGE,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Identify plot threads introduced or developed in a scene.
 
@@ -218,7 +217,7 @@ def identify_plot_threads_in_scene(
     )
     try:
         # Define Pydantic models for structured output
-        from typing import List, Optional
+
         from pydantic import BaseModel, Field
 
         class PlotThreadUpdate(BaseModel):
@@ -232,7 +231,7 @@ def identify_plot_threads_in_scene(
             importance: str = Field(
                 description="The importance of the thread: major, minor, or background"
             )
-            related_characters: List[str] = Field(
+            related_characters: list[str] = Field(
                 default_factory=list, description="Characters involved in this thread"
             )
             development: str = Field(
@@ -243,7 +242,7 @@ def identify_plot_threads_in_scene(
         class PlotThreadUpdateContainer(BaseModel):
             """Container for plot thread updates."""
 
-            updates: List[PlotThreadUpdate] = Field(
+            updates: list[PlotThreadUpdate] = Field(
                 default_factory=list, description="List of plot thread updates"
             )
 
@@ -261,7 +260,7 @@ def identify_plot_threads_in_scene(
         return []
 
 
-def update_plot_threads(state: StoryState) -> Dict[str, Any]:
+def update_plot_threads(state: StoryState) -> dict[str, Any]:
     """
     Update plot threads based on the current scene.
 
@@ -271,7 +270,7 @@ def update_plot_threads(state: StoryState) -> Dict[str, Any]:
     Returns:
         Updates to the state
     """
-    chapters = state["chapters"]
+    state["chapters"]
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
 
@@ -374,7 +373,7 @@ def update_plot_threads(state: StoryState) -> Dict[str, Any]:
     }
 
 
-def check_plot_thread_resolution(state: StoryState) -> Dict[str, Any]:
+def check_plot_thread_resolution(state: StoryState) -> dict[str, Any]:
     """
     Check if all major plot threads are resolved at the end of the story.
 
@@ -410,7 +409,7 @@ def check_plot_thread_resolution(state: StoryState) -> Dict[str, Any]:
     }
 
 
-def get_active_plot_threads_for_scene(state: StoryState) -> List[Dict[str, Any]]:
+def get_active_plot_threads_for_scene(state: StoryState) -> list[dict[str, Any]]:
     """
     Get active plot threads that should be considered for the current scene.
 
@@ -420,8 +419,8 @@ def get_active_plot_threads_for_scene(state: StoryState) -> List[Dict[str, Any]]
     Returns:
         A list of active plot threads with their details
     """
-    current_chapter = state["current_chapter"]
-    current_scene = state["current_scene"]
+    state["current_chapter"]
+    state["current_scene"]
 
     # Load the plot thread registry from state
     registry = PlotThreadRegistry.from_state(state)

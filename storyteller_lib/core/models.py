@@ -3,24 +3,23 @@ StoryCraft Agent - Data models and state definitions.
 """
 
 # Standard library imports
-from operator import add
-from typing import Annotated, Any, Dict, List, Union
+from typing import Annotated, Any
 
 # Third party imports
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
 # Custom state reducers for merging complex story elements
 # Define type aliases to avoid circular imports
-SceneStateDict = Dict[str, Dict[str, Union[str, List[str]]]]
-ChapterStateDict = Dict[str, Dict[str, Union[str, Dict]]]
-CharacterProfileDict = Dict[str, Dict[str, Union[str, List[str], Dict]]]
-WorldElementsDict = Dict[str, Dict[str, Union[str, List[str], Dict]]]
+SceneStateDict = dict[str, dict[str, str | list[str]]]
+ChapterStateDict = dict[str, dict[str, str | dict]]
+CharacterProfileDict = dict[str, dict[str, str | list[str] | dict]]
+WorldElementsDict = dict[str, dict[str, str | list[str] | dict]]
 
 
-def merge_lists(existing: List[Any], new: List[Any]) -> List[Any]:
+def merge_lists(existing: list[Any], new: list[Any]) -> list[Any]:
     """Merge two lists, appending new values to existing list."""
     if not existing:
         return new
@@ -29,7 +28,7 @@ def merge_lists(existing: List[Any], new: List[Any]) -> List[Any]:
     return existing + new
 
 
-def merge_dicts(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
+def merge_dicts(existing: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
     """Merge two dictionaries, with values from new dict taking precedence."""
     result = existing.copy()
     for key, value in new.items():
@@ -190,7 +189,7 @@ def merge_chapters(
     return result
 
 
-def merge_revelations(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
+def merge_revelations(existing: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
     """Merge revelation dictionaries, with special handling for continuity_issues."""
     result = existing.copy()
 
@@ -263,8 +262,8 @@ def merge_revelations(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str
 
 
 def merge_plot_threads(
-    existing: Dict[str, Dict[str, Any]], new: Dict[str, Dict[str, Any]]
-) -> Dict[str, Dict[str, Any]]:
+    existing: dict[str, dict[str, Any]], new: dict[str, dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
     """
     Merge plot thread dictionaries, preserving thread history and development.
 
@@ -362,9 +361,9 @@ def merge_world_elements(
                             result_category[key], list
                         ):
                             # For lists, append new items to avoid duplicates
-                            existing_items = set(
+                            existing_items = {
                                 str(item) for item in result_category[key]
-                            )
+                            }
                             for item in value:
                                 if str(item) not in existing_items:
                                     result_category[key].append(item)
@@ -395,15 +394,15 @@ class CharacterProfile(TypedDict):
     name: str
     role: str
     backstory: str
-    evolution: List[str]
-    relationships: Dict[str, str]
+    evolution: list[str]
+    relationships: dict[str, str]
 
 
 class SceneState(TypedDict):
     """Scene state data structure."""
 
     content: str
-    reflection_notes: List[str]
+    reflection_notes: list[str]
 
 
 class ChapterState(TypedDict):
@@ -411,8 +410,8 @@ class ChapterState(TypedDict):
 
     title: str
     outline: str
-    scenes: Dict[str, SceneState]
-    reflection_notes: List[str]
+    scenes: dict[str, SceneState]
+    reflection_notes: list[str]
 
 
 class StoryState(TypedDict):
@@ -423,30 +422,30 @@ class StoryState(TypedDict):
     """
 
     # Use built-in add_messages for chat messages
-    messages: Annotated[List[Union[HumanMessage, AIMessage]], add_messages]
+    messages: Annotated[list[HumanMessage | AIMessage], add_messages]
 
     # Working data that gets updated during generation
     chapters: Annotated[
-        Dict[str, ChapterState], merge_chapters
+        dict[str, ChapterState], merge_chapters
     ]  # Custom reducer for nested chapters
     characters: Annotated[
-        Dict[str, CharacterProfile], merge_characters
+        dict[str, CharacterProfile], merge_characters
     ]  # Custom reducer for characters
     world_elements: Annotated[
-        Dict[str, Dict], merge_world_elements
+        dict[str, dict], merge_world_elements
     ]  # Custom reducer for worldbuilding elements
     plot_threads: Annotated[
-        Dict[str, Dict[str, Any]], merge_plot_threads
+        dict[str, dict[str, Any]], merge_plot_threads
     ]  # Custom reducer for plot threads
     revelations: Annotated[
-        Dict[str, Any], merge_revelations
+        dict[str, Any], merge_revelations
     ]  # Custom reducer for revelations with continuity_issues
 
     # Temporary processing fields
     current_chapter: str  # Track which chapter is being written
     current_scene: str  # Track which scene is being written
     current_scene_content: str  # Temporary storage for scene content between nodes
-    scene_reflection: Dict[str, Any]  # Temporary storage for scene reflection results
+    scene_reflection: dict[str, Any]  # Temporary storage for scene reflection results
 
     # Narrative structure fields
     narrative_structure: (
@@ -454,8 +453,8 @@ class StoryState(TypedDict):
     )
     target_chapters: int  # Target number of chapters based on structure and length
     target_scenes_per_chapter: int  # Target scenes per chapter
-    scene_elements: Dict[str, Any]  # Temporary storage for brainstormed scene elements
-    active_plot_threads: List[Dict[str, Any]]  # Active plot threads for current scene
+    scene_elements: dict[str, Any]  # Temporary storage for brainstormed scene elements
+    active_plot_threads: list[dict[str, Any]]  # Active plot threads for current scene
 
     # Story-level instructions and guidance
     book_level_instructions: str  # Synthesized writing instructions for the entire book
@@ -467,7 +466,7 @@ class StoryState(TypedDict):
 
     # Final manuscript review
     manuscript_review_completed: bool  # Flag to indicate review and polish is done
-    manuscript_review_results: Dict[str, Any]  # Results from the review process
+    manuscript_review_results: dict[str, Any]  # Results from the review process
     final_story: str  # The final polished story content
 
 
@@ -481,6 +480,6 @@ class CorrectedScene(BaseModel):
 class ChapterCorrectionOutput(BaseModel):
     """Structured output for chapter correction."""
 
-    corrected_scenes: List[CorrectedScene] = Field(
+    corrected_scenes: list[CorrectedScene] = Field(
         description="List of corrected scenes in order"
     )

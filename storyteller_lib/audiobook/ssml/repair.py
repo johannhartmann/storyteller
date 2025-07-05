@@ -7,7 +7,6 @@ It uses LLM to intelligently fix common SSML errors and validates the repaired c
 
 import re
 import xml.etree.ElementTree as ET
-from typing import Dict, Optional, Tuple, Any
 from dataclasses import dataclass
 
 from storyteller_lib.core.config import get_llm
@@ -23,7 +22,7 @@ class AzureError:
 
     code: int
     message: str
-    details: Optional[str] = None
+    details: str | None = None
 
 
 class SSMLRepair:
@@ -91,7 +90,7 @@ class SSMLRepair:
 
     def repair_ssml(
         self, scene_id: int, original_ssml: str, error_message: str, attempt: int = 1
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Repair SSML content based on error message.
 
@@ -153,7 +152,7 @@ class SSMLRepair:
 
     def _apply_repair_strategy(
         self, ssml: str, error: AzureError, strategy: str, attempt: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """Apply specific repair strategy based on error type."""
         if strategy == "fix_invalid_nesting":
             return self._fix_invalid_nesting(ssml, error, attempt)
@@ -171,7 +170,7 @@ class SSMLRepair:
 
     def _fix_invalid_nesting(
         self, ssml: str, error: AzureError, attempt: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """Fix invalid SSML nesting and structure errors."""
         error_details = error.details.lower() if error.details else ""
 
@@ -236,7 +235,7 @@ Fixed SSML:"""
 
     def _fix_syntax_error(
         self, ssml: str, error: AzureError, attempt: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """Fix general SSML syntax errors."""
         prompt = f"""Fix the following SSML that has a syntax error. Azure TTS error: {error.details}
 
@@ -259,7 +258,7 @@ Fixed SSML:"""
 
     def _fix_attribute_values(
         self, ssml: str, error: AzureError, attempt: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """Fix invalid attribute values in SSML."""
         prompt = f"""Fix the following SSML that has invalid attribute values. Azure TTS error: {error.details}
 
@@ -281,7 +280,7 @@ Fixed SSML:"""
 
     def _fix_prosody_values(
         self, ssml: str, error: AzureError, attempt: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """Fix invalid prosody values specifically."""
         prompt = f"""Fix the following SSML that has invalid prosody values. Azure TTS error: {error.details}
 
@@ -308,7 +307,7 @@ Fixed SSML:"""
 
     def _remove_unsupported_elements(
         self, ssml: str, error: AzureError, attempt: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """Remove unsupported SSML elements."""
         prompt = f"""Fix the following SSML by removing unsupported elements. Azure TTS error: {error.details}
 
@@ -332,7 +331,7 @@ Fixed SSML:"""
 
     def _repair_with_llm(
         self, ssml: str, error: AzureError, attempt: int
-    ) -> Optional[str]:
+    ) -> str | None:
         """General LLM-based SSML repair."""
         # More aggressive prompt for subsequent attempts
         aggressiveness = ["conservative", "moderate", "aggressive"][min(attempt - 1, 2)]
@@ -403,8 +402,8 @@ Repaired SSML:"""
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    INSERT INTO ssml_repair_log 
-                    (scene_id, error_code, error_message, repair_attempt, 
+                    INSERT INTO ssml_repair_log
+                    (scene_id, error_code, error_message, repair_attempt,
                      original_ssml, repaired_ssml, repair_successful)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -429,8 +428,8 @@ Repaired SSML:"""
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT * FROM ssml_repair_log 
-                    WHERE scene_id = ? 
+                    SELECT * FROM ssml_repair_log
+                    WHERE scene_id = ?
                     ORDER BY created_at DESC
                 """,
                     (scene_id,),

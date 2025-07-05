@@ -4,13 +4,13 @@ This module defines custom exceptions for better error handling and debugging.
 """
 
 # Standard library imports
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class StorytellerException(Exception):
     """Base exception for all StoryCraft Agent errors."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message)
         self.details = details or {}
 
@@ -116,9 +116,9 @@ class SceneGenerationError(StoryGenerationError):
     def __init__(
         self,
         message: str,
-        chapter: Optional[int] = None,
-        scene: Optional[int] = None,
-        details: Optional[Dict[str, Any]] = None,
+        chapter: int | None = None,
+        scene: int | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message, details)
         self.chapter = chapter
@@ -135,8 +135,8 @@ class CharacterCreationError(StoryGenerationError):
     def __init__(
         self,
         message: str,
-        character_name: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        character_name: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message, details)
         self.character_name = character_name
@@ -162,8 +162,8 @@ class PlotThreadError(StoryGenerationError):
     def __init__(
         self,
         message: str,
-        thread_name: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        thread_name: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message, details)
         self.thread_name = thread_name
@@ -191,8 +191,8 @@ class LanguageValidationError(ValidationError):
         self,
         message: str,
         expected_language: str,
-        detected_language: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        detected_language: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message, details)
         self.expected_language = expected_language
@@ -210,9 +210,9 @@ class QualityValidationError(ValidationError):
     def __init__(
         self,
         message: str,
-        quality_scores: Optional[Dict[str, float]] = None,
-        threshold: Optional[float] = None,
-        details: Optional[Dict[str, Any]] = None,
+        quality_scores: dict[str, float] | None = None,
+        threshold: float | None = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message, details)
         self.quality_scores = quality_scores
@@ -252,7 +252,7 @@ class StateTransitionError(StateError):
         message: str,
         from_node: str,
         to_node: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message, details)
         self.from_node = from_node
@@ -317,7 +317,7 @@ class OutputFileError(FileOperationError):
     """
 
     def __init__(
-        self, message: str, file_path: str, details: Optional[Dict[str, Any]] = None
+        self, message: str, file_path: str, details: dict[str, Any] | None = None
     ):
         """Initialize the output file error.
 
@@ -338,7 +338,7 @@ class InputFileError(FileOperationError):
     """
 
     def __init__(
-        self, message: str, file_path: str, details: Optional[Dict[str, Any]] = None
+        self, message: str, file_path: str, details: dict[str, Any] | None = None
     ):
         """Initialize the input file error.
 

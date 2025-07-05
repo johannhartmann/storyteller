@@ -5,24 +5,17 @@ This is a refactored version optimized for LangGraph's native edge system,
 removing router-specific code that could cause infinite loops.
 """
 
-from typing import Dict, List
-import json
-
-from storyteller_lib.core.config import (
-    llm,
-    MEMORY_NAMESPACE,
-    cleanup_old_state,
-    log_memory_usage,
-    get_llm_with_structured_output,
-)
-from storyteller_lib.core.models import StoryState
 
 # Memory manager imports removed - using state and database instead
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
+from langchain_core.messages import AIMessage, RemoveMessage
+
 from storyteller_lib import track_progress
-from storyteller_lib.core.constants import NodeNames
-from storyteller_lib.prompts.context import get_context_provider
+from storyteller_lib.core.config import (
+    get_llm_with_structured_output,
+)
 from storyteller_lib.core.logger import get_logger
+from storyteller_lib.core.models import StoryState
+from storyteller_lib.prompts.context import get_context_provider
 
 logger = get_logger(__name__)
 
@@ -88,7 +81,7 @@ def generate_scene_progress_report(
 
 📖 **Story Progress:**
 {bar} {progress_percentage:.1f}%
-- Chapter {chapter_num} of {total_chapters} 
+- Chapter {chapter_num} of {total_chapters}
 - Scene {scene_num} of {scenes_in_chapter} in current chapter
 - Total scenes completed: {completed_scenes} of {total_scenes}
 
@@ -198,11 +191,11 @@ def generate_chapter_progress_report(state: StoryState, chapter_num: str) -> str
 
 
 @track_progress
-def update_world_elements(state: StoryState) -> Dict:
+def update_world_elements(state: StoryState) -> dict:
     """Update world elements based on developments in the current scene."""
     from storyteller_lib.prompts.renderer import render_prompt
 
-    chapters = state["chapters"]
+    state["chapters"]
     world_elements = state.get("world_elements", {})
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
@@ -232,9 +225,8 @@ def update_world_elements(state: StoryState) -> Dict:
     language = state.get("language", "english")
 
     # Get structured world updates directly
-    from storyteller_lib.core.config import get_llm_with_structured_output
+
     from pydantic import BaseModel, Field
-    from typing import Dict, Any, Optional
 
     class WorldElementUpdate(BaseModel):
         """A single world element update."""
@@ -243,7 +235,7 @@ def update_world_elements(state: StoryState) -> Dict:
             description="Category of the world element (e.g., GEOGRAPHY, CULTURE)"
         )
         element: str = Field(description="Specific element being updated")
-        old_value: Optional[str] = Field(
+        old_value: str | None = Field(
             None, description="Previous value if updating existing element"
         )
         new_value: str = Field(description="New or updated value")
@@ -252,7 +244,7 @@ def update_world_elements(state: StoryState) -> Dict:
     class WorldUpdatesResponse(BaseModel):
         """World updates from a scene."""
 
-        updates: List[WorldElementUpdate] = Field(
+        updates: list[WorldElementUpdate] = Field(
             description="List of world element updates"
         )
 
@@ -307,15 +299,15 @@ def update_world_elements(state: StoryState) -> Dict:
 
 
 @track_progress
-def update_character_knowledge(state: StoryState) -> Dict:
+def update_character_knowledge(state: StoryState) -> dict:
     """Update what each character knows based on the current scene."""
-    from storyteller_lib.universe.characters.knowledge import CharacterKnowledgeManager
     from storyteller_lib.prompts.renderer import render_prompt
+    from storyteller_lib.universe.characters.knowledge import CharacterKnowledgeManager
 
     # Get current scene info
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
-    chapters = state["chapters"]
+    state["chapters"]
     characters = state["characters"]
 
     # Get the scene content from temporary state or database
@@ -338,15 +330,14 @@ def update_character_knowledge(state: StoryState) -> Dict:
     knowledge_manager = CharacterKnowledgeManager()
 
     # Get structured character updates directly
-    from storyteller_lib.core.config import get_llm_with_structured_output
+
     from pydantic import BaseModel, Field
-    from typing import Dict, Any, Optional
 
     class CharacterKnowledgeUpdate(BaseModel):
         """Knowledge update for a specific character."""
 
         character_name: str = Field(description="Name of the character")
-        new_knowledge: List[str] = Field(
+        new_knowledge: list[str] = Field(
             description="List of new facts/events this character learned"
         )
         knowledge_source: str = Field(
@@ -365,10 +356,10 @@ def update_character_knowledge(state: StoryState) -> Dict:
     class CharacterUpdatesResponse(BaseModel):
         """All character updates from a scene."""
 
-        knowledge_updates: List[CharacterKnowledgeUpdate] = Field(
+        knowledge_updates: list[CharacterKnowledgeUpdate] = Field(
             description="Knowledge updates for characters"
         )
-        presence_updates: List[CharacterPresenceUpdate] = Field(
+        presence_updates: list[CharacterPresenceUpdate] = Field(
             description="Presence/location updates for characters"
         )
 
@@ -418,7 +409,7 @@ def update_character_knowledge(state: StoryState) -> Dict:
 
 
 @track_progress
-def check_plot_threads(state: StoryState) -> Dict:
+def check_plot_threads(state: StoryState) -> dict:
     """Check and update plot thread progress based on the current scene."""
     from storyteller_lib.generation.story.plot_threads import update_plot_threads
     from storyteller_lib.persistence.database import get_db_manager
@@ -447,7 +438,7 @@ def check_plot_threads(state: StoryState) -> Dict:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT s.id 
+                    SELECT s.id
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
                     WHERE c.chapter_number = ? AND s.scene_number = ?
@@ -519,7 +510,7 @@ def check_plot_threads(state: StoryState) -> Dict:
 
 
 @track_progress
-def manage_character_arcs(state: StoryState) -> Dict:
+def manage_character_arcs(state: StoryState) -> dict:
     """Update character arcs based on story progression."""
     from storyteller_lib.generation.story.character_arcs import CharacterArcManager
 
@@ -550,7 +541,7 @@ def manage_character_arcs(state: StoryState) -> Dict:
 
     # Check each character's arc progress
     characters = state.get("characters", {})
-    for char_name, char_data in characters.items():
+    for char_name, _char_data in characters.items():
         if scene_content:
             # Analyze character's development in this scene
             arc_manager.analyze_scene_for_arc(
@@ -583,11 +574,11 @@ def manage_character_arcs(state: StoryState) -> Dict:
 
 
 @track_progress
-def log_story_progress(state: StoryState) -> Dict:
+def log_story_progress(state: StoryState) -> dict:
     """Log current progress and statistics to file."""
-    from storyteller_lib.utils.progress_logger import log_progress
     from storyteller_lib.analysis.statistics import calculate_book_stats
     from storyteller_lib.persistence.database import get_db_manager
+    from storyteller_lib.utils.progress_logger import log_progress
 
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
@@ -616,14 +607,14 @@ def log_story_progress(state: StoryState) -> Dict:
     return {}
 
 
-def update_progress_status(state: StoryState) -> Dict:
+def update_progress_status(state: StoryState) -> dict:
     """Update progress status and generate progress report in state messages."""
     chapters = state["chapters"]
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
 
     # Get language from state
-    language = state.get("language", "english")
+    state.get("language", "english")
 
     # Generate appropriate progress report
     current_chapter_data = chapters.get(current_chapter, {})

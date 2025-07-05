@@ -3,13 +3,12 @@ Intelligent instruction synthesis for story writing.
 Uses LLM to create coherent, structured instructions instead of string concatenation.
 """
 
-from typing import Dict, Optional
 from langchain_core.messages import HumanMessage
 
-from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE
+from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
+from storyteller_lib.core.logger import get_logger
 from storyteller_lib.core.models import StoryState
 from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.core.logger import get_logger
 from storyteller_lib.prompts.renderer import render_prompt
 
 logger = get_logger(__name__)
@@ -108,13 +107,13 @@ def generate_scene_level_instructions(
 
     # Gather all scene-relevant data using existing functions
     from storyteller_lib.generation.scene.context import (
-        _get_story_context,
         _get_chapter_context,
-        _get_scene_specifications,
-        _get_plot_context,
         _get_character_context,
-        _get_world_context,
+        _get_plot_context,
+        _get_scene_specifications,
         _get_sequence_context,
+        _get_story_context,
+        _get_world_context,
         _get_writing_constraints,
     )
 
@@ -126,9 +125,11 @@ def generate_scene_level_instructions(
 
     # 3. Get scene specifications
     scene_specs = _get_scene_specifications(state, chapter, scene)
-    
+
     # Debug: Log POV character
-    logger.debug(f"Scene {scene} POV character: {scene_specs.get('pov_character', 'Not specified')}")
+    logger.debug(
+        f"Scene {scene} POV character: {scene_specs.get('pov_character', 'Not specified')}"
+    )
 
     # 4. Get plot context
     plot_context = _get_plot_context(db_manager, scene_specs)
@@ -185,7 +186,7 @@ def generate_scene_level_instructions(
 
     except Exception as e:
         logger.error(f"Failed to get intelligent worldbuilding: {str(e)}")
-        logger.error(f"Falling back to basic world context")
+        logger.error("Falling back to basic world context")
         # Fallback to basic world context
         world_context = _get_world_context(
             db_manager, scene_specs["description"], character_context["locations"]

@@ -5,12 +5,11 @@ This module provides functions to calculate and display book length statistics
 including word count, page count, and progress tracking.
 """
 
-from typing import Dict, Optional, Tuple
 import sqlite3
 from pathlib import Path
 
 
-def calculate_book_stats(db_manager=None) -> Dict:
+def calculate_book_stats(db_manager=None) -> dict:
     """
     Calculate current book statistics from the database.
 
@@ -28,7 +27,7 @@ def calculate_book_stats(db_manager=None) -> Dict:
                 cursor.execute(
                     """
                     SELECT COUNT(*) as scene_count, SUM(LENGTH(content)) as total_chars
-                    FROM scenes 
+                    FROM scenes
                     WHERE content IS NOT NULL AND content != ''
                 """
                 )
@@ -124,7 +123,7 @@ def calculate_book_stats(db_manager=None) -> Dict:
                 cursor.execute(
                     """
                     SELECT COUNT(*) as scene_count, SUM(LENGTH(content)) as total_chars
-                    FROM scenes 
+                    FROM scenes
                     WHERE content IS NOT NULL AND content != ''
                 """
                 )
@@ -191,7 +190,7 @@ def calculate_book_stats(db_manager=None) -> Dict:
                     "chapter_breakdown": chapter_progress,
                 }
 
-    except Exception as e:
+    except Exception:
         # Return defaults if database query fails
         return {
             "current_words": 0,
@@ -220,7 +219,7 @@ def get_novel_category(word_count: int) -> str:
         return "Epic"
 
 
-def format_progress_report(stats: Dict) -> str:
+def format_progress_report(stats: dict) -> str:
     """
     Format statistics into a readable progress report.
 
@@ -236,7 +235,7 @@ def format_progress_report(stats: Dict) -> str:
     report.append("=" * 60)
 
     # Current progress
-    report.append(f"\n📝 Current Progress:")
+    report.append("\n📝 Current Progress:")
     report.append(f"  • Scenes completed: {stats['current_scenes']}")
     report.append(f"  • Chapters with content: {stats['chapters_with_content']}")
     report.append(f"  • Total words: {stats['current_words']:,}")
@@ -244,7 +243,7 @@ def format_progress_report(stats: Dict) -> str:
     report.append(f"  • Average words per scene: {stats['avg_words_per_scene']:,}")
 
     # Completion status
-    report.append(f"\n📈 Completion Status:")
+    report.append("\n📈 Completion Status:")
     report.append(
         f"  • Progress: {stats['completion_percentage']}% ({stats['current_scenes']}/{stats['projected_scenes']} scenes)"
     )
@@ -256,14 +255,14 @@ def format_progress_report(stats: Dict) -> str:
     report.append(f"  • [{bar}]")
 
     # Projected full book
-    report.append(f"\n📚 Projected Full Book:")
+    report.append("\n📚 Projected Full Book:")
     report.append(f"  • Total words: ~{stats['projected_words']:,}")
     report.append(f"  • Pages (printed): ~{stats['projected_pages_printed']}")
     report.append(f"  • Category: {get_novel_category(stats['projected_words'])}")
 
     # Chapter breakdown
     if stats["chapter_breakdown"]:
-        report.append(f"\n📖 Chapter Breakdown:")
+        report.append("\n📖 Chapter Breakdown:")
         for chapter_num, scene_count in stats["chapter_breakdown"]:
             report.append(f"  • Chapter {chapter_num}: {scene_count} scenes")
 

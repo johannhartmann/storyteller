@@ -6,20 +6,20 @@ based on the story parameters (genre, tone, author style, and initial idea).
 It uses Pydantic models for structured data extraction and validation.
 """
 
-from typing import Dict, Any, List, Optional, Union, Type
+from typing import Any
+
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from pydantic import BaseModel, Field, field_validator
-from langchain_core.messages import HumanMessage, AIMessage, RemoveMessage
-from storyteller_lib.core.config import (
-    llm,
-    MEMORY_NAMESPACE,
-    DEFAULT_LANGUAGE,
-    SUPPORTED_LANGUAGES,
-)
-from storyteller_lib.core.models import StoryState
 
 # Memory manager imports removed - using state and database instead
 from storyteller_lib import track_progress
+from storyteller_lib.core.config import (
+    DEFAULT_LANGUAGE,
+    SUPPORTED_LANGUAGES,
+    llm,
+)
 from storyteller_lib.core.logger import get_logger
+from storyteller_lib.core.models import StoryState
 
 logger = get_logger(__name__)
 
@@ -542,28 +542,28 @@ class MysteryAnalysisFlat(BaseModel):
 class WorldbuildingElements(BaseModel):
     """Complete worldbuilding elements model."""
 
-    geography: Optional[Geography] = Field(
+    geography: Geography | None = Field(
         default=None, description="Geographic elements of the world"
     )
-    history: Optional[History] = Field(
+    history: History | None = Field(
         default=None, description="Historical elements of the world"
     )
-    culture: Optional[Culture] = Field(
+    culture: Culture | None = Field(
         default=None, description="Cultural elements of the world"
     )
-    politics: Optional[Politics] = Field(
+    politics: Politics | None = Field(
         default=None, description="Political elements of the world"
     )
-    economics: Optional[Economics] = Field(
+    economics: Economics | None = Field(
         default=None, description="Economic elements of the world"
     )
-    technology_magic: Optional[TechnologyMagic] = Field(
+    technology_magic: TechnologyMagic | None = Field(
         default=None, description="Technology or magic elements of the world"
     )
-    religion: Optional[Religion] = Field(
+    religion: Religion | None = Field(
         default=None, description="Religious elements of the world"
     )
-    daily_life: Optional[DailyLife] = Field(
+    daily_life: DailyLife | None = Field(
         default=None, description="Daily life elements of the world"
     )
 
@@ -572,8 +572,8 @@ class WorldbuildingElements(BaseModel):
 
 
 def extract_with_model(
-    text: str, model: Type[BaseModel], category_name: str
-) -> Dict[str, Any]:
+    text: str, model: type[BaseModel], category_name: str
+) -> dict[str, Any]:
     """
     Extract structured data using a Pydantic model with error handling.
 
@@ -668,7 +668,7 @@ def create_category_prompt(
 
 def generate_category(
     category_name: str,
-    model: Type[BaseModel],
+    model: type[BaseModel],
     genre: str,
     tone: str,
     author: str,
@@ -676,7 +676,7 @@ def generate_category(
     global_story: str,
     language: str = DEFAULT_LANGUAGE,
     language_guidance: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate a specific worldbuilding category using a Pydantic model.
 
@@ -752,10 +752,10 @@ SPECIFIC FIELD REQUIREMENTS:
 
 
 def generate_mystery_elements(
-    world_elements: Dict[str, Any],
+    world_elements: dict[str, Any],
     num_mysteries: int = 3,
     language: str = DEFAULT_LANGUAGE,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate mystery elements based on the worldbuilding elements.
 
@@ -827,13 +827,13 @@ def generate_mystery_elements(
 
         key_mysteries = []
         for name, desc, clues_str, levels_str in zip(
-            names, descriptions, clues_lists, levels_lists
+            names, descriptions, clues_lists, levels_lists, strict=False
         ):
             clues = [c.strip() for c in clues_str.split(";") if c.strip()]
             levels = [int(l.strip()) for l in levels_str.split(",") if l.strip()]
 
             mystery_clues = []
-            for clue_desc, level in zip(clues, levels):
+            for clue_desc, level in zip(clues, levels, strict=False):
                 mystery_clues.append(
                     {
                         "description": clue_desc,
@@ -879,7 +879,7 @@ def generate_mystery_elements(
 
 
 def generate_world_summary(
-    world_elements: Dict[str, Any],
+    world_elements: dict[str, Any],
     genre: str,
     tone: str,
     language: str = DEFAULT_LANGUAGE,
@@ -935,7 +935,6 @@ def generate_world_summary(
         """
 
     # Use template system
-    from storyteller_lib.prompts.renderer import render_prompt
 
     # Generate the world summary
     prompt = render_prompt(
@@ -956,7 +955,6 @@ def generate_world_summary(
     )
 
     try:
-
         response = llm.invoke([HumanMessage(content=prompt)]).content
 
         return response
@@ -966,7 +964,7 @@ def generate_world_summary(
 
 
 @track_progress
-def generate_worldbuilding(state: StoryState) -> Dict:
+def generate_worldbuilding(state: StoryState) -> dict:
     """
     Generate detailed worldbuilding elements based on the story parameters.
 
@@ -1082,16 +1080,16 @@ def generate_worldbuilding(state: StoryState) -> Dict:
             language_guidance = f"""
             LANGUAGE CONSIDERATIONS:
                 This world will be part of a story written in {SUPPORTED_LANGUAGES[language.lower()]}.
-            
+
             When creating worldbuilding elements:
                 1. Use place names that follow {SUPPORTED_LANGUAGES[language.lower()]} naming conventions
             2. Include cultural elements authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking regions
             3. Incorporate historical references, myths, and legends familiar to {SUPPORTED_LANGUAGES[language.lower()]} speakers
             4. Design social structures, governance, and customs that reflect {SUPPORTED_LANGUAGES[language.lower()]} cultural contexts
             5. Create religious systems, beliefs, and practices that resonate with {SUPPORTED_LANGUAGES[language.lower()]} cultural traditions
-            
+
             {place_name_examples}
-            
+
             The world should feel authentic to {SUPPORTED_LANGUAGES[language.lower()]}-speaking readers rather than like a translated setting.
             """
         except Exception as e:
@@ -1133,7 +1131,7 @@ def generate_worldbuilding(state: StoryState) -> Dict:
     mystery_elements = generate_mystery_elements(world_elements, 3, language)
 
     # Create a world state tracker to monitor changes over time
-    world_state_tracker = {
+    {
         "initial_state": world_elements,
         "current_state": world_elements,
         "changes": [],
@@ -1217,7 +1215,7 @@ def extract_worldbuilding(text: str) -> WorldbuildingElements:
     return WorldbuildingElements(**extracted_data)
 
 
-def extract_specific_element(text: str, element_type: str) -> Dict[str, Any]:
+def extract_specific_element(text: str, element_type: str) -> dict[str, Any]:
     """
     Extract a specific worldbuilding element from text.
 
@@ -1255,7 +1253,7 @@ def extract_specific_element(text: str, element_type: str) -> Dict[str, Any]:
     return extract_with_model(text, model, element_type)
 
 
-def extract_mystery_elements(text: str, num_mysteries: int = 3) -> Dict[str, Any]:
+def extract_mystery_elements(text: str, num_mysteries: int = 3) -> dict[str, Any]:
     """
     Extract potential mystery elements from text.
 
@@ -1298,13 +1296,13 @@ def extract_mystery_elements(text: str, num_mysteries: int = 3) -> Dict[str, Any
 
         key_mysteries = []
         for name, desc, clues_str, levels_str in zip(
-            names, descriptions, clues_lists, levels_lists
+            names, descriptions, clues_lists, levels_lists, strict=False
         ):
             clues = [c.strip() for c in clues_str.split(";") if c.strip()]
             levels = [int(l.strip()) for l in levels_str.split(",") if l.strip()]
 
             mystery_clues = []
-            for clue_desc, level in zip(clues, levels):
+            for clue_desc, level in zip(clues, levels, strict=False):
                 mystery_clues.append(
                     {
                         "description": clue_desc,

@@ -7,7 +7,8 @@ research depth, and other parameters.
 """
 
 import os
-from typing import List, Literal, Optional, Dict, Any
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -18,7 +19,7 @@ class WorldBuildingResearchConfig(BaseModel):
         default=False, description="Enable research-driven world building"
     )
 
-    search_apis: List[str] = Field(
+    search_apis: list[str] = Field(
         default=["tavily"],
         description="Search APIs to use for research (tavily, arxiv, pubmed, etc.)",
     )
@@ -51,7 +52,7 @@ class WorldBuildingResearchConfig(BaseModel):
         default=True, description="Cache research results for reuse"
     )
 
-    search_api_config: Optional[Dict[str, Any]] = Field(
+    search_api_config: dict[str, Any] | None = Field(
         default=None, description="Additional configuration for search APIs"
     )
 
@@ -63,12 +64,12 @@ class WorldBuildingResearchConfig(BaseModel):
         default=30, description="TTL for Tavily cache entries in days"
     )
 
-    tavily_cache_path: Optional[str] = Field(
+    tavily_cache_path: str | None = Field(
         default=None, description="Path to Tavily cache database"
     )
 
     @classmethod
-    def from_config(cls, config: Dict[str, Any]) -> "WorldBuildingResearchConfig":
+    def from_config(cls, config: dict[str, Any]) -> "WorldBuildingResearchConfig":
         """Create configuration from story config dictionary."""
         research_config = config.get("world_building_research", {})
         # Add language from story config
@@ -92,7 +93,7 @@ class WorldBuildingResearchConfig(BaseModel):
 
         return cls(**research_config)
 
-    def get_depth_params(self) -> Dict[str, int]:
+    def get_depth_params(self) -> dict[str, int]:
         """Get parameters based on research depth."""
         depth_map = {
             "shallow": {

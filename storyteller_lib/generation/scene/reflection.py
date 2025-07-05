@@ -3,15 +3,13 @@ Simplified scene reflection following the refactoring plan.
 Reduces 9 quality metrics to 4 key ones and focuses on critical issues only.
 """
 
-from typing import Dict, List, Optional
-from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
 from storyteller_lib import track_progress
-from storyteller_lib.core.config import llm, get_story_config
+from storyteller_lib.core.config import get_story_config, llm
+from storyteller_lib.core.logger import get_logger
 from storyteller_lib.core.models import StoryState
 from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.core.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -27,14 +25,14 @@ class SimplifiedReflection(BaseModel):
         description="Are characters acting consistently?"
     )
     engaging_prose: bool = Field(description="Is the prose engaging and well-written?")
-    critical_issues: List[str] = Field(
+    critical_issues: list[str] = Field(
         default_factory=list, description="Critical issues that must be fixed"
     )
-    style_issues: List[str] = Field(
+    style_issues: list[str] = Field(
         default_factory=list,
         description="Style issues like word repetition, redundant descriptions",
     )
-    minor_issues: List[str] = Field(
+    minor_issues: list[str] = Field(
         default_factory=list, description="Minor issues that could be improved"
     )
     needs_revision: bool = Field(description="Does this scene need revision?")
@@ -47,7 +45,7 @@ class SimplifiedReflection(BaseModel):
 
 
 @track_progress
-def reflect_on_scene_simplified(state: StoryState) -> Dict:
+def reflect_on_scene_simplified(state: StoryState) -> dict:
     """
     Simplified scene reflection focusing on critical quality aspects.
     Replaces complex 9-metric analysis with 4 key checks.
@@ -154,9 +152,9 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     if str(current_scene) not in chapters[str(current_chapter)]["scenes"]:
         chapters[str(current_chapter)]["scenes"][str(current_scene)] = {}
 
-    chapters[str(current_chapter)]["scenes"][str(current_scene)][
-        "reflection"
-    ] = reflection_data
+    chapters[str(current_chapter)]["scenes"][str(current_scene)]["reflection"] = (
+        reflection_data
+    )
 
     # Handle style corrections immediately if needed
     if reflection.needs_style_corrections and reflection.style_issues:
@@ -201,7 +199,7 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
             else:
                 logger.error("Could not verify corrected content was saved")
         else:
-            logger.error(f"Failed to apply style corrections, but continuing anyway")
+            logger.error("Failed to apply style corrections, but continuing anyway")
 
     # Log if minor corrections are needed
     if reflection.needs_minor_corrections and reflection.minor_issues:
@@ -220,7 +218,7 @@ def reflect_on_scene_simplified(state: StoryState) -> Dict:
     }
 
 
-def _create_style_correction_instruction(style_issues: List[str]) -> str:
+def _create_style_correction_instruction(style_issues: list[str]) -> str:
     """
     Create a correction instruction specifically for style issues.
 

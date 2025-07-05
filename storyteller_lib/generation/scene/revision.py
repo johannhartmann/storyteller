@@ -3,20 +3,20 @@ Simplified scene revision following the refactoring plan.
 Only revises when critical issues are present, with a single focused pass.
 """
 
-from typing import Dict
+
 from langchain_core.messages import HumanMessage
 
 from storyteller_lib import track_progress
-from storyteller_lib.core.config import llm, get_story_config
+from storyteller_lib.core.config import get_story_config, llm
+from storyteller_lib.core.logger import get_logger
 from storyteller_lib.core.models import StoryState
 from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.core.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 @track_progress
-def revise_scene_simplified(state: StoryState) -> Dict:
+def revise_scene_simplified(state: StoryState) -> dict:
     """
     Simplified scene revision - only revises if critical issues exist.
     Maximum one revision pass, focused on specific issues.

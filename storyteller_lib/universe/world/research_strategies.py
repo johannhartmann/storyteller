@@ -5,9 +5,8 @@ This module defines research strategies for each world building category,
 including focus areas, query templates, and evaluation criteria.
 """
 
-from typing import Dict
-from storyteller_lib.universe.world.research_models import CategoryResearchStrategy
 
+from storyteller_lib.universe.world.research_models import CategoryResearchStrategy
 
 # Define research strategies for each category
 CATEGORY_STRATEGIES = {
@@ -233,7 +232,7 @@ def get_category_strategy(category: str) -> CategoryResearchStrategy:
     return strategy
 
 
-def get_all_strategies() -> Dict[str, CategoryResearchStrategy]:
+def get_all_strategies() -> dict[str, CategoryResearchStrategy]:
     """Get all category research strategies."""
     return CATEGORY_STRATEGIES.copy()
 

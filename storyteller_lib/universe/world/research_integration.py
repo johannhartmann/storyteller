@@ -6,58 +6,56 @@ research capabilities while maintaining backward compatibility.
 """
 
 import asyncio
-from typing import Dict, Any, Optional, Type
+from typing import Any
+
+from langchain_core.messages import AIMessage, RemoveMessage
 from pydantic import BaseModel
 
-from storyteller_lib.core.models import StoryState
+from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
-    llm,
-    get_story_config,
     DEFAULT_LANGUAGE,
-    SUPPORTED_LANGUAGES,
+    get_story_config,
+    llm,
 )
 from storyteller_lib.core.logger import get_logger
+from storyteller_lib.core.models import StoryState
 from storyteller_lib.persistence.database import get_db_manager
 from storyteller_lib.prompts.renderer import render_prompt
-from storyteller_lib import track_progress
-
 from storyteller_lib.universe.world.builder import (
+    Culture,
+    DailyLife,
+    Economics,
     Geography,
     History,
-    Culture,
     Politics,
-    Economics,
-    TechnologyMagic,
     Religion,
-    DailyLife,
+    TechnologyMagic,
     generate_category,
     generate_mystery_elements,
     generate_world_summary,
 )
 from storyteller_lib.universe.world.research_config import WorldBuildingResearchConfig
-from storyteller_lib.universe.world.researcher import WorldBuildingResearcher
 from storyteller_lib.universe.world.research_models import (
     ResearchContext,
     ResearchResults,
 )
-
-from langchain_core.messages import AIMessage, RemoveMessage
+from storyteller_lib.universe.world.researcher import WorldBuildingResearcher
 
 logger = get_logger(__name__)
 
 
 async def generate_category_with_research(
     category_name: str,
-    model: Type[BaseModel],
+    model: type[BaseModel],
     genre: str,
     tone: str,
     author: str,
     initial_idea: str,
     global_story: str,
-    research_results: Optional[ResearchResults] = None,
+    research_results: ResearchResults | None = None,
     language: str = DEFAULT_LANGUAGE,
     language_guidance: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate a category with research context.
 
@@ -188,13 +186,13 @@ SPECIFIC FIELD REQUIREMENTS:
             base_prompt = f"""
             Generate {category_name} elements for a {genre} story with a {tone} tone,
             written in the style of {author}, based on this initial idea:
-            
+
             {initial_idea}
-            
+
             Story outline: {global_story}
-            
+
             {research_context}
-            
+
             Use the research insights to create authentic, grounded {category_name} elements
             that feel real and detailed. Include all required fields for the category.
             """
@@ -220,7 +218,7 @@ SPECIFIC FIELD REQUIREMENTS:
 
 
 @track_progress
-async def generate_worldbuilding_with_research(state: StoryState) -> Dict:
+async def generate_worldbuilding_with_research(state: StoryState) -> dict:
     """
     Enhanced world building with optional research.
 
@@ -316,7 +314,7 @@ async def generate_worldbuilding_with_research(state: StoryState) -> Dict:
                 *[task for _, task in research_tasks], return_exceptions=True
             )
 
-            for (category, _), result in zip(research_tasks, results):
+            for (category, _), result in zip(research_tasks, results, strict=False):
                 if isinstance(result, Exception):
                     logger.error(f"Research failed for {category}: {str(result)}")
                     category_research[category] = None
@@ -397,7 +395,7 @@ async def generate_worldbuilding_with_research(state: StoryState) -> Dict:
     mystery_elements = generate_mystery_elements(world_elements, 3, language)
 
     # Create world state tracker
-    world_state_tracker = {
+    {
         "initial_state": world_elements,
         "current_state": world_elements,
         "changes": [],

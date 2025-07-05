@@ -1,9 +1,10 @@
 """Memory management module for storing and retrieving story elements."""
 
-from typing import List, Dict, Any, Optional
 import json
-from storyteller_lib.persistence.database import StoryDatabaseManager
+from typing import Any
+
 from storyteller_lib.core.logger import get_logger
+from storyteller_lib.persistence.database import StoryDatabaseManager
 
 logger = get_logger(__name__)
 
@@ -15,7 +16,7 @@ class MemoryManager:
         self.db_manager = db_manager
 
     def create_memory(
-        self, key: str, value: Any, namespace: Optional[str] = "storyteller"
+        self, key: str, value: Any, namespace: str | None = "storyteller"
     ) -> None:
         """Create a new memory entry."""
         try:
@@ -28,21 +29,21 @@ class MemoryManager:
             raise
 
     def update_memory(
-        self, key: str, value: Any, namespace: Optional[str] = "storyteller"
+        self, key: str, value: Any, namespace: str | None = "storyteller"
     ) -> None:
         """Update an existing memory entry."""
         value_str = json.dumps(value) if not isinstance(value, str) else value
         self.db_manager.update_memory(key, value_str, namespace)
         logger.debug(f"Updated memory: {key} in namespace: {namespace}")
 
-    def delete_memory(self, key: str, namespace: Optional[str] = "storyteller") -> None:
+    def delete_memory(self, key: str, namespace: str | None = "storyteller") -> None:
         """Delete a memory entry."""
         self.db_manager.delete_memory(key, namespace)
         logger.debug(f"Deleted memory: {key} from namespace: {namespace}")
 
     def search_memories(
-        self, query: str, namespace: Optional[str] = "storyteller"
-    ) -> List[Dict[str, Any]]:
+        self, query: str, namespace: str | None = "storyteller"
+    ) -> list[dict[str, Any]]:
         """Search for memories containing the query string."""
         results = self.db_manager.search_memories(query, namespace)
         logger.debug(f"Found {len(results)} memories for query: {query}")
@@ -62,8 +63,8 @@ class MemoryManager:
         return processed_results
 
     def get_memory(
-        self, key: str, namespace: Optional[str] = "storyteller"
-    ) -> Optional[Any]:
+        self, key: str, namespace: str | None = "storyteller"
+    ) -> Any | None:
         """Get a specific memory by key."""
         result = self.db_manager.get_memory(key, namespace)
         if result:
@@ -75,15 +76,15 @@ class MemoryManager:
 
 
 # Global instance that will be initialized in config.py
-memory_manager: Optional[MemoryManager] = None
+memory_manager: MemoryManager | None = None
 
 
 def manage_memory(
     action: str,
     key: str,
-    value: Optional[Any] = None,
-    namespace: Optional[str] = "storyteller",
-) -> Dict[str, Any]:
+    value: Any | None = None,
+    namespace: str | None = "storyteller",
+) -> dict[str, Any]:
     """Function interface compatible with the old manage_memory_tool.invoke() calls."""
     if memory_manager is None:
         raise RuntimeError("Memory manager not initialized")
@@ -102,8 +103,8 @@ def manage_memory(
 
 
 def search_memory(
-    query: str, namespace: Optional[str] = "storyteller"
-) -> List[Dict[str, Any]]:
+    query: str, namespace: str | None = "storyteller"
+) -> list[dict[str, Any]]:
     """Function interface compatible with the old search_memory_tool.invoke() calls."""
     if memory_manager is None:
         raise RuntimeError("Memory manager not initialized")

@@ -9,12 +9,11 @@ A cleaner, more robust replacement for the shell script version.
 """
 
 import argparse
-import sqlite3
 import os
+import sqlite3
 import sys
 import textwrap
 from pathlib import Path
-from typing import List, Tuple, Optional
 
 
 # ANSI color codes
@@ -37,7 +36,7 @@ def get_db_path() -> Path:
     return Path.home() / ".storyteller" / "story_database.db"
 
 
-def get_categories(conn: sqlite3.Connection) -> List[str]:
+def get_categories(conn: sqlite3.Connection) -> list[str]:
     """Get all available categories from the database."""
     cursor = conn.cursor()
     cursor.execute("SELECT DISTINCT category FROM world_elements ORDER BY category")
@@ -45,8 +44,8 @@ def get_categories(conn: sqlite3.Connection) -> List[str]:
 
 
 def get_worldbuilding_data(
-    conn: sqlite3.Connection, category: Optional[str] = None
-) -> List[Tuple[str, str, str]]:
+    conn: sqlite3.Connection, category: str | None = None
+) -> list[tuple[str, str, str]]:
     """Get worldbuilding data from database."""
     cursor = conn.cursor()
 
@@ -54,7 +53,7 @@ def get_worldbuilding_data(
     SELECT category, element_key, element_value
     FROM world_elements
     {}
-    ORDER BY 
+    ORDER BY
         CASE category
             WHEN 'geography' THEN 1
             WHEN 'history' THEN 2
@@ -98,7 +97,7 @@ def format_content(content: str, width: int = 80, indent: str = "  ") -> str:
     return "\n\n".join(formatted_paragraphs)
 
 
-def display_full(data: List[Tuple[str, str, str]]) -> None:
+def display_full(data: list[tuple[str, str, str]]) -> None:
     """Display worldbuilding data in full format."""
     print(f"{Colors.BOLD}{Colors.CYAN}=== WORLDBUILDING CONTENT ==={Colors.NC}")
     print()
@@ -122,7 +121,7 @@ def display_full(data: List[Tuple[str, str, str]]) -> None:
         print()
 
 
-def display_summary(conn: sqlite3.Connection, category: Optional[str] = None) -> None:
+def display_summary(conn: sqlite3.Connection, category: str | None = None) -> None:
     """Display summary of worldbuilding data."""
     print(f"{Colors.BOLD}{Colors.CYAN}=== WORLDBUILDING SUMMARY ==={Colors.NC}")
     print()
@@ -131,7 +130,7 @@ def display_summary(conn: sqlite3.Connection, category: Optional[str] = None) ->
 
     if category:
         query = """
-        SELECT 
+        SELECT
             category,
             element_key as field,
             LENGTH(element_value) as content_length,
@@ -143,13 +142,13 @@ def display_summary(conn: sqlite3.Connection, category: Optional[str] = None) ->
         cursor.execute(query, (category,))
     else:
         query = """
-        SELECT 
+        SELECT
             category,
             element_key as field,
             LENGTH(element_value) as content_length,
             datetime(created_at, 'localtime') as created
         FROM world_elements
-        ORDER BY 
+        ORDER BY
             CASE category
                 WHEN 'geography' THEN 1
                 WHEN 'history' THEN 2
@@ -175,7 +174,7 @@ def display_summary(conn: sqlite3.Connection, category: Optional[str] = None) ->
         print(f"{category:<20} {field:<20} {size:<15,} {created or 'N/A':<20}")
 
 
-def export_text(data: List[Tuple[str, str, str]], filepath: Path) -> None:
+def export_text(data: list[tuple[str, str, str]], filepath: Path) -> None:
     """Export worldbuilding data to text file."""
     with open(filepath, "w", encoding="utf-8") as f:
         f.write("WORLDBUILDING DATA EXPORT\n")
@@ -196,7 +195,7 @@ def export_text(data: List[Tuple[str, str, str]], filepath: Path) -> None:
             f.write(format_content(element_value) + "\n\n")
 
 
-def export_csv(data: List[Tuple[str, str, str]], filepath: Path) -> None:
+def export_csv(data: list[tuple[str, str, str]], filepath: Path) -> None:
     """Export worldbuilding data to CSV file."""
     import csv
 
@@ -206,13 +205,13 @@ def export_csv(data: List[Tuple[str, str, str]], filepath: Path) -> None:
         writer.writerows(data)
 
 
-def show_statistics(conn: sqlite3.Connection, category: Optional[str] = None) -> None:
+def show_statistics(conn: sqlite3.Connection, category: str | None = None) -> None:
     """Show statistics about the worldbuilding data."""
     cursor = conn.cursor()
 
     if category:
         query = """
-        SELECT 
+        SELECT
             COUNT(DISTINCT category) as categories,
             COUNT(*) as fields,
             PRINTF('%.1f KB', SUM(LENGTH(element_value))/1024.0) as total_size
@@ -222,7 +221,7 @@ def show_statistics(conn: sqlite3.Connection, category: Optional[str] = None) ->
         cursor.execute(query, (category,))
     else:
         query = """
-        SELECT 
+        SELECT
             COUNT(DISTINCT category) as categories,
             COUNT(*) as fields,
             PRINTF('%.1f KB', SUM(LENGTH(element_value))/1024.0) as total_size

@@ -5,9 +5,11 @@ This module provides functionality to create smooth transitions between scenes a
 addressing issues with abrupt transitions in the narrative in multiple languages.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Any
+
 from langchain_core.messages import HumanMessage
-from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
+
+from storyteller_lib.core.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, llm
 from storyteller_lib.core.models import StoryState
 from storyteller_lib.generation.story.plot_threads import (
     get_active_plot_threads_for_scene,
@@ -19,7 +21,7 @@ def analyze_transition_needs(
     next_content_outline: str,
     transition_type: str = "scene",
     language: str = DEFAULT_LANGUAGE,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyze the transition needs between current content and next content.
 
@@ -45,13 +47,13 @@ def analyze_transition_needs(
     # Prepare the prompt for analyzing transition needs
     prompt = f"""
     Analyze the transition needs between this {transition_type} and the next in this {language_name} narrative:
-    
+
     CURRENT {transition_type.upper()} ENDING:
     {current_content[-500:]}
-    
+
     NEXT {transition_type.upper()} OUTLINE:
     {next_content_outline}
-    
+
     Evaluate:
     1. Is the current ending abrupt?
     2. Are there unresolved immediate tensions that should be addressed?
@@ -60,14 +62,14 @@ def analyze_transition_needs(
     5. Are there any language-specific transition techniques that could be applied?
     6. What elements would create a smoother transition?
     7. What tone would be appropriate for the transition?
-    
+
     Format your response as a structured JSON object.
     """
 
     try:
         # Define Pydantic models for structured output
+
         from pydantic import BaseModel, Field
-        from typing import List
 
         class TransitionAnalysis(BaseModel):
             """Analysis of transition needs."""
@@ -77,7 +79,7 @@ def analyze_transition_needs(
                 le=10,
                 description="How abrupt the current ending is (1=smooth, 10=very abrupt)",
             )
-            unresolved_tensions: List[str] = Field(
+            unresolved_tensions: list[str] = Field(
                 default_factory=list,
                 description="Unresolved immediate tensions that should be addressed",
             )
@@ -86,7 +88,7 @@ def analyze_transition_needs(
                 le=10,
                 description="Strength of connection to the next content (1=weak, 10=strong)",
             )
-            recommended_elements: List[str] = Field(
+            recommended_elements: list[str] = Field(
                 default_factory=list,
                 description="Elements that would create a smoother transition",
             )
@@ -233,8 +235,8 @@ def create_scene_transition(
 
 
 def create_chapter_transition(
-    current_chapter_data: Dict,
-    next_chapter_data: Dict,
+    current_chapter_data: dict,
+    next_chapter_data: dict,
     state: StoryState = None,
     language: str = DEFAULT_LANGUAGE,
 ) -> str:
@@ -291,8 +293,8 @@ def create_chapter_transition(
     plot_thread_guidance = ""
     if state:
         # Save the original current_chapter and current_scene
-        original_chapter = state.get("current_chapter", "")
-        original_scene = state.get("current_scene", "")
+        state.get("current_chapter", "")
+        state.get("current_scene", "")
 
         # Temporarily set the current chapter and scene to the last scene of the current chapter
         # This is needed for get_active_plot_threads_for_scene to work correctly
@@ -321,7 +323,7 @@ def create_chapter_transition(
             plot_thread_guidance = f"""
             PLOT THREAD CONTINUITY BETWEEN CHAPTERS:
             {major_thread_text}
-            
+
             Ensure your chapter transition maintains continuity of major plot threads.
             Reference key plot elements that will carry forward into the next chapter.
             Consider how plot threads will evolve or develop in the upcoming chapter.
@@ -340,24 +342,24 @@ def create_chapter_transition(
     # Prepare the prompt for creating a chapter transition
     prompt = f"""
     Create a smooth chapter transition in {language_name}:
-    
+
     CURRENT CHAPTER: {current_chapter_title}
     {current_chapter_outline}
-    
+
     LAST SCENE OF CURRENT CHAPTER (last 500 characters):
     {last_scene_content[-500:]}
-    
+
     NEXT CHAPTER: {next_chapter_title}
     {next_chapter_outline}
-    
+
     TRANSITION ANALYSIS:
     - Abruptness Score: {transition_analysis.get('abruptness_score', 5)}/10
     - Connection Strength: {transition_analysis.get('connection_strength', 5)}/10
     - Recommended Tone: {transition_analysis.get('recommended_tone', 'neutral')}
     - Transition Length: {transition_analysis.get('transition_length', 'medium')}
-    
+
     {plot_thread_guidance}
-    
+
     Create a transition that:
     1. Concludes the current chapter appropriately in {language_name} style
     2. Addresses any unresolved immediate tensions
@@ -365,10 +367,10 @@ def create_chapter_transition(
     4. Maintains plot thread continuity
     5. Respects the language's narrative conventions
     6. Uses appropriate transition techniques for {language_name}
-    
-    The transition should be a single paragraph that flows naturally from the end of the 
+
+    The transition should be a single paragraph that flows naturally from the end of the
     current chapter and sets up the beginning of the next chapter.
-    
+
     IMPORTANT: The transition text must be written entirely in {language_name}.
     """
 
@@ -435,15 +437,15 @@ def enhance_scene_ending(
     # Prepare the prompt for enhancing the scene ending
     prompt = f"""
     Enhance this scene ending to make it less abrupt in {language_name}:
-    
+
     CURRENT SCENE ENDING:
     {current_ending}
-    
+
     {plot_thread_context}
-    
+
     {"NEXT SCENE OUTLINE:" if next_scene_outline else ""}
     {next_scene_outline if next_scene_outline else ""}
-    
+
     Create an enhanced ending that:
     1. Provides a more natural conclusion to the scene in {language_name} style
     2. Reduces abruptness while maintaining narrative flow
@@ -451,10 +453,10 @@ def enhance_scene_ending(
     4. Maintains the tone and atmosphere of the scene
     5. Uses appropriate ending techniques for {language_name} narrative
     6. Respects language-specific conventions for scene endings
-    
-    The enhanced ending should be approximately 2-3 paragraphs that replace or extend 
+
+    The enhanced ending should be approximately 2-3 paragraphs that replace or extend
     the current ending.
-    
+
     IMPORTANT: The enhanced ending must be written entirely in {language_name}.
     """
 
@@ -523,15 +525,15 @@ def create_scene_hook(
     # Prepare the prompt for creating a scene hook
     prompt = f"""
     Create an engaging hook for this scene opening in {language_name}:
-    
+
     SCENE OUTLINE:
     {scene_outline}
-    
+
     {"PREVIOUS SCENE ENDING:" if previous_ending else ""}
     {previous_ending if previous_ending else ""}
-    
+
     {plot_thread_context}
-    
+
     Create a scene hook that:
     1. Immediately engages the reader in {language_name} style
     2. Sets the tone for the scene
@@ -539,9 +541,9 @@ def create_scene_hook(
     4. Introduces key elements without being heavy-handed
     5. Uses engaging opening techniques appropriate for {language_name}
     6. Follows language-specific conventions for scene openings
-    
+
     The hook should be 1-2 paragraphs that draw the reader into the scene.
-    
+
     IMPORTANT: The scene hook must be written entirely in {language_name}.
     """
 

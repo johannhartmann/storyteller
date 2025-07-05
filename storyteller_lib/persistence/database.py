@@ -9,14 +9,13 @@ story generation.
 # Standard library imports
 import json
 import os
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 # Local imports
-from storyteller_lib.core.constants import NodeNames, ConfigDefaults
-from storyteller_lib.persistence.models import StoryDatabase
-from storyteller_lib.core.exceptions import DatabaseError
+from storyteller_lib.core.constants import NodeNames
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.core.models import StoryState
+from storyteller_lib.persistence.models import StoryDatabase
 
 logger = get_logger(__name__)
 
@@ -29,7 +28,7 @@ class StoryDatabaseManager:
     state after each node execution and track changes incrementally.
     """
 
-    def __init__(self, db_path: Optional[str] = None, enabled: bool = True):
+    def __init__(self, db_path: str | None = None, enabled: bool = True):
         """
         Initialize the database manager.
 
@@ -38,15 +37,15 @@ class StoryDatabaseManager:
             enabled: Whether database operations are enabled
         """
         self.enabled = enabled
-        self._db: Optional[StoryDatabase] = None
+        self._db: StoryDatabase | None = None
         self._db_path = db_path or os.environ.get(
             "STORY_DATABASE_PATH", "story_database.db"
         )
-        self._modified_entities: Set[str] = set()
-        self._current_chapter_id: Optional[int] = None
-        self._current_scene_id: Optional[int] = None
-        self._character_id_map: Dict[str, int] = {}
-        self._chapter_id_map: Dict[str, int] = {}
+        self._modified_entities: set[str] = set()
+        self._current_chapter_id: int | None = None
+        self._current_scene_id: int | None = None
+        self._character_id_map: dict[str, int] = {}
+        self._chapter_id_map: dict[str, int] = {}
         if self.enabled:
             self._initialize_database()
 
@@ -98,7 +97,7 @@ class StoryDatabaseManager:
                 self._save_chapter(state)
             elif node_name == "plan_chapters":  # Handle the actual node name from graph
                 logger.info(
-                    f"Processing plan_chapters node, calling _save_all_chapters"
+                    "Processing plan_chapters node, calling _save_all_chapters"
                 )
                 self._save_all_chapters(state)
             elif node_name in [
@@ -418,7 +417,7 @@ class StoryDatabaseManager:
                             self._current_scene_id = result["id"]
 
     def _save_scene_entities(
-        self, state: StoryState, scene_data: Dict[str, Any]
+        self, state: StoryState, scene_data: dict[str, Any]
     ) -> None:
         """Save entities involved in the current scene."""
         if not self._current_scene_id:
@@ -503,7 +502,7 @@ class StoryDatabaseManager:
                             state=state_update,
                         )
 
-    def get_context_for_chapter(self, chapter_num: int) -> Dict[str, Any]:
+    def get_context_for_chapter(self, chapter_num: int) -> dict[str, Any]:
         """
         Get database context for a chapter.
 
@@ -531,7 +530,7 @@ class StoryDatabaseManager:
 
         return {}
 
-    def get_context_for_scene(self, chapter_num: int, scene_num: int) -> Dict[str, Any]:
+    def get_context_for_scene(self, chapter_num: int, scene_num: int) -> dict[str, Any]:
         """
         Get database context for a scene.
 
@@ -551,7 +550,7 @@ class StoryDatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT s.id 
+                    SELECT s.id
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
                     WHERE c.chapter_number = ? AND s.scene_number = ?
@@ -567,8 +566,8 @@ class StoryDatabaseManager:
         return {}
 
     def update_character(
-        self, character_id: str, changes: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self, character_id: str, changes: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """
         Update character properties and find affected scenes.
 
@@ -610,7 +609,7 @@ class StoryDatabaseManager:
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
                     query = f"""
-                        UPDATE characters 
+                        UPDATE characters
                         SET {', '.join(update_fields)}
                         WHERE id = ?
                     """
@@ -628,7 +627,9 @@ class StoryDatabaseManager:
             change_type = (
                 "name"
                 if "name" in changes
-                else "backstory" if "backstory" in changes else "minor"
+                else "backstory"
+                if "backstory" in changes
+                else "minor"
             )
 
             return analyzer.find_revision_candidates(
@@ -640,8 +641,8 @@ class StoryDatabaseManager:
             return []
 
     def update_plot_thread(
-        self, thread_name: str, changes: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self, thread_name: str, changes: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """
         Update plot thread and find affected scenes.
 
@@ -683,7 +684,7 @@ class StoryDatabaseManager:
                 with self._db._get_connection() as conn:
                     cursor = conn.cursor()
                     query = f"""
-                        UPDATE plot_threads 
+                        UPDATE plot_threads
                         SET {', '.join(update_fields)}
                         WHERE id = ?
                     """
@@ -720,7 +721,7 @@ class StoryDatabaseManager:
 
     def update_world_element(
         self, category: str, element_key: str, element_value: Any
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Update world element and find affected scenes.
 
@@ -782,7 +783,7 @@ class StoryDatabaseManager:
 
     def get_revision_candidates(
         self, change_type: str, entity_type: str, entity_id: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get revision candidates for a specific change.
 
@@ -864,7 +865,7 @@ class StoryDatabaseManager:
                 else:
                     # Create the row with minimal data
                     cursor.execute(
-                        """INSERT INTO story_config (id, title, genre, tone, global_story) 
+                        """INSERT INTO story_config (id, title, genre, tone, global_story)
                         VALUES (1, ?, 'unknown', 'unknown', ?)""",
                         (story_title, global_story),
                     )
@@ -918,7 +919,7 @@ class StoryDatabaseManager:
             logger.error(f"Failed to update book_level_instructions: {e}")
             raise
 
-    def get_book_level_instructions(self) -> Optional[str]:
+    def get_book_level_instructions(self) -> str | None:
         """Retrieve the book-level writing instructions from the database."""
         if not self.enabled or not self._db:
             logger.warning("Database manager is disabled or not initialized")
@@ -1022,7 +1023,7 @@ class StoryDatabaseManager:
         return "Untitled Story"
 
     # Public methods for saving specific data types
-    def save_worldbuilding(self, world_elements: Dict[str, Any]) -> None:
+    def save_worldbuilding(self, world_elements: dict[str, Any]) -> None:
         """Save worldbuilding elements to database."""
         if not self.enabled or not self._db:
             return
@@ -1061,7 +1062,7 @@ class StoryDatabaseManager:
             logger.error(f"Failed to save worldbuilding: {e}")
             raise
 
-    def save_character(self, char_id: str, char_data: Dict[str, Any]) -> None:
+    def save_character(self, char_id: str, char_data: dict[str, Any]) -> None:
         """Save a character to database."""
         if not self.enabled or not self._db:
             return
@@ -1104,7 +1105,7 @@ class StoryDatabaseManager:
                     # Update existing character
                     db_char_id = existing["id"]
                     cursor.execute(
-                        """UPDATE characters 
+                        """UPDATE characters
                         SET name = ?, role = ?, backstory = ?, personality = ?
                         WHERE id = ?""",
                         (
@@ -1146,8 +1147,8 @@ class StoryDatabaseManager:
                         with self._db._get_connection() as conn:
                             cursor = conn.cursor()
                             cursor.execute(
-                                """SELECT id FROM character_relationships 
-                                    WHERE (character1_id = ? AND character2_id = ?) 
+                                """SELECT id FROM character_relationships
+                                    WHERE (character1_id = ? AND character2_id = ?)
                                         OR (character1_id = ? AND character2_id = ?)""",
                                 (db_char_id, other_char_id, other_char_id, db_char_id),
                             )
@@ -1170,7 +1171,7 @@ class StoryDatabaseManager:
             raise
 
     def save_chapter_outline(
-        self, chapter_num: int, chapter_data: Dict[str, Any]
+        self, chapter_num: int, chapter_data: dict[str, Any]
     ) -> None:
         """Save chapter outline to database."""
         if not self.enabled or not self._db:
@@ -1307,7 +1308,7 @@ class StoryDatabaseManager:
                         )
                     else:
                         # Create new scene
-                        scene_id = self._db.create_scene(
+                        self._db.create_scene(
                             chapter_id=chapter_id,
                             scene_num=scene_num,
                             outline="",  # Can be added later
@@ -1373,7 +1374,7 @@ class StoryDatabaseManager:
             )
             raise
 
-    def get_scene_instructions(self, chapter_num: int, scene_num: int) -> Optional[str]:
+    def get_scene_instructions(self, chapter_num: int, scene_num: int) -> str | None:
         """Get scene instructions from database."""
         if not self.enabled or not self._db:
             return None
@@ -1453,7 +1454,7 @@ class StoryDatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    INSERT INTO plot_progressions 
+                    INSERT INTO plot_progressions
                     (progression_key, chapter_number, scene_number, description)
                     VALUES (?, ?, ?, ?)
                 """,
@@ -1471,7 +1472,7 @@ class StoryDatabaseManager:
             logger.error(f"Failed to track plot progression: {e}")
             return False
 
-    def get_plot_progressions(self) -> List[Dict[str, Any]]:
+    def get_plot_progressions(self) -> list[dict[str, Any]]:
         """
         Get all plot progressions that have occurred.
 
@@ -1521,7 +1522,7 @@ class StoryDatabaseManager:
             logger.error(f"Failed to check plot progression: {e}")
             return False
 
-    def get_scene_id(self, chapter_num: int, scene_num: int) -> Optional[int]:
+    def get_scene_id(self, chapter_num: int, scene_num: int) -> int | None:
         """Get the database ID for a specific scene.
 
         Args:
@@ -1564,7 +1565,7 @@ class StoryDatabaseManager:
             logger.error(f"Failed to get scene ID: {e}")
             return None
 
-    def get_scene_content(self, chapter_num: int, scene_num: int) -> Optional[str]:
+    def get_scene_content(self, chapter_num: int, scene_num: int) -> str | None:
         """Retrieve scene content from database."""
         if not self.enabled or not self._db:
             return None
@@ -1629,7 +1630,7 @@ class StoryDatabaseManager:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT c.chapter_number, c.title as chapter_title, 
+                    SELECT c.chapter_number, c.title as chapter_title,
                         s.scene_number, s.content
                     FROM chapters c
                     LEFT JOIN scenes s ON c.id = s.chapter_id
@@ -1666,16 +1667,16 @@ class StoryDatabaseManager:
 
 
 # Global instance for easy access
-_db_manager: Optional[StoryDatabaseManager] = None
+_db_manager: StoryDatabaseManager | None = None
 
 
-def get_db_manager() -> Optional[StoryDatabaseManager]:
+def get_db_manager() -> StoryDatabaseManager | None:
     """Get the global database manager instance."""
     return _db_manager
 
 
 def initialize_db_manager(
-    db_path: Optional[str] = None, enabled: bool = True
+    db_path: str | None = None, enabled: bool = True
 ) -> StoryDatabaseManager:
     """
     Initialize the global database manager.

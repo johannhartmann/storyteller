@@ -7,8 +7,8 @@ evolution throughout the story.
 """
 
 from storyteller_lib.persistence.models.models import (
-    StoryDatabase,
     DatabaseStateAdapter,
+    StoryDatabase,
     StoryQueries,
 )
 

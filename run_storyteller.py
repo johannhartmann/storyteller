@@ -9,24 +9,22 @@ import argparse
 import logging.config
 import os
 import sys
-import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 # Third party imports
 from dotenv import load_dotenv
 
 # Local imports
 from storyteller_lib import reset_progress_tracking, set_progress_callback
+from storyteller_lib.analysis.statistics import display_progress_report
+from storyteller_lib.api.storyteller import generate_story_simplified
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
-from storyteller_lib.core.constants import NodeNames
+from storyteller_lib.core.logger import setup_logging
 from storyteller_lib.persistence.progress import (
     ProgressManager,
     create_progress_manager,
 )
 from storyteller_lib.utils.info import save_story_info
-from storyteller_lib.api.storyteller import generate_story_simplified
-from storyteller_lib.analysis.statistics import display_progress_report
-from storyteller_lib.core.logger import setup_logging
 
 setup_logging(level="DEBUG", log_file="storyteller_debug.log")
 
@@ -41,7 +39,7 @@ else:
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # Global progress manager instance
-progress_manager: Optional[ProgressManager] = None
+progress_manager: ProgressManager | None = None
 
 
 def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> None:
@@ -87,7 +85,7 @@ def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> N
         # Check if this chapter header has been written
         chapter_header_written = False
         if file_exists and os.path.getsize(output_file) > 300:
-            with open(output_file, "r") as f:
+            with open(output_file) as f:
                 existing_content = f.read()
                 chapter_header_written = (
                     f"## Chapter {chapter_num}:" in existing_content
@@ -146,7 +144,7 @@ def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> N
                         print(f"[DEBUG] Using story title: '{story_title}'")
                     else:
                         story_title = "Generated Story"
-                        print(f"[DEBUG] No story_config found, using default title")
+                        print("[DEBUG] No story_config found, using default title")
 
                 # Clear any error message and write title
                 f.seek(0)
@@ -168,7 +166,7 @@ def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> N
                         print(f"[DEBUG] Found chapter title in DB: '{chapter_title}'")
                     else:
                         chapter_title = f"Chapter {chapter_num}"
-                        print(f"[DEBUG] No chapter title in DB, using default")
+                        print("[DEBUG] No chapter title in DB, using default")
                 f.write(f"\n## Chapter {chapter_num}: {chapter_title}\n\n")
 
             # Write scene title
@@ -192,7 +190,7 @@ def write_scene_to_file(chapter_num: int, scene_num: int, output_file: str) -> N
 
 
 def write_chapter_to_file(
-    chapter_num: int, chapter_data: Dict[str, Any], output_file: str
+    chapter_num: int, chapter_data: dict[str, Any], output_file: str
 ) -> None:
     """
     Write a completed chapter to the output file.
@@ -261,7 +259,7 @@ def write_chapter_to_file(
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT s.scene_number, s.content 
+                    SELECT s.scene_number, s.content
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
                     WHERE c.chapter_number = ?
@@ -285,11 +283,11 @@ def write_chapter_to_file(
                         f.write(f"*Scene {scene_num} content not available*\n\n")
 
         print(f"Chapter {chapter_num} successfully written to {output_file}")
-    except IOError as e:
+    except OSError as e:
         print(f"Error writing chapter {chapter_num} to {output_file}: {str(e)}")
 
 
-def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
+def progress_callback(node_name: str, state: dict[str, Any]) -> None:
     """
     Report progress during story generation.
 
@@ -371,9 +369,9 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                     )
                     sys.stdout.write(f"STORY CONCEPT: \n{concept_preview}\n\n")
                 else:
-                    sys.stdout.write(f"STORY CONCEPT: \nNo concept available\n\n")
+                    sys.stdout.write("STORY CONCEPT: \nNo concept available\n\n")
             else:
-                sys.stdout.write(f"STORY CONCEPT: \nNo concept available\n\n")
+                sys.stdout.write("STORY CONCEPT: \nNo concept available\n\n")
 
             if (
                 "world_building" in creative
@@ -390,10 +388,10 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                     sys.stdout.write(f"WORLD BUILDING: \n{world_preview}\n\n")
                 else:
                     sys.stdout.write(
-                        f"WORLD BUILDING: \nNo world building available\n\n"
+                        "WORLD BUILDING: \nNo world building available\n\n"
                     )
             else:
-                sys.stdout.write(f"WORLD BUILDING: \nNo world building available\n\n")
+                sys.stdout.write("WORLD BUILDING: \nNo world building available\n\n")
 
             if (
                 "central_conflicts" in creative
@@ -410,11 +408,11 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                     sys.stdout.write(f"CENTRAL CONFLICT: \n{conflict_preview}\n\n")
                 else:
                     sys.stdout.write(
-                        f"CENTRAL CONFLICT: \nNo central conflict available\n\n"
+                        "CENTRAL CONFLICT: \nNo central conflict available\n\n"
                     )
             else:
                 sys.stdout.write(
-                    f"CENTRAL CONFLICT: \nNo central conflict available\n\n"
+                    "CENTRAL CONFLICT: \nNo central conflict available\n\n"
                 )
             sys.stdout.write("------------------------------\n\n")
 
@@ -559,7 +557,7 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                 and world_elements["mystery_elements"]
             ):
                 mystery = world_elements["mystery_elements"]
-                sys.stdout.write(f"\nMYSTERY ELEMENTS:\n")
+                sys.stdout.write("\nMYSTERY ELEMENTS:\n")
                 if "central_mystery" in mystery:
                     sys.stdout.write(
                         f"  • Central Mystery: {mystery['central_mystery'][:100]}...\n"
@@ -967,7 +965,7 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                 # Count completed chapters and scenes
                 for ch_num, ch_data in chapters.items():
                     scenes_completed = True
-                    for sc_num, sc_data in ch_data.get("scenes", {}).items():
+                    for _sc_num, sc_data in ch_data.get("scenes", {}).items():
                         # A scene is only complete if it has both content and reflection notes
                         if sc_data.get("content") and sc_data.get("reflection_notes"):
                             completed_scenes += 1
@@ -1008,7 +1006,7 @@ def progress_callback(node_name: str, state: Dict[str, Any]) -> None:
                 sys.stdout.flush()
 
 
-def get_story_title_from_db() -> Optional[str]:
+def get_story_title_from_db() -> str | None:
     """Get the story title from the database."""
     try:
         from storyteller_lib.persistence.database import get_db_manager
@@ -1092,9 +1090,9 @@ def main() -> None:
     )
     # Add model provider options
     from storyteller_lib.core.config import (
-        MODEL_PROVIDER_OPTIONS,
         DEFAULT_MODEL_PROVIDER,
         MODEL_CONFIGS,
+        MODEL_PROVIDER_OPTIONS,
     )
 
     parser.add_argument(
@@ -1148,7 +1146,6 @@ def main() -> None:
     args = parser.parse_args()
 
     # Import config to check API keys
-    from storyteller_lib.core.config import MODEL_CONFIGS
 
     # Check if API key is set for the selected provider
     provider = args.model_provider
@@ -1176,7 +1173,7 @@ def main() -> None:
     progress_manager.set_write_chapter_callback(write_chapter_to_file)
 
     # Set up caching based on environment variables
-    from storyteller_lib.core.config import setup_cache, CACHE_LOCATION
+    from storyteller_lib.core.config import CACHE_LOCATION, setup_cache
 
     # Get cache type from environment
     cache_type = os.environ.get("CACHE_TYPE", "sqlite")
@@ -1222,10 +1219,10 @@ def main() -> None:
             # Convert to SSML
             ssml_converter.convert_book_to_ssml(DATABASE_PATH, output_filename)
 
-            print(f"\nSSML conversion complete!")
+            print("\nSSML conversion complete!")
             print(f"SSML file saved to: {output_filename}")
             print("\nTo generate audio files, run:")
-            print(f"  nix develop -c python generate_audiobook.py")
+            print("  nix develop -c python generate_audiobook.py")
             return
 
         except Exception as e:
@@ -1243,7 +1240,7 @@ def main() -> None:
 
         if os.path.exists(DATABASE_PATH):
             os.unlink(DATABASE_PATH)
-            print(f"Removed existing database to start fresh")
+            print("Removed existing database to start fresh")
 
         # Reinitialize database manager with fresh database
         from storyteller_lib.persistence.database import initialize_db_manager
@@ -1268,7 +1265,7 @@ def main() -> None:
             f"Generating a {args.tone} {args.genre} story{author_str}{language_str}..."
         )
         print(f"Using {args.model_provider.upper()} model: {model_name}")
-        print(f"This will take some time. Progress updates will be displayed below:")
+        print("This will take some time. Progress updates will be displayed below:")
 
         # Reset progress tracking
         progress_manager.reset()
@@ -1399,7 +1396,7 @@ def main() -> None:
                     print(f"Story information saved to {info_file}")
                 except Exception as info_err:
                     print(f"Error saving story information: {str(info_err)}")
-        except IOError as e:
+        except OSError as e:
             print(f"Error saving story to {args.output}: {str(e)}")
             # Try to save to a fallback location
             fallback_path = "story_fallback.md"
@@ -1415,7 +1412,7 @@ def main() -> None:
                         print(f"Story information saved to {info_file}")
                     except Exception as info_err:
                         print(f"Error saving story information: {str(info_err)}")
-            except IOError as fallback_err:
+            except OSError as fallback_err:
                 print(
                     f"Critical error: Could not save story to fallback location: {str(fallback_err)}"
                 )
@@ -1424,7 +1421,7 @@ def main() -> None:
         elapsed_str = progress_manager.state.get_elapsed_time()
 
         # Print summary statistics
-        print(f"\nStory Generation Summary:")
+        print("\nStory Generation Summary:")
         print(f"- Total time: {elapsed_str}")
 
         # Count chapters and scenes
@@ -1479,7 +1476,7 @@ def main() -> None:
 
                 print(f"SSML audiobook successfully saved to {ssml_output}")
                 print("\nTo generate audio files, run:")
-                print(f"  nix develop -c python generate_audiobook.py")
+                print("  nix develop -c python generate_audiobook.py")
 
             except Exception as ssml_err:
                 print(f"Error generating audiobook SSML: {str(ssml_err)}")

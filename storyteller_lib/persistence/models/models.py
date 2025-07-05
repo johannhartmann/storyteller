@@ -11,9 +11,8 @@ This module provides the core database functionality including:
 import json
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 # Local imports
 from storyteller_lib.core.exceptions import DatabaseError
@@ -53,7 +52,7 @@ class StoryDatabase:
                 db_dir.mkdir(parents=True, exist_ok=True)
                 logger.info(f"Created database directory: {db_dir}")
 
-            with open(schema_path, "r") as f:
+            with open(schema_path) as f:
                 schema_sql = f.read()
 
             with self._get_connection() as conn:
@@ -161,7 +160,7 @@ class StoryDatabase:
             conn.commit()
             logger.info(f"Initialized story config: {title}")
 
-    def get_story_config(self) -> Dict[str, Any]:
+    def get_story_config(self) -> dict[str, Any]:
         """
         Get story configuration.
 
@@ -217,7 +216,7 @@ class StoryDatabase:
             return character_id
 
     def update_character_state(
-        self, character_id: int, scene_id: int, state: Dict[str, Any]
+        self, character_id: int, scene_id: int, state: dict[str, Any]
     ) -> None:
         """
         Update character state at a specific scene.
@@ -254,7 +253,7 @@ class StoryDatabase:
                 if update_fields:
                     update_values.extend([character_id, scene_id])
                     query = f"""
-                        UPDATE character_states 
+                        UPDATE character_states
                         SET {', '.join(update_fields)}
                         WHERE character_id = ? AND scene_id = ?
                     """
@@ -285,7 +284,7 @@ class StoryDatabase:
 
     def get_character_state_at_scene(
         self, character_id: int, scene_id: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get character state at a specific scene.
 
@@ -310,7 +309,7 @@ class StoryDatabase:
             return dict(row)
 
     def add_character_knowledge(
-        self, character_id: int, scene_id: int, knowledge: Dict[str, Any]
+        self, character_id: int, scene_id: int, knowledge: dict[str, Any]
     ) -> None:
         """
         Add knowledge to a character at a specific scene.
@@ -325,7 +324,7 @@ class StoryDatabase:
 
             cursor.execute(
                 """
-                INSERT INTO character_knowledge 
+                INSERT INTO character_knowledge
                 (character_id, scene_id, knowledge_type, knowledge_content, source)
                 VALUES (?, ?, ?, ?, ?)
                 """,
@@ -369,7 +368,7 @@ class StoryDatabase:
 
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO character_relationships 
+                INSERT OR REPLACE INTO character_relationships
                 (character1_id, character2_id, relationship_type, description, properties)
                 VALUES (?, ?, ?, ?, ?)
                 """,
@@ -380,7 +379,7 @@ class StoryDatabase:
                 f"Created relationship between characters {char1_id} and {char2_id}"
             )
 
-    def get_character_relationships(self, character_id: int) -> List[Dict[str, Any]]:
+    def get_character_relationships(self, character_id: int) -> list[dict[str, Any]]:
         """
         Get all relationships for a character.
 
@@ -396,7 +395,7 @@ class StoryDatabase:
             # Get relationships where character is either character1 or character2
             cursor.execute(
                 """
-                SELECT cr.*, 
+                SELECT cr.*,
                         c1.name as character1_name, c1.identifier as character1_identifier,
                         c2.name as character2_name, c2.identifier as character2_identifier
                 FROM character_relationships cr
@@ -480,7 +479,7 @@ class StoryDatabase:
 
     # World Elements Management
     def create_world_element(
-        self, category: str, element_key: str, element_value: Union[str, Dict, List]
+        self, category: str, element_key: str, element_value: str | dict | list
     ) -> None:
         """
         Create or update a world element.
@@ -494,12 +493,12 @@ class StoryDatabase:
             cursor = conn.cursor()
 
             # Serialize value if needed
-            if isinstance(element_value, (dict, list)):
+            if isinstance(element_value, dict | list):
                 element_value = json.dumps(element_value)
 
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO world_elements 
+                INSERT OR REPLACE INTO world_elements
                 (category, element_key, element_value)
                 VALUES (?, ?, ?)
                 """,
@@ -508,7 +507,7 @@ class StoryDatabase:
             conn.commit()
             logger.debug(f"Created/updated world element {category}.{element_key}")
 
-    def get_world_elements(self, category: Optional[str] = None) -> Dict[str, Any]:
+    def get_world_elements(self, category: str | None = None) -> dict[str, Any]:
         """
         Get world elements.
 
@@ -708,7 +707,7 @@ class StoryDatabase:
 
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO scene_entities 
+                INSERT OR REPLACE INTO scene_entities
                 (scene_id, entity_type, entity_id, involvement_type)
                 VALUES (?, ?, ?, ?)
                 """,
@@ -738,7 +737,7 @@ class StoryDatabase:
 
             cursor.execute(
                 """
-                INSERT INTO plot_thread_developments 
+                INSERT INTO plot_thread_developments
                 (plot_thread_id, scene_id, development_type, description)
                 VALUES (?, ?, ?, ?)
                 """,
@@ -750,7 +749,7 @@ class StoryDatabase:
             )
 
     # Query Functions
-    def get_entities_in_scene(self, scene_id: int) -> Dict[str, List[Dict[str, Any]]]:
+    def get_entities_in_scene(self, scene_id: int) -> dict[str, list[dict[str, Any]]]:
         """
         Get all entities involved in a scene.
 
@@ -812,7 +811,7 @@ class StoryDatabase:
 
     def get_scenes_with_entity(
         self, entity_type: str, entity_id: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get all scenes where an entity appears.
 
@@ -828,7 +827,7 @@ class StoryDatabase:
 
             cursor.execute(
                 """
-                SELECT s.*, c.chapter_number, c.title as chapter_title, 
+                SELECT s.*, c.chapter_number, c.title as chapter_title,
                         se.involvement_type
                 FROM scene_entities se
                 JOIN scenes s ON se.scene_id = s.id
@@ -843,7 +842,7 @@ class StoryDatabase:
 
     def get_entity_evolution(
         self, entity_type: str, entity_id: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get the evolution history of an entity.
 
@@ -886,7 +885,7 @@ class StoryDatabase:
             return changes
 
     # Context Functions
-    def get_scene_context(self, scene_id: int) -> Dict[str, Any]:
+    def get_scene_context(self, scene_id: int) -> dict[str, Any]:
         """
         Get complete context for a scene including all entities, their states, and relationships.
 
@@ -945,7 +944,7 @@ class StoryDatabase:
 
         return context
 
-    def get_chapter_start_context(self, chapter_id: int) -> Dict[str, Any]:
+    def get_chapter_start_context(self, chapter_id: int) -> dict[str, Any]:
         """
         Get context at the start of a chapter.
 
@@ -992,7 +991,7 @@ class StoryDatabase:
                 "story": self.get_story_config(),
             }
 
-    def get_chapter_end_context(self, chapter_id: int) -> Dict[str, Any]:
+    def get_chapter_end_context(self, chapter_id: int) -> dict[str, Any]:
         """
         Get context at the end of a chapter.
 
@@ -1060,7 +1059,7 @@ class StoryDatabase:
 
             cursor.execute(
                 """
-                INSERT INTO entity_changes 
+                INSERT INTO entity_changes
                 (entity_type, entity_id, scene_id, change_type, change_description,
                 old_value, new_value)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -1085,8 +1084,8 @@ class StoryDatabase:
         self,
         content_type: str,
         content_text: str,
-        chapter_id: Optional[int] = None,
-        scene_id: Optional[int] = None,
+        chapter_id: int | None = None,
+        scene_id: int | None = None,
     ) -> bool:
         """
         Register content in the used content registry to prevent repetition.
@@ -1111,7 +1110,7 @@ class StoryDatabase:
             try:
                 cursor.execute(
                     """
-                    INSERT INTO used_content_registry 
+                    INSERT INTO used_content_registry
                     (content_type, content_hash, content_text, chapter_id, scene_id)
                     VALUES (?, ?, ?, ?, ?)
                     """,
@@ -1150,8 +1149,8 @@ class StoryDatabase:
             return cursor.fetchone()["count"] > 0
 
     def get_used_content(
-        self, content_type: Optional[str] = None, limit: int = 100
-    ) -> List[str]:
+        self, content_type: str | None = None, limit: int = 100
+    ) -> list[str]:
         """
         Get list of used content from the registry.
 
@@ -1191,12 +1190,12 @@ class StoryDatabase:
     def save_llm_evaluation(
         self,
         evaluation_type: str,
-        evaluation_result: Dict[str, Any],
+        evaluation_result: dict[str, Any],
         evaluated_content: str,
-        scene_id: Optional[int] = None,
-        chapter_id: Optional[int] = None,
-        genre: Optional[str] = None,
-        tone: Optional[str] = None,
+        scene_id: int | None = None,
+        chapter_id: int | None = None,
+        genre: str | None = None,
+        tone: str | None = None,
     ) -> int:
         """
         Save an LLM evaluation to the database.
@@ -1217,8 +1216,8 @@ class StoryDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO llm_evaluations 
-                (evaluation_type, scene_id, chapter_id, evaluated_content, 
+                INSERT INTO llm_evaluations
+                (evaluation_type, scene_id, chapter_id, evaluated_content,
                 evaluation_result, genre, tone)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -1236,8 +1235,8 @@ class StoryDatabase:
             return cursor.lastrowid
 
     def get_llm_evaluations(
-        self, evaluation_type: Optional[str] = None, scene_id: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        self, evaluation_type: str | None = None, scene_id: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         Retrieve LLM evaluations from the database.
 
@@ -1305,8 +1304,8 @@ class StoryDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO character_promises 
-                (character_id, promise_type, promise_description, 
+                INSERT INTO character_promises
+                (character_id, promise_type, promise_description,
                 introduced_chapter, expected_resolution)
                 VALUES (?, ?, ?, ?, ?)
                 """,
@@ -1333,7 +1332,7 @@ class StoryDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                UPDATE character_promises 
+                UPDATE character_promises
                 SET fulfilled = TRUE, fulfilled_scene_id = ?
                 WHERE id = ?
                 """,
@@ -1342,8 +1341,8 @@ class StoryDatabase:
             conn.commit()
 
     def get_character_promises(
-        self, character_id: int, fulfilled: Optional[bool] = None
-    ) -> List[Dict[str, Any]]:
+        self, character_id: int, fulfilled: bool | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get promises for a character.
 
@@ -1374,9 +1373,9 @@ class StoryDatabase:
         scene_number: int,
         event_type: str,
         event_description: str,
-        participants: List[int] = None,
-        location_id: Optional[int] = None,
-        plot_threads_affected: List[int] = None,
+        participants: list[int] = None,
+        location_id: int | None = None,
+        plot_threads_affected: list[int] = None,
     ) -> int:
         """
         Save a story event to the database.
@@ -1397,7 +1396,7 @@ class StoryDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO story_events 
+                INSERT INTO story_events
                 (chapter_number, scene_number, event_type, event_description,
                 participants, location_id, plot_threads_affected)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -1416,8 +1415,8 @@ class StoryDatabase:
             return cursor.lastrowid
 
     def get_story_events(
-        self, chapter_number: Optional[int] = None, event_type: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, chapter_number: int | None = None, event_type: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get story events.
 
@@ -1462,7 +1461,7 @@ class StoryDatabase:
 
     # Scene Quality Metrics
     def save_scene_quality_metrics(
-        self, scene_id: int, metrics: Dict[str, float], evaluation_notes: Dict[str, Any]
+        self, scene_id: int, metrics: dict[str, float], evaluation_notes: dict[str, Any]
     ) -> None:
         """
         Save scene quality metrics.
@@ -1476,7 +1475,7 @@ class StoryDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT OR REPLACE INTO scene_quality_metrics 
+                INSERT OR REPLACE INTO scene_quality_metrics
                 (scene_id, prose_quality_score, pacing_appropriateness,
                 character_consistency, genre_alignment, reader_engagement_estimate,
                 evaluation_notes)
@@ -1499,9 +1498,9 @@ class StoryDatabase:
         self,
         pattern_type: str,
         pattern_description: str,
-        occurrences: List[int],
+        occurrences: list[int],
         is_intentional: bool = False,
-        narrative_purpose: Optional[str] = None,
+        narrative_purpose: str | None = None,
     ) -> int:
         """
         Save a detected narrative pattern.
@@ -1520,7 +1519,7 @@ class StoryDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO narrative_patterns 
+                INSERT INTO narrative_patterns
                 (pattern_type, pattern_description, occurrences,
                 is_intentional, narrative_purpose)
                 VALUES (?, ?, ?, ?, ?)
@@ -1537,8 +1536,8 @@ class StoryDatabase:
             return cursor.lastrowid
 
     def get_narrative_patterns(
-        self, pattern_type: Optional[str] = None, is_intentional: Optional[bool] = None
-    ) -> List[Dict[str, Any]]:
+        self, pattern_type: str | None = None, is_intentional: bool | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get narrative patterns.
 
@@ -1724,7 +1723,7 @@ class DatabaseStateAdapter:
 
                         # Create scene if not exists
                         try:
-                            scene_id = self.db.create_scene(
+                            self.db.create_scene(
                                 chapter_id=chapter_id,
                                 scene_num=scene_num,
                                 outline=scene_data.get("outline", ""),
@@ -1739,7 +1738,7 @@ class DatabaseStateAdapter:
                                     (chapter_id, scene_num),
                                 )
                                 result = cursor.fetchone()
-                                scene_id = result["id"] if result else None
+                                result["id"] if result else None
 
         logger.info("Synced state to database")
 
@@ -1909,7 +1908,7 @@ class StoryQueries:
 
     def find_chapters_affected_by_character_change(
         self, character_id: int, change_type: str
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Find all chapters that need revision when a character changes.
 
@@ -1950,7 +1949,7 @@ class StoryQueries:
                         SELECT COUNT(*) as presence_count
                         FROM scenes s
                         JOIN scene_entities se ON se.scene_id = s.id
-                        WHERE s.chapter_id = ? AND se.entity_type = 'character' 
+                        WHERE s.chapter_id = ? AND se.entity_type = 'character'
                         AND se.entity_id = ? AND se.involvement_type = 'present'
                         """,
                         (chapter_id, character_id),
@@ -1961,7 +1960,7 @@ class StoryQueries:
 
             return affected_chapters
 
-    def get_character_journey(self, character_id: int) -> Dict[str, Any]:
+    def get_character_journey(self, character_id: int) -> dict[str, Any]:
         """
         Get complete journey of a character through the story.
 
@@ -2012,7 +2011,7 @@ class StoryQueries:
 
         return journey
 
-    def get_unresolved_plot_threads(self) -> List[Dict[str, Any]]:
+    def get_unresolved_plot_threads(self) -> list[dict[str, Any]]:
         """
         Get all plot threads that haven't been resolved.
 
@@ -2024,7 +2023,7 @@ class StoryQueries:
 
             cursor.execute(
                 """
-                SELECT pt.*, 
+                SELECT pt.*,
                         COUNT(DISTINCT ptd.scene_id) as development_count,
                         MAX(c.chapter_number) as last_chapter,
                         MAX(s.scene_number) as last_scene
@@ -2060,7 +2059,7 @@ class StoryQueries:
 
     def get_relationship_dynamics_over_time(
         self, char1_id: int, char2_id: int
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Track how a relationship evolves through the story.
 
@@ -2153,7 +2152,7 @@ class StoryQueries:
             # Get all chapters and scenes
             cursor.execute(
                 """
-                SELECT c.chapter_number, c.title as chapter_title, 
+                SELECT c.chapter_number, c.title as chapter_title,
                         s.scene_number, s.content
                 FROM chapters c
                 LEFT JOIN scenes s ON s.chapter_id = c.id

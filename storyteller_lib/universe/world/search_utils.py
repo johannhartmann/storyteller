@@ -5,13 +5,15 @@ This module provides functions for executing web searches
 using various APIs like Tavily, and processing the results.
 """
 
-import os
 import asyncio
-from typing import List, Dict, Any, Optional
+import os
+from typing import Any
+
 from tavily import AsyncTavilyClient
+
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.universe.world.research_models import SearchResult
 from storyteller_lib.universe.world.cache import TavilyCache
+from storyteller_lib.universe.world.research_models import SearchResult
 
 logger = get_logger(__name__)
 
@@ -25,9 +27,9 @@ class SearchAPIError(Exception):
 async def search_with_tavily(
     query: str,
     max_results: int = 5,
-    api_key: Optional[str] = None,
-    use_cache: Optional[bool] = None,
-) -> List[SearchResult]:
+    api_key: str | None = None,
+    use_cache: bool | None = None,
+) -> list[SearchResult]:
     """
     Execute a search using Tavily API with two-step approach:
     1. Search for relevant pages
@@ -165,7 +167,7 @@ async def search_with_tavily(
 
 async def search_with_arxiv(
     query: str, max_results: int = 5, **kwargs
-) -> List[SearchResult]:
+) -> list[SearchResult]:
     """
     Execute a search using ArXiv API for academic papers.
 
@@ -217,7 +219,7 @@ async def search_with_arxiv(
 
 async def search_with_pubmed(
     query: str, max_results: int = 5, **kwargs
-) -> List[SearchResult]:
+) -> list[SearchResult]:
     """
     Execute a search using PubMed API for biomedical literature.
 
@@ -272,8 +274,8 @@ async def execute_search(
     query: str,
     search_api: str = "tavily",
     max_results: int = 5,
-    api_config: Optional[Dict[str, Any]] = None,
-) -> List[SearchResult]:
+    api_config: dict[str, Any] | None = None,
+) -> list[SearchResult]:
     """
     Execute a search using the specified API.
 
@@ -302,12 +304,12 @@ async def execute_search(
 
 
 async def execute_parallel_searches(
-    queries: List[str],
+    queries: list[str],
     search_api: str = "tavily",
     max_results_per_query: int = 5,
-    api_config: Optional[Dict[str, Any]] = None,
-    use_cache: Optional[bool] = None,
-) -> Dict[str, List[SearchResult]]:
+    api_config: dict[str, Any] | None = None,
+    use_cache: bool | None = None,
+) -> dict[str, list[SearchResult]]:
     """
     Execute multiple searches in parallel.
 
@@ -337,7 +339,7 @@ async def execute_parallel_searches(
 
     # Build results dictionary
     query_results = {}
-    for query, result in zip(queries, results):
+    for query, result in zip(queries, results, strict=False):
         if isinstance(result, Exception):
             logger.error(f"Search failed for query '{query}': {str(result)}")
             query_results[query] = []
@@ -348,8 +350,8 @@ async def execute_parallel_searches(
 
 
 def filter_results_by_relevance(
-    results: List[SearchResult], min_relevance: float = 0.5
-) -> List[SearchResult]:
+    results: list[SearchResult], min_relevance: float = 0.5
+) -> list[SearchResult]:
     """
     Filter search results by relevance score.
 
@@ -363,7 +365,7 @@ def filter_results_by_relevance(
     return [r for r in results if r.relevance_score >= min_relevance]
 
 
-def deduplicate_results(results: List[SearchResult]) -> List[SearchResult]:
+def deduplicate_results(results: list[SearchResult]) -> list[SearchResult]:
     """
     Remove duplicate search results based on content similarity.
 

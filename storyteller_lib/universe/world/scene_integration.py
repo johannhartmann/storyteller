@@ -5,14 +5,15 @@ This module provides semantic, LLM-based selection of relevant worldbuilding
 elements for each scene, avoiding brittle keyword matching.
 """
 
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE
+from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.prompts.renderer import get_prompt_template, render_prompt
+from storyteller_lib.prompts.renderer import render_prompt
 
 logger = get_logger(__name__)
 
@@ -28,7 +29,7 @@ class WorldbuildingSelection(BaseModel):
 class WorldbuildingSelections(BaseModel):
     """Collection of selected worldbuilding elements for a scene."""
 
-    selections: List[WorldbuildingSelection] = Field(
+    selections: list[WorldbuildingSelection] = Field(
         description="Selected worldbuilding elements ordered by relevance"
     )
 
@@ -40,11 +41,11 @@ class SceneContext:
     description: str
     scene_type: str
     location: str
-    characters: List[str]
-    plot_threads: List[str]
+    characters: list[str]
+    plot_threads: list[str]
     dramatic_purpose: str
-    chapter_themes: List[str]
-    previous_scene_summary: Optional[str] = None
+    chapter_themes: list[str]
+    previous_scene_summary: str | None = None
 
 
 class WorldbuildingSelector:
@@ -84,7 +85,7 @@ class WorldbuildingSelector:
         self._worldbuilding_cache = None
         logger.info("Cleared worldbuilding cache, will reload on next access")
 
-    def get_all_worldbuilding(self) -> Dict[str, Dict[str, str]]:
+    def get_all_worldbuilding(self) -> dict[str, dict[str, str]]:
         """Retrieve all worldbuilding from database."""
         # If cache exists and has content, return it
         if self._worldbuilding_cache is not None and self._worldbuilding_cache:
@@ -234,12 +235,12 @@ class WorldbuildingSelector:
 
     def extract_relevant_snippets(
         self, selections: WorldbuildingSelections, scene_context: SceneContext
-    ) -> List[str]:
+    ) -> list[str]:
         """Extract only the relevant portions of selected worldbuilding."""
         return [selection.content for selection in selections.selections]
 
     def _create_worldbuilding_summary(
-        self, worldbuilding: Dict[str, Dict[str, str]]
+        self, worldbuilding: dict[str, dict[str, str]]
     ) -> str:
         """Create a COMPLETE listing of all available worldbuilding elements with full content."""
         summary_lines = []
@@ -264,12 +265,12 @@ class WorldbuildingSelector:
         scene_description: str,
         scene_type: str,
         location: str,
-        characters: List[str],
-        plot_threads: List[str],
+        characters: list[str],
+        plot_threads: list[str],
         dramatic_purpose: str,
-        chapter_themes: List[str],
-        previous_scene_summary: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        chapter_themes: list[str],
+        previous_scene_summary: str | None = None,
+    ) -> dict[str, Any]:
         """Main entry point for selecting worldbuilding for a scene."""
         logger.info(
             f"=== Starting worldbuilding selection for Chapter {chapter}, Scene {scene} ==="
@@ -318,13 +319,13 @@ def get_intelligent_world_context(
     scene_description: str,
     scene_type: str,
     location: str,
-    characters: List[str],
-    plot_threads: List[str],
+    characters: list[str],
+    plot_threads: list[str],
     dramatic_purpose: str,
-    chapter_themes: List[str],
+    chapter_themes: list[str],
     chapter: int,
     scene: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get intelligently selected worldbuilding context for a scene."""
     selector = WorldbuildingSelector()
     return selector.select_worldbuilding_for_scene(

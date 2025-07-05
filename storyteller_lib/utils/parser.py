@@ -3,10 +3,11 @@ Story parser utilities for extracting elements from initial ideas.
 Shared between v1 and v2 workflows.
 """
 
-from typing import Dict, Any
+from typing import Any
+
 from pydantic import BaseModel, Field
 
-from storyteller_lib.core.config import llm, DEFAULT_LANGUAGE
+from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
 from storyteller_lib.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -27,7 +28,7 @@ class StoryElements(BaseModel):
 
 def parse_initial_idea(
     initial_idea: str, language: str = DEFAULT_LANGUAGE
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Parse an initial story idea to extract key elements using Pydantic.
 

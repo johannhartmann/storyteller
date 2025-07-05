@@ -4,13 +4,13 @@ This module provides a template-based system for managing prompts across differe
 languages using LangChain prompt templates and Jinja2.
 """
 
-import os
 from pathlib import Path
-from typing import Dict, Optional, Any, List
-from jinja2 import Environment, FileSystemLoader, select_autoescape, TemplateNotFound
+
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound, select_autoescape
 from langchain.prompts import PromptTemplate
+
+from storyteller_lib.core.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.config import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,7 @@ class PromptTemplateManager:
         self.template_dir = Path(__file__).parent / "templates"
         logger.info(f"Initializing PromptTemplateManager for language: {self.language}")
         self.jinja_env = self._setup_jinja_environment()
-        self._template_cache: Dict[str, PromptTemplate] = {}
+        self._template_cache: dict[str, PromptTemplate] = {}
 
     def _setup_jinja_environment(self) -> Environment:
         """Set up the Jinja2 environment with proper loaders."""
@@ -58,7 +58,7 @@ class PromptTemplateManager:
         base_dir = self.template_dir / "base"
         if base_dir.exists():
             loaders.append(FileSystemLoader(str(base_dir)))
-            logger.info(f"Added base template directory as fallback")
+            logger.info("Added base template directory as fallback")
 
         # Create environment with all loaders
         from jinja2 import ChoiceLoader
@@ -175,7 +175,7 @@ class PromptTemplateManager:
             )
             return f"[Template {template_name} not found]"
 
-    def _extract_template_variables(self, template) -> List[str]:
+    def _extract_template_variables(self, template) -> list[str]:
         """Extract variable names from a Jinja2 template.
 
         Args:
@@ -189,7 +189,7 @@ class PromptTemplateManager:
         ast = self.jinja_env.parse(template.source)
         return list(meta.find_undeclared_variables(ast))
 
-    def list_available_templates(self) -> List[str]:
+    def list_available_templates(self) -> list[str]:
         """List all available templates for the current language.
 
         Returns:
@@ -210,11 +210,11 @@ class PromptTemplateManager:
             for file in base_dir.glob("*.jinja2"):
                 templates.add(file.stem)
 
-        return sorted(list(templates))
+        return sorted(templates)
 
 
 # Singleton instances for each language
-_template_managers: Dict[str, PromptTemplateManager] = {}
+_template_managers: dict[str, PromptTemplateManager] = {}
 
 
 def get_template_manager(language: str = DEFAULT_LANGUAGE) -> PromptTemplateManager:

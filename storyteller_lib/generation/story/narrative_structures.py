@@ -6,9 +6,9 @@ based on genre, tone, and story concept.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
+
 from pydantic import BaseModel, Field
 
 
@@ -25,9 +25,9 @@ class StoryLength(Enum):
 class ChapterDistribution:
     """Defines how chapters are distributed across story sections."""
 
-    sections: List[Tuple[str, float]]  # (section_name, percentage)
+    sections: list[tuple[str, float]]  # (section_name, percentage)
 
-    def get_chapter_counts(self, total_chapters: int) -> Dict[str, int]:
+    def get_chapter_counts(self, total_chapters: int) -> dict[str, int]:
         """Calculate chapter counts for each section."""
         counts = {}
         remaining = total_chapters
@@ -79,16 +79,16 @@ class NarrativeStructure(ABC):
 
     def __init__(self):
         self.name = self.__class__.__name__
-        self.best_genres: List[str] = []
-        self.best_tones: List[str] = []
-        self.length_ranges: Dict[StoryLength, Tuple[int, int]] = {}
-        self.default_scenes_per_chapter: Dict[StoryLength, int] = {
+        self.best_genres: list[str] = []
+        self.best_tones: list[str] = []
+        self.length_ranges: dict[StoryLength, tuple[int, int]] = {}
+        self.default_scenes_per_chapter: dict[StoryLength, int] = {
             StoryLength.SHORT: 3,
             StoryLength.MEDIUM: 5,
             StoryLength.LONG: 6,
             StoryLength.EPIC: 7,
         }
-        self.words_per_scene_range: Tuple[int, int] = (600, 800)
+        self.words_per_scene_range: tuple[int, int] = (600, 800)
 
     @abstractmethod
     def get_chapter_distribution(self) -> ChapterDistribution:
@@ -101,7 +101,7 @@ class NarrativeStructure(ABC):
         pass
 
     @abstractmethod
-    def get_tension_curve(self, num_chapters: int) -> List[float]:
+    def get_tension_curve(self, num_chapters: int) -> list[float]:
         """Return tension levels (0-1) for each chapter."""
         pass
 
@@ -115,7 +115,7 @@ class NarrativeStructure(ABC):
         min_chapters, max_chapters = self.length_ranges[length]
         return (min_chapters + max_chapters) // 2
 
-    def get_chapter_range(self, length: StoryLength) -> Tuple[int, int]:
+    def get_chapter_range(self, length: StoryLength) -> tuple[int, int]:
         """Get the valid chapter range for this structure and length."""
         return self.length_ranges[length]
 
@@ -161,7 +161,7 @@ class HeroJourneyStructure(NarrativeStructure):
             resolution=0.05,
         )
 
-    def get_tension_curve(self, num_chapters: int) -> List[float]:
+    def get_tension_curve(self, num_chapters: int) -> list[float]:
         """Hero's Journey has multiple peaks with the highest at the ordeal."""
         curve = []
         for i in range(num_chapters):
@@ -234,7 +234,7 @@ class ThreeActStructure(NarrativeStructure):
             resolution=0.05,
         )
 
-    def get_tension_curve(self, num_chapters: int) -> List[float]:
+    def get_tension_curve(self, num_chapters: int) -> list[float]:
         """Three-act structure builds to climax in late Act 2."""
         curve = []
         for i in range(num_chapters):
@@ -313,7 +313,7 @@ class KishotenketsuStructure(NarrativeStructure):
             resolution=0.02,
         )
 
-    def get_tension_curve(self, num_chapters: int) -> List[float]:
+    def get_tension_curve(self, num_chapters: int) -> list[float]:
         """Kishōtenketsu has a different rhythm with the twist in the third act."""
         curve = []
         for i in range(num_chapters):
@@ -384,7 +384,7 @@ class InMediasResStructure(NarrativeStructure):
             resolution=0.02,
         )
 
-    def get_tension_curve(self, num_chapters: int) -> List[float]:
+    def get_tension_curve(self, num_chapters: int) -> list[float]:
         """Start high, dip for backstory, then build to climax."""
         curve = []
         for i in range(num_chapters):
@@ -459,11 +459,10 @@ class CircularStructure(NarrativeStructure):
             resolution=0.02,
         )
 
-    def get_tension_curve(self, num_chapters: int) -> List[float]:
+    def get_tension_curve(self, num_chapters: int) -> list[float]:
         """Builds to middle, then mirrors back with transformation."""
         curve = []
         for i in range(num_chapters):
-
             progress = i / (num_chapters - 1)
 
             if progress < 0.20:  # Beginning
@@ -532,11 +531,10 @@ class NonlinearMosaicStructure(NarrativeStructure):
             resolution=0.02,
         )
 
-    def get_tension_curve(self, num_chapters: int) -> List[float]:
+    def get_tension_curve(self, num_chapters: int) -> list[float]:
         """Varies by vignette with overall rising pattern."""
         curve = []
         for i in range(num_chapters):
-
             progress = i / (num_chapters - 1)
 
             # Base rising tension
@@ -557,7 +555,7 @@ class NonlinearMosaicStructure(NarrativeStructure):
 # Structure selection functions
 
 
-def get_all_structures() -> Dict[str, NarrativeStructure]:
+def get_all_structures() -> dict[str, NarrativeStructure]:
     """Return all available narrative structures."""
     return {
         "hero_journey": HeroJourneyStructure(),
@@ -569,7 +567,7 @@ def get_all_structures() -> Dict[str, NarrativeStructure]:
     }
 
 
-def get_structure_by_name(name: str) -> Optional[NarrativeStructure]:
+def get_structure_by_name(name: str) -> NarrativeStructure | None:
     """Get a specific narrative structure by name."""
     structures = get_all_structures()
     return structures.get(name)
@@ -580,7 +578,7 @@ def determine_story_length(
     complexity: str,
     subplot_count: int = 1,
     pov_count: int = 1,
-) -> Tuple[StoryLength, int, int]:
+) -> tuple[StoryLength, int, int]:
     """Determine appropriate story length based on various factors.
 
     Returns: (length_category, chapter_count, scenes_per_chapter)
@@ -615,7 +613,7 @@ def determine_story_length(
 
 def calculate_story_parameters_from_pages(
     pages: int, structure: NarrativeStructure, words_per_page: int = 250
-) -> Tuple[StoryLength, int, int, int]:
+) -> tuple[StoryLength, int, int, int]:
     """Calculate story parameters from target page count.
 
     Args:
@@ -681,6 +679,7 @@ def calculate_story_parameters_from_pages(
 # Pydantic models for LLM structured output
 
 from typing import Literal
+
 from pydantic import field_validator
 
 
