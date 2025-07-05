@@ -52,7 +52,7 @@ class StoryDatabase:
             if not db_dir.exists():
                 db_dir.mkdir(parents=True, exist_ok=True)
                 logger.info(f"Created database directory: {db_dir}")
-            
+
             with open(schema_path, "r") as f:
                 schema_sql = f.read()
 
@@ -61,7 +61,6 @@ class StoryDatabase:
                 logger.info(f"Database initialized at {self.db_path}")
         except Exception as e:
             raise DatabaseError(f"Failed to initialize database: {str(e)}")
-
 
     @contextmanager
     def _get_connection(self):

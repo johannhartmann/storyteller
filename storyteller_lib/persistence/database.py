@@ -88,16 +88,30 @@ class StoryDatabaseManager:
             # Plot threads are saved after outline generation and scene reflection
             elif node_name in ["generate_story_outline"]:
                 self._save_plot_threads(state)
-            elif node_name in [NodeNames.SCENE_REFLECTION, "reflect_on_scene", "check_plot_threads"]:
+            elif node_name in [
+                NodeNames.SCENE_REFLECTION,
+                "reflect_on_scene",
+                "check_plot_threads",
+            ]:
                 self._save_plot_threads(state)
             elif node_name == NodeNames.PLAN_CHAPTER:
                 self._save_chapter(state)
             elif node_name == "plan_chapters":  # Handle the actual node name from graph
-                logger.info(f"Processing plan_chapters node, calling _save_all_chapters")
+                logger.info(
+                    f"Processing plan_chapters node, calling _save_all_chapters"
+                )
                 self._save_all_chapters(state)
-            elif node_name in [NodeNames.SCENE_WRITING, NodeNames.SCENE_REVISION, "write_scene", "revise_scene_if_needed"]:
+            elif node_name in [
+                NodeNames.SCENE_WRITING,
+                NodeNames.SCENE_REVISION,
+                "write_scene",
+                "revise_scene_if_needed",
+            ]:
                 self._save_scene(state)
-            elif node_name in [NodeNames.CHARACTER_EVOLUTION, "update_character_knowledge"]:
+            elif node_name in [
+                NodeNames.CHARACTER_EVOLUTION,
+                "update_character_knowledge",
+            ]:
                 self._update_character_states(state)
             # Story outline is saved by the generate_story_outline node itself
 
@@ -274,10 +288,10 @@ class StoryDatabaseManager:
             logger.warning("No chapters found in state after plan_chapters")
             logger.warning(f"State keys available: {list(state.keys())}")
             return
-        
+
         logger.info(f"Saving {len(chapters)} chapters to database")
         logger.debug(f"Chapter keys: {list(chapters.keys())}")
-        
+
         for chapter_key, chapter_data in chapters.items():
             # Extract chapter number
             try:
@@ -289,7 +303,7 @@ class StoryDatabaseManager:
             except (ValueError, IndexError):
                 logger.error(f"Could not extract chapter number from: {chapter_key}")
                 continue
-            
+
             # Check if chapter already exists
             with self._db._get_connection() as conn:
                 cursor = conn.cursor()
@@ -297,7 +311,7 @@ class StoryDatabaseManager:
                     "SELECT id FROM chapters WHERE chapter_number = ?", (chapter_num,)
                 )
                 result = cursor.fetchone()
-                
+
                 if not result:
                     # Create new chapter
                     try:
@@ -307,13 +321,17 @@ class StoryDatabaseManager:
                             outline=chapter_data.get("outline", ""),
                         )
                         self._chapter_id_map[chapter_key] = chapter_id
-                        logger.info(f"Created chapter {chapter_num}: {chapter_data.get('title', '')}")
+                        logger.info(
+                            f"Created chapter {chapter_num}: {chapter_data.get('title', '')}"
+                        )
                     except Exception as e:
                         logger.error(f"Failed to create chapter {chapter_key}: {e}")
                 else:
                     # Store existing chapter ID
                     self._chapter_id_map[chapter_key] = result["id"]
-                    logger.debug(f"Chapter {chapter_num} already exists with ID {result['id']}")
+                    logger.debug(
+                        f"Chapter {chapter_num} already exists with ID {result['id']}"
+                    )
 
     def _save_chapter(self, state: StoryState) -> None:
         """Save current chapter."""
@@ -1011,9 +1029,15 @@ class StoryDatabaseManager:
 
         try:
             # List of metadata fields to skip
-            metadata_fields = {'stored_in_db', 'research_sources', 'research_context', 
-                             'error', 'source_urls', 'search_queries'}
-            
+            metadata_fields = {
+                "stored_in_db",
+                "research_sources",
+                "research_context",
+                "error",
+                "source_urls",
+                "search_queries",
+            }
+
             for category, elements in world_elements.items():
                 if category in metadata_fields:  # Skip metadata
                     continue
@@ -1136,7 +1160,9 @@ class StoryDatabaseManager:
                                     rel_type=rel_type,
                                 )
                     else:
-                        logger.debug(f"Skipping relationship to {other_char} - character not yet saved")
+                        logger.debug(
+                            f"Skipping relationship to {other_char} - character not yet saved"
+                        )
 
             logger.info(f"Saved character {char_id}")
         except Exception as e:
@@ -1616,13 +1642,9 @@ class StoryDatabaseManager:
                     # Add chapter header if new chapter
                     if row["chapter_number"] != current_chapter:
                         current_chapter = row["chapter_number"]
-                        chapter_title = (
-                            row["chapter_title"] or f"{current_chapter}"
-                        )
+                        chapter_title = row["chapter_title"] or f"{current_chapter}"
                         # Only use chapter title, no "Chapter X:" prefix
-                        story_parts.append(
-                            f"\n## {chapter_title}\n"
-                        )
+                        story_parts.append(f"\n## {chapter_title}\n")
 
                     # Add scene content with just separator, no "Scene X" label
                     if row["content"]:

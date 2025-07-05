@@ -399,7 +399,6 @@ def update_character_knowledge(state: StoryState) -> Dict:
                     update.knowledge_source,
                 )
 
-
     # Get existing message IDs to delete
     message_ids = [msg.id for msg in state.get("messages", [])]
 
@@ -427,53 +426,60 @@ def check_plot_threads(state: StoryState) -> Dict:
     current_chapter = state["current_chapter"]
     current_scene = state["current_scene"]
 
-    logger.info(f"Checking plot threads for Chapter {current_chapter}, Scene {current_scene}")
+    logger.info(
+        f"Checking plot threads for Chapter {current_chapter}, Scene {current_scene}"
+    )
 
     # Call the update_plot_threads function which returns state updates
     try:
         plot_updates = update_plot_threads(state)
-        
+
         # The update_plot_threads function returns:
         # - chapters: Updated chapter data with plot threads per scene
         # - plot_threads: The entire plot thread registry
         # - plot_thread_updates: List of thread updates from this scene
-        
+
         # Save plot thread developments to database
         db_manager = get_db_manager()
         if db_manager and db_manager._db and "plot_thread_updates" in plot_updates:
             # Get the current scene ID from database
             with db_manager._db._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT s.id 
                     FROM scenes s
                     JOIN chapters c ON s.chapter_id = c.id
                     WHERE c.chapter_number = ? AND s.scene_number = ?
-                """, (int(current_chapter), int(current_scene)))
+                """,
+                    (int(current_chapter), int(current_scene)),
+                )
                 result = cursor.fetchone()
-                
+
                 if result:
-                    scene_id = result['id']
-                    
+                    scene_id = result["id"]
+
                     # Save each plot thread development
                     for update in plot_updates["plot_thread_updates"]:
                         # Get plot thread ID
                         cursor.execute(
                             "SELECT id FROM plot_threads WHERE name = ?",
-                            (update["thread_name"],)
+                            (update["thread_name"],),
                         )
                         thread_result = cursor.fetchone()
-                        
+
                         if thread_result:
-                            thread_id = thread_result['id']
+                            thread_id = thread_result["id"]
                             db_manager._db.add_plot_thread_development(
                                 plot_thread_id=thread_id,
                                 scene_id=scene_id,
                                 development_type=update["status"],
-                                description=update["development"]
+                                description=update["development"],
                             )
-                            logger.info(f"Saved plot thread development: {update['thread_name']} - {update['status']}")
-    
+                            logger.info(
+                                f"Saved plot thread development: {update['thread_name']} - {update['status']}"
+                            )
+
     except Exception as e:
         logger.error(f"Error updating plot threads: {e}")
         plot_updates = {}
@@ -508,7 +514,7 @@ def check_plot_threads(state: StoryState) -> Dict:
     # Merge the plot updates with the message update
     return {
         **plot_updates,  # This includes chapters, plot_threads, and plot_thread_updates
-        "messages": [*[RemoveMessage(id=msg_id) for msg_id in message_ids], new_msg]
+        "messages": [*[RemoveMessage(id=msg_id) for msg_id in message_ids], new_msg],
     }
 
 

@@ -47,7 +47,10 @@ logger = get_logger(__name__)
 
 # Import research-enabled world building if available
 try:
-    from storyteller_lib.universe.world.research_integration import generate_worldbuilding_with_research
+    from storyteller_lib.universe.world.research_integration import (
+        generate_worldbuilding_with_research,
+    )
+
     RESEARCH_WORLDBUILDING_AVAILABLE = True
 except ImportError:
     RESEARCH_WORLDBUILDING_AVAILABLE = False
@@ -165,19 +168,22 @@ def create_simplified_graph(checkpointer=None) -> StateGraph:
     graph_builder.add_node("initialize_state", initialize_state)
     graph_builder.add_node("brainstorm_story_concepts", brainstorm_story_concepts)
     graph_builder.add_node("generate_story_outline", generate_story_outline)
-    
+
     # Use research-enabled worldbuilding if configured
     if RESEARCH_WORLDBUILDING_AVAILABLE:
         # Check if research is enabled in config
         from storyteller_lib.core.config import get_story_config
+
         try:
             config = get_story_config()
             if config.get("world_building_research", {}).get("enable_research", False):
                 logger.info("Using research-enabled world building")
                 # Need to wrap async function for sync graph
                 import asyncio
+
                 def worldbuilding_wrapper(state):
                     return asyncio.run(generate_worldbuilding_with_research(state))
+
                 graph_builder.add_node("generate_worldbuilding", worldbuilding_wrapper)
             else:
                 graph_builder.add_node("generate_worldbuilding", generate_worldbuilding)
@@ -186,7 +192,7 @@ def create_simplified_graph(checkpointer=None) -> StateGraph:
             graph_builder.add_node("generate_worldbuilding", generate_worldbuilding)
     else:
         graph_builder.add_node("generate_worldbuilding", generate_worldbuilding)
-    
+
     graph_builder.add_node("generate_characters", generate_characters)
     graph_builder.add_node("plan_chapters", plan_chapters)
 
