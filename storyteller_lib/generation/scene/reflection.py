@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from storyteller_lib import track_progress
 from storyteller_lib.core.config import get_story_config, llm
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.persistence.database import get_db_manager
 
 logger = get_logger(__name__)
@@ -45,7 +45,7 @@ class SimplifiedReflection(BaseModel):
 
 
 @track_progress
-def reflect_on_scene_simplified(state: StoryState) -> dict:
+def reflect_on_scene_simplified(state: dict) -> dict:
     """
     Simplified scene reflection focusing on critical quality aspects.
     Replaces complex 9-metric analysis with 4 key checks.

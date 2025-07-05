@@ -12,7 +12,7 @@ from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     llm,
 )
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.generation.story.plot_threads import (
     THREAD_STATUS,
     PlotThread,
@@ -227,7 +227,7 @@ def generate_plot_threads_from_outline(
 
 
 @track_progress
-def generate_story_outline(state: StoryState) -> dict:
+def generate_story_outline(params: dict) -> dict:
     """Generate the overall story outline using the selected narrative structure."""
     # Import dependencies at the start
     from storyteller_lib.core.logger import get_logger
@@ -686,7 +686,7 @@ def generate_story_outline(state: StoryState) -> dict:
 
 
 @track_progress
-def plan_chapters(state: StoryState) -> dict:
+def plan_chapters(params: dict) -> dict:
     """Divide the story into chapters with detailed outlines."""
     # Load configuration from database
     from storyteller_lib.core.config import get_story_config

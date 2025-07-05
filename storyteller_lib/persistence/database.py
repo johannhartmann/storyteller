@@ -14,7 +14,7 @@ from typing import Any
 # Local imports
 from storyteller_lib.core.constants import NodeNames
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.persistence.models import StoryDatabase
 
 logger = get_logger(__name__)
@@ -54,7 +54,7 @@ class StoryDatabaseManager:
         self._db = StoryDatabase(self._db_path)
         logger.info(f"Database initialized at {self._db_path}")
 
-    def save_node_state(self, node_name: str, state: StoryState) -> None:
+    def save_node_state(self, node_name: str, state: dict) -> None:
         """
         Save state after a node execution.
 
@@ -118,7 +118,7 @@ class StoryDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to save state after {node_name}: {e}")
 
-    def _save_initial_state(self, state: StoryState) -> None:
+    def _save_initial_state(self, state: dict) -> None:
         """Initialize context provider for story generation."""
         # Story configuration is already saved by storyteller.py
         # Just ensure context provider is initialized
@@ -130,7 +130,7 @@ class StoryDatabaseManager:
         if not get_context_provider():
             initialize_context_provider(self)
 
-    def _save_world_elements(self, state: StoryState) -> None:
+    def _save_world_elements(self, state: dict) -> None:
         """Save world building elements."""
         world_elements = state.get("world_elements", {})
 
@@ -163,7 +163,7 @@ class StoryDatabaseManager:
                             properties=loc_data.get("properties", {}),
                         )
 
-    def _save_characters(self, state: StoryState) -> None:
+    def _save_characters(self, state: dict) -> None:
         """Save character profiles and relationships."""
         characters = state.get("characters", {})
 
@@ -241,7 +241,7 @@ class StoryDatabaseManager:
                             rel_type=rel_type,
                         )
 
-    def _save_plot_threads(self, state: StoryState) -> None:
+    def _save_plot_threads(self, state: dict) -> None:
         """Save plot threads."""
         plot_threads = state.get("plot_threads", {})
 
@@ -280,7 +280,7 @@ class StoryDatabaseManager:
                 except Exception as e:
                     logger.error(f"Failed to save plot thread {thread_name}: {e}")
 
-    def _save_all_chapters(self, state: StoryState) -> None:
+    def _save_all_chapters(self, state: dict) -> None:
         """Save all chapters after planning."""
         chapters = state.get("chapters", {})
         if not chapters:
@@ -332,7 +332,7 @@ class StoryDatabaseManager:
                         f"Chapter {chapter_num} already exists with ID {result['id']}"
                     )
 
-    def _save_chapter(self, state: StoryState) -> None:
+    def _save_chapter(self, state: dict) -> None:
         """Save current chapter."""
         current_chapter = state.get("current_chapter", "")
         if not current_chapter:
@@ -370,7 +370,7 @@ class StoryDatabaseManager:
                     except Exception as e:
                         logger.error(f"Failed to create chapter {current_chapter}: {e}")
 
-    def _save_scene(self, state: StoryState) -> None:
+    def _save_scene(self, state: dict) -> None:
         """Save current scene and its entities."""
         current_chapter = state.get("current_chapter", "")
         current_scene = state.get("current_scene", "")
@@ -417,7 +417,7 @@ class StoryDatabaseManager:
                             self._current_scene_id = result["id"]
 
     def _save_scene_entities(
-        self, state: StoryState, scene_data: dict[str, Any]
+        self, state: dict, scene_data: dict[str, Any]
     ) -> None:
         """Save entities involved in the current scene."""
         if not self._current_scene_id:
@@ -465,7 +465,7 @@ class StoryDatabaseManager:
                                 "present",
                             )
 
-    def _update_character_states(self, state: StoryState) -> None:
+    def _update_character_states(self, state: dict) -> None:
         """Update character states for the current scene."""
         if not self._current_scene_id:
             return
@@ -1658,6 +1658,129 @@ class StoryDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to compile story: {e}")
             return ""
+    
+    def get_current_chapter(self) -> str:
+        """Get the current chapter number being worked on."""
+        if not self._db:
+            return "1"
+        
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT MAX(chapter_number) as current_chapter
+                    FROM chapters
+                    WHERE id IN (
+                        SELECT DISTINCT chapter_id 
+                        FROM scenes 
+                        WHERE content IS NOT NULL
+                    )
+                """)
+                result = cursor.fetchone()
+                if result and result["current_chapter"]:
+                    # Check if there are more chapters
+                    cursor.execute("SELECT MAX(chapter_number) as max_chapter FROM chapters")
+                    max_result = cursor.fetchone()
+                    if max_result and max_result["max_chapter"] > result["current_chapter"]:
+                        return str(result["current_chapter"] + 1)
+                    return str(result["current_chapter"])
+                return "1"
+        except Exception as e:
+            logger.error(f"Failed to get current chapter: {e}")
+            return "1"
+    
+    def get_current_scene(self) -> str:
+        """Get the current scene number being worked on."""
+        if not self._db:
+            return "1"
+        
+        try:
+            current_chapter = int(self.get_current_chapter())
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT MAX(s.scene_number) as current_scene
+                    FROM scenes s
+                    JOIN chapters c ON s.chapter_id = c.id
+                    WHERE c.chapter_number = ? AND s.content IS NOT NULL
+                """, (current_chapter,))
+                result = cursor.fetchone()
+                if result and result["current_scene"]:
+                    # Check if there are more scenes in this chapter
+                    cursor.execute("""
+                        SELECT COUNT(*) as total_scenes
+                        FROM scenes s
+                        JOIN chapters c ON s.chapter_id = c.id
+                        WHERE c.chapter_number = ?
+                    """, (current_chapter,))
+                    total_result = cursor.fetchone()
+                    if total_result and total_result["total_scenes"] > result["current_scene"]:
+                        return str(result["current_scene"] + 1)
+                    return str(result["current_scene"])
+                return "1"
+        except Exception as e:
+            logger.error(f"Failed to get current scene: {e}")
+            return "1"
+    
+    def set_current_chapter(self, chapter: int) -> None:
+        """Set the current chapter being worked on."""
+        # This is handled implicitly by writing scenes to the database
+        pass
+    
+    def set_current_scene(self, chapter: int, scene: int) -> None:
+        """Set the current scene being worked on."""
+        # This is handled implicitly by writing scenes to the database
+        pass
+    
+    def get_chapter_count(self) -> int:
+        """Get the total number of chapters."""
+        if not self._db:
+            return 0
+        
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) as count FROM chapters")
+                result = cursor.fetchone()
+                return result["count"] if result else 0
+        except Exception as e:
+            logger.error(f"Failed to get chapter count: {e}")
+            return 0
+    
+    def get_scene_count_for_chapter(self, chapter: int) -> int:
+        """Get the number of scenes in a specific chapter."""
+        if not self._db:
+            return 0
+        
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM scenes s
+                    JOIN chapters c ON s.chapter_id = c.id
+                    WHERE c.chapter_number = ?
+                """, (chapter,))
+                result = cursor.fetchone()
+                return result["count"] if result else 0
+        except Exception as e:
+            logger.error(f"Failed to get scene count for chapter {chapter}: {e}")
+            return 0
+    
+    def get_total_scene_count(self) -> int:
+        """Get the total number of scenes across all chapters."""
+        if not self._db:
+            return 0
+        
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) as count FROM scenes")
+                result = cursor.fetchone()
+                return result["count"] if result else 0
+        except Exception as e:
+            logger.error(f"Failed to get total scene count: {e}")
+            return 0
 
     def close(self) -> None:
         """Close database connections."""

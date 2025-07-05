@@ -10,7 +10,7 @@ from typing import Any
 
 import yaml
 
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 
 def get_info_filename(book_filename: str) -> str:
@@ -27,7 +27,7 @@ def get_info_filename(book_filename: str) -> str:
     return f"{base}_info.md"
 
 
-def extract_story_info(state: StoryState) -> dict[str, Any]:
+def extract_story_info(state: dict) -> dict[str, Any]:
     """
     Extract story information from the state and database.
 
@@ -81,7 +81,7 @@ def extract_story_info(state: StoryState) -> dict[str, Any]:
     return info
 
 
-def save_story_info(state: StoryState, book_filename: str) -> str:
+def save_story_info(state: dict, book_filename: str) -> str:
     """
     Save story information to a YAML file.
 
@@ -132,7 +132,7 @@ def load_story_info(info_filename: str) -> dict[str, Any]:
     return info
 
 
-def update_state_from_info(state: StoryState, info: dict[str, Any]) -> StoryState:
+def update_state_from_info(state: dict, info: dict[str, Any]) -> StoryState:
     """
     Update the state and database with information from the info dictionary.
 
@@ -228,7 +228,7 @@ def load_story_info_from_book(book_filename: str) -> dict[str, Any]:
     return load_story_info(info_filename)
 
 
-def update_state_from_book(state: StoryState, book_filename: str) -> StoryState:
+def update_state_from_book(state: dict, book_filename: str) -> StoryState:
     """
     Update the state with information from the info file corresponding to a book file.
 

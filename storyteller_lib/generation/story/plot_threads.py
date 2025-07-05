@@ -8,7 +8,7 @@ throughout the story generation process, using LangGraph state management.
 from typing import Any
 
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 # Plot thread status options
 THREAD_STATUS = {
@@ -171,7 +171,7 @@ class PlotThreadRegistry:
         return registry
 
     @classmethod
-    def from_state(cls, state: StoryState) -> "PlotThreadRegistry":
+    def from_state(cls, state: dict) -> "PlotThreadRegistry":
         """Create a registry from the state."""
         registry = cls()
 
@@ -260,7 +260,7 @@ def identify_plot_threads_in_scene(
         return []
 
 
-def update_plot_threads(state: StoryState) -> dict[str, Any]:
+def update_plot_threads(state: dict) -> dict[str, Any]:
     """
     Update plot threads based on the current scene.
 
@@ -373,7 +373,7 @@ def update_plot_threads(state: StoryState) -> dict[str, Any]:
     }
 
 
-def check_plot_thread_resolution(state: StoryState) -> dict[str, Any]:
+def check_plot_thread_resolution(state: dict) -> dict[str, Any]:
     """
     Check if all major plot threads are resolved at the end of the story.
 
@@ -409,7 +409,7 @@ def check_plot_thread_resolution(state: StoryState) -> dict[str, Any]:
     }
 
 
-def get_active_plot_threads_for_scene(state: StoryState) -> list[dict[str, Any]]:
+def get_active_plot_threads_for_scene(state: dict) -> list[dict[str, Any]]:
     """
     Get active plot threads that should be considered for the current scene.
 

@@ -17,7 +17,7 @@ from typing import Any
 # Local imports
 from storyteller_lib.core.exceptions import DatabaseError
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 logger = get_logger(__name__)
 
@@ -1593,7 +1593,7 @@ class DatabaseStateAdapter:
         """
         self.db = db
 
-    def sync_to_database(self, state: StoryState) -> None:
+    def sync_to_database(self, state: dict) -> None:
         """
         Sync current state to database.
 
@@ -1742,7 +1742,7 @@ class DatabaseStateAdapter:
 
         logger.info("Synced state to database")
 
-    def load_from_database(self) -> StoryState:
+    def load_from_database(self) -> dict:
         """
         Load state from database.
 
@@ -1753,7 +1753,7 @@ class DatabaseStateAdapter:
         story = self.db.get_story_config()
 
         # Initialize state with story details
-        state: StoryState = {
+        state: dict = {
             "messages": [],
             "genre": story["genre"],
             "tone": story["tone"],
@@ -1853,7 +1853,7 @@ class DatabaseStateAdapter:
         logger.info("Loaded state from database")
         return state
 
-    def update_scene_entities(self, state: StoryState, scene_id: int) -> None:
+    def update_scene_entities(self, state: dict, scene_id: int) -> None:
         """
         Update database with entities involved in current scene.
 

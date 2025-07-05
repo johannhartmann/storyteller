@@ -9,13 +9,13 @@ from langchain_core.messages import HumanMessage
 from storyteller_lib import track_progress
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
 from storyteller_lib.core.logger import scene_logger as logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.persistence.database import get_db_manager
 from storyteller_lib.prompts.synthesis import generate_scene_level_instructions
 
 
 @track_progress
-def write_scene_simplified(state: StoryState) -> dict:
+def write_scene_simplified(state: dict) -> dict:
     """
     Simplified scene writing function using intelligent instruction synthesis.
     """

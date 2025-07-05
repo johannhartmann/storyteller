@@ -4,11 +4,11 @@ This provides the main entry point for story generation with reduced complexity.
 """
 
 import time
+import asyncio
 
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
 from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.workflow.graph import create_simplified_graph
+from storyteller_lib.workflow.orchestrator import StoryOrchestrator
 
 logger = get_logger(__name__)
 
@@ -28,7 +28,7 @@ def generate_story_simplified(
     target_pages: int | None = None,
     recursion_limit: int = 200,
     research_worldbuilding: bool = False,
-) -> tuple[str, StoryState]:
+) -> tuple[str, dict]:
     """
     Generate a story using the simplified workflow.
 
@@ -45,11 +45,11 @@ def generate_story_simplified(
         target_chapters: Override number of chapters (None = auto-determine) - deprecated, use target_pages
         target_words_per_scene: Override words per scene (None = auto-determine) - deprecated, use target_pages
         target_pages: Target number of pages for the story (None = auto-determine based on complexity)
-        recursion_limit: Maximum recursion depth for the LangGraph workflow (default: 200)
+        recursion_limit: No longer used (kept for API compatibility)
         research_worldbuilding: Enable research-driven world building (requires TAVILY_API_KEY)
 
     Returns:
-        Tuple of (compiled story markdown, final state)
+        Tuple of (compiled story markdown, final results dict)
     """
     start_time = time.time()
 
@@ -65,27 +65,19 @@ def generate_story_simplified(
         initialize_progress_logger(progress_log_path)
         logger.info(f"Progress logging enabled: {progress_log_path}")
 
-    # Create initial state
-    initial_state: StoryState = {
-        "messages": [],
-        "chapters": {},
-        "characters": {},
-        "world_elements": {},
-        "plot_threads": {},
-        "revelations": {},
-        "current_chapter": "",
-        "current_scene": "",
-        "current_scene_content": "",
-        "scene_reflection": {},
-        "scene_elements": {},
-        "active_plot_threads": [],
-        "book_level_instructions": "",
-        "author_style_guidance": "",
-        "completed": False,
-        "last_node": "",
-        "manuscript_review_completed": False,
-        "manuscript_review_results": {},
-        "final_story": "",
+    # Create initial parameters
+    initial_params = {
+        "genre": genre,
+        "tone": tone,
+        "author": author,
+        "language": language,
+        "initial_idea": initial_idea,
+        "narrative_structure": narrative_structure,
+        "story_length": story_length,
+        "target_chapters": target_chapters,
+        "target_words_per_scene": target_words_per_scene,
+        "target_pages": target_pages,
+        "research_worldbuilding": research_worldbuilding,
     }
 
     # Initialize story configuration in database
@@ -109,26 +101,19 @@ def generate_story_simplified(
         )
         logger.info("Initialized story configuration in database")
 
-    # Create and run the simplified graph
-    graph = create_simplified_graph()
-
-    # Configure with recursion limit
-    config = {
-        "recursion_limit": recursion_limit,  # Use the provided recursion limit
-        "configurable": {"thread_id": f"story_{genre}_{tone}_{int(time.time())}"},
-    }
-
     try:
-        # Run the graph
-        logger.info("Executing simplified story generation graph...")
-        result = graph.invoke(initial_state, config)
+        # Create and run the orchestrator
+        from storyteller_lib import get_progress_callback
+        progress_callback = get_progress_callback()
+        
+        orchestrator = StoryOrchestrator(progress_callback=progress_callback)
+        
+        # Run the workflow
+        logger.info("Executing story generation workflow...")
+        result = orchestrator.run_workflow(initial_params)
 
         # Get the compiled story
-        db_manager = get_db_manager()
-        if db_manager:
-            story = db_manager.compile_story()
-        else:
-            story = result.get("compiled_story", "")
+        story = result.get("final_story", "")
 
         elapsed_time = time.time() - start_time
         logger.info(f"Story generation completed in {elapsed_time:.2f} seconds")
@@ -137,7 +122,7 @@ def generate_story_simplified(
         word_count = len(story.split())
         logger.info(
             f"Generated story statistics: {word_count} words, "
-            f"{len(result.get('chapters', {}))} chapters"
+            f"{result.get('chapters', 0)} chapters, {result.get('scenes', 0)} scenes"
         )
 
         return story, result
@@ -154,7 +139,7 @@ def generate_story_simplified(
                 partial_story = db_manager.compile_story()
                 if partial_story:
                     logger.info("Partial story recovered from database")
-                    return partial_story, initial_state
+                    return partial_story, {}
         except Exception as recovery_error:
             logger.error(f"Failed to recover partial story: {str(recovery_error)}")
 

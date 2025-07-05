@@ -13,10 +13,7 @@ from storyteller_lib.core.config import (
     llm,
 )
 
-# Memory manager imports removed - using state and database instead
-from storyteller_lib.core.models import (
-    StoryState,
-)
+# StoryState no longer used - working directly with database
 
 # Default character data - simplified for fallback only
 DEFAULT_CHARACTERS = {
@@ -724,7 +721,7 @@ def establish_character_relationships(
 
 
 @track_progress
-def generate_characters(state: StoryState) -> dict:
+def generate_characters(params: dict) -> dict:
     """
     Generate detailed character profiles based on the story outline using a step-by-step approach.
 

@@ -14,14 +14,14 @@ from storyteller_lib.core.config import (
     get_llm_with_structured_output,
 )
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.prompts.context import get_context_provider
 
 logger = get_logger(__name__)
 
 
 def generate_scene_progress_report(
-    state: StoryState, chapter_num: str, scene_num: str
+    state: dict, chapter_num: str, scene_num: str
 ) -> str:
     """Generate a progress report after scene completion.
 
@@ -108,7 +108,7 @@ def generate_scene_progress_report(
     return report
 
 
-def generate_chapter_progress_report(state: StoryState, chapter_num: str) -> str:
+def generate_chapter_progress_report(state: dict, chapter_num: str) -> str:
     """Generate a progress report after chapter completion.
 
     Args:
@@ -191,7 +191,7 @@ def generate_chapter_progress_report(state: StoryState, chapter_num: str) -> str
 
 
 @track_progress
-def update_world_elements(state: StoryState) -> dict:
+def update_world_elements(state: dict) -> dict:
     """Update world elements based on developments in the current scene."""
     from storyteller_lib.prompts.renderer import render_prompt
 
@@ -299,7 +299,7 @@ def update_world_elements(state: StoryState) -> dict:
 
 
 @track_progress
-def update_character_knowledge(state: StoryState) -> dict:
+def update_character_knowledge(state: dict) -> dict:
     """Update what each character knows based on the current scene."""
     from storyteller_lib.prompts.renderer import render_prompt
     from storyteller_lib.universe.characters.knowledge import CharacterKnowledgeManager
@@ -409,7 +409,7 @@ def update_character_knowledge(state: StoryState) -> dict:
 
 
 @track_progress
-def check_plot_threads(state: StoryState) -> dict:
+def check_plot_threads(state: dict) -> dict:
     """Check and update plot thread progress based on the current scene."""
     from storyteller_lib.generation.story.plot_threads import update_plot_threads
     from storyteller_lib.persistence.database import get_db_manager
@@ -510,7 +510,7 @@ def check_plot_threads(state: StoryState) -> dict:
 
 
 @track_progress
-def manage_character_arcs(state: StoryState) -> dict:
+def manage_character_arcs(state: dict) -> dict:
     """Update character arcs based on story progression."""
     from storyteller_lib.generation.story.character_arcs import CharacterArcManager
 
@@ -574,7 +574,7 @@ def manage_character_arcs(state: StoryState) -> dict:
 
 
 @track_progress
-def log_story_progress(state: StoryState) -> dict:
+def log_story_progress(state: dict) -> dict:
     """Log current progress and statistics to file."""
     from storyteller_lib.analysis.statistics import calculate_book_stats
     from storyteller_lib.persistence.database import get_db_manager
@@ -607,7 +607,7 @@ def log_story_progress(state: StoryState) -> dict:
     return {}
 
 
-def update_progress_status(state: StoryState) -> dict:
+def update_progress_status(state: dict) -> dict:
     """Update progress status and generate progress report in state messages."""
     chapters = state["chapters"]
     current_chapter = state["current_chapter"]

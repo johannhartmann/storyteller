@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.persistence.database import get_db_manager
 
 logger = get_logger(__name__)
@@ -70,7 +70,7 @@ class ComprehensiveSceneContext:
 
 
 def build_comprehensive_scene_context(
-    chapter: int, scene: int, state: StoryState
+    chapter: int, scene: int, state: dict
 ) -> ComprehensiveSceneContext:
     """
     Build complete scene context by gathering ALL necessary information.
@@ -223,7 +223,7 @@ def build_comprehensive_scene_context(
     )
 
 
-def _get_story_context(db_manager, state: StoryState = None) -> dict[str, Any]:
+def _get_story_context(db_manager, state: dict = None) -> dict[str, Any]:
     """Get story-level context from database and state."""
     with db_manager._db._get_connection() as conn:
         cursor = conn.cursor()
@@ -297,7 +297,7 @@ def _get_chapter_context(db_manager, chapter: int) -> dict[str, Any]:
 
 
 def _get_scene_specifications(
-    state: StoryState, chapter: int, scene: int
+    state: dict, chapter: int, scene: int
 ) -> dict[str, Any]:
     """Get scene specifications from state."""
     chapters = state.get("chapters", {})
@@ -375,7 +375,7 @@ def _get_plot_context(db_manager, scene_specs: dict[str, Any]) -> dict[str, Any]
 
 
 def _get_character_context(
-    db_manager, required_chars: list[str], scene_desc: str, state: StoryState = None
+    db_manager, required_chars: list[str], scene_desc: str, state: dict = None
 ) -> dict[str, Any]:
     """Get comprehensive character context including worldbuilding descriptions."""
     characters = []
@@ -739,7 +739,7 @@ def _extract_world_keywords(text: str) -> list[str]:
 
 
 def _get_sequence_context(
-    db_manager, chapter: int, scene: int, state: StoryState
+    db_manager, chapter: int, scene: int, state: dict
 ) -> dict[str, Any]:
     """Get context from previous and next scenes."""
     # Get previous scene ending

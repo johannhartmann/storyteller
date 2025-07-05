@@ -13,13 +13,13 @@ from storyteller_lib.core.config import (
     SUPPORTED_LANGUAGES,
     llm,
 )
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 
 @track_progress
-def initialize_state(state: StoryState) -> dict:
+def initialize_state(initial_params: dict) -> dict:
     """Initialize the story state with user input."""
-    state["messages"]
+    # No longer using state parameter - working directly with database
 
     # Load configuration from database
     from storyteller_lib.persistence.database import get_db_manager
@@ -130,9 +130,6 @@ def initialize_state(state: StoryState) -> dict:
             else ""
         )
         response_message = f"I'll create a {tone} {genre} story{author_mention}{language_mention}{idea_mention} for you. Let me start planning the narrative..."
-
-    # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
 
     # Initialize language-specific naming and cultural elements if not English
     if language.lower() != DEFAULT_LANGUAGE:
@@ -389,29 +386,18 @@ def initialize_state(state: StoryState) -> dict:
         idea=initial_idea,
     )
 
-    # Return only the workflow state updates
-    # Configuration is already stored in database by storyteller.py
-    result_state = {
-        "messages": [
-            *[RemoveMessage(id=msg_id) for msg_id in message_ids],
-            AIMessage(content=response_message),
-        ],
+    # Return simplified result - configuration is stored in database
+    result = {
         "narrative_structure": narrative_structure,
         "target_chapters": target_chapters,
         "target_scenes_per_chapter": target_scenes_per_chapter,
     }
 
-    # Add temporary fields if we have them
-    if idea_elements:
-        result_state["initial_idea_elements"] = idea_elements
-    if author_style_guidance:
-        result_state["author_style_guidance"] = author_style_guidance
-
-    return result_state
+    return result
 
 
 @track_progress
-def brainstorm_story_concepts(state: StoryState) -> dict:
+def brainstorm_story_concepts(params: dict) -> dict:
     """Brainstorm creative story concepts before generating the outline."""
     from storyteller_lib.generation.creative.brainstorming import creative_brainstorm
 
@@ -445,17 +431,30 @@ def brainstorm_story_concepts(state: StoryState) -> dict:
                 author = result["author"] or ""
                 initial_idea = result["initial_idea"] or ""
 
-    # Get initial_idea_elements from state (was set by initialize_state)
-    initial_idea_elements = state.get("initial_idea_elements", {})
-
+    # Get initial_idea_elements from database or parse if needed
+    initial_idea_elements = {}
+    if db_manager and initial_idea:
+        # Try to get stored elements first
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT value FROM memories WHERE key = 'initial_idea_elements' AND namespace = 'storyteller'"
+            )
+            result = cursor.fetchone()
+            if result:
+                import json
+                try:
+                    initial_idea_elements = json.loads(result["value"])
+                except:
+                    pass
+    
     # If we still don't have elements but have an initial idea, parse it now
     if not initial_idea_elements and initial_idea:
         from storyteller_lib.utils.parser import parse_initial_idea
-
         initial_idea_elements = parse_initial_idea(initial_idea, language)
 
-    # Get author_style_guidance from state (was set by initialize_state)
-    author_style_guidance = state.get("author_style_guidance", "")
+    # Get author_style_guidance - simplified for now
+    author_style_guidance = ""
 
     # Generate enhanced context based on genre, tone, language, and initial idea
 
@@ -555,11 +554,16 @@ def brainstorm_story_concepts(state: StoryState) -> dict:
             "plot": initial_idea_elements.get("plot", ""),
         }
 
-        # Update state with the idea elements (whether user-provided or generated)
-        state["initial_idea_elements"] = initial_idea_elements
-
-        # Constraints are already in state and passed through the workflow
-        # Genre requirement is enforced through prompts and state
+        # Store idea elements in database if needed
+        if db_manager and initial_idea_elements:
+            import json
+            with db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR REPLACE INTO memories (key, value, namespace) VALUES (?, ?, ?)",
+                    ("initial_idea_elements", json.dumps(initial_idea_elements), "storyteller")
+                )
+                conn.commit()
 
     # Brainstorm different high-level story concepts
     brainstorm_results = creative_brainstorm(
@@ -655,8 +659,7 @@ def brainstorm_story_concepts(state: StoryState) -> dict:
             content=f"I've brainstormed several creative concepts for your {tone} {genre} story{idea_mention}. Now I'll develop a cohesive outline based on the most promising ideas."
         )
 
-    # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
+    # No longer managing messages in this simplified version
 
     # Log creative concepts
     log_progress(
@@ -668,8 +671,15 @@ def brainstorm_story_concepts(state: StoryState) -> dict:
         },
     )
 
-    # Update state with brainstormed ideas
-    return {
-        "creative_elements": creative_elements,
-        "messages": [*[RemoveMessage(id=msg_id) for msg_id in message_ids], new_msg],
-    }
+    # Store creative elements in database
+    if db_manager:
+        import json
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO memories (key, value, namespace) VALUES (?, ?, ?)",
+                ("creative_elements", json.dumps(creative_elements), "storyteller")
+            )
+            conn.commit()
+    
+    return {"creative_elements": creative_elements}

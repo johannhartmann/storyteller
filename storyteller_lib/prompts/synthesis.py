@@ -7,14 +7,14 @@ from langchain_core.messages import HumanMessage
 
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.persistence.database import get_db_manager
 from storyteller_lib.prompts.renderer import render_prompt
 
 logger = get_logger(__name__)
 
 
-def generate_book_level_instructions(state: StoryState) -> str:
+def generate_book_level_instructions(state: dict) -> str:
     """
     Generate comprehensive writing instructions for the entire book.
     This synthesizes genre, tone, and author style into coherent guidance.
@@ -74,7 +74,7 @@ def generate_book_level_instructions(state: StoryState) -> str:
 
 
 def generate_scene_level_instructions(
-    chapter: int, scene: int, state: StoryState
+    chapter: int, scene: int, state: dict
 ) -> str:
     """
     Generate specific instructions for a scene by synthesizing all relevant context.

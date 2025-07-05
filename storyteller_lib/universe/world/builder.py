@@ -19,7 +19,7 @@ from storyteller_lib.core.config import (
     llm,
 )
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 logger = get_logger(__name__)
 
@@ -964,7 +964,7 @@ def generate_world_summary(
 
 
 @track_progress
-def generate_worldbuilding(state: StoryState) -> dict:
+def generate_worldbuilding(state: dict) -> dict:
     """
     Generate detailed worldbuilding elements based on the story parameters.
 
