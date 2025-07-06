@@ -15,7 +15,7 @@ from typing import Any
 from dotenv import load_dotenv
 
 # Local imports
-from storyteller_lib import reset_progress_tracking, set_progress_callback
+# Progress tracking removed - using logging instead
 from storyteller_lib.analysis.statistics import display_progress_report
 from storyteller_lib.api.storyteller import generate_story_simplified
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES
@@ -1272,9 +1272,9 @@ def main() -> None:
         # Remove duplicate callback registration - we only need one
         # progress_manager.set_progress_callback(progress_callback)
 
-        # Set up the progress callback in our library
-        reset_progress_tracking()
-        set_progress_callback(progress_callback)
+        # Progress tracking removed - using logging instead
+        # reset_progress_tracking()
+        # set_progress_callback(progress_callback)
 
         story = None
         partial_story = None

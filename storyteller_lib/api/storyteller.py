@@ -8,7 +8,7 @@ import asyncio
 
 from storyteller_lib.core.logger import get_logger
 from storyteller_lib.persistence.database import get_db_manager
-from storyteller_lib.workflow.orchestrator import StoryOrchestrator
+from storyteller_lib.workflow.orchestrator import run_story_generation
 
 logger = get_logger(__name__)
 

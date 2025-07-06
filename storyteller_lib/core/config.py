@@ -25,7 +25,7 @@ from langchain_openai import ChatOpenAI
 # Local imports
 from storyteller_lib.core.logger import config_logger as logger
 from storyteller_lib.persistence.database import initialize_db_manager
-from storyteller_lib.persistence.memory import MemoryManager
+# Memory manager removed - using direct functions
 
 # Load environment variables
 load_dotenv()
@@ -81,13 +81,8 @@ DATABASE_PATH = os.environ.get(
     "STORY_DATABASE_PATH", str(Path.home() / ".storyteller" / "story_database.db")
 )
 
-# Initialize database manager and memory manager
+# Initialize database manager
 db_manager = initialize_db_manager(DATABASE_PATH)
-memory_manager = MemoryManager(db_manager)
-# Set the global memory manager instance in the module
-import storyteller_lib.persistence.memory as mm_module
-
-mm_module.memory_manager = memory_manager
 # Dictionary mapping language codes to their full names
 SUPPORTED_LANGUAGES = {
     "english": "English",
