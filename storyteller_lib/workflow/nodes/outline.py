@@ -14,7 +14,6 @@ from storyteller_lib.core.config import (
 # StoryState no longer used - working directly with database
 from storyteller_lib.generation.story.plot_threads import (
     THREAD_STATUS,
-    PlotThread,
 )
 
 
@@ -208,19 +207,18 @@ def generate_plot_threads_from_outline(
     structured_llm = llm.with_structured_output(PlotThreadsContainer)
     result = structured_llm.invoke(prompt)
 
-    # Convert to plot thread objects
+    # Convert to plot thread dictionaries
     plot_threads = {}
     for thread_def in result.threads:
-        thread = PlotThread(
-            name=thread_def.name,
-            description=thread_def.description,
-            importance=thread_def.importance,
-            status=THREAD_STATUS["INTRODUCED"],
-            first_chapter="",  # Will be set when first used
-            first_scene="",
-            related_characters=thread_def.related_characters,
-        )
-        plot_threads[thread_def.name] = thread.to_dict()
+        plot_threads[thread_def.name] = {
+            "name": thread_def.name,
+            "description": thread_def.description,
+            "importance": thread_def.importance,
+            "status": THREAD_STATUS["INTRODUCED"],
+            "first_chapter": "",  # Will be set when first used
+            "first_scene": "",
+            "related_characters": thread_def.related_characters,
+        }
 
     return plot_threads
 
