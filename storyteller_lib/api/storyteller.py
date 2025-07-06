@@ -102,13 +102,9 @@ def generate_story_simplified(
         logger.info("Initialized story configuration in database")
 
     try:
-        # Create and run the orchestrator
-        from storyteller_lib import get_progress_callback
-        progress_callback = get_progress_callback()
-        
-        # Run story generation with progress callback
+        # Run story generation
         logger.info("Executing story generation workflow...")
-        result = run_story_generation(initial_params, progress_callback=progress_callback)
+        result = run_story_generation(initial_params)
 
         # Get the compiled story
         story = result.get("final_story", "")

@@ -4,7 +4,7 @@ Just executes the necessary functions in order without workflow management.
 """
 
 import logging
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any
 
 from storyteller_lib.persistence.database import get_db_manager
 from storyteller_lib.output.manuscript import review_and_polish_manuscript
@@ -30,13 +30,12 @@ from storyteller_lib.workflow.nodes.summary_node import generate_summaries
 logger = logging.getLogger(__name__)
 
 
-def run_story_generation(initial_params: Dict[str, Any], progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
+def run_story_generation(initial_params: Dict[str, Any]) -> Dict[str, Any]:
     """
     Run story generation by executing all necessary steps in sequence.
     
     Args:
         initial_params: Initial parameters (genre, tone, author, etc.)
-        progress_callback: Optional callback for progress updates
         
     Returns:
         Dictionary with final story and statistics
@@ -51,38 +50,26 @@ def run_story_generation(initial_params: Dict[str, Any], progress_callback: Opti
     # Step 1: Initialize the story
     logger.info("Step 1: Initializing story")
     initialize_state(initial_params)
-    if progress_callback:
-        progress_callback("initialize_state", {"status": "completed"})
     
     # Step 2: Brainstorm concepts
     logger.info("Step 2: Brainstorming story concepts")
     brainstorm_story_concepts({})
-    if progress_callback:
-        progress_callback("brainstorm_story_concepts", {"status": "completed"})
     
     # Step 3: Generate outline
     logger.info("Step 3: Generating story outline")
     generate_story_outline({})
-    if progress_callback:
-        progress_callback("generate_story_outline", {"status": "completed"})
     
     # Step 4: Build the world
     logger.info("Step 4: Building world")
     generate_worldbuilding({})
-    if progress_callback:
-        progress_callback("generate_worldbuilding", {"status": "completed"})
     
     # Step 5: Create characters
     logger.info("Step 5: Creating characters")
     generate_characters({})
-    if progress_callback:
-        progress_callback("generate_characters", {"status": "completed"})
     
     # Step 6: Plan chapters
     logger.info("Step 6: Planning chapters")
     plan_chapters({})
-    if progress_callback:
-        progress_callback("plan_chapters", {"status": "completed"})
     
     # Step 7: Generate all scenes
     logger.info("Step 7: Generating scenes")
@@ -135,23 +122,12 @@ def run_story_generation(initial_params: Dict[str, Any], progress_callback: Opti
             
             # Generate summaries
             generate_summaries(scene_params)
-            
-            # Progress callback
-            if progress_callback:
-                progress_callback("scene_complete", {
-                    "chapter": chapter_num,
-                    "scene": scene_num,
-                    "total_chapters": total_chapters,
-                    "scenes_in_chapter": scenes_in_chapter
-                })
     
     logger.info("All scenes generated")
     
     # Step 8: Review and polish the manuscript
     logger.info("Step 8: Reviewing and polishing manuscript")
     review_and_polish_manuscript({})
-    if progress_callback:
-        progress_callback("review_and_polish_manuscript", {"status": "completed"})
     
     # Step 9: Compile the final story
     logger.info("Step 9: Compiling final story")
