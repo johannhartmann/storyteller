@@ -135,3 +135,4 @@ No formal test suite currently exists. Testing is done through running the story
 - Do not write about every change and fix into the claude.md
 - For indentation errors: first try to fix them using black
 - never add all files in a directory to a commit
+- NEVER USE EXAMPLES FROM A RANDOM DEMO BOOK
