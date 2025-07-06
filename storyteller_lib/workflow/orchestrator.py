@@ -131,12 +131,25 @@ class StoryOrchestrator:
         # Plan chapters
         self._execute_step("plan_chapters", plan_chapters, {})
         
+        # Initialize scene generation starting position
+        logger.info("Initializing scene generation loop...")
+        
+        # Reset position to start of story
+        if self.db_manager:
+            self.db_manager.reset_scene_position()
+        
         # Scene generation loop
         completed = False
-        while not completed:
+        scene_count = 0
+        max_scenes = 1000  # Safety limit to prevent infinite loops
+        
+        while not completed and scene_count < max_scenes:
             # Get current chapter and scene from database
             current_chapter = self.db_manager.get_current_chapter()
             current_scene = self.db_manager.get_current_scene()
+            
+            # Log the current position for debugging
+            logger.debug(f"Scene loop iteration {scene_count + 1}: Chapter {current_chapter}, Scene {current_scene}")
             
             logger.info(f"Working on Chapter {current_chapter}, Scene {current_scene}")
             
@@ -185,6 +198,14 @@ class StoryOrchestrator:
             
             # Advance to next scene/chapter
             completed = self._advance_to_next_scene_or_chapter()
+            scene_count += 1
+            
+            if scene_count >= max_scenes:
+                logger.error(f"Scene generation loop exceeded maximum iterations ({max_scenes}). Stopping to prevent infinite loop.")
+                break
+        
+        logger.info(f"Scene generation completed. Total scenes processed: {scene_count}")
+        logger.info("All chapters and scenes completed")
         
         # Review and polish manuscript
         self._execute_step("review_and_polish_manuscript", review_and_polish_manuscript, {})
