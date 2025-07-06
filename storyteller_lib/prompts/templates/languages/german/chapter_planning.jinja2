@@ -18,7 +18,7 @@ Und diesen Figuren:
 
 {{ characters }}
 
-Erstelle einen Plan für {{ target_chapters }} Kapitel ({% if flexibility %}mit einer Flexibilität von ±{{ flexibility }} Kapiteln bei Bedarf{% endif %}), die den gesamten Handlungsbogen für diese {{ tone }} {{ genre }}-Geschichte abdecken.
+Erstelle einen Plan für GENAU {{ target_chapters }} Kapitel (nicht mehr, nicht weniger), die den gesamten Handlungsbogen für diese {{ tone }} {{ genre }}-Geschichte abdecken.
 Die Erzählstruktur ist: {{ narrative_structure | replace('_', ' ') | title }}
 {% if min_chapters %}WICHTIG: ES SOLLTEN NIEMALS WENIGER ALS {{ min_chapters }} KAPITEL SEIN, um die Geschichte angemessen zu entwickeln.{% endif %}
 
@@ -29,7 +29,7 @@ Liefere für jedes Kapitel:
    Die Strukturphasen unten sind NUR zur Orientierung der Handlung, NICHT als Kapiteltitel!
 2. Eine Zusammenfassung der wichtigsten Ereignisse (200-300 Wörter)
 3. Welche Figuren auftreten und wie sie sich entwickeln
-4. WICHTIG: Erstelle 3-6 Schlüsselszenen pro Kapitel (NIEMALS weniger als 3, strebe 4-5 für gutes Tempo an). Für jede Szene, spezifiziere:
+4. WICHTIG: Erstelle GENAU {{ target_scenes_per_chapter }} Szenen pro Kapitel{% if target_scenes_per_chapter > 3 %} (oder {{ target_scenes_per_chapter - 1 }} bis {{ target_scenes_per_chapter + 1 }} wenn dramaturgisch notwendig){% endif %}. Für jede Szene, spezifiziere:
    - Detaillierte Zusammenfassung: Eine umfassende Zusammenfassung in 3-5 Sätzen, die NUR das beschreibt, was in DIESER spezifischen Szene passiert. Machen Sie die Szenengrenzen sehr deutlich - was die Szene beginnt, was während ihr geschieht und wo sie endet. Schließen Sie KEINE Ereignisse aus anderen Szenen ein
    - Szenentyp: Wähle aus (Aktion, Dialog, Erkundung, Enthüllung, Charaktermoment, Übergang, Konflikt, Auflösung)
    - POV-Charakter: Aus wessen Perspektive diese Szene erzählt wird (muss eine der erforderlichen Figuren sein)

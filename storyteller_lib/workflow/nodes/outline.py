@@ -758,6 +758,7 @@ def plan_chapters(params: dict) -> dict:
         genre=genre,
         narrative_structure=narrative_structure,
         target_chapters=target_chapters,
+        target_scenes_per_chapter=target_scenes_per_chapter,
         min_chapters=max(5, target_chapters - 3),  # Allow some flexibility
         flexibility=2,  # Allow ±2 chapters
         chapter_distribution=chapter_distribution,  # Pass the raw data to template
@@ -790,6 +791,7 @@ def plan_chapters(params: dict) -> dict:
                 "chapter_extraction",
                 language=language,
                 chapter_plan_text=chapter_plan_text,
+                target_scenes_per_chapter=target_scenes_per_chapter,
             )
 
             # Add explicit instruction about chapter count if this is a retry
@@ -907,17 +909,20 @@ def plan_chapters(params: dict) -> dict:
 
             # Validate we have enough chapters
             actual_chapter_count = len(chapters_dict)
-            if actual_chapter_count < max(5, target_chapters - 3):
+            min_chapters = target_chapters - 1  # Allow only 1 chapter less than target
+            max_chapters = target_chapters + 1  # Allow only 1 chapter more than target
+            
+            if actual_chapter_count < min_chapters or actual_chapter_count > max_chapters:
                 if retry_count < max_retries:
                     logger.warning(
-                        f"Only generated {actual_chapter_count} chapters, need at least {max(5, target_chapters - 3)}. Retrying..."
+                        f"Generated {actual_chapter_count} chapters, but need {target_chapters} (±1). Retrying..."
                     )
                     retry_count += 1
                     chapters = chapters_dict  # Store for error message
                     continue
                 else:
                     logger.error(
-                        f"Failed to generate minimum chapters after {max_retries} retries. Generated {actual_chapter_count} chapters."
+                        f"Failed to generate target chapters after {max_retries} retries. Generated {actual_chapter_count} chapters, target was {target_chapters}."
                     )
                     # Continue with what we have rather than failing
 
@@ -925,12 +930,31 @@ def plan_chapters(params: dict) -> dict:
             logger.info(f"Successfully generated {actual_chapter_count} chapters")
 
             # Validate scene count per chapter
+            min_scenes = max(3, target_scenes_per_chapter - 1)
+            chapters_with_few_scenes = []
             for chapter_num, chapter_data in chapters_dict.items():
                 scene_count = len(chapter_data.get("scenes", {}))
                 if scene_count == 0:
                     logger.warning(f"Chapter {chapter_num} has no scenes!")
+                    chapters_with_few_scenes.append((chapter_num, scene_count))
+                elif scene_count < min_scenes:
+                    logger.warning(f"Chapter {chapter_num} has only {scene_count} scenes (minimum: {min_scenes})")
+                    chapters_with_few_scenes.append((chapter_num, scene_count))
                 else:
                     logger.info(f"Chapter {chapter_num}: {scene_count} scenes")
+            
+            # If too many chapters have too few scenes, retry
+            if len(chapters_with_few_scenes) > actual_chapter_count // 4:  # More than 25% of chapters
+                if retry_count < max_retries:
+                    logger.warning(
+                        f"Too many chapters with insufficient scenes: {chapters_with_few_scenes}. Retrying..."
+                    )
+                    retry_count += 1
+                    continue
+                else:
+                    logger.error(
+                        f"Failed to generate enough scenes per chapter after {max_retries} retries"
+                    )
 
             # Get existing message IDs to delete
             # No longer managing messages in the simplified version

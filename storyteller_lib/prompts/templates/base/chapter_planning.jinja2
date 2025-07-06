@@ -18,7 +18,7 @@ And these characters:
 
 {{ characters }}
 
-Create a plan for {{ target_chapters }} chapters ({% if flexibility %}with flexibility of ±{{ flexibility }} chapters if needed{% endif %}) that cover the entire story arc for this {{ tone }} {{ genre }} story.
+Create a plan for EXACTLY {{ target_chapters }} chapters (no more, no less) that cover the entire story arc for this {{ tone }} {{ genre }} story.
 The narrative structure is: {{ narrative_structure | replace('_', ' ') | title }}
 {% if min_chapters %}IMPORTANT: THERE SHOULD NEVER BE LESS THAN {{ min_chapters }} CHAPTERS to properly develop the story.{% endif %}
 
@@ -29,7 +29,7 @@ For each chapter, provide:
    The structure phases below are ONLY for plot guidance, NOT as chapter titles!
 2. A summary of major events (200-300 words)
 3. Which characters appear and how they develop
-4. IMPORTANT: Create 3-6 key scenes per chapter (NEVER less than 3, aim for 4-5 for good pacing). For each scene, specify:
+4. IMPORTANT: Create EXACTLY {{ target_scenes_per_chapter }} scenes per chapter{% if target_scenes_per_chapter > 3 %} (or {{ target_scenes_per_chapter - 1 }} to {{ target_scenes_per_chapter + 1 }} if dramatically necessary){% endif %}. For each scene, specify:
    - Detailed summary: A comprehensive 3-5 sentence summary of ONLY what happens in THIS specific scene. Be very clear about the scene boundaries - what starts this scene, what happens during it, and where it ends. DO NOT include events from other scenes
    - Scene type: Choose from (action, dialogue, exploration, revelation, character_moment, transition, conflict, resolution)
    - POV character: Which character's perspective this scene is told from (must be one of the required characters)
