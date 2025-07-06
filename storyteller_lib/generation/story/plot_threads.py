@@ -270,7 +270,6 @@ def update_plot_threads(params: dict) -> dict[str, Any]:
     Returns:
         Updates to the state
     """
-    params["chapters"]
     current_chapter = params["current_chapter"]
     current_scene = params["current_scene"]
 

@@ -58,14 +58,35 @@ class StoryOrchestrator:
         self.progress_callback = progress_callback
         self.db_manager = get_db_manager()
         
-    def _execute_step(self, step_name: str, func: Callable, *args, **kwargs) -> Any:
+        # Maintain essential state variables that nodes expect
+        self.state = {
+            "initial_idea": "",
+            "genre": "",
+            "tone": "",
+            "author": "",
+            "language": "english",
+            "target_pages": 200,
+            "research_worldbuilding": False,
+            "current_chapter": "1",
+            "current_scene": "1",
+            "chapters": {},
+            "characters": {},
+            "world_elements": {},
+            "plot_threads": {},
+            "scene_reflection": {},
+            "needs_revision": False,
+            "last_node": "",
+            "messages": [],
+        }
+        
+    def _execute_step(self, step_name: str, func: Callable, params: Dict[str, Any]) -> Any:
         """
         Execute a workflow step with logging and progress tracking.
         
         Args:
             step_name: Name of the step for logging
             func: Function to execute
-            *args, **kwargs: Arguments to pass to the function
+            params: Parameters to pass to the function
             
         Returns:
             Result from the function
@@ -74,18 +95,30 @@ class StoryOrchestrator:
         start_time = time.time()
         
         try:
+            # Update state with current position
+            self.state["last_node"] = step_name
+            self.state["current_chapter"] = self.db_manager.get_current_chapter() if self.db_manager else "1"
+            self.state["current_scene"] = self.db_manager.get_current_scene() if self.db_manager else "1"
+            
+            # Merge state with params for backward compatibility
+            full_params = {**self.state, **params}
+            
             # Execute the function
-            result = func(*args, **kwargs)
+            result = func(full_params)
+            
+            # Update state with any returned values
+            if isinstance(result, dict):
+                for key, value in result.items():
+                    if key in self.state:
+                        self.state[key] = value
+            
+            # Save state to database after each step
+            if self.db_manager:
+                self.db_manager.save_node_state(step_name, self.state)
             
             # Report progress if callback is provided
             if self.progress_callback:
-                # Create a minimal state dict for the callback
-                state = {
-                    "last_node": step_name,
-                    "current_chapter": self.db_manager.get_current_chapter() if self.db_manager else "",
-                    "current_scene": self.db_manager.get_current_scene() if self.db_manager else "",
-                }
-                self.progress_callback(step_name, state)
+                self.progress_callback(step_name, self.state)
             
             elapsed = time.time() - start_time
             logger.info(f"Step {step_name} completed in {elapsed:.2f}s")
@@ -107,8 +140,14 @@ class StoryOrchestrator:
         """
         logger.info("Starting story generation workflow")
         
+        # Initialize state from initial parameters
+        self.state.update(initial_params)
+        
+        # Load any existing data from database
+        self._load_state_from_database()
+        
         # Initialize state in database
-        self._execute_step("initialize_state", initialize_state, initial_params)
+        result = self._execute_step("initialize_state", initialize_state, initial_params)
         
         # Brainstorm story concepts
         self._execute_step("brainstorm_story_concepts", brainstorm_story_concepts, {})
@@ -153,48 +192,41 @@ class StoryOrchestrator:
             
             logger.info(f"Working on Chapter {current_chapter}, Scene {current_scene}")
             
+            # Update state with current position
+            self.state["current_chapter"] = current_chapter
+            self.state["current_scene"] = current_scene
+            
             # Write scene
-            self._execute_step("write_scene", write_scene, {
-                "current_chapter": current_chapter,
-                "current_scene": current_scene
-            })
+            scene_result = self._execute_step("write_scene", write_scene, {})
             
             # Reflect on scene
-            reflection_result = self._execute_step("reflect_on_scene", reflect_on_scene, {
-                "current_chapter": current_chapter,
-                "current_scene": current_scene
-            })
+            reflection_result = self._execute_step("reflect_on_scene", reflect_on_scene, {})
+            
+            # Update state with reflection results
+            if reflection_result:
+                self.state["scene_reflection"] = reflection_result
+                self.state["needs_revision"] = reflection_result.get("needs_revision", False)
             
             # Revise if needed
-            if reflection_result.get("needs_revision", False):
-                self._execute_step("revise_scene_if_needed", revise_scene_if_needed, {
-                    "current_chapter": current_chapter,
-                    "current_scene": current_scene
+            if self.state.get("needs_revision", False):
+                revision_result = self._execute_step("revise_scene_if_needed", revise_scene_if_needed, {
+                    "scene_reflection": self.state.get("scene_reflection", {}),
+                    "needs_revision": True
                 })
+                # Clear revision flag after revision
+                self.state["needs_revision"] = False
             
             # Update world elements
-            self._execute_step("update_world_elements", update_world_elements, {
-                "current_chapter": current_chapter,
-                "current_scene": current_scene
-            })
+            self._execute_step("update_world_elements", update_world_elements, {})
             
             # Update character knowledge
-            self._execute_step("update_character_knowledge", update_character_knowledge, {
-                "current_chapter": current_chapter,
-                "current_scene": current_scene
-            })
+            self._execute_step("update_character_knowledge", update_character_knowledge, {})
             
             # Check plot threads
-            self._execute_step("check_plot_threads", check_plot_threads, {
-                "current_chapter": current_chapter,
-                "current_scene": current_scene
-            })
+            self._execute_step("check_plot_threads", check_plot_threads, {})
             
             # Generate summaries
-            self._execute_step("generate_summaries", generate_summaries, {
-                "current_chapter": current_chapter,
-                "current_scene": current_scene
-            })
+            self._execute_step("generate_summaries", generate_summaries, {})
             
             # Advance to next scene/chapter
             completed = self._advance_to_next_scene_or_chapter()
@@ -266,3 +298,96 @@ class StoryOrchestrator:
     def _get_scene_count(self) -> int:
         """Get the total number of scenes."""
         return self.db_manager.get_total_scene_count() if self.db_manager else 0
+    
+    def _load_state_from_database(self) -> None:
+        """Load existing state from database if available."""
+        if not self.db_manager or not self.db_manager._db:
+            return
+            
+        try:
+            # Load story configuration
+            with self.db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM story_config WHERE id = 1")
+                config = cursor.fetchone()
+                if config:
+                    self.state["genre"] = config["genre"] or self.state["genre"]
+                    self.state["tone"] = config["tone"] or self.state["tone"]
+                    self.state["author"] = config["author"] or self.state["author"]
+                    self.state["language"] = config["language"] or self.state["language"]
+                    self.state["initial_idea"] = config["initial_idea"] or self.state["initial_idea"]
+                    self.state["target_pages"] = config["target_pages"] or self.state["target_pages"]
+                    self.state["research_worldbuilding"] = bool(config["research_worldbuilding"])
+                    
+            # Load chapters structure
+            chapters = {}
+            with self.db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT c.chapter_number, c.title, c.summary,
+                           COUNT(s.id) as scene_count
+                    FROM chapters c
+                    LEFT JOIN scenes s ON c.id = s.chapter_id
+                    GROUP BY c.id
+                    ORDER BY c.chapter_number
+                """)
+                for row in cursor.fetchall():
+                    chapter_num = str(row["chapter_number"])
+                    chapters[chapter_num] = {
+                        "title": row["title"] or f"Chapter {chapter_num}",
+                        "summary": row["summary"] or "",
+                        "scenes": {},
+                        "scene_count": row["scene_count"]
+                    }
+            self.state["chapters"] = chapters
+            
+            # Load characters
+            characters = {}
+            with self.db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM characters")
+                for row in cursor.fetchall():
+                    char_id = row["character_id"]
+                    characters[char_id] = {
+                        "name": row["name"],
+                        "role": row["role"],
+                        "backstory": row["backstory"],
+                        "personality": row["personality"],
+                        "physical_description": row["physical_description"],
+                        "goals": row["goals"],
+                        "obstacles": row["obstacles"],
+                        "arc": row["arc"],
+                        "relationships": row["relationships"],
+                        "unique_traits": row["unique_traits"],
+                        "inner_conflict": row["inner_conflict"],
+                        "character_id": char_id
+                    }
+            self.state["characters"] = characters
+            
+            # Load plot threads
+            plot_threads = {}
+            with self.db_manager._db._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM plot_threads")
+                for row in cursor.fetchall():
+                    thread_name = row["name"]
+                    plot_threads[thread_name] = {
+                        "name": thread_name,
+                        "description": row["description"],
+                        "thread_type": row["thread_type"],
+                        "importance": row["importance"],
+                        "introduced_chapter": row["introduced_chapter"],
+                        "introduced_scene": row["introduced_scene"],
+                        "resolved_chapter": row["resolved_chapter"],
+                        "resolved_scene": row["resolved_scene"],
+                        "status": row["status"],
+                        "peak_chapter": row["peak_chapter"],
+                        "peak_scene": row["peak_scene"]
+                    }
+            self.state["plot_threads"] = plot_threads
+            
+            logger.info(f"Loaded state from database: {len(chapters)} chapters, {len(characters)} characters, {len(plot_threads)} plot threads")
+            
+        except Exception as e:
+            logger.error(f"Error loading state from database: {e}")
+            # Continue with empty state if loading fails
