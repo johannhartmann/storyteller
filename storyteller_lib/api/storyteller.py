@@ -106,11 +106,9 @@ def generate_story_simplified(
         from storyteller_lib import get_progress_callback
         progress_callback = get_progress_callback()
         
-        orchestrator = StoryOrchestrator(progress_callback=progress_callback)
-        
-        # Run the workflow
+        # Run story generation with progress callback
         logger.info("Executing story generation workflow...")
-        result = orchestrator.run_workflow(initial_params)
+        result = run_story_generation(initial_params, progress_callback=progress_callback)
 
         # Get the compiled story
         story = result.get("final_story", "")
