@@ -703,6 +703,9 @@ def plan_chapters(params: dict) -> dict:
     tone = config["tone"]
     language = config["language"]
 
+    # Get database manager
+    db_manager = get_db_manager()
+
     # Get narrative structure and targets from database (not params)
     narrative_structure = params.get("narrative_structure", "hero_journey")
     target_chapters = 12  # Default values
