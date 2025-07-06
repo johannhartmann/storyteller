@@ -304,7 +304,7 @@ def generate_story_outline(params: dict) -> dict:
             )
 
             # Store the formatted analysis
-            state["author_style_guidance"] = author_style_guidance
+            params["author_style_guidance"] = author_style_guidance
 
         # Now get the full guidance with header for the prompt
         style_guidance = render_prompt(
@@ -703,14 +703,28 @@ def plan_chapters(params: dict) -> dict:
     tone = config["tone"]
     language = config["language"]
 
-    # Get narrative structure and targets from state
+    # Get narrative structure and targets from database (not params)
     narrative_structure = params.get("narrative_structure", "hero_journey")
-    target_chapters = params.get("target_chapters", 12)
-    target_scenes_per_chapter = params.get("target_scenes_per_chapter", 5)
+    target_chapters = 12  # Default values
+    target_scenes_per_chapter = 5
+    
+    # Load actual targets from database
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT narrative_structure, target_chapters, target_scenes_per_chapter 
+                FROM story_config WHERE id = 1
+            """)
+            result = cursor.fetchone()
+            if result:
+                narrative_structure = result["narrative_structure"] or narrative_structure
+                target_chapters = result["target_chapters"] or 12
+                target_scenes_per_chapter = result["target_scenes_per_chapter"] or 5
+                logger.info(f"Loaded targets from database: {target_chapters} chapters, {target_scenes_per_chapter} scenes per chapter")
 
     # Get global_story from database
     global_story = ""
-    db_manager = get_db_manager()
     if db_manager and db_manager._db:
         with db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
@@ -722,7 +736,7 @@ def plan_chapters(params: dict) -> dict:
     if not global_story:
         raise ValueError("No story outline found in database")
 
-    characters = state["characters"]
+    characters = params.get("characters", {})
 
     # Get the narrative structure object for guidance
     structure = get_structure_by_name(narrative_structure)
@@ -945,9 +959,9 @@ def plan_chapters(params: dict) -> dict:
                 )
 
             # Store chapter plan in database
-            # Note: We store the chapter outlines individually when saving chapters
-            # The full chapter plan is part of the state and doesn't need separate storage
-            logger.info(f"Generated chapter plan with {actual_chapter_count} chapters")
+            if db_manager:
+                db_manager.store_chapter_plan(chapters_dict)
+                logger.info(f"Stored chapter plan with {actual_chapter_count} chapters in database")
 
             # Process locations - extract unique locations from all scenes
             unique_locations = set()

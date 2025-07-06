@@ -1,7 +1,7 @@
 """
 Database integration module for StoryCraft Agent.
 
-This module provides the integration layer between the LangGraph workflow
+This module provides the integration layer between the workflow
 and the database persistence layer, enabling automatic state saving during
 story generation.
 """
@@ -1781,6 +1781,54 @@ class StoryDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to get total scene count: {e}")
             return 0
+    
+    def store_chapter_plan(self, chapters_dict: dict) -> None:
+        """Store the planned chapter and scene structure in the database."""
+        if not self._db:
+            return
+            
+        try:
+            with self._db._get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Store each chapter and its planned scenes
+                for chapter_num_str, chapter_data in chapters_dict.items():
+                    chapter_num = int(chapter_num_str)
+                    
+                    # Create the chapter
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO chapters (chapter_number, title, outline)
+                        VALUES (?, ?, ?)
+                    """, (chapter_num, chapter_data.get("title", ""), chapter_data.get("outline", "")))
+                    
+                    chapter_id = cursor.lastrowid
+                    
+                    # Create placeholder scenes for this chapter
+                    scenes = chapter_data.get("scenes", {})
+                    for scene_num_str, scene_data in scenes.items():
+                        scene_num = int(scene_num_str)
+                        
+                        # Create scene with empty content (to be filled when written)
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO scenes (chapter_id, scene_number, description, scene_type, content)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (
+                            chapter_id, 
+                            scene_num, 
+                            scene_data.get("description", ""),
+                            scene_data.get("scene_type", "exploration"),
+                            ""  # Empty content, to be filled when scene is written
+                        ))
+                
+                conn.commit()
+                logger.info(f"Stored chapter plan with {len(chapters_dict)} chapters in database")
+                
+        except Exception as e:
+            logger.error(f"Failed to store chapter plan: {e}")
+    
+    def get_planned_scene_count_for_chapter(self, chapter: int) -> int:
+        """Get the planned number of scenes for a chapter (including empty placeholders)."""
+        return self.get_scene_count_for_chapter(chapter)
 
     def close(self) -> None:
         """Close database connections."""
