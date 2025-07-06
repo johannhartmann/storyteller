@@ -1,14 +1,17 @@
 """
 StoryCraft Agent - Plot thread tracking and management.
 
-This module provides functionality to track, manage, and ensure resolution of plot threads
-throughout the story generation process, using database state management.
+This module provides functionality to track and manage plot threads
+throughout the story generation process using database storage.
 """
 
 from typing import Any
 
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
-# StoryState no longer used - working directly with database
+from storyteller_lib.core.logger import get_logger
+from storyteller_lib.persistence.database import get_db_manager
+
+logger = get_logger(__name__)
 
 # Plot thread status options
 THREAD_STATUS = {
@@ -22,166 +25,59 @@ THREAD_STATUS = {
 THREAD_IMPORTANCE = {"MAJOR": "major", "MINOR": "minor", "BACKGROUND": "background"}
 
 
-class PlotThread:
-    """Class representing a plot thread with tracking information."""
-
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        importance: str = THREAD_IMPORTANCE["MINOR"],
-        status: str = THREAD_STATUS["INTRODUCED"],
-        first_chapter: str = "",
-        first_scene: str = "",
-        last_chapter: str = "",
-        last_scene: str = "",
-        related_characters: list[str] = None,
-        development_history: list[dict[str, Any]] = None,
-    ):
-        self.name = name
-        self.description = description
-        self.importance = importance
-        self.status = status
-        self.first_chapter = first_chapter
-        self.first_scene = first_scene
-        self.last_chapter = last_chapter
-        self.last_scene = last_scene
-        self.related_characters = related_characters or []
-        self.development_history = development_history or []
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert the plot thread to a dictionary."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "importance": self.importance,
-            "status": self.status,
-            "first_chapter": self.first_chapter,
-            "first_scene": self.first_scene,
-            "last_chapter": self.last_chapter,
-            "last_scene": self.last_scene,
-            "related_characters": self.related_characters,
-            "development_history": self.development_history,
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PlotThread":
-        """Create a plot thread from a dictionary."""
-        return cls(
-            name=data.get("name", ""),
-            description=data.get("description", ""),
-            importance=data.get("importance", THREAD_IMPORTANCE["MINOR"]),
-            status=data.get("status", THREAD_STATUS["INTRODUCED"]),
-            first_chapter=data.get("first_chapter", ""),
-            first_scene=data.get("first_scene", ""),
-            last_chapter=data.get("last_chapter", ""),
-            last_scene=data.get("last_scene", ""),
-            related_characters=data.get("related_characters", []),
-            development_history=data.get("development_history", []),
-        )
-
-    def add_development(self, chapter: str, scene: str, development: str) -> None:
-        """Add a development to the plot thread's history."""
-        self.development_history.append(
-            {"chapter": chapter, "scene": scene, "development": development}
-        )
-        self.last_chapter = chapter
-        self.last_scene = scene
-
-        # Update status to developed if it was just introduced
-        if self.status == THREAD_STATUS["INTRODUCED"]:
-            self.status = THREAD_STATUS["DEVELOPED"]
-
-    def resolve(self, chapter: str, scene: str, resolution: str) -> None:
-        """Mark the plot thread as resolved."""
-        self.development_history.append(
-            {
-                "chapter": chapter,
-                "scene": scene,
-                "development": resolution,
-                "is_resolution": True,
-            }
-        )
-        self.last_chapter = chapter
-        self.last_scene = scene
-        self.status = THREAD_STATUS["RESOLVED"]
-
-    def abandon(self, chapter: str, scene: str, reason: str) -> None:
-        """Mark the plot thread as abandoned."""
-        self.development_history.append(
-            {
-                "chapter": chapter,
-                "scene": scene,
-                "development": reason,
-                "is_abandonment": True,
-            }
-        )
-        self.last_chapter = chapter
-        self.last_scene = scene
-        self.status = THREAD_STATUS["ABANDONED"]
+def get_plot_threads_from_db() -> list[dict[str, Any]]:
+    """Get all plot threads from the database."""
+    db_manager = get_db_manager()
+    if not db_manager or not db_manager._db:
+        return []
+    
+    try:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT name, description, thread_type, importance, status,
+                       introduced_chapter, introduced_scene, 
+                       resolved_chapter, resolved_scene
+                FROM plot_threads
+                ORDER BY importance DESC, introduced_chapter, introduced_scene
+            """)
+            
+            threads = []
+            for row in cursor.fetchall():
+                threads.append({
+                    "name": row["name"],
+                    "description": row["description"],
+                    "thread_type": row["thread_type"],
+                    "importance": row["importance"],
+                    "status": row["status"],
+                    "introduced_chapter": row["introduced_chapter"],
+                    "introduced_scene": row["introduced_scene"],
+                    "resolved_chapter": row["resolved_chapter"],
+                    "resolved_scene": row["resolved_scene"],
+                })
+            return threads
+    except Exception as e:
+        logger.error(f"Error getting plot threads from database: {e}")
+        return []
 
 
-class PlotThreadRegistry:
-    """Registry for tracking all plot threads in a story."""
+def get_active_plot_threads() -> list[dict[str, Any]]:
+    """Get all active (non-resolved, non-abandoned) plot threads."""
+    threads = get_plot_threads_from_db()
+    return [
+        thread for thread in threads
+        if thread["status"] not in [THREAD_STATUS["RESOLVED"], THREAD_STATUS["ABANDONED"]]
+    ]
 
-    def __init__(self) -> None:
-        self.threads = {}
 
-    def add_thread(self, thread: PlotThread) -> None:
-        """Add a plot thread to the registry."""
-        self.threads[thread.name] = thread
-
-    def get_thread(self, name: str) -> PlotThread | None:
-        """Get a plot thread by name."""
-        return self.threads.get(name)
-
-    def list_threads(self) -> list[PlotThread]:
-        """List all plot threads."""
-        return list(self.threads.values())
-
-    def list_active_threads(self) -> list[PlotThread]:
-        """List all active (non-resolved, non-abandoned) plot threads."""
-        return [
-            thread
-            for thread in self.threads.values()
-            if thread.status
-            not in [THREAD_STATUS["RESOLVED"], THREAD_STATUS["ABANDONED"]]
-        ]
-
-    def list_unresolved_major_threads(self) -> list[PlotThread]:
-        """List all unresolved major plot threads."""
-        return [
-            thread
-            for thread in self.threads.values()
-            if thread.importance == THREAD_IMPORTANCE["MAJOR"]
-            and thread.status
-            not in [THREAD_STATUS["RESOLVED"], THREAD_STATUS["ABANDONED"]]
-        ]
-
-    def to_dict(self) -> dict[str, dict[str, Any]]:
-        """Convert the registry to a dictionary."""
-        return {name: thread.to_dict() for name, thread in self.threads.items()}
-
-    @classmethod
-    def from_dict(cls, data: dict[str, dict[str, Any]]) -> "PlotThreadRegistry":
-        """Create a registry from a dictionary."""
-        registry = cls()
-        for _name, thread_data in data.items():
-            registry.add_thread(PlotThread.from_dict(thread_data))
-        return registry
-
-    @classmethod
-    def from_params(cls, params: dict) -> "PlotThreadRegistry":
-        """Create a registry from the parameters."""
-        registry = cls()
-
-        # Get plot threads from params
-        plot_threads = params.get("plot_threads", {})
-
-        for _name, thread_data in plot_threads.items():
-            registry.add_thread(PlotThread.from_dict(thread_data))
-
-        return registry
+def get_unresolved_major_threads() -> list[dict[str, Any]]:
+    """Get all unresolved major plot threads."""
+    threads = get_plot_threads_from_db()
+    return [
+        thread for thread in threads
+        if thread["importance"] == THREAD_IMPORTANCE["MAJOR"]
+        and thread["status"] not in [THREAD_STATUS["RESOLVED"], THREAD_STATUS["ABANDONED"]]
+    ]
 
 
 def identify_plot_threads_in_scene(
@@ -247,17 +143,68 @@ def identify_plot_threads_in_scene(
             )
 
         # Create a structured LLM that outputs a PlotThreadUpdateContainer
-        structured_llm = llm.with_structured_output(PlotThreadUpdateContainer)
+        from storyteller_lib.core.config import get_llm_with_structured_output
+
+        structured_llm = get_llm_with_structured_output(PlotThreadUpdateContainer)
 
         # Use the structured LLM to identify plot threads
-        container = structured_llm.invoke(prompt)
+        thread_container = structured_llm.invoke(prompt)
 
-        # Convert Pydantic models to dictionaries
-        return [update.dict() for update in container.updates]
+        # Convert the Pydantic models to dictionaries
+        updates = []
+        for update in thread_container.updates:
+            updates.append(update.dict())
+
+        return updates
 
     except Exception as e:
-        print(f"Error identifying plot threads: {str(e)}")
+        logger.error(f"Error identifying plot threads: {str(e)}")
         return []
+
+
+def get_active_plot_threads_for_scene(params: dict) -> list[dict[str, Any]]:
+    """
+    Get plot threads that are active (introduced or developed) for a specific scene.
+
+    Args:
+        params: The current parameters with current_chapter and current_scene
+
+    Returns:
+        A list of active plot threads
+    """
+    current_chapter = int(params.get("current_chapter", 1))
+    current_scene = int(params.get("current_scene", 1))
+
+    # Get all plot threads
+    threads = get_plot_threads_from_db()
+
+    # Filter for threads that have been introduced by this point
+    active_threads = []
+    for thread in threads:
+        # Skip if not yet introduced
+        intro_chapter = thread.get("introduced_chapter")
+        intro_scene = thread.get("introduced_scene")
+
+        if intro_chapter is None:
+            continue
+
+        # Check if introduced before or at current position
+        if intro_chapter < current_chapter or (
+            intro_chapter == current_chapter and intro_scene <= current_scene
+        ):
+            # Check if not resolved before current position
+            resolved_chapter = thread.get("resolved_chapter")
+            if resolved_chapter is None:
+                # Not resolved yet
+                active_threads.append(thread)
+            elif resolved_chapter > current_chapter or (
+                resolved_chapter == current_chapter
+                and thread.get("resolved_scene", 999) >= current_scene
+            ):
+                # Resolved after current position
+                active_threads.append(thread)
+
+    return active_threads
 
 
 def update_plot_threads(params: dict) -> dict[str, Any]:
@@ -274,8 +221,6 @@ def update_plot_threads(params: dict) -> dict[str, Any]:
     current_scene = params["current_scene"]
 
     # Get database manager
-    from storyteller_lib.persistence.database import get_db_manager
-
     db_manager = get_db_manager()
 
     if not db_manager or not db_manager._db:
@@ -287,161 +232,116 @@ def update_plot_threads(params: dict) -> dict[str, Any]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT identifier, name, role, backstory, personality
+            SELECT character_id, name, role, backstory, personality
             FROM characters
         """
         )
         for row in cursor.fetchall():
-            characters[row["identifier"]] = {
+            characters[row["character_id"]] = {
                 "name": row["name"],
                 "role": row["role"],
                 "backstory": row["backstory"],
                 "personality": row["personality"],
             }
 
-    # Get the scene content from database or temporary state
+    # Get the current scene content
     scene_content = db_manager.get_scene_content(
         int(current_chapter), int(current_scene)
     )
     if not scene_content:
-        scene_content = params.get("current_scene_content", "")
-        if not scene_content:
-            raise RuntimeError(
-                f"Scene {current_scene} of chapter {current_chapter} not found"
-            )
+        logger.warning(
+            f"No scene content found for Chapter {current_chapter}, Scene {current_scene}"
+        )
+        return {}
 
-    # Get language from params
-    language = params.get("language", DEFAULT_LANGUAGE)
+    # Get language from database
+    language = DEFAULT_LANGUAGE
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT language FROM story_config WHERE id = 1")
+        result = cursor.fetchone()
+        if result and result["language"]:
+            language = result["language"]
 
     # Identify plot threads in the scene
-    thread_updates = identify_plot_threads_in_scene(
-        scene_content, current_chapter, current_scene, characters, language
+    plot_updates = identify_plot_threads_in_scene(
+        scene_content,
+        current_chapter,
+        current_scene,
+        characters,
+        language,
     )
 
-    # Load the plot thread registry from params
-    registry = PlotThreadRegistry.from_params(params)
-
-    # Process each thread update
-    for update in thread_updates:
+    # Process the updates and store in database
+    for update in plot_updates:
         thread_name = update["thread_name"]
-        thread = registry.get_thread(thread_name)
-
-        if thread is None:
-            # Create a new thread if it doesn't exist
-            thread = PlotThread(
-                name=thread_name,
-                description=update["description"],
-                importance=update["importance"],
-                status=update["status"],
-                first_chapter=current_chapter,
-                first_scene=current_scene,
-                last_chapter=current_chapter,
-                last_scene=current_scene,
-                related_characters=update["related_characters"],
+        
+        # Check if thread exists
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id FROM plot_threads WHERE name = ?", (thread_name,)
             )
-            registry.add_thread(thread)
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Update existing thread
+                thread_id = existing["id"]
+                
+                # Update status
+                cursor.execute(
+                    "UPDATE plot_threads SET status = ? WHERE id = ?",
+                    (update["status"], thread_id)
+                )
+                
+                # If resolved or abandoned, update the resolution chapter/scene
+                if update["status"] in [THREAD_STATUS["RESOLVED"], THREAD_STATUS["ABANDONED"]]:
+                    cursor.execute(
+                        "UPDATE plot_threads SET resolved_chapter = ?, resolved_scene = ? WHERE id = ?",
+                        (int(current_chapter), int(current_scene), thread_id)
+                    )
+                
+                # Store development
+                cursor.execute(
+                    """
+                    INSERT INTO plot_thread_developments 
+                    (thread_id, chapter, scene, development, development_type)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        thread_id,
+                        int(current_chapter),
+                        int(current_scene),
+                        update["development"],
+                        update["status"]
+                    )
+                )
+            else:
+                # Create new thread
+                cursor.execute(
+                    """
+                    INSERT INTO plot_threads 
+                    (name, description, thread_type, importance, status,
+                     introduced_chapter, introduced_scene)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        thread_name,
+                        update["description"],
+                        "plot",  # Default type
+                        update["importance"],
+                        update["status"],
+                        int(current_chapter),
+                        int(current_scene)
+                    )
+                )
+            
+            conn.commit()
 
-        # Update the thread based on its status
-        if update["status"] == THREAD_STATUS["RESOLVED"]:
-            thread.resolve(current_chapter, current_scene, update["development"])
-        elif update["status"] == THREAD_STATUS["ABANDONED"]:
-            thread.abandon(current_chapter, current_scene, update["development"])
-        else:
-            thread.add_development(
-                current_chapter, current_scene, update["development"]
-            )
-
-    # Add plot thread information to the scene
-    scene_threads = {
-        update["thread_name"]: {
-            "status": update["status"],
-            "development": update["development"],
-        }
-        for update in thread_updates
-    }
-
-    # Return updates to the state
-    return {
-        "chapters": {
-            current_chapter: {
-                "scenes": {current_scene: {"plot_threads": scene_threads}}
-            }
-        },
-        "plot_threads": registry.to_dict(),  # Store the entire registry in state
-        "plot_thread_updates": thread_updates,
-    }
-
-
-def check_plot_thread_resolution(params: dict) -> dict[str, Any]:
-    """
-    Check if all major plot threads are resolved at the end of the story.
-
-    Args:
-        params: The current parameters
-
-    Returns:
-        A dictionary with resolution status and unresolved threads
-    """
-    # Load the plot thread registry from params
-    registry = PlotThreadRegistry.from_params(params)
-
-    # Get all unresolved major threads
-    unresolved_major_threads = registry.list_unresolved_major_threads()
-
-    # Check if all major threads are resolved
-    all_resolved = len(unresolved_major_threads) == 0
-
-    # Format unresolved threads for display
-    unresolved_threads = [
-        {
-            "name": thread.name,
-            "description": thread.description,
-            "first_appearance": f"Chapter {thread.first_chapter}, Scene {thread.first_scene}",
-            "last_appearance": f"Chapter {thread.last_chapter}, Scene {thread.last_scene}",
-        }
-        for thread in unresolved_major_threads
-    ]
+    logger.info(
+        f"Updated {len(plot_updates)} plot threads for Chapter {current_chapter}, Scene {current_scene}"
+    )
 
     return {
-        "all_major_threads_resolved": all_resolved,
-        "unresolved_major_threads": unresolved_threads,
+        "plot_thread_updates": plot_updates
     }
-
-
-def get_active_plot_threads_for_scene(params: dict) -> list[dict[str, Any]]:
-    """
-    Get active plot threads that should be considered for the current scene.
-
-    Args:
-        params: The current parameters
-
-    Returns:
-        A list of active plot threads with their details
-    """
-    params["current_chapter"]
-    params["current_scene"]
-
-    # Load the plot thread registry from params
-    registry = PlotThreadRegistry.from_params(params)
-
-    # Get all active threads
-    active_threads = registry.list_active_threads()
-
-    # Format threads for display
-    formatted_threads = [
-        {
-            "name": thread.name,
-            "description": thread.description,
-            "importance": thread.importance,
-            "status": thread.status,
-            "related_characters": thread.related_characters,
-            "last_development": (
-                thread.development_history[-1]["development"]
-                if thread.development_history
-                else "None"
-            ),
-        }
-        for thread in active_threads
-    ]
-
-    return formatted_threads

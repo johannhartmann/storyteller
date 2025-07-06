@@ -3,7 +3,6 @@ Node for generating scene and chapter summaries in the story workflow.
 """
 
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import get_story_config
 from storyteller_lib.core.logger import get_logger
 # StoryState no longer used - working directly with database
@@ -16,7 +15,6 @@ from storyteller_lib.persistence.database import get_db_manager
 logger = get_logger(__name__)
 
 
-@track_progress
 def generate_summaries(params: dict) -> dict:
     """
     Generate summaries for the current scene and chapter if needed.

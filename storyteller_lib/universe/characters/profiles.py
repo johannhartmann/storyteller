@@ -7,7 +7,6 @@ from typing import Any
 from langchain_core.messages import AIMessage, RemoveMessage
 from pydantic import BaseModel, Field
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     llm,
@@ -720,7 +719,6 @@ def establish_character_relationships(
     return updated_characters
 
 
-@track_progress
 def generate_characters(params: dict) -> dict:
     """
     Generate detailed character profiles based on the story outline using a step-by-step approach.

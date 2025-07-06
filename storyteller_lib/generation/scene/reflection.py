@@ -5,7 +5,6 @@ Reduces 9 quality metrics to 4 key ones and focuses on critical issues only.
 
 from pydantic import BaseModel, Field
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import get_story_config, llm
 from storyteller_lib.core.logger import get_logger
 # StoryState no longer used - working directly with database
@@ -44,7 +43,6 @@ class SimplifiedReflection(BaseModel):
     )
 
 
-@track_progress
 def reflect_on_scene_simplified(params: dict) -> dict:
     """
     Simplified scene reflection focusing on critical quality aspects.

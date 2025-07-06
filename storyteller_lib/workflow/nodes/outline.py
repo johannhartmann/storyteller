@@ -7,7 +7,6 @@ StoryCraft Agent - Story outline and planning nodes.
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from pydantic import BaseModel, Field
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     llm,
@@ -226,7 +225,6 @@ def generate_plot_threads_from_outline(
     return plot_threads
 
 
-@track_progress
 def generate_story_outline(params: dict) -> dict:
     """Generate the overall story outline using the selected narrative structure."""
     # Import dependencies at the start
@@ -611,17 +609,6 @@ def generate_story_outline(params: dict) -> dict:
         language=language,
     )
 
-    # Initialize PlotThreadRegistry with the generated threads
-    from storyteller_lib.generation.story.plot_threads import (
-        PlotThread,
-        PlotThreadRegistry,
-    )
-
-    registry = PlotThreadRegistry()
-    for _thread_name, thread_data in plot_threads.items():
-        thread = PlotThread(**thread_data)
-        registry.add_thread(thread)
-
     # Store the outline in the database
     from storyteller_lib.persistence.database import get_db_manager
 
@@ -684,7 +671,6 @@ def generate_story_outline(params: dict) -> dict:
     }
 
 
-@track_progress
 def plan_chapters(params: dict) -> dict:
     """Divide the story into chapters with detailed outlines."""
     # Load configuration from database

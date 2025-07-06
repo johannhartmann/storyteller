@@ -6,7 +6,6 @@ Only revises when critical issues are present, with a single focused pass.
 
 from langchain_core.messages import HumanMessage
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import get_story_config, llm
 from storyteller_lib.core.logger import get_logger
 # StoryState no longer used - working directly with database
@@ -15,7 +14,6 @@ from storyteller_lib.persistence.database import get_db_manager
 logger = get_logger(__name__)
 
 
-@track_progress
 def revise_scene_simplified(params: dict) -> dict:
     """
     Simplified scene revision - only revises if critical issues exist.

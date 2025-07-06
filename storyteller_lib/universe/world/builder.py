@@ -12,7 +12,6 @@ from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from pydantic import BaseModel, Field, field_validator
 
 # Memory manager imports removed - using state and database instead
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     SUPPORTED_LANGUAGES,
@@ -963,7 +962,6 @@ def generate_world_summary(
         return f"Error generating world summary: {str(e)}"
 
 
-@track_progress
 def generate_worldbuilding(params: dict) -> dict:
     """
     Generate detailed worldbuilding elements based on the story parameters.

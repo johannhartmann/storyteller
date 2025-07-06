@@ -7,7 +7,6 @@ StoryCraft Agent - Initialization nodes.
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.messages.modifier import RemoveMessage
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     SUPPORTED_LANGUAGES,
@@ -16,7 +15,6 @@ from storyteller_lib.core.config import (
 # StoryState no longer used - working directly with database
 
 
-@track_progress
 def initialize_state(initial_params: dict) -> dict:
     """Initialize the story state with user input."""
     # No longer using state parameter - working directly with database
@@ -396,7 +394,6 @@ def initialize_state(initial_params: dict) -> dict:
     return result
 
 
-@track_progress
 def brainstorm_story_concepts(params: dict) -> dict:
     """Brainstorm creative story concepts before generating the outline."""
     from storyteller_lib.generation.creative.brainstorming import creative_brainstorm

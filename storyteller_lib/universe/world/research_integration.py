@@ -11,7 +11,6 @@ from typing import Any
 from langchain_core.messages import AIMessage, RemoveMessage
 from pydantic import BaseModel
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     get_story_config,
@@ -217,7 +216,6 @@ SPECIFIC FIELD REQUIREMENTS:
     return data
 
 
-@track_progress
 async def generate_worldbuilding_with_research(state: dict) -> dict:
     """
     Enhanced world building with optional research.

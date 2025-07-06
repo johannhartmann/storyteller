@@ -136,3 +136,4 @@ No formal test suite currently exists. Testing is done through running the story
 - For indentation errors: first try to fix them using black
 - never add all files in a directory to a commit
 - NEVER USE EXAMPLES FROM A RANDOM DEMO BOOK
+- Never keep things just for imagenary "Backward Compability" If you know it is still being used keep it, if you don't know check, if you don't need it remove it.

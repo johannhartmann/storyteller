@@ -9,7 +9,6 @@ the story generation workflow.
 # Memory manager imports removed - using state and database instead
 from langchain_core.messages import AIMessage, RemoveMessage
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     get_llm_with_structured_output,
 )
@@ -244,7 +243,6 @@ def generate_chapter_progress_report(params: dict, chapter_num: str) -> str:
     return report
 
 
-@track_progress
 def update_world_elements(params: dict) -> dict:
     """Update world elements based on developments in the current scene."""
     from storyteller_lib.prompts.renderer import render_prompt
@@ -356,7 +354,6 @@ def update_world_elements(params: dict) -> dict:
     }
 
 
-@track_progress
 def update_character_knowledge(params: dict) -> dict:
     """Update what each character knows based on the current scene."""
     from storyteller_lib.prompts.renderer import render_prompt
@@ -479,7 +476,6 @@ def update_character_knowledge(params: dict) -> dict:
     }
 
 
-@track_progress
 def check_plot_threads(params: dict) -> dict:
     """Check and update plot thread progress based on the current scene."""
     from storyteller_lib.generation.story.plot_threads import update_plot_threads
@@ -580,7 +576,6 @@ def check_plot_threads(params: dict) -> dict:
     }
 
 
-@track_progress
 def manage_character_arcs(params: dict) -> dict:
     """Update character arcs based on story progression."""
     from storyteller_lib.generation.story.character_arcs import CharacterArcManager
@@ -667,7 +662,6 @@ def manage_character_arcs(params: dict) -> dict:
     }
 
 
-@track_progress
 def log_story_progress(params: dict) -> dict:
     """Log current progress and statistics to file."""
     from storyteller_lib.analysis.statistics import calculate_book_stats
