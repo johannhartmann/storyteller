@@ -1819,6 +1819,30 @@ class StoryDatabaseManager:
                             scene_data.get("scene_type", "exploration"),
                             ""  # Empty content, to be filled when scene is written
                         ))
+                        
+                        scene_id = cursor.lastrowid
+                        
+                        # Store scene planning data
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO scene_planning (
+                                scene_id, plot_progressions, character_learns, 
+                                required_characters, forbidden_repetitions,
+                                dramatic_purpose, tension_level, ends_with,
+                                connects_to_next, pov_character, location
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            scene_id,
+                            json.dumps(scene_data.get("plot_progressions", [])),
+                            json.dumps(scene_data.get("character_learns", [])),
+                            json.dumps(scene_data.get("required_characters", [])),
+                            json.dumps(scene_data.get("forbidden_repetitions", [])),
+                            scene_data.get("dramatic_purpose", "development"),
+                            scene_data.get("tension_level", 5),
+                            scene_data.get("ends_with", "transition"),
+                            scene_data.get("connects_to_next", ""),
+                            scene_data.get("pov_character", ""),
+                            scene_data.get("location", "")
+                        ))
                 
                 conn.commit()
                 logger.info(f"Stored chapter plan with {len(chapters_dict)} chapters in database")

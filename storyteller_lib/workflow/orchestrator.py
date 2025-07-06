@@ -1,6 +1,6 @@
 """
 Simple orchestrator for story generation workflow.
-Replaces LangGraph with direct function calls and database state management.
+Uses direct function calls and database state management.
 """
 
 import time

@@ -4,6 +4,7 @@ for scene writing and reflection. This ensures scenes are properly connected
 to the overall story, characters, world, and plot progression.
 """
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -70,7 +71,7 @@ class ComprehensiveSceneContext:
 
 
 def build_comprehensive_scene_context(
-    chapter: int, scene: int, state: dict
+    chapter: int, scene: int, params: dict
 ) -> ComprehensiveSceneContext:
     """
     Build complete scene context by gathering ALL necessary information.
@@ -90,14 +91,14 @@ def build_comprehensive_scene_context(
     if not db_manager or not db_manager._db:
         raise RuntimeError("Database manager not available")
 
-    # 1. Get story-level context (including author style guidance from state)
-    story_context = _get_story_context(db_manager, state)
+    # 1. Get story-level context (including author style guidance from params)
+    story_context = _get_story_context(db_manager, params)
 
     # 2. Get chapter context
     chapter_context = _get_chapter_context(db_manager, chapter)
 
-    # 3. Get scene specifications from state
-    scene_specs = _get_scene_specifications(state, chapter, scene)
+    # 3. Get scene specifications from params
+    scene_specs = _get_scene_specifications(params, chapter, scene)
 
     # 4. Get plot context
     plot_context = _get_plot_context(db_manager, scene_specs)
@@ -107,7 +108,7 @@ def build_comprehensive_scene_context(
         db_manager,
         scene_specs["required_characters"],
         scene_specs["description"],
-        state,
+        params,
     )
 
     # 6. Get world context using intelligent selection
@@ -163,7 +164,7 @@ def build_comprehensive_scene_context(
         )
 
     # 7. Get previous/next scene context
-    sequence_context = _get_sequence_context(db_manager, chapter, scene, state)
+    sequence_context = _get_sequence_context(db_manager, chapter, scene, params)
 
     # 8. Get writing constraints
     constraints = _get_writing_constraints(db_manager, chapter, scene)
@@ -223,8 +224,8 @@ def build_comprehensive_scene_context(
     )
 
 
-def _get_story_context(db_manager, state: dict = None) -> dict[str, Any]:
-    """Get story-level context from database and state."""
+def _get_story_context(db_manager, params: dict = None) -> dict[str, Any]:
+    """Get story-level context from database and params."""
     with db_manager._db._get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -245,10 +246,10 @@ def _get_story_context(db_manager, state: dict = None) -> dict[str, Any]:
             paragraphs = result["global_story"].split("\n\n")
             premise = paragraphs[0] if paragraphs else result["global_story"][:500]
 
-        # Get author style guidance from state if available
+        # Get author style guidance from params if available
         author_style_guidance = ""
-        if state and "author_style_guidance" in state:
-            author_style_guidance = state["author_style_guidance"]
+        if params and "author_style_guidance" in params:
+            author_style_guidance = params["author_style_guidance"]
 
         return {
             "title": result["title"] or "Untitled Story",
@@ -297,26 +298,97 @@ def _get_chapter_context(db_manager, chapter: int) -> dict[str, Any]:
 
 
 def _get_scene_specifications(
-    state: dict, chapter: int, scene: int
+    params: dict, chapter: int, scene: int
 ) -> dict[str, Any]:
-    """Get scene specifications from state."""
-    chapters = state.get("chapters", {})
-    scene_data = {}
+    """Get scene specifications from database."""
+    from storyteller_lib.persistence.database import get_db_manager
+    
+    db_manager = get_db_manager()
+    if not db_manager:
+        logger.warning("No database manager available")
+        return _get_default_scene_specs()
+    
+    try:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # First get basic scene info
+            cursor.execute("""
+                SELECT s.id, s.description, s.scene_type
+                FROM scenes s
+                JOIN chapters c ON s.chapter_id = c.id
+                WHERE c.chapter_number = ? AND s.scene_number = ?
+            """, (chapter, scene))
+            
+            scene_row = cursor.fetchone()
+            if not scene_row:
+                logger.warning(f"No scene found for Chapter {chapter}, Scene {scene}")
+                return _get_default_scene_specs()
+            
+            scene_id = scene_row["id"]
+            description = scene_row["description"] or ""
+            scene_type = scene_row["scene_type"] or "exploration"
+            
+            # Get planning data
+            cursor.execute("""
+                SELECT plot_progressions, character_learns, required_characters,
+                       forbidden_repetitions, dramatic_purpose, tension_level,
+                       ends_with, connects_to_next, pov_character, location
+                FROM scene_planning
+                WHERE scene_id = ?
+            """, (scene_id,))
+            
+            planning_row = cursor.fetchone()
+            
+            if planning_row:
+                return {
+                    "description": description,
+                    "plot_progressions": json.loads(planning_row["plot_progressions"] or "[]"),
+                    "character_learns": json.loads(planning_row["character_learns"] or "[]"),
+                    "required_characters": json.loads(planning_row["required_characters"] or "[]"),
+                    "forbidden_repetitions": json.loads(planning_row["forbidden_repetitions"] or "[]"),
+                    "dramatic_purpose": planning_row["dramatic_purpose"] or "development",
+                    "tension_level": planning_row["tension_level"] or 5,
+                    "ends_with": planning_row["ends_with"] or "transition",
+                    "pov_character": planning_row["pov_character"] or "",
+                    "scene_type": scene_type,
+                    "location": planning_row["location"] or "Unknown",
+                }
+            else:
+                # Fallback if no planning data
+                return {
+                    "description": description,
+                    "plot_progressions": [],
+                    "character_learns": [],
+                    "required_characters": [],
+                    "forbidden_repetitions": [],
+                    "dramatic_purpose": "development",
+                    "tension_level": 5,
+                    "ends_with": "transition",
+                    "pov_character": "",
+                    "scene_type": scene_type,
+                    "location": "Unknown",
+                }
+                
+    except Exception as e:
+        logger.error(f"Failed to get scene specifications: {e}")
+        return _get_default_scene_specs()
 
-    if str(chapter) in chapters and "scenes" in chapters[str(chapter)]:
-        scene_data = chapters[str(chapter)]["scenes"].get(str(scene), {})
 
+def _get_default_scene_specs() -> dict[str, Any]:
+    """Return default scene specifications."""
     return {
-        "description": scene_data.get("description", ""),
-        "plot_progressions": scene_data.get("plot_progressions", []),
-        "character_learns": scene_data.get("character_learns", []),
-        "required_characters": scene_data.get("required_characters", []),
-        "dramatic_purpose": scene_data.get("dramatic_purpose", "development"),
-        "tension_level": scene_data.get("tension_level", 5),
-        "ends_with": scene_data.get("ends_with", "transition"),
-        "pov_character": scene_data.get("pov_character", ""),
-        "scene_type": scene_data.get("scene_type", "exploration"),
-        "location": scene_data.get("location", "Unknown"),
+        "description": "",
+        "plot_progressions": [],
+        "character_learns": [],
+        "required_characters": [],
+        "forbidden_repetitions": [],
+        "dramatic_purpose": "development",
+        "tension_level": 5,
+        "ends_with": "transition", 
+        "pov_character": "",
+        "scene_type": "exploration",
+        "location": "Unknown",
     }
 
 
@@ -375,16 +447,16 @@ def _get_plot_context(db_manager, scene_specs: dict[str, Any]) -> dict[str, Any]
 
 
 def _get_character_context(
-    db_manager, required_chars: list[str], scene_desc: str, state: dict = None
+    db_manager, required_chars: list[str], scene_desc: str, params: dict = None
 ) -> dict[str, Any]:
     """Get comprehensive character context including worldbuilding descriptions."""
     characters = []
     character_ids = []
 
-    # Get character info from state if available for richer descriptions
+    # Get character info from params if available for richer descriptions
     state_characters = {}
-    if state and "characters" in state:
-        state_characters = state.get("characters", {})
+    if params and "characters" in params:
+        state_characters = params.get("characters", {})
 
     # Get required characters first
     for char_identifier in required_chars:
@@ -739,7 +811,7 @@ def _extract_world_keywords(text: str) -> list[str]:
 
 
 def _get_sequence_context(
-    db_manager, chapter: int, scene: int, state: dict
+    db_manager, chapter: int, scene: int, params: dict
 ) -> dict[str, Any]:
     """Get context from previous and next scenes."""
     # Get previous scene ending
@@ -805,13 +877,19 @@ def _get_sequence_context(
                         " ".join(words[-300:]) if len(words) > 300 else prev_content
                     )
 
-    # Get next scene preview
+    # Get next scene preview from database
     next_preview = None
-    chapters = state.get("chapters", {})
-    if str(chapter) in chapters and "scenes" in chapters[str(chapter)]:
-        next_scene_data = chapters[str(chapter)]["scenes"].get(str(scene + 1), {})
-        if next_scene_data and "description" in next_scene_data:
-            next_preview = next_scene_data["description"]
+    with db_manager._db._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT s.description
+            FROM scenes s
+            JOIN chapters c ON s.chapter_id = c.id
+            WHERE c.chapter_number = ? AND s.scene_number = ?
+        """, (chapter, scene + 1))
+        result = cursor.fetchone()
+        if result and result["description"]:
+            next_preview = result["description"]
 
     return {
         "previous_ending": previous_ending,

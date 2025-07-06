@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Run the StoryCraft agent to generate a complete story with progress updates.
-Uses LangGraph's native edge system for improved reliability with complex stories.
+Uses a simple sequential orchestrator for reliable story generation.
 """
 
 # Standard library imports
@@ -1353,7 +1353,7 @@ def main() -> None:
             )
             story = f"# {title}\n\n"
             story += "## Error During Generation\n\n"
-            story += "This story could not be fully generated due to an error in the LangGraph workflow.\n\n"
+            story += "This story could not be fully generated due to an error in the workflow.\n\n"
             story += (
                 "Please check the console output for error details and try again.\n\n"
             )

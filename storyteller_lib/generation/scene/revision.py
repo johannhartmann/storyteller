@@ -16,17 +16,17 @@ logger = get_logger(__name__)
 
 
 @track_progress
-def revise_scene_simplified(state: dict) -> dict:
+def revise_scene_simplified(params: dict) -> dict:
     """
     Simplified scene revision - only revises if critical issues exist.
     Maximum one revision pass, focused on specific issues.
     """
-    current_chapter = int(state.get("current_chapter", 1))
-    current_scene = int(state.get("current_scene", 1))
+    current_chapter = int(params.get("current_chapter", 1))
+    current_scene = int(params.get("current_scene", 1))
 
     # Check if revision is needed
-    scene_reflection = state.get("scene_reflection", {})
-    needs_revision_flag = state.get("needs_revision", False)
+    scene_reflection = params.get("scene_reflection", {})
+    needs_revision_flag = params.get("needs_revision", False)
 
     logger.info(
         f"Chapter {current_chapter}, Scene {current_scene} - Revision check: "
@@ -60,18 +60,10 @@ def revise_scene_simplified(state: dict) -> dict:
         logger.info("No critical issues identified, skipping revision")
         return {}
 
-    # Get scene requirements
-    chapters = state.get("chapters", {})
-    scene_requirements = {}
-    if str(current_chapter) in chapters and "scenes" in chapters[str(current_chapter)]:
-        scene_data = chapters[str(current_chapter)]["scenes"].get(
-            str(current_scene), {}
-        )
-        scene_requirements = {
-            "description": scene_data.get("description", ""),
-            "plot_progressions": scene_data.get("plot_progressions", []),
-            "character_learns": scene_data.get("character_learns", []),
-        }
+    # Get scene requirements from database
+    from storyteller_lib.generation.scene.context import _get_scene_specifications
+    
+    scene_requirements = _get_scene_specifications(params, current_chapter, current_scene)
 
     # Get story configuration
     config = get_story_config()

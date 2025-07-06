@@ -45,25 +45,27 @@ class SimplifiedReflection(BaseModel):
 
 
 @track_progress
-def reflect_on_scene_simplified(state: dict) -> dict:
+def reflect_on_scene_simplified(params: dict) -> dict:
     """
     Simplified scene reflection focusing on critical quality aspects.
     Replaces complex 9-metric analysis with 4 key checks.
     """
-    current_chapter = int(state.get("current_chapter", 1))
-    current_scene = int(state.get("current_scene", 1))
+    current_chapter = int(params.get("current_chapter", 1))
+    current_scene = int(params.get("current_scene", 1))
 
     logger.info(
         f"Reflecting on Chapter {current_chapter}, Scene {current_scene} (simplified)"
     )
 
-    # Get book-level instructions
-    book_instructions = state.get("book_level_instructions", "")
-
-    # Get scene-specific instructions from database
+    # Get database manager
     db_manager = get_db_manager()
     if not db_manager:
         raise RuntimeError("Database manager not available")
+
+    # Get book-level instructions from database
+    book_instructions = ""
+    if db_manager:
+        book_instructions = db_manager.get_book_level_instructions() or ""
 
     logger.info(
         f"Attempting to retrieve scene instructions from database for Ch{current_chapter}/Sc{current_scene}"
@@ -80,7 +82,7 @@ def reflect_on_scene_simplified(state: dict) -> dict:
         from storyteller_lib.prompts.synthesis import generate_scene_level_instructions
 
         scene_instructions = generate_scene_level_instructions(
-            current_chapter, current_scene, state
+            current_chapter, current_scene, params
         )
         # Save for future use
         db_manager.save_scene_instructions(
@@ -94,7 +96,7 @@ def reflect_on_scene_simplified(state: dict) -> dict:
     # Get scene content
     scene_content = db_manager.get_scene_content(current_chapter, current_scene)
     if not scene_content:
-        scene_content = state.get("current_scene_content", "")
+        scene_content = params.get("current_scene_content", "")
 
     if not scene_content:
         raise RuntimeError(
@@ -145,16 +147,8 @@ def reflect_on_scene_simplified(state: dict) -> dict:
         "issues": reflection.critical_issues,
     }
 
-    # Update chapters with reflection
-    chapters = state.get("chapters", {})
-    if str(current_chapter) not in chapters:
-        chapters[str(current_chapter)] = {"scenes": {}}
-    if str(current_scene) not in chapters[str(current_chapter)]["scenes"]:
-        chapters[str(current_chapter)]["scenes"][str(current_scene)] = {}
-
-    chapters[str(current_chapter)]["scenes"][str(current_scene)]["reflection"] = (
-        reflection_data
-    )
+    # Reflection data is stored in the function return value
+    # No need to update params - database is the source of truth
 
     # Handle style corrections immediately if needed
     if reflection.needs_style_corrections and reflection.style_issues:
@@ -181,9 +175,7 @@ def reflect_on_scene_simplified(state: dict) -> dict:
             logger.info(
                 f"Successfully applied style corrections to Chapter {current_chapter}, Scene {current_scene}"
             )
-            chapters[str(current_chapter)]["scenes"][str(current_scene)][
-                "style_corrections_applied"
-            ] = True
+            # Style corrections are tracked in the database
             # Clear the style correction flag since we've handled it
             reflection.needs_style_corrections = False
             reflection.style_issues = []
@@ -208,7 +200,6 @@ def reflect_on_scene_simplified(state: dict) -> dict:
         )
 
     return {
-        "chapters": chapters,
         "scene_reflection": reflection.model_dump(),
         "needs_revision": reflection.needs_revision,
         "needs_style_corrections": reflection.needs_style_corrections,

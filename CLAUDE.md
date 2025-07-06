@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-StoryCraft Agent is an autonomous AI-powered story writing system that generates complete, multi-chapter stories following the hero's journey structure. It uses LangGraph for orchestration, SQLite database for state and memory management, and supports multiple LLM providers.
+StoryCraft Agent is an autonomous AI-powered story writing system that generates complete, multi-chapter stories following the hero's journey structure. It uses a simple sequential orchestrator (no longer LangGraph), SQLite database for all state management, and supports multiple LLM providers.
 
 ## Recent Refactoring (December 2024)
 
@@ -25,7 +25,7 @@ storyteller_lib/
 ├── prompts/          # Template rendering and optimization
 ├── universe/         # World and character building
 ├── utils/            # Utility functions
-└── workflow/         # LangGraph workflow nodes
+└── workflow/         # Workflow nodes and orchestrator
 ```
 
 ### Key Changes from Refactoring
@@ -49,17 +49,17 @@ nix develop
 
 ## Architecture and Patterns
 
-### Graph-Based Workflow
-The system uses LangGraph's native edge system (not router-based) with conditional edges that evaluate state to determine flow. Key patterns:
+### Sequential Workflow (LangGraph Removed - January 2025)
+The system now uses a simple sequential orchestrator that executes workflow steps in order. All state is stored in the database. Key patterns:
 
-1. **State Management**: Uses TypedDict classes for structured state with immutable updates
-2. **Conditional Edges**: Each edge evaluates current state to determine next node
-3. **No Recursion**: Explicit state transitions prevent recursion issues
+1. **State Management**: All state stored in SQLite database, no in-memory state objects
+2. **Sequential Execution**: Steps execute in predefined order without conditional routing
+3. **Database-Driven**: All data persistence and retrieval through database manager
 
 ### Core Components (Updated Paths)
 
-1. **Graph Construction** (`storyteller_lib/graph.py`): Defines the LangGraph workflow with nodes and conditional edges
-2. **State Models** (`storyteller_lib/core/models.py`): TypedDict definitions for StoryState, CharacterProfile, ChapterState, SceneState
+1. **Orchestrator** (`storyteller_lib/workflow/orchestrator.py`): Simple sequential workflow executor
+2. **State Models** (`storyteller_lib/core/models.py`): Pydantic models for data validation (StoryState removed)
 3. **Memory Management** (`storyteller_lib/persistence/memory.py`): SQLite-based memory storage and retrieval
 4. **Configuration** (`storyteller_lib/core/config.py`): LLM setup and provider management
 5. **Database Integration** (`storyteller_lib/persistence/database.py`): Database manager for state persistence
@@ -84,8 +84,8 @@ Each stage uses specific modules (with updated paths):
 3. **Memory Anchors**: Critical story elements stored in database for consistency
 4. **Modular Design**: Each aspect of story generation is a separate module with clear interfaces
 5. **Progress Tracking**: Real-time updates throughout generation process
-6. **State Handling**: Always happens in LangGraph, in the state object
-7. **Storage**: The storage happens in the db manager, but not the state handling
+6. **State Handling**: All state is stored and retrieved from the database
+7. **Storage**: Database manager handles all state persistence and retrieval
 
 ### Development Principles
 
@@ -104,7 +104,7 @@ No formal test suite currently exists. Testing is done through running the story
 ## Key Files and Their Purposes (Updated Paths)
 
 - `run_storyteller.py`: Main entry point with CLI argument parsing
-- `storyteller_lib/graph.py`: LangGraph workflow definition
+- `storyteller_lib/workflow/orchestrator.py`: Sequential workflow orchestrator
 - `storyteller_lib/core/models.py`: All state type definitions
 - `storyteller_lib/workflow/nodes/scenes.py`: Core scene generation logic
 - `storyteller_lib/generation/story/plot_threads.py`: Plot thread tracking system
@@ -118,7 +118,7 @@ No formal test suite currently exists. Testing is done through running the story
 - NEVER USE JSON parsing, ALWAYs use structured output.
 - Always use `nix develop =c python` when starting python scripts
 - Never evaluate texts based on keywords, since they are not reliable. Use LLM based evaluations instead.
-- NEVER share state in LangGraph and the database. Never invent your own state management.
+- All state is in the database. No separate state management systems.
 - We do not need any migrations. All data is temporary per run.
 - Never truncate texts, rather generate a summary using the llm
 - Make sure you provide the LLM well structured prompts with a clear intent and properly structured information. Do not just put JSON dumps into the prompt.
@@ -129,7 +129,7 @@ No formal test suite currently exists. Testing is done through running the story
 - To debug the database look in ~/.storyteller/story_database.db
 - Never implement a fallback for structured output. Fail if the structured output did not work.
 - Never use nested dictionaries in structured output.
-- Never run the storyteller on your own, it takes hours
+- NEVER START THE STORYTELLER ON YOUR OWN, IT TAKES HOURS
 - Never add generated markdown files to git.
 - never simply add all files (git add -A)
 - Do not write about every change and fix into the claude.md

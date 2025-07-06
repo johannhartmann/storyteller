@@ -14,13 +14,13 @@ from storyteller_lib.prompts.renderer import render_prompt
 logger = get_logger(__name__)
 
 
-def generate_book_level_instructions(state: dict) -> str:
+def generate_book_level_instructions(params: dict) -> str:
     """
     Generate comprehensive writing instructions for the entire book.
     This synthesizes genre, tone, and author style into coherent guidance.
 
     Args:
-        state: Current story state containing configuration and style analysis
+        params: Current story params containing configuration and style analysis
 
     Returns:
         Coherent writing instructions for the book
@@ -48,8 +48,8 @@ def generate_book_level_instructions(state: dict) -> str:
     language = config["language"] or DEFAULT_LANGUAGE
     initial_idea = config["initial_idea"] or ""
 
-    # Get author style guidance from state
-    author_style_guidance = state.get("author_style_guidance", "")
+    # Get author style guidance from params
+    author_style_guidance = params.get("author_style_guidance", "")
 
     # Prepare template variables
     template_vars = {
@@ -74,7 +74,7 @@ def generate_book_level_instructions(state: dict) -> str:
 
 
 def generate_scene_level_instructions(
-    chapter: int, scene: int, state: dict
+    chapter: int, scene: int, params: dict
 ) -> str:
     """
     Generate specific instructions for a scene by synthesizing all relevant context.
@@ -82,7 +82,7 @@ def generate_scene_level_instructions(
     Args:
         chapter: Chapter number
         scene: Scene number
-        state: Current story state
+        params: Current story params
 
     Returns:
         Coherent instructions for writing this specific scene
@@ -91,14 +91,7 @@ def generate_scene_level_instructions(
         f"Generating scene-level instructions for Chapter {chapter}, Scene {scene}"
     )
 
-    # Debug: Log the state chapters structure
-    chapters = state.get("chapters", {})
-    if str(chapter) in chapters and "scenes" in chapters[str(chapter)]:
-        scenes_in_chapter = chapters[str(chapter)]["scenes"]
-        logger.debug(f"Chapter {chapter} has {len(scenes_in_chapter)} scenes")
-        for scene_num, scene_data in scenes_in_chapter.items():
-            desc = scene_data.get("description", "NO DESCRIPTION")
-            logger.debug(f"  Scene {scene_num}: {desc[:100]}...")
+    # Debug logging removed - scene data now comes from database
 
     # Get database manager
     db_manager = get_db_manager()
@@ -118,13 +111,13 @@ def generate_scene_level_instructions(
     )
 
     # 1. Get story context
-    story_context = _get_story_context(db_manager, state)
+    story_context = _get_story_context(db_manager, params)
 
     # 2. Get chapter context
     chapter_context = _get_chapter_context(db_manager, chapter)
 
     # 3. Get scene specifications
-    scene_specs = _get_scene_specifications(state, chapter, scene)
+    scene_specs = _get_scene_specifications(params, chapter, scene)
 
     # Debug: Log POV character
     logger.debug(
@@ -139,7 +132,7 @@ def generate_scene_level_instructions(
         db_manager,
         scene_specs["required_characters"],
         scene_specs["description"],
-        state,
+        params,
     )
 
     # 6. Get world context using intelligent selection
@@ -193,7 +186,7 @@ def generate_scene_level_instructions(
         )
 
     # 7. Get sequence context
-    sequence_context = _get_sequence_context(db_manager, chapter, scene, state)
+    sequence_context = _get_sequence_context(db_manager, chapter, scene, params)
 
     # 8. Get writing constraints
     constraints = _get_writing_constraints(db_manager, chapter, scene)

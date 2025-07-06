@@ -17,13 +17,13 @@ logger = get_logger(__name__)
 
 
 @track_progress
-def generate_summaries(state: dict) -> dict:
+def generate_summaries(params: dict) -> dict:
     """
     Generate summaries for the current scene and chapter if needed.
     This is called after scene is finalized (written and potentially revised).
     """
-    current_chapter = int(state.get("current_chapter", 1))
-    current_scene = int(state.get("current_scene", 1))
+    current_chapter = int(params.get("current_chapter", 1))
+    current_scene = int(params.get("current_scene", 1))
 
     logger.info(
         f"Generating summaries for Chapter {current_chapter}, Scene {current_scene}"
@@ -53,17 +53,21 @@ def generate_summaries(state: dict) -> dict:
     )
     logger.info(f"Generated scene summary: {scene_summary[:100]}...")
 
-    # Check if this is the last scene of a chapter
-    chapters = state.get("chapters", {})
-    chapter_data = chapters.get(str(current_chapter), {})
-    scenes = chapter_data.get("scenes", {})
-
-    # Check if we're at the last scene of the chapter
-    is_last_scene = True
-    for scene_num in scenes:
-        if int(scene_num) > current_scene:
-            is_last_scene = False
-            break
+    # Check if this is the last scene of a chapter by querying database
+    is_last_scene = False
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            # Get the max scene number for this chapter
+            cursor.execute("""
+                SELECT MAX(s.scene_number) as max_scene
+                FROM scenes s
+                JOIN chapters c ON s.chapter_id = c.id
+                WHERE c.chapter_number = ?
+            """, (current_chapter,))
+            result = cursor.fetchone()
+            if result and result["max_scene"]:
+                is_last_scene = (current_scene >= result["max_scene"])
 
     # Generate chapter summary if this is the last scene
     if is_last_scene:

@@ -2,7 +2,7 @@
 StoryCraft Agent - Plot thread tracking and management.
 
 This module provides functionality to track, manage, and ensure resolution of plot threads
-throughout the story generation process, using LangGraph state management.
+throughout the story generation process, using database state management.
 """
 
 from typing import Any
@@ -171,12 +171,12 @@ class PlotThreadRegistry:
         return registry
 
     @classmethod
-    def from_state(cls, state: dict) -> "PlotThreadRegistry":
-        """Create a registry from the state."""
+    def from_params(cls, params: dict) -> "PlotThreadRegistry":
+        """Create a registry from the parameters."""
         registry = cls()
 
-        # Get plot threads from state
-        plot_threads = state.get("plot_threads", {})
+        # Get plot threads from params
+        plot_threads = params.get("plot_threads", {})
 
         for _name, thread_data in plot_threads.items():
             registry.add_thread(PlotThread.from_dict(thread_data))
@@ -260,19 +260,19 @@ def identify_plot_threads_in_scene(
         return []
 
 
-def update_plot_threads(state: dict) -> dict[str, Any]:
+def update_plot_threads(params: dict) -> dict[str, Any]:
     """
     Update plot threads based on the current scene.
 
     Args:
-        state: The current state
+        params: The current parameters
 
     Returns:
         Updates to the state
     """
-    state["chapters"]
-    current_chapter = state["current_chapter"]
-    current_scene = state["current_scene"]
+    params["chapters"]
+    current_chapter = params["current_chapter"]
+    current_scene = params["current_scene"]
 
     # Get database manager
     from storyteller_lib.persistence.database import get_db_manager
@@ -305,22 +305,22 @@ def update_plot_threads(state: dict) -> dict[str, Any]:
         int(current_chapter), int(current_scene)
     )
     if not scene_content:
-        scene_content = state.get("current_scene_content", "")
+        scene_content = params.get("current_scene_content", "")
         if not scene_content:
             raise RuntimeError(
                 f"Scene {current_scene} of chapter {current_chapter} not found"
             )
 
-    # Get language from state
-    language = state.get("language", DEFAULT_LANGUAGE)
+    # Get language from params
+    language = params.get("language", DEFAULT_LANGUAGE)
 
     # Identify plot threads in the scene
     thread_updates = identify_plot_threads_in_scene(
         scene_content, current_chapter, current_scene, characters, language
     )
 
-    # Load the plot thread registry from state
-    registry = PlotThreadRegistry.from_state(state)
+    # Load the plot thread registry from params
+    registry = PlotThreadRegistry.from_params(params)
 
     # Process each thread update
     for update in thread_updates:
@@ -373,18 +373,18 @@ def update_plot_threads(state: dict) -> dict[str, Any]:
     }
 
 
-def check_plot_thread_resolution(state: dict) -> dict[str, Any]:
+def check_plot_thread_resolution(params: dict) -> dict[str, Any]:
     """
     Check if all major plot threads are resolved at the end of the story.
 
     Args:
-        state: The current state
+        params: The current parameters
 
     Returns:
         A dictionary with resolution status and unresolved threads
     """
-    # Load the plot thread registry from state
-    registry = PlotThreadRegistry.from_state(state)
+    # Load the plot thread registry from params
+    registry = PlotThreadRegistry.from_params(params)
 
     # Get all unresolved major threads
     unresolved_major_threads = registry.list_unresolved_major_threads()
@@ -409,21 +409,21 @@ def check_plot_thread_resolution(state: dict) -> dict[str, Any]:
     }
 
 
-def get_active_plot_threads_for_scene(state: dict) -> list[dict[str, Any]]:
+def get_active_plot_threads_for_scene(params: dict) -> list[dict[str, Any]]:
     """
     Get active plot threads that should be considered for the current scene.
 
     Args:
-        state: The current state
+        params: The current parameters
 
     Returns:
         A list of active plot threads with their details
     """
-    state["current_chapter"]
-    state["current_scene"]
+    params["current_chapter"]
+    params["current_scene"]
 
-    # Load the plot thread registry from state
-    registry = PlotThreadRegistry.from_state(state)
+    # Load the plot thread registry from params
+    registry = PlotThreadRegistry.from_params(params)
 
     # Get all active threads
     active_threads = registry.list_active_threads()

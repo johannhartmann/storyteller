@@ -265,7 +265,25 @@ CREATE TABLE IF NOT EXISTS llm_evaluations (
     FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
 );
 
--- 19. Character promises table
+-- 19. Scene planning data table
+CREATE TABLE IF NOT EXISTS scene_planning (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scene_id INTEGER NOT NULL UNIQUE,
+    plot_progressions TEXT, -- JSON array of plot points
+    character_learns TEXT, -- JSON array of learnings
+    required_characters TEXT, -- JSON array of character names
+    forbidden_repetitions TEXT, -- JSON array of things to avoid
+    dramatic_purpose TEXT,
+    tension_level INTEGER,
+    ends_with TEXT,
+    connects_to_next TEXT,
+    pov_character TEXT,
+    location TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE
+);
+
+-- 20. Character promises table
 CREATE TABLE IF NOT EXISTS character_promises (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     character_id INTEGER NOT NULL,
@@ -280,7 +298,7 @@ CREATE TABLE IF NOT EXISTS character_promises (
     FOREIGN KEY (fulfilled_scene_id) REFERENCES scenes(id) ON DELETE SET NULL
 );
 
--- 20. Story events table (for tracking what happens)
+-- 21. Story events table (for tracking what happens)
 CREATE TABLE IF NOT EXISTS story_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     chapter_number INTEGER NOT NULL,

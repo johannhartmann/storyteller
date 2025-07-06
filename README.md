@@ -1,6 +1,6 @@
 # StoryCraft Agent
 
-An autonomous AI-powered story writing system that generates complete, multi-chapter stories following flexible narrative structures. Built with LangGraph for orchestration, SQLite database for state and memory management, and support for multiple LLM providers.
+An autonomous AI-powered story writing system that generates complete, multi-chapter stories following flexible narrative structures. Built with a simple sequential orchestrator, SQLite database for state management, and support for multiple LLM providers.
 
 **Version 3.0** - Now with research-driven worldbuilding, comprehensive plot thread tracking, character knowledge management, multi-language support, and professional audiobook generation.
 
@@ -36,7 +36,7 @@ python run_storyteller.py --genre "science fiction" --tone philosophical --resea
 - **Multi-Level Corrections**: Scene, chapter, style, and minor text corrections for polished output
 
 ### Technical Features
-- **LangGraph Orchestration**: Robust workflow management with conditional edges and state transitions
+- **Sequential Orchestration**: Simple workflow management with database-driven state
 - **SQLite State Persistence**: Complete story state saved to database for consistency
 - **Multi-LLM Support**: Works with OpenAI, Anthropic, and Google Gemini models
 - **Response Caching**: SQLite-based caching for improved performance and reduced API costs
@@ -109,7 +109,7 @@ SPEECH_KEY=your-azure-speech-key-here
 SPEECH_REGION=your-azure-region-here  # e.g., eastus, westeurope
 
 # Optional: Advanced Configuration
-LANGGRAPH_RECURSION_LIMIT=200  # Increase for very complex stories
+# LangGraph removed - no recursion limit needed
 ```
 
 ## Usage
@@ -149,7 +149,6 @@ python run_storyteller.py --genre "science fiction" --research-worldbuilding
 - `--model`: Specific model to use
 - `--cache`: Cache type (memory, sqlite, none)
 - `--cache-path`: Custom cache location
-- `--recursion-limit`: LangGraph recursion limit (default: 200)
 - `--verbose`: Show detailed progress
 
 #### Advanced Features:
@@ -205,14 +204,14 @@ python generate_audiobook.py --voice "en-US-JennyNeural"
 The system is organized into distinct modules under `storyteller_lib/`:
 
 1. **API Layer** (`api/`): Public interface for story generation
-2. **Workflow Nodes** (`workflow/nodes/`): LangGraph workflow components
+2. **Workflow Nodes** (`workflow/nodes/`): Workflow components
 3. **Generation Modules** (`generation/`): Creative content generation
 4. **Analysis Tools** (`analysis/`): Consistency and quality checks
 5. **Persistence Layer** (`persistence/`): Database and memory management
 6. **Universe Building** (`universe/`): World and character management
 7. **Prompt System** (`prompts/`): Multi-language template rendering
 
-### LangGraph Workflow
+### Sequential Workflow
 
 The story generation follows a sophisticated graph-based workflow:
 
@@ -334,7 +333,7 @@ storyteller/
 ├── generate_audiobook.py       # TTS generation
 ├── storyteller_lib/            # Core library
 │   ├── api/                    # Public API
-│   ├── workflow/               # LangGraph nodes
+│   ├── workflow/               # Workflow nodes
 │   ├── generation/             # Content generation
 │   ├── analysis/               # Quality checks
 │   └── ...                     # Other modules
@@ -366,7 +365,6 @@ When contributing:
 ## Acknowledgments
 
 Built with:
-- [LangGraph](https://github.com/langchain-ai/langgraph) for workflow orchestration
 - [LangChain](https://github.com/langchain-ai/langchain) for LLM integration
 - Multiple LLM providers for content generation
 - Azure Cognitive Services for text-to-speech

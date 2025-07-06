@@ -1,8 +1,8 @@
 """
 StoryCraft Agent - Story progression and character management nodes.
 
-This is a refactored version optimized for LangGraph's native edge system,
-removing router-specific code that could cause infinite loops.
+This module handles story progression and character management during
+the story generation workflow.
 """
 
 
@@ -21,12 +21,12 @@ logger = get_logger(__name__)
 
 
 def generate_scene_progress_report(
-    state: dict, chapter_num: str, scene_num: str
+    params: dict, chapter_num: str, scene_num: str
 ) -> str:
     """Generate a progress report after scene completion.
 
     Args:
-        state: Current story state
+        params: Current parameters
         chapter_num: Chapter number just completed
         scene_num: Scene number just completed
 
@@ -36,11 +36,30 @@ def generate_scene_progress_report(
     from storyteller_lib.analysis.statistics import calculate_book_stats
     from storyteller_lib.persistence.database import get_db_manager
 
-    # Get basic scene counts
-    chapters = state.get("chapters", {})
-    total_chapters = len(chapters)
-    current_chapter_data = chapters.get(chapter_num, {})
-    scenes_in_chapter = len(current_chapter_data.get("scenes", {}))
+    # Get basic scene counts from database
+    db_manager = get_db_manager()
+    total_chapters = 10  # Default
+    scenes_in_chapter = 5  # Default
+    
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            # Get total chapters
+            cursor.execute("SELECT COUNT(*) as count FROM chapters")
+            result = cursor.fetchone()
+            if result and result["count"]:
+                total_chapters = result["count"]
+            
+            # Get scenes in current chapter
+            cursor.execute(
+                """SELECT COUNT(*) as count FROM scenes s 
+                   JOIN chapters c ON s.chapter_id = c.id 
+                   WHERE c.chapter_number = ?""",
+                (int(chapter_num),)
+            )
+            result = cursor.fetchone()
+            if result and result["count"]:
+                scenes_in_chapter = result["count"]
 
     # Calculate progress
     completed_chapters = int(chapter_num) - 1
@@ -108,7 +127,7 @@ def generate_scene_progress_report(
     return report
 
 
-def generate_chapter_progress_report(state: dict, chapter_num: str) -> str:
+def generate_chapter_progress_report(params: dict, chapter_num: str) -> str:
     """Generate a progress report after chapter completion.
 
     Args:
@@ -121,9 +140,40 @@ def generate_chapter_progress_report(state: dict, chapter_num: str) -> str:
     from storyteller_lib.analysis.statistics import calculate_book_stats
     from storyteller_lib.persistence.database import get_db_manager
 
-    # Get basic counts
-    chapters = state.get("chapters", {})
-    total_chapters = len(chapters)
+    # Get basic counts from database
+    db_manager = get_db_manager()
+    total_chapters = 10  # Default
+    chapter_title = f"Chapter {chapter_num}"  # Default
+    scenes_in_chapter = 5  # Default
+    
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            # Get total chapters
+            cursor.execute("SELECT COUNT(*) as count FROM chapters")
+            result = cursor.fetchone()
+            if result and result["count"]:
+                total_chapters = result["count"]
+            
+            # Get chapter info
+            cursor.execute(
+                "SELECT title FROM chapters WHERE chapter_number = ?",
+                (int(chapter_num),)
+            )
+            result = cursor.fetchone()
+            if result and result["title"]:
+                chapter_title = result["title"]
+            
+            # Get scenes in chapter
+            cursor.execute(
+                """SELECT COUNT(*) as count FROM scenes s 
+                   JOIN chapters c ON s.chapter_id = c.id 
+                   WHERE c.chapter_number = ?""",
+                (int(chapter_num),)
+            )
+            result = cursor.fetchone()
+            if result and result["count"]:
+                scenes_in_chapter = result["count"]
 
     # Get database statistics
     db_manager = get_db_manager()
@@ -150,10 +200,7 @@ def generate_chapter_progress_report(state: dict, chapter_num: str) -> str:
     filled_length = int(bar_length * progress_percentage / 100)
     bar = "█" * filled_length + "░" * (bar_length - filled_length)
 
-    # Get chapter-specific stats
-    chapter_data = chapters.get(chapter_num, {})
-    chapter_title = chapter_data.get("title", f"Chapter {chapter_num}")
-    scenes_in_chapter = len(chapter_data.get("scenes", {}))
+    # Chapter-specific stats already retrieved from database above
 
     # Build the report
     report = f"""
@@ -182,26 +229,37 @@ def generate_chapter_progress_report(state: dict, chapter_num: str) -> str:
         report += "\n🏁 **Almost there! Just one more chapter to go!**"
 
     # Add next chapter preview if available
-    if str(int(chapter_num) + 1) in chapters:
-        next_chapter = chapters[str(int(chapter_num) + 1)]
-        next_title = next_chapter.get("title", f"Chapter {int(chapter_num) + 1}")
-        report += f'\n🎯 **Next Chapter:** "{next_title}"'
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT title FROM chapters WHERE chapter_number = ?",
+                (int(chapter_num) + 1,)
+            )
+            result = cursor.fetchone()
+            if result and result["title"]:
+                next_title = result["title"]
+                report += f'\n🎯 **Next Chapter:** "{next_title}"'
 
     return report
 
 
 @track_progress
-def update_world_elements(state: dict) -> dict:
+def update_world_elements(params: dict) -> dict:
     """Update world elements based on developments in the current scene."""
     from storyteller_lib.prompts.renderer import render_prompt
 
-    state["chapters"]
-    world_elements = state.get("world_elements", {})
-    current_chapter = state["current_chapter"]
-    current_scene = state["current_scene"]
+    current_chapter = params.get("current_chapter")
+    current_scene = params.get("current_scene")
+    
+    if not current_chapter or not current_scene:
+        logger.warning("No current chapter/scene provided to update_world_elements")
+        return {}
+    
+    world_elements = params.get("world_elements", {})
 
     # Get the scene content from temporary state or database
-    scene_content = state.get("current_scene_content", "")
+    scene_content = params.get("current_scene_content", "")
 
     # If not in state, get from database
     if not scene_content:
@@ -222,7 +280,7 @@ def update_world_elements(state: dict) -> dict:
         return {}
 
     # Get language from state
-    language = state.get("language", "english")
+    language = params.get("language", "english")
 
     # Get structured world updates directly
 
@@ -280,7 +338,7 @@ def update_world_elements(state: dict) -> dict:
         world_elements[category].update(elements)
 
     # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
+    message_ids = [msg.id for msg in params.get("messages", [])]
 
     # Create language-specific messages
     if language.lower() == "german":
@@ -299,19 +357,32 @@ def update_world_elements(state: dict) -> dict:
 
 
 @track_progress
-def update_character_knowledge(state: dict) -> dict:
+def update_character_knowledge(params: dict) -> dict:
     """Update what each character knows based on the current scene."""
     from storyteller_lib.prompts.renderer import render_prompt
     from storyteller_lib.universe.characters.knowledge import CharacterKnowledgeManager
 
     # Get current scene info
-    current_chapter = state["current_chapter"]
-    current_scene = state["current_scene"]
-    state["chapters"]
-    characters = state["characters"]
+    current_chapter = params.get("current_chapter")
+    current_scene = params.get("current_scene")
+    
+    if not current_chapter or not current_scene:
+        logger.warning("No current chapter/scene provided to update_character_knowledge")
+        return {}
+    
+    # Get characters from database
+    from storyteller_lib.persistence.database import get_db_manager
+    db_manager = get_db_manager()
+    characters = {}
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT identifier, name FROM characters")
+            for row in cursor.fetchall():
+                characters[row["identifier"]] = {"name": row["name"]}
 
     # Get the scene content from temporary state or database
-    scene_content = state.get("current_scene_content", "")
+    scene_content = params.get("current_scene_content", "")
 
     # If not in state, get from database
     if not scene_content:
@@ -364,7 +435,7 @@ def update_character_knowledge(state: dict) -> dict:
         )
 
     # Get language from state
-    language = state.get("language", "english")
+    language = params.get("language", "english")
 
     # Create prompt for structured character updates
     prompt = render_prompt(
@@ -391,7 +462,7 @@ def update_character_knowledge(state: dict) -> dict:
                 )
 
     # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
+    message_ids = [msg.id for msg in params.get("messages", [])]
 
     # Create language-specific messages
     if language.lower() == "german":
@@ -409,13 +480,13 @@ def update_character_knowledge(state: dict) -> dict:
 
 
 @track_progress
-def check_plot_threads(state: dict) -> dict:
+def check_plot_threads(params: dict) -> dict:
     """Check and update plot thread progress based on the current scene."""
     from storyteller_lib.generation.story.plot_threads import update_plot_threads
     from storyteller_lib.persistence.database import get_db_manager
 
-    current_chapter = state["current_chapter"]
-    current_scene = state["current_scene"]
+    current_chapter = params["current_chapter"]
+    current_scene = params["current_scene"]
 
     logger.info(
         f"Checking plot threads for Chapter {current_chapter}, Scene {current_scene}"
@@ -423,7 +494,7 @@ def check_plot_threads(state: dict) -> dict:
 
     # Call the update_plot_threads function which returns state updates
     try:
-        plot_updates = update_plot_threads(state)
+        plot_updates = update_plot_threads(params)
 
         # The update_plot_threads function returns:
         # - chapters: Updated chapter data with plot threads per scene
@@ -476,10 +547,10 @@ def check_plot_threads(state: dict) -> dict:
         plot_updates = {}
 
     # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
+    message_ids = [msg.id for msg in params.get("messages", [])]
 
     # Get language from state
-    language = state.get("language", "english")
+    language = params.get("language", "english")
 
     # Create more informative message about plot thread updates
     thread_count = len(plot_updates.get("plot_thread_updates", []))
@@ -510,26 +581,49 @@ def check_plot_threads(state: dict) -> dict:
 
 
 @track_progress
-def manage_character_arcs(state: dict) -> dict:
+def manage_character_arcs(params: dict) -> dict:
     """Update character arcs based on story progression."""
     from storyteller_lib.generation.story.character_arcs import CharacterArcManager
 
     arc_manager = CharacterArcManager()
 
     # Get current position in story
-    current_chapter = int(state["current_chapter"])
-    current_scene = int(state["current_scene"])
-    chapters = state["chapters"]
-    total_chapters = len(chapters)
-
+    current_chapter = params.get("current_chapter")
+    current_scene = params.get("current_scene")
+    
+    if not current_chapter or not current_scene:
+        logger.warning("No current chapter/scene provided to manage_character_arcs")
+        return {}
+    
+    current_chapter = int(current_chapter)
+    current_scene = int(current_scene)
+    
+    # Get chapter info from database
+    from storyteller_lib.persistence.database import get_db_manager
+    db_manager = get_db_manager()
+    total_chapters = 10  # Default
+    scenes_per_chapter = 5  # Default
+    
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) as count FROM chapters")
+            result = cursor.fetchone()
+            if result:
+                total_chapters = result["count"] or 10
+            
+            cursor.execute("SELECT COUNT(*) as count FROM scenes WHERE chapter_id = (SELECT id FROM chapters WHERE chapter_number = 1)")
+            result = cursor.fetchone()
+            if result and result["count"]:
+                scenes_per_chapter = result["count"]
+    
     # Calculate story progress percentage
-    scenes_per_chapter = len(chapters.get("1", {}).get("scenes", {}))
     total_scenes = total_chapters * scenes_per_chapter
     completed_scenes = (current_chapter - 1) * scenes_per_chapter + current_scene
     progress_percentage = (completed_scenes / total_scenes) if total_scenes > 0 else 0
 
     # Get the scene content from temporary state or database
-    scene_content = state.get("current_scene_content", "")
+    scene_content = params.get("current_scene_content", "")
 
     # If not in state, get from database
     if not scene_content:
@@ -540,7 +634,7 @@ def manage_character_arcs(state: dict) -> dict:
                 scene_content = scene_data.get("content", "")
 
     # Check each character's arc progress
-    characters = state.get("characters", {})
+    characters = params.get("characters", {})
     for char_name, _char_data in characters.items():
         if scene_content:
             # Analyze character's development in this scene
@@ -553,10 +647,10 @@ def manage_character_arcs(state: dict) -> dict:
             )
 
     # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
+    message_ids = [msg.id for msg in params.get("messages", [])]
 
     # Get language from state
-    language = state.get("language", "english")
+    language = params.get("language", "english")
 
     # Create language-specific messages
     if language.lower() == "german":
@@ -574,14 +668,14 @@ def manage_character_arcs(state: dict) -> dict:
 
 
 @track_progress
-def log_story_progress(state: dict) -> dict:
+def log_story_progress(params: dict) -> dict:
     """Log current progress and statistics to file."""
     from storyteller_lib.analysis.statistics import calculate_book_stats
     from storyteller_lib.persistence.database import get_db_manager
     from storyteller_lib.utils.progress_logger import log_progress
 
-    current_chapter = state["current_chapter"]
-    current_scene = state["current_scene"]
+    current_chapter = params["current_chapter"]
+    current_scene = params["current_scene"]
 
     # Get database statistics
     db_manager = get_db_manager()
@@ -607,28 +701,45 @@ def log_story_progress(state: dict) -> dict:
     return {}
 
 
-def update_progress_status(state: dict) -> dict:
+def update_progress_status(params: dict) -> dict:
     """Update progress status and generate progress report in state messages."""
-    chapters = state["chapters"]
-    current_chapter = state["current_chapter"]
-    current_scene = state["current_scene"]
+    current_chapter = params.get("current_chapter")
+    current_scene = params.get("current_scene")
+    
+    if not current_chapter or not current_scene:
+        logger.warning("No current chapter/scene provided to update_progress_status")
+        return {}
 
-    # Get language from state
-    state.get("language", "english")
+    # Get language from params
+    params.get("language", "english")
 
-    # Generate appropriate progress report
-    current_chapter_data = chapters.get(current_chapter, {})
-    scenes_in_chapter = len(current_chapter_data.get("scenes", {}))
+    # Get chapter data from database
+    from storyteller_lib.persistence.database import get_db_manager
+    db_manager = get_db_manager()
+    scenes_in_chapter = 5  # Default
+    
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """SELECT COUNT(*) as count FROM scenes s 
+                   JOIN chapters c ON s.chapter_id = c.id 
+                   WHERE c.chapter_number = ?""",
+                (int(current_chapter),)
+            )
+            result = cursor.fetchone()
+            if result and result["count"]:
+                scenes_in_chapter = result["count"]
 
     if int(current_scene) == scenes_in_chapter:
         # Chapter complete
-        report = generate_chapter_progress_report(state, current_chapter)
+        report = generate_chapter_progress_report(params, current_chapter)
     else:
         # Scene complete
-        report = generate_scene_progress_report(state, current_chapter, current_scene)
+        report = generate_scene_progress_report(params, current_chapter, current_scene)
 
     # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
+    message_ids = [msg.id for msg in params.get("messages", [])]
 
     # Create progress message
     new_msg = AIMessage(content=report)

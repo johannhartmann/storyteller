@@ -15,12 +15,12 @@ from storyteller_lib.prompts.synthesis import generate_scene_level_instructions
 
 
 @track_progress
-def write_scene_simplified(state: dict) -> dict:
+def write_scene_simplified(params: dict) -> dict:
     """
     Simplified scene writing function using intelligent instruction synthesis.
     """
-    current_chapter = int(state.get("current_chapter", 1))
-    current_scene = int(state.get("current_scene", 1))
+    current_chapter = int(params.get("current_chapter", 1))
+    current_scene = int(params.get("current_scene", 1))
 
     logger.info(
         f"Writing scene {current_scene} of chapter {current_chapter} (intelligent synthesis)"
@@ -39,7 +39,7 @@ def write_scene_simplified(state: dict) -> dict:
         )
         from storyteller_lib.prompts.synthesis import generate_book_level_instructions
 
-        book_instructions = generate_book_level_instructions(state)
+        book_instructions = generate_book_level_instructions(params)
 
         # Store them in database for future use
         if db_manager:
@@ -48,7 +48,7 @@ def write_scene_simplified(state: dict) -> dict:
 
     # Generate scene-specific instructions
     scene_instructions = generate_scene_level_instructions(
-        current_chapter, current_scene, state
+        current_chapter, current_scene, params
     )
 
     # Save scene instructions to database
@@ -91,16 +91,5 @@ def write_scene_simplified(state: dict) -> dict:
         db_manager.save_scene_content(current_chapter, current_scene, scene_content)
         logger.info(f"Scene saved to database - {len(scene_content)} characters")
 
-    # Update state
-    chapters = state.get("chapters", {})
-    if str(current_chapter) not in chapters:
-        chapters[str(current_chapter)] = {"scenes": {}}
-    if "scenes" not in chapters[str(current_chapter)]:
-        chapters[str(current_chapter)]["scenes"] = {}
-
-    chapters[str(current_chapter)]["scenes"][str(current_scene)] = {
-        "db_stored": True,
-        "written": True,
-    }
-
-    return {"current_scene_content": scene_content, "chapters": chapters}
+    # Scene is stored in database - no need to update params
+    return {"current_scene_content": scene_content}

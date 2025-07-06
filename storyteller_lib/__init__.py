@@ -1,5 +1,5 @@
 """
-StoryCraft Agent Package - A multi-component story generation system using LangGraph.
+StoryCraft Agent Package - A multi-component story generation system.
 """
 
 import functools
