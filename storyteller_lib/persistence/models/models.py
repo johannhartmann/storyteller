@@ -3,7 +3,7 @@ StoryCraft Agent - Database models and managers.
 
 This module provides the core database functionality including:
 - StoryDatabase: Main database manager with CRUD operations
-- DatabaseStateAdapter: Adapter for syncing between LangGraph state and database
+- DatabaseStateAdapter: Adapter for syncing workflow state with database
 - StoryQueries: High-level query functions for common operations
 """
 
@@ -17,7 +17,7 @@ from typing import Any
 # Local imports
 from storyteller_lib.core.exceptions import DatabaseError
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 logger = get_logger(__name__)
 
@@ -1578,10 +1578,10 @@ class StoryDatabase:
 
 class DatabaseStateAdapter:
     """
-    Adapter to sync between LangGraph StoryState and database.
+    Adapter to sync workflow state with database.
 
-    This class provides methods to synchronize the in-memory state used by
-    LangGraph with the persistent database storage.
+    This class provides methods to synchronize the in-memory state dict
+    with the persistent database storage.
     """
 
     def __init__(self, db: StoryDatabase):
@@ -1593,12 +1593,12 @@ class DatabaseStateAdapter:
         """
         self.db = db
 
-    def sync_to_database(self, state: StoryState) -> None:
+    def sync_to_database(self, state: dict) -> None:
         """
         Sync current state to database.
 
         Args:
-                state: The current LangGraph StoryState
+                state: The current workflow state dict
         """
         # Initialize or update story config
         self.db.initialize_story_config(
@@ -1742,18 +1742,18 @@ class DatabaseStateAdapter:
 
         logger.info("Synced state to database")
 
-    def load_from_database(self) -> StoryState:
+    def load_from_database(self) -> dict:
         """
         Load state from database.
 
         Returns:
-                StoryState: The loaded state
+                dict: The loaded state
         """
         # Get story details
         story = self.db.get_story_config()
 
         # Initialize state with story details
-        state: StoryState = {
+        state: dict = {
             "messages": [],
             "genre": story["genre"],
             "tone": story["tone"],
@@ -1853,12 +1853,12 @@ class DatabaseStateAdapter:
         logger.info("Loaded state from database")
         return state
 
-    def update_scene_entities(self, state: StoryState, scene_id: int) -> None:
+    def update_scene_entities(self, state: dict, scene_id: int) -> None:
         """
         Update database with entities involved in current scene.
 
         Args:
-            state: The current LangGraph StoryState
+            state: The current workflow state dict
             scene_id: The database scene ID
         """
         # Identify characters in the scene

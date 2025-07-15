@@ -10,7 +10,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, llm
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.generation.story.plot_threads import (
     get_active_plot_threads_for_scene,
 )
@@ -123,7 +123,7 @@ def analyze_transition_needs(
 def create_scene_transition(
     current_scene_content: str,
     next_scene_outline: str,
-    state: StoryState = None,
+    state: dict = None,
     language: str = DEFAULT_LANGUAGE,
 ) -> str:
     """
@@ -237,7 +237,7 @@ def create_scene_transition(
 def create_chapter_transition(
     current_chapter_data: dict,
     next_chapter_data: dict,
-    state: StoryState = None,
+    state: dict = None,
     language: str = DEFAULT_LANGUAGE,
 ) -> str:
     """
@@ -391,7 +391,7 @@ def create_chapter_transition(
 def enhance_scene_ending(
     scene_content: str,
     next_scene_outline: str = None,
-    state: StoryState = None,
+    state: dict = None,
     language: str = DEFAULT_LANGUAGE,
 ) -> str:
     """
@@ -477,7 +477,7 @@ def enhance_scene_ending(
 def create_scene_hook(
     scene_outline: str,
     previous_scene_content: str = None,
-    state: StoryState = None,
+    state: dict = None,
     language: str = DEFAULT_LANGUAGE,
 ) -> str:
     """

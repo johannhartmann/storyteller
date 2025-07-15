@@ -7,16 +7,12 @@ from typing import Any
 from langchain_core.messages import AIMessage, RemoveMessage
 from pydantic import BaseModel, Field
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     llm,
 )
 
-# Memory manager imports removed - using state and database instead
-from storyteller_lib.core.models import (
-    StoryState,
-)
+# StoryState no longer used - working directly with database
 
 # Default character data - simplified for fallback only
 DEFAULT_CHARACTERS = {
@@ -723,8 +719,7 @@ def establish_character_relationships(
     return updated_characters
 
 
-@track_progress
-def generate_characters(state: StoryState) -> dict:
+def generate_characters(params: dict) -> dict:
     """
     Generate detailed character profiles based on the story outline using a step-by-step approach.
 
@@ -773,9 +768,9 @@ def generate_characters(state: StoryState) -> dict:
     initial_idea = config["initial_idea"]
     language = config["language"]
 
-    # Get temporary workflow data from state
-    initial_idea_elements = state.get("initial_idea_elements", {})
-    author_style_guidance = state.get("author_style_guidance", "")
+    # Get temporary workflow data from params
+    initial_idea_elements = params.get("initial_idea_elements", {})
+    author_style_guidance = params.get("author_style_guidance", "")
 
     # Extract required characters from initial idea if available
     required_characters = []
@@ -892,9 +887,7 @@ def generate_characters(state: StoryState) -> dict:
     # Character creation metadata - this is just logging info, doesn't need persistence
     # Characters are already stored in the database via database_integration
 
-    # Update state
-    # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
+    # No longer managing messages in the simplified version
 
     # Log each character
     from storyteller_lib.utils.progress_logger import log_progress
@@ -981,5 +974,4 @@ def generate_characters(state: StoryState) -> dict:
 
     return {
         "characters": minimal_characters,
-        "messages": [*[RemoveMessage(id=msg_id) for msg_id in message_ids], new_msg],
     }

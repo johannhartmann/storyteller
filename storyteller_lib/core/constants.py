@@ -7,7 +7,7 @@ scattered throughout the codebase.
 
 # Node names in the story generation graph
 class NodeNames:
-    """Constants for LangGraph node names.
+    """Constants for workflow node names.
 
     These constants define the names of nodes in the story generation graph.
     They are used for edge definitions and flow control.
@@ -140,7 +140,7 @@ class ProgressMessages:
     to indicate current progress.
     """
 
-    GENERATING_STORY = "Generating story with LangGraph..."
+    GENERATING_STORY = "Generating story..."
     INITIALIZING = "Initializing story generation..."
     BRAINSTORMING = "Brainstorming creative elements..."
     OUTLINING = "Creating story outline..."

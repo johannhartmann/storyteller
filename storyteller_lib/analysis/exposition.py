@@ -125,7 +125,7 @@ def identify_key_concepts(
         return {"key_concepts": []}
 
 
-def track_key_concepts(state: StoryState) -> dict:
+def track_key_concepts(state: dict) -> dict:
     """
     Track and manage key concepts that need clear exposition.
 
@@ -171,7 +171,7 @@ def track_key_concepts(state: StoryState) -> dict:
     return {"key_concepts_tracker": key_concepts_analysis}
 
 
-def check_concept_introduction(state: StoryState) -> dict[str, Any]:
+def check_concept_introduction(state: dict) -> dict[str, Any]:
     """
     Check if any key concepts should be introduced in the current chapter/scene.
 
@@ -225,7 +225,7 @@ def check_concept_introduction(state: StoryState) -> dict[str, Any]:
         return {}
 
 
-def update_concept_introduction_status(state: StoryState, concept_name: str) -> dict:
+def update_concept_introduction_status(state: dict, concept_name: str) -> dict:
     """
     Update the introduction status of a key concept.
 
@@ -482,7 +482,7 @@ def generate_exposition_guidance(
         """
 
 
-def check_and_generate_exposition_guidance(state: StoryState) -> dict:
+def check_and_generate_exposition_guidance(state: dict) -> dict:
     """
     Check if any key concepts should be introduced and generate exposition guidance.
 

@@ -7,15 +7,13 @@ StoryCraft Agent - Story outline and planning nodes.
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from pydantic import BaseModel, Field
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     llm,
 )
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.generation.story.plot_threads import (
     THREAD_STATUS,
-    PlotThread,
 )
 
 
@@ -209,25 +207,23 @@ def generate_plot_threads_from_outline(
     structured_llm = llm.with_structured_output(PlotThreadsContainer)
     result = structured_llm.invoke(prompt)
 
-    # Convert to plot thread objects
+    # Convert to plot thread dictionaries
     plot_threads = {}
     for thread_def in result.threads:
-        thread = PlotThread(
-            name=thread_def.name,
-            description=thread_def.description,
-            importance=thread_def.importance,
-            status=THREAD_STATUS["INTRODUCED"],
-            first_chapter="",  # Will be set when first used
-            first_scene="",
-            related_characters=thread_def.related_characters,
-        )
-        plot_threads[thread_def.name] = thread.to_dict()
+        plot_threads[thread_def.name] = {
+            "name": thread_def.name,
+            "description": thread_def.description,
+            "importance": thread_def.importance,
+            "status": THREAD_STATUS["INTRODUCED"],
+            "first_chapter": "",  # Will be set when first used
+            "first_scene": "",
+            "related_characters": thread_def.related_characters,
+        }
 
     return plot_threads
 
 
-@track_progress
-def generate_story_outline(state: StoryState) -> dict:
+def generate_story_outline(params: dict) -> dict:
     """Generate the overall story outline using the selected narrative structure."""
     # Import dependencies at the start
     from storyteller_lib.core.logger import get_logger
@@ -248,8 +244,8 @@ def generate_story_outline(state: StoryState) -> dict:
     initial_idea = config["initial_idea"]
     language = config["language"]
 
-    # Get narrative structure from state or database
-    narrative_structure = state.get("narrative_structure", "hero_journey")
+    # Get narrative structure from params or database
+    narrative_structure = params.get("narrative_structure", "hero_journey")
     db_manager = get_db_manager()
     if db_manager and not narrative_structure:
         with db_manager._db._get_connection() as conn:
@@ -262,9 +258,9 @@ def generate_story_outline(state: StoryState) -> dict:
     logger.info(f"Generating story outline using {narrative_structure} structure")
 
     # Get temporary workflow data from state
-    initial_idea_elements = state.get("initial_idea_elements", {})
-    author_style_guidance = state.get("author_style_guidance", "")
-    creative_elements = state.get("creative_elements", {})
+    initial_idea_elements = params.get("initial_idea_elements", {})
+    author_style_guidance = params.get("author_style_guidance", "")
+    creative_elements = params.get("creative_elements", {})
 
     print(f"[DEBUG] generate_story_outline: language from config = '{language}'")
     print(f"[DEBUG] generate_story_outline: DEFAULT_LANGUAGE = '{DEFAULT_LANGUAGE}'")
@@ -304,7 +300,7 @@ def generate_story_outline(state: StoryState) -> dict:
             )
 
             # Store the formatted analysis
-            state["author_style_guidance"] = author_style_guidance
+            params["author_style_guidance"] = author_style_guidance
 
         # Now get the full guidance with header for the prompt
         style_guidance = render_prompt(
@@ -611,17 +607,6 @@ def generate_story_outline(state: StoryState) -> dict:
         language=language,
     )
 
-    # Initialize PlotThreadRegistry with the generated threads
-    from storyteller_lib.generation.story.plot_threads import (
-        PlotThread,
-        PlotThreadRegistry,
-    )
-
-    registry = PlotThreadRegistry()
-    for _thread_name, thread_data in plot_threads.items():
-        thread = PlotThread(**thread_data)
-        registry.add_thread(thread)
-
     # Store the outline in the database
     from storyteller_lib.persistence.database import get_db_manager
 
@@ -657,7 +642,7 @@ def generate_story_outline(state: StoryState) -> dict:
     logger.info("Generating book-level writing instructions...")
     from storyteller_lib.prompts.synthesis import generate_book_level_instructions
 
-    book_instructions = generate_book_level_instructions(state)
+    book_instructions = generate_book_level_instructions(params)
 
     # Store them in database for future use
     if db_manager:
@@ -665,7 +650,7 @@ def generate_story_outline(state: StoryState) -> dict:
         logger.info("Stored book-level instructions in database")
 
     # Get existing message IDs to delete
-    message_ids = [msg.id for msg in state.get("messages", [])]
+    # No longer managing messages in the simplified version
 
     # Create language-specific messages using proper localization
     structure_name = narrative_structure.replace("_", " ").title()
@@ -681,12 +666,10 @@ def generate_story_outline(state: StoryState) -> dict:
     return {
         "story_outline": story_outline,
         "plot_threads": plot_threads,
-        "messages": [*[RemoveMessage(id=msg_id) for msg_id in message_ids], new_msg],
     }
 
 
-@track_progress
-def plan_chapters(state: StoryState) -> dict:
+def plan_chapters(params: dict) -> dict:
     """Divide the story into chapters with detailed outlines."""
     # Load configuration from database
     from storyteller_lib.core.config import get_story_config
@@ -704,14 +687,31 @@ def plan_chapters(state: StoryState) -> dict:
     tone = config["tone"]
     language = config["language"]
 
-    # Get narrative structure and targets from state
-    narrative_structure = state.get("narrative_structure", "hero_journey")
-    target_chapters = state.get("target_chapters", 12)
-    target_scenes_per_chapter = state.get("target_scenes_per_chapter", 5)
+    # Get database manager
+    db_manager = get_db_manager()
+
+    # Get narrative structure and targets from database (not params)
+    narrative_structure = params.get("narrative_structure", "hero_journey")
+    target_chapters = 12  # Default values
+    target_scenes_per_chapter = 5
+    
+    # Load actual targets from database
+    if db_manager and db_manager._db:
+        with db_manager._db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT narrative_structure, target_chapters, target_scenes_per_chapter 
+                FROM story_config WHERE id = 1
+            """)
+            result = cursor.fetchone()
+            if result:
+                narrative_structure = result["narrative_structure"] or narrative_structure
+                target_chapters = result["target_chapters"] or 12
+                target_scenes_per_chapter = result["target_scenes_per_chapter"] or 5
+                logger.info(f"Loaded targets from database: {target_chapters} chapters, {target_scenes_per_chapter} scenes per chapter")
 
     # Get global_story from database
     global_story = ""
-    db_manager = get_db_manager()
     if db_manager and db_manager._db:
         with db_manager._db._get_connection() as conn:
             cursor = conn.cursor()
@@ -723,7 +723,7 @@ def plan_chapters(state: StoryState) -> dict:
     if not global_story:
         raise ValueError("No story outline found in database")
 
-    characters = state["characters"]
+    characters = params.get("characters", {})
 
     # Get the narrative structure object for guidance
     structure = get_structure_by_name(narrative_structure)
@@ -758,6 +758,7 @@ def plan_chapters(state: StoryState) -> dict:
         genre=genre,
         narrative_structure=narrative_structure,
         target_chapters=target_chapters,
+        target_scenes_per_chapter=target_scenes_per_chapter,
         min_chapters=max(5, target_chapters - 3),  # Allow some flexibility
         flexibility=2,  # Allow ±2 chapters
         chapter_distribution=chapter_distribution,  # Pass the raw data to template
@@ -790,6 +791,7 @@ def plan_chapters(state: StoryState) -> dict:
                 "chapter_extraction",
                 language=language,
                 chapter_plan_text=chapter_plan_text,
+                target_scenes_per_chapter=target_scenes_per_chapter,
             )
 
             # Add explicit instruction about chapter count if this is a retry
@@ -907,17 +909,20 @@ def plan_chapters(state: StoryState) -> dict:
 
             # Validate we have enough chapters
             actual_chapter_count = len(chapters_dict)
-            if actual_chapter_count < max(5, target_chapters - 3):
+            min_chapters = target_chapters - 1  # Allow only 1 chapter less than target
+            max_chapters = target_chapters + 1  # Allow only 1 chapter more than target
+            
+            if actual_chapter_count < min_chapters or actual_chapter_count > max_chapters:
                 if retry_count < max_retries:
                     logger.warning(
-                        f"Only generated {actual_chapter_count} chapters, need at least {max(5, target_chapters - 3)}. Retrying..."
+                        f"Generated {actual_chapter_count} chapters, but need {target_chapters} (±1). Retrying..."
                     )
                     retry_count += 1
                     chapters = chapters_dict  # Store for error message
                     continue
                 else:
                     logger.error(
-                        f"Failed to generate minimum chapters after {max_retries} retries. Generated {actual_chapter_count} chapters."
+                        f"Failed to generate target chapters after {max_retries} retries. Generated {actual_chapter_count} chapters, target was {target_chapters}."
                     )
                     # Continue with what we have rather than failing
 
@@ -925,15 +930,34 @@ def plan_chapters(state: StoryState) -> dict:
             logger.info(f"Successfully generated {actual_chapter_count} chapters")
 
             # Validate scene count per chapter
+            min_scenes = max(3, target_scenes_per_chapter - 1)
+            chapters_with_few_scenes = []
             for chapter_num, chapter_data in chapters_dict.items():
                 scene_count = len(chapter_data.get("scenes", {}))
                 if scene_count == 0:
                     logger.warning(f"Chapter {chapter_num} has no scenes!")
+                    chapters_with_few_scenes.append((chapter_num, scene_count))
+                elif scene_count < min_scenes:
+                    logger.warning(f"Chapter {chapter_num} has only {scene_count} scenes (minimum: {min_scenes})")
+                    chapters_with_few_scenes.append((chapter_num, scene_count))
                 else:
                     logger.info(f"Chapter {chapter_num}: {scene_count} scenes")
+            
+            # If too many chapters have too few scenes, retry
+            if len(chapters_with_few_scenes) > actual_chapter_count // 4:  # More than 25% of chapters
+                if retry_count < max_retries:
+                    logger.warning(
+                        f"Too many chapters with insufficient scenes: {chapters_with_few_scenes}. Retrying..."
+                    )
+                    retry_count += 1
+                    continue
+                else:
+                    logger.error(
+                        f"Failed to generate enough scenes per chapter after {max_retries} retries"
+                    )
 
             # Get existing message IDs to delete
-            message_ids = [msg.id for msg in state.get("messages", [])]
+            # No longer managing messages in the simplified version
 
             # Create language-specific messages using proper localization
             if language.lower() == "german":
@@ -946,9 +970,9 @@ def plan_chapters(state: StoryState) -> dict:
                 )
 
             # Store chapter plan in database
-            # Note: We store the chapter outlines individually when saving chapters
-            # The full chapter plan is part of the state and doesn't need separate storage
-            logger.info(f"Generated chapter plan with {actual_chapter_count} chapters")
+            if db_manager:
+                db_manager.store_chapter_plan(chapters_dict)
+                logger.info(f"Stored chapter plan with {actual_chapter_count} chapters in database")
 
             # Process locations - extract unique locations from all scenes
             unique_locations = set()
@@ -969,10 +993,6 @@ def plan_chapters(state: StoryState) -> dict:
                 "chapters": chapters_dict,
                 "current_chapter": "1",
                 "current_scene": "1",
-                "messages": [
-                    *[RemoveMessage(id=msg_id) for msg_id in message_ids],
-                    new_msg,
-                ],
             }
 
         except Exception as e:

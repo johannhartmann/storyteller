@@ -10,7 +10,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, llm
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 
 def detect_repetition(text: str, language: str = DEFAULT_LANGUAGE) -> dict[str, Any]:
@@ -171,7 +171,7 @@ def reduce_repetition(
         return text
 
 
-def track_story_repetition(state: StoryState) -> dict[str, Any]:
+def track_story_repetition(state: dict) -> dict[str, Any]:
     """
     Track repetition across the entire story.
 
@@ -196,7 +196,7 @@ def track_story_repetition(state: StoryState) -> dict[str, Any]:
     return {"story_repetition_analysis": repetition_analysis}
 
 
-def analyze_scene_repetition(state: StoryState) -> dict:
+def analyze_scene_repetition(state: dict) -> dict:
     """
     Analyze and reduce repetition in the current scene.
 

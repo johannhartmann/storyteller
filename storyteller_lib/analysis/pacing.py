@@ -11,7 +11,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, llm
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 # Pacing types
 PACING_TYPES = {
@@ -286,7 +286,7 @@ def generate_pacing_guidance(
         """
 
 
-def analyze_and_optimize_scene(state: StoryState) -> dict:
+def analyze_and_optimize_scene(state: dict) -> dict:
     """
     Analyze and optimize the pacing of the current scene.
 

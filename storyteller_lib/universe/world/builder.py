@@ -12,14 +12,13 @@ from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from pydantic import BaseModel, Field, field_validator
 
 # Memory manager imports removed - using state and database instead
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     SUPPORTED_LANGUAGES,
     llm,
 )
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 logger = get_logger(__name__)
 
@@ -963,8 +962,7 @@ def generate_world_summary(
         return f"Error generating world summary: {str(e)}"
 
 
-@track_progress
-def generate_worldbuilding(state: StoryState) -> dict:
+def generate_worldbuilding(params: dict) -> dict:
     """
     Generate detailed worldbuilding elements based on the story parameters.
 
@@ -1034,7 +1032,7 @@ def generate_worldbuilding(state: StoryState) -> dict:
         )
 
     # Get language elements if not English
-    language = state.get("language", DEFAULT_LANGUAGE)
+    language = config.get("language", DEFAULT_LANGUAGE)
     language_guidance = ""
 
     if language.lower() != DEFAULT_LANGUAGE:
@@ -1174,7 +1172,7 @@ def generate_worldbuilding(state: StoryState) -> dict:
     return {
         "world_elements": {"stored_in_db": True},  # Minimal marker
         "messages": [
-            *[RemoveMessage(id=msg.id) for msg in state.get("messages", [])],
+            *[RemoveMessage(id=msg.id) for msg in params.get("messages", [])],
             AIMessage(
                 content=f"I've created detailed worldbuilding elements for your {genre} story with a {tone} tone. The world includes geography, history, culture, politics, economics, technology/magic, religion, and daily life elements that will support your story.{chr(10)}{chr(10)}World Summary:{chr(10)}{world_summary}"
             ),

@@ -11,7 +11,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 
 from storyteller_lib.core.config import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, llm
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 
 
 def analyze_dialogue(
@@ -419,7 +419,7 @@ def generate_dialogue_guidance(
         """
 
 
-def analyze_and_improve_dialogue(state: StoryState) -> dict:
+def analyze_and_improve_dialogue(state: dict) -> dict:
     """
     Analyze and improve the dialogue in the current scene.
 

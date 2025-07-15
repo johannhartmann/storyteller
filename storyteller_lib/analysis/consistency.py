@@ -16,7 +16,7 @@ from storyteller_lib.core.config import (
     SUPPORTED_LANGUAGES,
     llm,
 )  # Memory manager imports removed - using state and database instead
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.generation.story.plot_threads import (
     get_active_plot_threads_for_scene,
 )
@@ -57,7 +57,7 @@ class SceneConsistencyCheck(BaseModel):
 
 
 def check_scene_consistency(
-    state: StoryState, scene_content: str = None, language: str = DEFAULT_LANGUAGE
+    state: dict, scene_content: str = None, language: str = DEFAULT_LANGUAGE
 ) -> dict[str, Any]:
     """
     Perform comprehensive consistency checking on a scene using the template system.
@@ -442,7 +442,7 @@ def fix_character_inconsistencies(
     scene_content: str,
     character_data: dict,
     consistency_analysis: dict[str, Any],
-    state: StoryState = None,
+    state: dict = None,
     language: str = DEFAULT_LANGUAGE,
 ) -> str:
     """
@@ -651,7 +651,7 @@ def _extract_character_motivations(
         return []
 
 
-def track_character_consistency(state: StoryState) -> dict:
+def track_character_consistency(state: dict) -> dict:
     """
     Track character consistency throughout the story.
 

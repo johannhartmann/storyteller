@@ -4,12 +4,10 @@ StoryCraft Agent - Data models and state definitions.
 
 # Standard library imports
 from typing import Annotated, Any
+from typing_extensions import TypedDict
 
 # Third party imports
-from langchain_core.messages import AIMessage, HumanMessage
-from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field
-from typing_extensions import TypedDict
 
 # Custom state reducers for merging complex story elements
 # Define type aliases to avoid circular imports
@@ -414,60 +412,7 @@ class ChapterState(TypedDict):
     reflection_notes: list[str]
 
 
-class StoryState(TypedDict):
-    """Main state schema for the story generation graph, with reducer annotations.
-
-    This represents only the working memory for story generation workflow.
-    All persistent story data (genre, tone, characters, etc.) is stored in the database.
-    """
-
-    # Use built-in add_messages for chat messages
-    messages: Annotated[list[HumanMessage | AIMessage], add_messages]
-
-    # Working data that gets updated during generation
-    chapters: Annotated[
-        dict[str, ChapterState], merge_chapters
-    ]  # Custom reducer for nested chapters
-    characters: Annotated[
-        dict[str, CharacterProfile], merge_characters
-    ]  # Custom reducer for characters
-    world_elements: Annotated[
-        dict[str, dict], merge_world_elements
-    ]  # Custom reducer for worldbuilding elements
-    plot_threads: Annotated[
-        dict[str, dict[str, Any]], merge_plot_threads
-    ]  # Custom reducer for plot threads
-    revelations: Annotated[
-        dict[str, Any], merge_revelations
-    ]  # Custom reducer for revelations with continuity_issues
-
-    # Temporary processing fields
-    current_chapter: str  # Track which chapter is being written
-    current_scene: str  # Track which scene is being written
-    current_scene_content: str  # Temporary storage for scene content between nodes
-    scene_reflection: dict[str, Any]  # Temporary storage for scene reflection results
-
-    # Narrative structure fields
-    narrative_structure: (
-        str  # Selected narrative structure (hero_journey, three_act, etc.)
-    )
-    target_chapters: int  # Target number of chapters based on structure and length
-    target_scenes_per_chapter: int  # Target scenes per chapter
-    scene_elements: dict[str, Any]  # Temporary storage for brainstormed scene elements
-    active_plot_threads: list[dict[str, Any]]  # Active plot threads for current scene
-
-    # Story-level instructions and guidance
-    book_level_instructions: str  # Synthesized writing instructions for the entire book
-    author_style_guidance: str  # Analysis of author's writing style to emulate
-
-    # Workflow control
-    completed: bool  # Flag to indicate if the story is complete
-    last_node: str  # Track which node was last executed for routing
-
-    # Final manuscript review
-    manuscript_review_completed: bool  # Flag to indicate review and polish is done
-    manuscript_review_results: dict[str, Any]  # Results from the review process
-    final_story: str  # The final polished story content
+# StoryState is no longer needed - all state is managed in the database
 
 
 class CorrectedScene(BaseModel):

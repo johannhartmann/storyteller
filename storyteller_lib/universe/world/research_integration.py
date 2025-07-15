@@ -11,14 +11,13 @@ from typing import Any
 from langchain_core.messages import AIMessage, RemoveMessage
 from pydantic import BaseModel
 
-from storyteller_lib import track_progress
 from storyteller_lib.core.config import (
     DEFAULT_LANGUAGE,
     get_story_config,
     llm,
 )
 from storyteller_lib.core.logger import get_logger
-from storyteller_lib.core.models import StoryState
+# StoryState no longer used - working directly with database
 from storyteller_lib.persistence.database import get_db_manager
 from storyteller_lib.prompts.renderer import render_prompt
 from storyteller_lib.universe.world.builder import (
@@ -217,8 +216,7 @@ SPECIFIC FIELD REQUIREMENTS:
     return data
 
 
-@track_progress
-async def generate_worldbuilding_with_research(state: StoryState) -> dict:
+async def generate_worldbuilding_with_research(state: dict) -> dict:
     """
     Enhanced world building with optional research.
 
