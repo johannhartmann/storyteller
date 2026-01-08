@@ -20,7 +20,7 @@ langchain-community = "^0.3.25"
 langchain-tavily = "^0.2.0"
 tavily-python = "^0.5.0"
 jinja2 = "^3.1.2"
-urllib3 = "^2.5.0"
+urllib3 = "^2.6.3"
 azure-cognitiveservices-speech = "1.44.0"
 langsmith-mcp-server = "^0.0.4"
 
